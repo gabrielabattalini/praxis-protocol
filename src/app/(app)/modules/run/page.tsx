@@ -1,0 +1,583 @@
+﻿"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { Clock3, Plus, TimerReset, Trash2 } from "lucide-react";
+import { useAppStore } from "@/components/providers/app-store-provider";
+import { GlassPanel } from "@/components/ui/glass-panel";
+import { PageIntro } from "@/components/ui/page-intro";
+import { ProgressCurveChart } from "@/components/ui/progress-curve-chart";
+import { formatMinutes, getStartOfWeek, sortEntriesByDate } from "@/lib/module-page-utils";
+import type { PersistedState, Weekday } from "@/lib/types";
+
+type RunEntry = {
+  id: string;
+  date: string;
+  createdAt: string;
+  weekday: Weekday;
+  distanceKm: number;
+  durationSeconds: number;
+};
+
+type RunState = {
+  dailyTargets: Record<Weekday, number>;
+  entries: RunEntry[];
+};
+
+type RunFormState = {
+  date: string;
+  distanceKm: string;
+  minutes: string;
+  seconds: string;
+};
+
+const weekdayItems: Array<{ id: Weekday; label: string }> = [
+  { id: "monday", label: "Segunda" },
+  { id: "tuesday", label: "Terça" },
+  { id: "wednesday", label: "Quarta" },
+  { id: "thursday", label: "Quinta" },
+  { id: "friday", label: "Sexta" },
+  { id: "saturday", label: "Sábado" },
+  { id: "sunday", label: "Domingo" },
+];
+
+const runStorageKey = "praxis-protocol:run-module-v2";
+
+function createEmptyTargets() {
+  return weekdayItems.reduce(
+    (accumulator, item) => {
+      accumulator[item.id] = 0;
+      return accumulator;
+    },
+    {} as Record<Weekday, number>,
+  );
+}
+
+function parseDecimal(value: string) {
+  const normalized = value.replace(",", ".").trim();
+  if (!normalized) return 0;
+  const nextValue = Number(normalized);
+  return Number.isFinite(nextValue) ? nextValue : 0;
+}
+
+function parseDurationSeconds(minutes: string, seconds: string) {
+  return Math.max(0, Number(minutes) || 0) * 60 + Math.max(0, Number(seconds) || 0);
+}
+
+function formatPace(totalSeconds: number, distanceKm: number) {
+  if (distanceKm <= 0 || totalSeconds <= 0) return "--:--";
+  const secondsPerKm = Math.round(totalSeconds / distanceKm);
+  const paceMinutes = Math.floor(secondsPerKm / 60);
+  const paceSeconds = secondsPerKm % 60;
+  return `${String(paceMinutes).padStart(2, "0")}:${String(paceSeconds).padStart(2, "0")}/km`;
+}
+
+function formatRunDate(dateKey: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+  }).format(parseLocalDate(dateKey));
+}
+
+function localDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseLocalDate(dateKey: string) {
+  return new Date(`${dateKey}T00:00:00`);
+}
+
+function startOfWeekForDate(date: Date) {
+  const reference = new Date(date);
+  reference.setHours(0, 0, 0, 0);
+  return getStartOfWeek(reference);
+}
+
+function formatWeekLabel(date: Date) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+  }).format(date);
+}
+
+function getWeekday(date: Date): Weekday {
+  const mapping: Record<number, Weekday> = {
+    0: "sunday",
+    1: "monday",
+    2: "tuesday",
+    3: "wednesday",
+    4: "thursday",
+    5: "friday",
+    6: "saturday",
+  };
+
+  return mapping[date.getDay()];
+}
+
+function defaultSpeedKmH(
+  preferredCardio: PersistedState["personalProfile"]["preferredCardio"],
+) {
+  if (preferredCardio === "walking") return 5.8;
+  if (preferredCardio === "bike") return 18;
+  if (preferredCardio === "elliptical") return 6.4;
+  if (preferredCardio === "stairs") return 4.6;
+  return 8.5;
+}
+
+function weeklyMinutesByLevel(
+  level: PersistedState["personalProfile"]["activityLevel"],
+  goal: PersistedState["personalProfile"]["cardioGoal"],
+) {
+  const base = { sedentary: 110, light: 140, moderate: 180, high: 220 }[level];
+  const adjustment = {
+    health: 0,
+    maintenance: 20,
+    "fat-loss": 40,
+    performance: 60,
+    "muscle-gain": -20,
+  }[goal];
+  return Math.min(320, Math.max(90, Math.round((base + adjustment) / 5) * 5));
+}
+
+function cardioGoalLabel(goal: PersistedState["personalProfile"]["cardioGoal"]) {
+  if (goal === "health") return "Saúde e consistência";
+  if (goal === "fat-loss") return "Secar e aumentar gasto";
+  if (goal === "maintenance") return "Manter condicionamento";
+  if (goal === "performance") return "Performance e ritmo";
+  return "Ganhar massa sem exagerar no cardio";
+}
+
+function activityLevelLabel(level: PersistedState["personalProfile"]["activityLevel"]) {
+  if (level === "sedentary") return "Baixo";
+  if (level === "light") return "Leve";
+  if (level === "moderate") return "Moderado";
+  return "Alto";
+}
+
+function cardioPreferenceLabel(
+  preference: PersistedState["personalProfile"]["preferredCardio"],
+) {
+  if (preference === "walking") return "Caminhada";
+  if (preference === "running") return "Corrida";
+  if (preference === "bike") return "Bike";
+  if (preference === "elliptical") return "Elíptico";
+  return "Escada";
+}
+
+function recommendedDays(count: number): Weekday[] {
+  if (count <= 3) return ["monday", "wednesday", "saturday"];
+  if (count === 4) return ["monday", "tuesday", "thursday", "saturday"];
+  if (count === 5) return ["monday", "tuesday", "wednesday", "friday", "saturday"];
+  return ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+}
+
+export default function RunModulePage() {
+  const { state: appState } = useAppStore();
+  const profile = appState.personalProfile;
+  const [hydrated, setHydrated] = useState(false);
+  const [state, setState] = useState<RunState>({ dailyTargets: createEmptyTargets(), entries: [] });
+  const [form, setForm] = useState<RunFormState>({
+    date: localDateKey(),
+    distanceKm: "",
+    minutes: "",
+    seconds: "",
+  });
+  const [feedback, setFeedback] = useState("");
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      try {
+        const stored = window.localStorage.getItem(runStorageKey);
+        if (stored) {
+          setState(JSON.parse(stored) as RunState);
+        }
+      } catch {}
+      setHydrated(true);
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    window.localStorage.setItem(runStorageKey, JSON.stringify(state));
+  }, [hydrated, state]);
+
+  const weekStart = useMemo(() => getStartOfWeek(new Date()), []);
+  const weekEnd = useMemo(() => {
+    const nextDate = new Date(weekStart);
+    nextDate.setDate(nextDate.getDate() + 6);
+    nextDate.setHours(23, 59, 59, 999);
+    return nextDate;
+  }, [weekStart]);
+
+  const weekEntries = useMemo(
+    () =>
+      state.entries.filter((entry) => {
+        const entryDate = parseLocalDate(entry.date);
+        return entryDate >= weekStart && entryDate <= weekEnd;
+      }),
+    [state.entries, weekEnd, weekStart],
+  );
+
+  const dailyDistanceMap = useMemo(() => {
+    const map = createEmptyTargets();
+    for (const entry of weekEntries) {
+      map[entry.weekday] = Number((map[entry.weekday] + entry.distanceKm).toFixed(2));
+    }
+    return map;
+  }, [weekEntries]);
+
+  const weeklyDistance = weekEntries.reduce((sum, entry) => sum + entry.distanceKm, 0);
+  const weeklyDuration = weekEntries.reduce((sum, entry) => sum + entry.durationSeconds, 0);
+  const weeklyTarget = weekdayItems.reduce((sum, item) => sum + (state.dailyTargets[item.id] ?? 0), 0);
+  const averageSpeedKmH =
+    weeklyDuration > 0
+      ? weeklyDistance / (weeklyDuration / 3600)
+      : defaultSpeedKmH(profile.preferredCardio);
+  const recommendationMinutes = weeklyMinutesByLevel(
+    appState.personalProfile.activityLevel,
+    appState.personalProfile.cardioGoal,
+  );
+  const recommendationSessions =
+    recommendationMinutes <= 120 ? 3 : recommendationMinutes <= 180 ? 4 : recommendationMinutes <= 240 ? 5 : 6;
+  const recommendationKm = Number(((recommendationMinutes / 60) * averageSpeedKmH).toFixed(1));
+  const estimatedMaxHeartRate = Math.max(120, 220 - profile.ageYears);
+  const bpmLabel = profile.usesHeartRateMedication
+    ? "BPM ocultado"
+    : `${Math.round(estimatedMaxHeartRate * 0.6)}-${Math.round(estimatedMaxHeartRate * 0.75)} bpm`;
+  const recentEntries = useMemo(() => sortEntriesByDate(state.entries).slice(0, 6), [state.entries]);
+  const weeklyEvolution = useMemo(() => {
+    const currentWeekStart = startOfWeekForDate(new Date());
+
+    return Array.from({ length: 4 }, (_, index) => {
+      const weekStartDate = new Date(currentWeekStart);
+      weekStartDate.setDate(currentWeekStart.getDate() - (3 - index) * 7);
+      const weekEndDate = new Date(weekStartDate);
+      weekEndDate.setDate(weekStartDate.getDate() + 6);
+      weekEndDate.setHours(23, 59, 59, 999);
+
+      const entries = state.entries.filter((entry) => {
+        const entryDate = parseLocalDate(entry.date);
+        return entryDate >= weekStartDate && entryDate <= weekEndDate;
+      });
+      const distance = entries.reduce((sum, entry) => sum + entry.distanceKm, 0);
+      const duration = entries.reduce((sum, entry) => sum + entry.durationSeconds, 0);
+
+      return {
+        label: index === 3 ? "Atual" : `S-${3 - index}`,
+        value: Number(distance.toFixed(1)),
+        helper:
+          entries.length > 0
+            ? `${entries.length} registros • ${formatPace(duration, distance)}`
+            : "Sem registros",
+        weekStart: weekStartDate,
+      };
+    });
+  }, [state.entries]);
+  const activeWeekdays = weekdayItems.filter((item) => dailyDistanceMap[item.id] > 0).length;
+  const bestPaceEntry = useMemo(() => {
+    const eligibleEntries = state.entries.filter(
+      (entry) => entry.distanceKm > 0 && entry.durationSeconds > 0,
+    );
+
+    return eligibleEntries.reduce<RunEntry | null>((bestEntry, entry) => {
+      if (!bestEntry) return entry;
+      const bestPaceSeconds = bestEntry.durationSeconds / bestEntry.distanceKm;
+      const currentPaceSeconds = entry.durationSeconds / entry.distanceKm;
+      return currentPaceSeconds < bestPaceSeconds ? entry : bestEntry;
+    }, null);
+  }, [state.entries]);
+  const longestRunEntry = useMemo(
+    () =>
+      state.entries.reduce<RunEntry | null>(
+        (bestEntry, entry) =>
+          !bestEntry || entry.distanceKm > bestEntry.distanceKm ? entry : bestEntry,
+        null,
+      ),
+    [state.entries],
+  );
+  const latestEntry = recentEntries[0] ?? null;
+  const weeklyCompletionRate =
+    weeklyTarget > 0 ? Math.min(100, Math.round((weeklyDistance / weeklyTarget) * 100)) : 0;
+  const profileBaseSummary = [
+    { label: "Idade", value: `${profile.ageYears} anos` },
+    { label: "Peso", value: `${profile.bodyWeightKg.toFixed(1)} kg` },
+    { label: "Altura", value: `${profile.bodyHeightCm.toFixed(0)} cm` },
+    { label: "Nível", value: activityLevelLabel(profile.activityLevel) },
+    { label: "Objetivo", value: cardioGoalLabel(profile.cardioGoal) },
+    { label: "Base", value: cardioPreferenceLabel(profile.preferredCardio) },
+  ];
+
+  function applyRecommendation() {
+    const perDay = Number((recommendationKm / recommendationSessions).toFixed(1));
+    const days = recommendedDays(recommendationSessions);
+    setState((current) => ({
+      ...current,
+      dailyTargets: weekdayItems.reduce(
+        (accumulator, item) => {
+          accumulator[item.id] = days.includes(item.id) ? perDay : 0;
+          return accumulator;
+        },
+        createEmptyTargets(),
+      ),
+    }));
+    setFeedback("Sugestão aplicada na semana.");
+  }
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const distanceKm = parseDecimal(form.distanceKm);
+    const durationSeconds = parseDurationSeconds(form.minutes, form.seconds);
+    if (distanceKm <= 0 || durationSeconds <= 0) return;
+    const dateKey = form.date || localDateKey();
+    setState((current) => ({
+      ...current,
+      entries: [
+        {
+          id: `run-${Date.now()}`,
+          date: dateKey,
+          createdAt: new Date().toISOString(),
+          weekday: getWeekday(parseLocalDate(dateKey)),
+          distanceKm: Number(distanceKm.toFixed(2)),
+          durationSeconds,
+        },
+        ...current.entries,
+      ],
+    }));
+    setForm({ date: localDateKey(), distanceKm: "", minutes: "", seconds: "" });
+  }
+
+  if (!hydrated) {
+    return <div className="min-h-screen bg-[#050505]" />;
+  }
+
+  return (
+    <main className="mx-auto max-w-7xl space-y-8 px-4 pb-24 pt-4">
+      <PageIntro
+        eyebrow="Módulo"
+        title="Corrida"
+        description="Receba uma recomendação semanal de cardio com base no seu perfil e transforme isso em metas simples para a semana."
+      />
+
+      <GlassPanel className="space-y-5 border-l-2 border-l-[var(--accent)]">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="praxis-label text-[var(--accent)]">Recomendação da semana</p>
+            <h2 className="mt-1 font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100">Cardio guiado pelo perfil</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
+              O Praxis usa idade, peso, altura, atividade e contexto de saúde para sugerir um ponto de partida em minutos, sessões e km estimados.
+            </p>
+          </div>
+          <Link href="/profile" className="inline-flex items-center border border-zinc-800 bg-black/50 px-4 py-3 font-headline text-xs font-bold uppercase tracking-[0.25em] text-zinc-100 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]">
+            Ajustar perfil
+          </Link>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="praxis-kpi p-4"><p className="praxis-label text-zinc-500">Meta inicial</p><p className="mt-2 font-title text-3xl font-bold text-[var(--accent)]">{recommendationMinutes} min</p></div>
+          <div className="praxis-kpi p-4"><p className="praxis-label text-zinc-500">Sessões</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{recommendationSessions}x</p></div>
+          <div className="praxis-kpi p-4"><p className="praxis-label text-zinc-500">Por sessão</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{Math.round(recommendationMinutes / recommendationSessions)} min</p></div>
+          <div className="praxis-kpi p-4"><p className="praxis-label text-zinc-500">Zona alvo</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{bpmLabel}</p></div>
+          <div className="praxis-kpi p-4"><p className="praxis-label text-zinc-500">Estimativa em km</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{recommendationKm} km</p></div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
+            <p className="praxis-label text-[var(--accent)]">Base usada</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {profileBaseSummary.map((item) => (
+                <div key={item.label} className="rounded-sm border border-zinc-800 bg-black/40 p-3">
+                  <p className="text-[0.68rem] uppercase tracking-[0.22em] text-zinc-500">{item.label}</p>
+                  <p className="mt-2 text-sm font-medium text-zinc-100">{item.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
+            <p className="praxis-label text-[var(--accent)]">Contexto aplicado</p>
+            <p className="mt-2 text-sm leading-6 text-zinc-300">
+              {profile.hasCardiovascularCondition
+                ? "A recomendação começa mais conservadora por conta do histórico cardiovascular."
+                : "Sem restrição cardiovascular informada, a faixa já entra no ponto de partida normal."}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-zinc-300">
+              {profile.hasJointLimitation
+                ? "A limitação articular reduz o impacto sugerido nas sessões."
+                : "Sem limitação articular informada, corrida e caminhada seguem como base principal."}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-zinc-300">
+              {profile.usesHeartRateMedication
+                ? "O BPM foi ocultado porque a medicação pode distorcer a leitura."
+                : `A zona alvo foi estimada em ${bpmLabel}.`}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="button" onClick={applyRecommendation} className="praxis-button px-5 py-3">Aplicar sugestão na semana</button>
+          {feedback ? <span className="text-sm text-zinc-400">{feedback}</span> : null}
+        </div>
+      </GlassPanel>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <GlassPanel><p className="praxis-label text-zinc-500">Meta semanal</p><p className="mt-2 font-title text-3xl font-bold text-[var(--accent)]">{weeklyTarget.toFixed(1)} km</p></GlassPanel>
+        <GlassPanel><p className="praxis-label text-zinc-500">Percorrido</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{weeklyDistance.toFixed(2)} km</p></GlassPanel>
+        <GlassPanel><p className="praxis-label text-zinc-500">Ritmo médio</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{formatPace(weeklyDuration, weeklyDistance)}</p></GlassPanel>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <GlassPanel className="space-y-4">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="praxis-label text-[var(--accent)]">Evolução</p>
+              <h2 className="mt-1 font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100">
+                Curva das últimas semanas
+              </h2>
+            </div>
+            <span className="text-sm text-zinc-500">
+              {formatWeekLabel(weeklyEvolution[0]?.weekStart ?? weekStart)} a{" "}
+              {formatWeekLabel(weeklyEvolution[weeklyEvolution.length - 1]?.weekStart ?? weekStart)}
+            </span>
+          </div>
+
+          <ProgressCurveChart
+            points={weeklyEvolution}
+            valueFormatter={(value) => `${value.toFixed(1)} km`}
+            emptyLabel="Registre algumas corridas para aparecer a curva semanal."
+          />
+        </GlassPanel>
+
+        <GlassPanel className="space-y-4">
+          <div>
+            <p className="praxis-label text-[var(--accent)]">Leitura real</p>
+            <h2 className="mt-1 font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100">
+              Progresso da corrida
+            </h2>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
+              <p className="praxis-label text-zinc-500">Execução da semana</p>
+              <p className="mt-2 font-title text-3xl font-bold text-[var(--accent)]">
+                {weeklyCompletionRate}%
+              </p>
+              <p className="mt-2 text-sm text-zinc-500">
+                {weeklyDistance.toFixed(1)} km de {weeklyTarget.toFixed(1)} km
+              </p>
+            </div>
+            <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
+              <p className="praxis-label text-zinc-500">Dias com corrida</p>
+              <p className="mt-2 font-title text-3xl font-bold text-zinc-100">
+                {activeWeekdays}x
+              </p>
+              <p className="mt-2 text-sm text-zinc-500">
+                Dias da semana que já receberam registro
+              </p>
+            </div>
+            <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
+              <p className="praxis-label text-zinc-500">Melhor ritmo</p>
+              <p className="mt-2 font-title text-3xl font-bold text-zinc-100">
+                {bestPaceEntry
+                  ? formatPace(bestPaceEntry.durationSeconds, bestPaceEntry.distanceKm)
+                  : "--:--"}
+              </p>
+              <p className="mt-2 text-sm text-zinc-500">
+                {bestPaceEntry
+                  ? `${bestPaceEntry.distanceKm.toFixed(1)} km em ${formatRunDate(bestPaceEntry.date)}`
+                  : "Sem pace suficiente ainda"}
+              </p>
+            </div>
+            <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
+              <p className="praxis-label text-zinc-500">Maior sessão</p>
+              <p className="mt-2 font-title text-3xl font-bold text-zinc-100">
+                {longestRunEntry ? `${longestRunEntry.distanceKm.toFixed(1)} km` : "--"}
+              </p>
+              <p className="mt-2 text-sm text-zinc-500">
+                {latestEntry
+                  ? `Última corrida em ${formatRunDate(latestEntry.date)}`
+                  : "Histórico aguardando o primeiro registro"}
+              </p>
+            </div>
+          </div>
+        </GlassPanel>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+        <GlassPanel className="space-y-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="praxis-label text-[var(--accent)]">Registro</p>
+              <h2 className="mt-1 font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100">Lançar corrida</h2>
+            </div>
+            <button type="button" onClick={() => setForm({ date: localDateKey(), distanceKm: "", minutes: "", seconds: "" })} className="inline-flex items-center gap-2 border border-zinc-800 bg-black/50 px-4 py-2 font-headline text-xs font-bold uppercase tracking-[0.25em] text-zinc-100 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"><TimerReset className="h-4 w-4" />Limpar</button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-4">
+              <input type="date" value={form.date} onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} className="praxis-field px-4 py-3 text-sm text-white" />
+              <input type="number" min="0" step="0.01" value={form.distanceKm} onChange={(event) => setForm((current) => ({ ...current, distanceKm: event.target.value }))} placeholder="Distância (km)" className="praxis-field px-4 py-3 text-sm text-white placeholder:text-zinc-500" />
+              <input type="number" min="0" value={form.minutes} onChange={(event) => setForm((current) => ({ ...current, minutes: event.target.value }))} placeholder="Minutos" className="praxis-field px-4 py-3 text-sm text-white placeholder:text-zinc-500" />
+              <input type="number" min="0" max="59" value={form.seconds} onChange={(event) => setForm((current) => ({ ...current, seconds: event.target.value }))} placeholder="Segundos" className="praxis-field px-4 py-3 text-sm text-white placeholder:text-zinc-500" />
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <button type="submit" className="praxis-button px-5 py-3"><Plus className="h-4 w-4" />Registrar corrida</button>
+              <div className="flex items-center gap-2 border border-zinc-800 bg-black/50 px-4 py-3 text-xs text-zinc-400"><Clock3 className="h-4 w-4 text-[var(--accent)]" />Ritmo calculado automaticamente</div>
+            </div>
+          </form>
+        </GlassPanel>
+
+        <GlassPanel className="space-y-5">
+          <div>
+            <p className="praxis-label text-[var(--accent)]">Planejamento</p>
+            <h2 className="mt-1 font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100">Meta por dia</h2>
+          </div>
+          <div className="space-y-3">
+            {weekdayItems.map((item) => (
+              <div key={item.id} className="grid gap-3 border border-zinc-800 bg-black/40 p-4 md:grid-cols-[1fr_128px_128px] md:items-center">
+                <div>
+                  <p className="font-headline text-lg font-bold text-zinc-100">{item.label}</p>
+                  <p className="mt-1 text-xs text-zinc-500">{dailyDistanceMap[item.id].toFixed(1)} km feitos</p>
+                </div>
+                <input type="number" min="0" step="0.1" value={state.dailyTargets[item.id] ?? 0} onChange={(event) => setState((current) => ({ ...current, dailyTargets: { ...current.dailyTargets, [item.id]: Number(event.target.value) || 0 } }))} className="praxis-field px-4 py-3 text-sm text-white" />
+                <span className="text-right text-sm text-zinc-500">{Math.max(0, (state.dailyTargets[item.id] ?? 0) - dailyDistanceMap[item.id]).toFixed(1)} km faltam</span>
+              </div>
+            ))}
+          </div>
+        </GlassPanel>
+      </div>
+
+      <GlassPanel className="space-y-4">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="praxis-label text-[var(--accent)]">Histórico</p>
+            <h2 className="mt-1 font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100">Últimos registros</h2>
+          </div>
+          <span className="text-sm text-zinc-500">{recentEntries.length} visíveis</span>
+        </div>
+        <div className="space-y-3">
+          {recentEntries.length ? recentEntries.map((entry) => (
+            <article key={entry.id} className="flex flex-col gap-4 border border-zinc-800 bg-black/50 p-4 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1">
+                <p className="font-headline text-lg font-bold text-zinc-100">{entry.distanceKm.toFixed(2)} km</p>
+                <p className="text-sm text-zinc-500">{formatRunDate(entry.date)} • {formatMinutes(Math.round(entry.durationSeconds / 60))} • {formatPace(entry.durationSeconds, entry.distanceKm)}</p>
+              </div>
+              <button type="button" onClick={() => setState((current) => ({ ...current, entries: current.entries.filter((item) => item.id !== entry.id) }))} className="inline-flex items-center gap-2 border border-[rgba(239,68,68,0.28)] bg-[rgba(239,68,68,0.08)] px-4 py-2 font-headline text-xs font-bold uppercase tracking-[0.25em] text-red-300 transition hover:border-[rgba(239,68,68,0.45)] hover:text-red-200"><Trash2 className="h-4 w-4" />Excluir</button>
+            </article>
+          )) : (
+            <div className="border border-dashed border-zinc-800 bg-black/30 px-6 py-10 text-center text-sm text-zinc-400">
+              Lance a primeira corrida para começar o histórico da semana.
+            </div>
+          )}
+        </div>
+      </GlassPanel>
+    </main>
+  );
+}
+
+

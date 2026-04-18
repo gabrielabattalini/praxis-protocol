@@ -1,0 +1,1648 @@
+{
+  "generatedAt": "2026-03-31T02:48:57.691Z",
+  "input": "C:\\Users\\Usuario\\Desktop\\nexus\\src\\lib\\shopping-seed.raw.json",
+  "totalItems": 57,
+  "activeOnly": false,
+  "concurrency": 4,
+  "timeoutMs": 15000,
+  "elapsedMs": 5241,
+  "summary": {
+    "counts": {
+      "ok": 31,
+      "suspeito": 21,
+      "falho": 5
+    },
+    "byScope": {
+      "market": {
+        "ok": 10,
+        "suspeito": 7,
+        "falho": 3
+      },
+      "supplements": {
+        "ok": 21,
+        "suspeito": 14,
+        "falho": 2
+      }
+    }
+  },
+  "suspiciousExamples": [
+    {
+      "row": 2,
+      "scope": "market",
+      "name": "Acem moido kg",
+      "status": "falho",
+      "score": 0,
+      "link": "https://www.tendaatacado.com.br/produto/patinho-bifes-bandeja-400g?region_id=000018",
+      "title": "Tenda Atacado",
+      "reason": "Tokens ausentes: acem, moido."
+    },
+    {
+      "row": 6,
+      "scope": "market",
+      "name": "alface",
+      "status": "falho",
+      "score": 0,
+      "link": null,
+      "title": "",
+      "reason": "Item sem link."
+    },
+    {
+      "row": 7,
+      "scope": "market",
+      "name": "tomate",
+      "status": "falho",
+      "score": 0,
+      "link": null,
+      "title": "",
+      "reason": "Item sem link."
+    },
+    {
+      "row": 45,
+      "scope": "supplements",
+      "name": "Hidraplex ",
+      "status": "falho",
+      "score": 0,
+      "link": "https://www.drogaraia.com.br/hidraplex-natural-4-envelopes-de-po-27-9g-cada.html?gad_source=1&gclid=CjwKCAiA0bWvBhBjEiwAtEsoW2BC2R1ajPT-Crlv85mAXyFlxisZVGde2ZMocA1TSvGnAM8oosq6lhoC3K4QAvD_BwE",
+      "title": "",
+      "reason": "HTTP 403."
+    },
+    {
+      "row": 62,
+      "scope": "supplements",
+      "name": "Voextor Vortioxetina 10mg - 30 comprimidos",
+      "status": "falho",
+      "score": 0,
+      "link": null,
+      "title": "",
+      "reason": "Item sem link."
+    },
+    {
+      "row": 11,
+      "scope": "market",
+      "name": "Papel Higiênico Personal Vip Folha Dupla",
+      "status": "suspeito",
+      "score": 0,
+      "link": "https://www.tendaatacado.com.br/produto/papel-higienico-personal-vip-folha-dupla-l16-p15x30m-3800",
+      "title": "",
+      "reason": "Titulo principal nao identificado."
+    },
+    {
+      "row": 12,
+      "scope": "market",
+      "name": "Desodorante Roll On Nivea Men Invisible Black & White",
+      "status": "suspeito",
+      "score": 0,
+      "link": "https://www.tendaatacado.com.br/produto/desodorante-rollon-nivea-men-invisible-black--white-50ml-12881?region_id=000018",
+      "title": "",
+      "reason": "Titulo principal nao identificado."
+    },
+    {
+      "row": 13,
+      "scope": "market",
+      "name": "Secante para Lava-Louças Abrilhantador Finish 250ml",
+      "status": "suspeito",
+      "score": 0,
+      "link": "https://www.tendaatacado.com.br/produto/secante-para-lava-loucas-abrilhantador-finish-250ml",
+      "title": "",
+      "reason": "Titulo principal nao identificado."
+    },
+    {
+      "row": 14,
+      "scope": "market",
+      "name": "Sabão em Pó OMO Profissional Perfect White 4 kg",
+      "status": "suspeito",
+      "score": 0,
+      "link": "https://www.tendaatacado.com.br/produto/lava-roupa-po-omo-sem-perf-clinical-4kg?region_id=000018",
+      "title": "",
+      "reason": "Titulo principal nao identificado."
+    },
+    {
+      "row": 15,
+      "scope": "market",
+      "name": "Solução Bucal Cool Mint Sem Álcool Listerine 1,5L",
+      "status": "suspeito",
+      "score": 0,
+      "link": "https://www.tendaatacado.com.br/produto/sol-bucal-listerine-mint-sem-alcool-1-5l?region_id=000018",
+      "title": "",
+      "reason": "Titulo principal nao identificado."
+    }
+  ],
+  "results": [
+    {
+      "scope": "market",
+      "row": 2,
+      "name": "Acem moido kg",
+      "link": "https://www.tendaatacado.com.br/produto/patinho-bifes-bandeja-400g?region_id=000018",
+      "status": "falho",
+      "score": 0,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.tendaatacado.com.br/produto/patinho-bifes-bandeja-400g?region_id=000018",
+      "title": "Tenda Atacado",
+      "snippets": [
+        "Patinho bovino em Bifes Resfriado bandeja 400g com os melhores preços, no Tenda!",
+        "Patinho bovino em Bifes Resfriado bandeja 400g",
+        "Glossário Tenda Atacado",
+        "Os preços podem sofrer alteração de acordo com a sua região",
+        "000000000000001569-BD"
+      ],
+      "matchedTokens": [],
+      "missingTokens": [
+        "acem",
+        "moido"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Tokens ausentes: acem, moido."
+      ]
+    },
+    {
+      "scope": "market",
+      "row": 3,
+      "name": "Atum Natural Light Gomes da Costa 170g",
+      "link": "https://www.tendaatacado.com.br/produto/atum-natural-light-gomes-da-costa-170g-945?region_id=000018",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.tendaatacado.com.br/produto/atum-natural-light-gomes-da-costa-170g-945?region_id=000018",
+      "title": "Tenda Atacado",
+      "snippets": [
+        "Com o atum em lata light, suas receitas ficam mais saborosas e saudáveis. Confira as ofertas esperando por você, aqui, no Tenda Atacado",
+        "Atum Natural Light Gomes da Costa 170g",
+        "Atum light: saúde em dobro na sua mesa",
+        "Tipos diferentes de atum para o seu comércio",
+        "Compare e compre, aqui, no Tenda Atacado"
+      ],
+      "matchedTokens": [
+        "atum",
+        "natural",
+        "light",
+        "gomes",
+        "costa",
+        "170g"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "market",
+      "row": 4,
+      "name": "Pão de forma ",
+      "link": "https://www.tendaatacado.com.br/produto/pao-de-forma-pullman-480g-149?region_id=000018",
+      "status": "ok",
+      "score": 0.95,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.tendaatacado.com.br/produto/pao-de-forma-pullman-480g-149?region_id=000018",
+      "title": "Tenda Atacado",
+      "snippets": [
+        "O pão Pullman que você tanto ama está aqui, no Tenda Atacado! Clique e descubra ofertas de dar água na boca, com preço de atacado que você nunca viu!",
+        "Pão de Forma Pullman 480g",
+        "Pullman: pães com a qualidade que você merece",
+        "Pão Pullman: mais praticidade nas suas refeições",
+        "Receitas com pão Pullman"
+      ],
+      "matchedTokens": [
+        "pao",
+        "forma"
+      ],
+      "missingTokens": [],
+      "quantityHit": false,
+      "reasons": []
+    },
+    {
+      "scope": "market",
+      "row": 5,
+      "name": "Macarrão Grano Duro Renata Penne 500g",
+      "link": "https://www.tendaatacado.com.br/produto/macarrao-grano-duro-renata-penne-500g-5904?region_id=000018",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.tendaatacado.com.br/produto/macarrao-grano-duro-renata-penne-500g-5904?region_id=000018",
+      "title": "Tenda Atacado",
+      "snippets": [
+        "Aqui no tenda Atacado você encontra os melhores preços de Macarrão Grano Duro Renata Penne 500g. Clique e aproveite!",
+        "Macarrão Grano Duro Renata Penne 500g",
+        "Glossário Tenda Atacado",
+        "Os preços podem sofrer alteração de acordo com a sua região",
+        "000000000000965477-UN"
+      ],
+      "matchedTokens": [
+        "macarrao",
+        "grano",
+        "duro",
+        "renata",
+        "penne",
+        "500g"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "market",
+      "row": 6,
+      "name": "alface",
+      "link": null,
+      "status": "falho",
+      "score": 0,
+      "failureReason": "Item sem link.",
+      "httpStatus": null,
+      "finalUrl": null,
+      "title": "",
+      "snippets": [],
+      "matchedTokens": [],
+      "missingTokens": [
+        "alface"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Item sem link."
+      ]
+    },
+    {
+      "scope": "market",
+      "row": 7,
+      "name": "tomate",
+      "link": null,
+      "status": "falho",
+      "score": 0,
+      "failureReason": "Item sem link.",
+      "httpStatus": null,
+      "finalUrl": null,
+      "title": "",
+      "snippets": [],
+      "matchedTokens": [],
+      "missingTokens": [
+        "tomate"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Item sem link."
+      ]
+    },
+    {
+      "scope": "market",
+      "row": 8,
+      "name": "Cebolinha Maço Unidade",
+      "link": "https://www.tendaatacado.com.br/produto/cebolinha-maco-925",
+      "status": "ok",
+      "score": 0.95,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.tendaatacado.com.br/produto/cebolinha-maco-925",
+      "title": "Tenda Atacado",
+      "snippets": [
+        "Aqui no tenda Atacado você encontra sempre os melhores preços de Cebolinha Maço Unidade. Clique e aproveite nossas ofertas!",
+        "Cebolinha Maço Unidade",
+        "Glossário Tenda Atacado",
+        "Os preços podem sofrer alteração de acordo com a sua região",
+        "000000000000223522-UN"
+      ],
+      "matchedTokens": [
+        "cebolinha",
+        "maco",
+        "unidade"
+      ],
+      "missingTokens": [],
+      "quantityHit": false,
+      "reasons": []
+    },
+    {
+      "scope": "market",
+      "row": 9,
+      "name": "Refrigerante Coca-Cola Sem Açúcar 2,5L",
+      "link": "https://www.tendaatacado.com.br/produto/refrigerante-coca-cola-sem-acucar-2-5l",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.tendaatacado.com.br/produto/refrigerante-coca-cola-sem-acucar-2-5l",
+      "title": "Tenda Atacado",
+      "snippets": [
+        "Refrigerante Coca-Cola Sem Açúcar 2,5L com preço especial no Tenda Atacado. Clique e Aproveite!",
+        "Refrigerante Coca-Cola Sem Açúcar 2,5L",
+        "Glossário Tenda Atacado",
+        "Os preços podem sofrer alteração de acordo com a sua região",
+        "000000000000986606-UN"
+      ],
+      "matchedTokens": [
+        "refrigerante",
+        "coca",
+        "cola",
+        "acucar",
+        "5l"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "market",
+      "row": 10,
+      "name": "Azeite Extra Virgem Gallo 500ml",
+      "link": "https://www.tendaatacado.com.br/produto/azeite-extra-virgem-gallo-500ml-317",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.tendaatacado.com.br/produto/azeite-extra-virgem-gallo-500ml-317",
+      "title": "Tenda Atacado",
+      "snippets": [
+        "O azeite extra virgem Gallo deixa seus pratos muito melhores. Compre a unidade do azeite extra virgem Gallo com preço de atacado no Tenda e faça mais economia.",
+        "Azeite Extra Virgem Gallo 500ml",
+        "Azeite extravirgem Gallo para seus preparos na cozinha",
+        "Mais sabor para suas receitas com o Azeite Gallo",
+        "Dicas para consumir azeite no dia a dia"
+      ],
+      "matchedTokens": [
+        "azeite",
+        "extra",
+        "virgem",
+        "gallo",
+        "500ml"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "market",
+      "row": 11,
+      "name": "Papel Higiênico Personal Vip Folha Dupla",
+      "link": "https://www.tendaatacado.com.br/produto/papel-higienico-personal-vip-folha-dupla-l16-p15x30m-3800",
+      "status": "suspeito",
+      "score": 0,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.tendaatacado.com.br/produto/papel-higienico-personal-vip-folha-dupla-l16-p15x30m-3800",
+      "title": "",
+      "snippets": [
+        "Glossário Tenda Atacado"
+      ],
+      "matchedTokens": [],
+      "missingTokens": [
+        "papel",
+        "higienico",
+        "personal",
+        "vip",
+        "folha",
+        "dupla"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Titulo principal nao identificado.",
+        "Tokens ausentes: papel, higienico, personal, vip, folha, dupla."
+      ]
+    },
+    {
+      "scope": "market",
+      "row": 12,
+      "name": "Desodorante Roll On Nivea Men Invisible Black & White",
+      "link": "https://www.tendaatacado.com.br/produto/desodorante-rollon-nivea-men-invisible-black--white-50ml-12881?region_id=000018",
+      "status": "suspeito",
+      "score": 0,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.tendaatacado.com.br/produto/desodorante-rollon-nivea-men-invisible-black--white-50ml-12881?region_id=000018",
+      "title": "",
+      "snippets": [
+        "Glossário Tenda Atacado"
+      ],
+      "matchedTokens": [],
+      "missingTokens": [
+        "desodorante",
+        "roll",
+        "on",
+        "nivea",
+        "men",
+        "invisible",
+        "black",
+        "white"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Titulo principal nao identificado.",
+        "Tokens ausentes: desodorante, roll, on, nivea, men, invisible, black, white."
+      ]
+    },
+    {
+      "scope": "market",
+      "row": 13,
+      "name": "Secante para Lava-Louças Abrilhantador Finish 250ml",
+      "link": "https://www.tendaatacado.com.br/produto/secante-para-lava-loucas-abrilhantador-finish-250ml",
+      "status": "suspeito",
+      "score": 0,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.tendaatacado.com.br/produto/secante-para-lava-loucas-abrilhantador-finish-250ml",
+      "title": "",
+      "snippets": [
+        "Glossário Tenda Atacado"
+      ],
+      "matchedTokens": [],
+      "missingTokens": [
+        "secante",
+        "lava",
+        "loucas",
+        "abrilhantador",
+        "finish",
+        "250ml"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Titulo principal nao identificado.",
+        "Tokens ausentes: secante, lava, loucas, abrilhantador, finish, 250ml."
+      ]
+    },
+    {
+      "scope": "market",
+      "row": 14,
+      "name": "Sabão em Pó OMO Profissional Perfect White 4 kg",
+      "link": "https://www.tendaatacado.com.br/produto/lava-roupa-po-omo-sem-perf-clinical-4kg?region_id=000018",
+      "status": "suspeito",
+      "score": 0,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.tendaatacado.com.br/produto/lava-roupa-po-omo-sem-perf-clinical-4kg?region_id=000018",
+      "title": "",
+      "snippets": [
+        "Glossário Tenda Atacado"
+      ],
+      "matchedTokens": [],
+      "missingTokens": [
+        "sabao",
+        "po",
+        "omo",
+        "profissional",
+        "perfect",
+        "white"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Titulo principal nao identificado.",
+        "Tokens ausentes: sabao, po, omo, profissional, perfect, white."
+      ]
+    },
+    {
+      "scope": "market",
+      "row": 15,
+      "name": "Solução Bucal Cool Mint Sem Álcool Listerine 1,5L",
+      "link": "https://www.tendaatacado.com.br/produto/sol-bucal-listerine-mint-sem-alcool-1-5l?region_id=000018",
+      "status": "suspeito",
+      "score": 0,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.tendaatacado.com.br/produto/sol-bucal-listerine-mint-sem-alcool-1-5l?region_id=000018",
+      "title": "",
+      "snippets": [
+        "Glossário Tenda Atacado"
+      ],
+      "matchedTokens": [],
+      "missingTokens": [
+        "solucao",
+        "bucal",
+        "cool",
+        "mint",
+        "alcool",
+        "listerine",
+        "5l"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Titulo principal nao identificado.",
+        "Tokens ausentes: solucao, bucal, cool, mint, alcool, listerine, 5l."
+      ]
+    },
+    {
+      "scope": "market",
+      "row": 16,
+      "name": "Lava-Louças em Pó para Máquina Ypê 450g",
+      "link": "https://www.tendaatacado.com.br/produto/lava-loucas-em-po-para-maquina-ype-450g",
+      "status": "suspeito",
+      "score": 0,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.tendaatacado.com.br/produto/lava-loucas-em-po-para-maquina-ype-450g",
+      "title": "",
+      "snippets": [
+        "Glossário Tenda Atacado"
+      ],
+      "matchedTokens": [],
+      "missingTokens": [
+        "lava",
+        "loucas",
+        "po",
+        "maquina",
+        "ype",
+        "450g"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Titulo principal nao identificado.",
+        "Tokens ausentes: lava, loucas, po, maquina, ype, 450g."
+      ]
+    },
+    {
+      "scope": "market",
+      "row": 17,
+      "name": "Amaciante Concentrado Comfort PRO 5L",
+      "link": "https://www.tendaatacado.com.br/produto/amaciante-concentrado-comfort-5l-23875",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.tendaatacado.com.br/produto/amaciante-concentrado-comfort-5l-23875",
+      "title": "Tenda Atacado",
+      "snippets": [
+        "Amaciante Concentrado Comfort PRO 5L com preço especial no Tenda Drive! Clique e Aproveite!",
+        "Amaciante Concentrado Comfort PRO 5L",
+        "Glossário Tenda Atacado",
+        "Os preços podem sofrer alteração de acordo com a sua região",
+        "000000000000959955-UN"
+      ],
+      "matchedTokens": [
+        "amaciante",
+        "concentrado",
+        "comfort",
+        "pro",
+        "5l"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "market",
+      "row": 18,
+      "name": "Agua sanitaria 2l",
+      "link": "https://www.tendaatacado.com.br/produto/agua-sanitaria-select-2l-20208",
+      "status": "ok",
+      "score": 0.9,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.tendaatacado.com.br/produto/agua-sanitaria-select-2l-20208",
+      "title": "Tenda Atacado",
+      "snippets": [
+        "Se você está procurando água sanitária 2 L, o Tenda Atacado é o lugar ideal. Adquira a água sanitária 2 L com praticidade pelo WhatsApp.",
+        "Água Sanitária Select 2L",
+        "Água sanitária de 2 L para limpeza e higiene",
+        "Qualidade e uso fácil",
+        "Água sanitária Select 2 L: encontre no Tenda!"
+      ],
+      "matchedTokens": [
+        "agua",
+        "sanitaria",
+        "2l"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "market",
+      "row": 19,
+      "name": "Sabonete em Barra Dove Branco 90g 8 unidades",
+      "link": "https://www.tendaatacado.com.br/produto/sabonete-cremoso-dove-90g-leve-mais-pague-menos-8-unidades-23479?region_id=000018",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.tendaatacado.com.br/produto/sabonete-cremoso-dove-90g-leve-mais-pague-menos-8-unidades-23479?region_id=000018",
+      "title": "Tenda Atacado",
+      "snippets": [
+        "O sabonete Dove original, com 1/4 de hidratante, promove a limpeza delicada da pele, sem ressecá-la, deixando-a suave, macia e hidratada.",
+        "Sabonete em Barra Dove Branco 90g 8 unidades",
+        "Sabonete Dove original",
+        "Sabonete Dove: um ícone da beleza",
+        "Trajetória da marca Dove"
+      ],
+      "matchedTokens": [
+        "sabonete",
+        "barra",
+        "dove",
+        "branco",
+        "90g",
+        "unidades"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "market",
+      "row": 20,
+      "name": "Creme Dental Branqueador Sensodyne 3 Unidades 50g",
+      "link": "https://www.tendaatacado.com.br/produto/creme-dental-branqueador-sensodyne-3-unidades-50g",
+      "status": "suspeito",
+      "score": 0,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.tendaatacado.com.br/produto/creme-dental-branqueador-sensodyne-3-unidades-50g",
+      "title": "",
+      "snippets": [
+        "Glossário Tenda Atacado"
+      ],
+      "matchedTokens": [],
+      "missingTokens": [
+        "creme",
+        "dental",
+        "branqueador",
+        "sensodyne",
+        "unidades",
+        "50g"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Titulo principal nao identificado.",
+        "Tokens ausentes: creme, dental, branqueador, sensodyne, unidades, 50g."
+      ]
+    },
+    {
+      "scope": "market",
+      "row": 21,
+      "name": "Conjunto Shampoo 375ml + Condicionador 170m Elseve",
+      "link": "https://www.tendaatacado.com.br/produto/shcond-elseve-hialuronico-375170ml",
+      "status": "ok",
+      "score": 0.775,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.tendaatacado.com.br/produto/shcond-elseve-hialuronico-375170ml",
+      "title": "Tenda Atacado",
+      "snippets": [
+        "Conjunto Shampoo 375ml + Condicionador 170ml Pure Hialurônico L'oréal Paris Elseve com preço especial no Tenda Atacado. Clique e Aproveite!",
+        "Conjunto Shampoo 375ml + Condicionador 170ml Pure Hialurônico L oréal Paris Elseve",
+        "Glossário Tenda Atacado",
+        "Os preços podem sofrer alteração de acordo com a sua região",
+        "000000000000939974-UN"
+      ],
+      "matchedTokens": [
+        "conjunto",
+        "shampoo",
+        "375ml",
+        "condicionador",
+        "elseve"
+      ],
+      "missingTokens": [
+        "170m"
+      ],
+      "quantityHit": true,
+      "reasons": [
+        "Tokens ausentes: 170m."
+      ]
+    },
+    {
+      "scope": "supplements",
+      "row": 26,
+      "name": "10G Ioimbina",
+      "link": "https://www.oficialfarma.com.br/ioimbine-10mg-90capsulas/p",
+      "status": "suspeito",
+      "score": 0.375,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/ioimbine-10mg-90capsulas/p",
+      "title": "Ioimbina 10mg 90 Doses",
+      "snippets": [
+        "Ioimbina impulsiona o desempenho atlético e a perda de peso, além de ajudar contra a disfunção erétil. Saiba como a ioimbina pode ajudar você a atingir seus objetivos de forma eficaz. Acesse já!",
+        "Conheça o aliado para queima de gordura potencializada e na melhora da performance: Conheça a Ioimbina 10mg! Auxiliando na: ✅ Aumento intenso da queima de gordura corporal; ✅ Melhora significativa da performance física e disposição nos treinos; ✅ Redução eficaz da gordura localizada; ✅ Estímulo da energia e redução da fadiga; ✅ Apoio avançado na perda de peso e definição muscular.",
+        "Ioimbina 10mg 90 Doses",
+        "Estudos Científicos que Comprovam os Benefícios da Ioimbina",
+        "Para quem a Ioimbina é indicada?"
+      ],
+      "matchedTokens": [
+        "ioimbina"
+      ],
+      "missingTokens": [
+        "10g"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Tokens ausentes: 10g."
+      ]
+    },
+    {
+      "scope": "supplements",
+      "row": 27,
+      "name": "500MG DE CITRUS AURANTIUM",
+      "link": "https://www.oficialfarma.com.br/citrus-aurantium-500mg-60-capsulas/p?utm_source=google&utm_medium=cpc&utm_campaign=OF::NOB::GOO::PMAX_OFICIALFARMA_I&gad_source=1&gclid=CjwKCAiA0bWvBhBjEiwAtEsoWyFUlAD9JB96C_kLy3a8YNj1Kn8qbw1raYHWVVsM42AcCq0QDLOqgxoCvTIQAvD_BwE",
+      "status": "ok",
+      "score": 0.9,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/citrus-aurantium-500mg-60-capsulas/p?utm_source=google&utm_medium=cpc&utm_campaign=OF::NOB::GOO::PMAX_OFICIALFARMA_I&gad_source=1&gclid=CjwKCAiA0bWvBhBjEiwAtEsoWyFUlAD9JB96C_kLy3a8YNj1Kn8qbw1raYHWVVsM42AcCq0QDLOqgxoCvTIQAvD_BwE",
+      "title": "Citrus Aurantium 500Mg 60 Doses",
+      "snippets": [
+        "Redução de gordura e de apetite ao mesmo tempo. Induz a queima de gordura pelo próprio corpo, regula a fome, aumenta a serotonina gerando bem-estar e mais",
+        "Citrus Aurantium 500Mg 60 Doses",
+        "O QUE É O CITRUS AURANTIUM?",
+        "QUAIS SÃO OS BENEFÍCIOS DO CITRUS AURANTIUM?",
+        "QUAL A COMPOSIÇÃO DO CITRUS AURANTIUM?"
+      ],
+      "matchedTokens": [
+        "500mg",
+        "citrus",
+        "aurantium"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 28,
+      "name": "Complexo Probiótico 60 Cápsulas",
+      "link": "https://www.oficialfarma.com.br/complexo-probiotico-60-capsulas/p",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/complexo-probiotico-60-capsulas/p",
+      "title": "Complexo Probiótico 60 Cápsulas",
+      "snippets": [
+        "Melhore sua saúde intestinal com nosso complexo probiótico de alta qualidade. Equilibre sua flora e fortaleça sua imunidade. Compre agora!",
+        "Essa combinação de bactérias benéficas para o intestino como Lactobacilos Acidophilus, Bifidobacterium Bifidum e outras, que auxiliam no equilíbrio da microbiota intestinal, promovendo uma digestão eficiente, maior absorção de nutrientes e fortalecimento do sistema imunológico. ✅ Melhora a saúde intestinal, reduzindo constipação e diarreia; ✅ Equilibra a flora intestinal ao repor bactérias benéficas; ✅ Fortalece o sistema imunológico, protegendo contra infecções; ✅ Auxilia na digestão e absorção de nutrientes essenciais.",
+        "Complexo Probiótico 60 Cápsulas",
+        "Por que o Complexo Probiótico é essencial para sua saúde?",
+        "Para que serve o Complexo Probiótico?"
+      ],
+      "matchedTokens": [
+        "complexo",
+        "probiotico",
+        "60",
+        "capsulas"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 29,
+      "name": "Rhodiola Rosea 300Mg 60 Cápsulas",
+      "link": "https://www.oficialfarma.com.br/rhodiola-rosea-300mg-60-capsulas/p",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/rhodiola-rosea-300mg-60-capsulas/p",
+      "title": "Rhodiola Rosea 300Mg 60 Cápsulas",
+      "snippets": [
+        "A Rhodiola Rosea é eficiente para aumentar o bem-estar, o aprendizado, a fadiga e combate o sono desregulado e a depressão. Saiba mais aqui.",
+        "Alivia o estresse e melhora o desempenho mental",
+        "Rhodiola Rosea 300Mg 60 Cápsulas",
+        "O QUE É A RHODIOLA ROSEA?",
+        "QUAIS SÃO OS BENEFÍCIOS DA RHODIOLA ROSEA?"
+      ],
+      "matchedTokens": [
+        "rhodiola",
+        "rosea",
+        "300mg",
+        "60",
+        "capsulas"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 30,
+      "name": "L-Carnitina",
+      "link": "https://www.gsuplementos.com.br/l-carnitina-200gr-growth-supplements-p987573?apwc=Y2FuYWxJbnRlZ3JhY2FvPTc1N3xwcm9kdXRvPTgz&gad_source=1&gclid=CjwKCAiAgoq7BhBxEiwAVcW0LLgZiX3TAsssMNOgXjnMEhsam0_eiaSZRepntrd2pmu2PH9qd4mnYBoCLvwQAvD_BwE",
+      "status": "suspeito",
+      "score": 0,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.gsuplementos.com.br/l-carnitina-200gr-growth-supplements-p987573?apwc=Y2FuYWxJbnRlZ3JhY2FvPTc1N3xwcm9kdXRvPTgz&gad_source=1&gclid=CjwKCAiAgoq7BhBxEiwAVcW0LLgZiX3TAsssMNOgXjnMEhsam0_eiaSZRepntrd2pmu2PH9qd4mnYBoCLvwQAvD_BwE",
+      "title": "Verifying your browser. Please wait a few seconds...",
+      "snippets": [],
+      "matchedTokens": [],
+      "missingTokens": [
+        "carnitina"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Possivel bloqueio/anti-bot: \"verifying your browser\".",
+        "Tokens ausentes: carnitina."
+      ]
+    },
+    {
+      "scope": "supplements",
+      "row": 31,
+      "name": "Berberina 500mg",
+      "link": "https://www.oficialfarma.com.br/kit-2-unidades-berberina-500mg-60-capsulas/p",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/kit-2-unidades-berberina-500mg-60-capsulas/p",
+      "title": "2 Berberina 500mg 60 Doses",
+      "snippets": [
+        "Kit 2 Berberina 500mg 60 Doses",
+        "Auxilia na perda de peso e ajuda no combate ao diabetes",
+        "2 Berberina 500mg 60 Doses",
+        "O QUE É A BERBERINA?",
+        "QUAIS SÃO OS BENEFÍCIOS DA BERBERINA?"
+      ],
+      "matchedTokens": [
+        "berberina",
+        "500mg"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 32,
+      "name": "Vimpocetine",
+      "link": "https://www.oficialfarma.com.br/vimpocetine-6mg-90-capsulas/p",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/vimpocetine-6mg-90-capsulas/p",
+      "title": "Vimpocetine 6mg 90 Cápsulas",
+      "snippets": [
+        "Melhora a memória, o foco, a circulação cerebral, aumenta a consciência, aumenta o fluxo sanguíneo para o cérebro. Este é o nootrópico mais utilizado para potencialização do aprendizado",
+        "Vimpocetine 6mg 90 Cápsulas",
+        "O QUE É O VIMPOCETINE?",
+        "QUAIS SÃO OS BENEFÍCIOS DO VIMPOCETINE?",
+        "QUAL A COMPOSIÇÃO DO VIMPOCETINE?"
+      ],
+      "matchedTokens": [
+        "vimpocetine"
+      ],
+      "missingTokens": [],
+      "quantityHit": false,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 33,
+      "name": "Piracetam 400mg",
+      "link": "https://www.oficialfarma.com.br/piracetam-400mg-60-capsulas/p?utm_source=google&utm_medium=cpc&utm_campaign=OF_NOB_GOO_PMAX_SHOPPING&gad_source=1&gclid=CjwKCAiAjp-7BhBZEiwAmh9rBS1wQuxLg4E9mxuc1-Xf9UcAtT-D8BaODaFlHvkC-409u_oEXpLCWhoC5X0QAvD_BwE",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/piracetam-400mg-60-capsulas/p?utm_source=google&utm_medium=cpc&utm_campaign=OF_NOB_GOO_PMAX_SHOPPING&gad_source=1&gclid=CjwKCAiAjp-7BhBZEiwAmh9rBS1wQuxLg4E9mxuc1-Xf9UcAtT-D8BaODaFlHvkC-409u_oEXpLCWhoC5X0QAvD_BwE",
+      "title": "Piracetam 400mg 60 Cápsulas",
+      "snippets": [
+        "Para que serve o Piracetan da Oficialfarma? Eficiente no aumento do aprendizado, da memória e da concentração, estimulando as funções cognitivas. Saiba mais aqui!",
+        "✅ Melhora a função cognitiva; ✅ Ajuda na memória e foco; ✅ Apoia o aprendizado; ✅ Auxilia no pós-AVC; ✅ Age em sinais de demência. Especialmente formulado para auxiliar no melhor funcionamento das funções neurais.",
+        "Piracetam 400mg 60 Cápsulas",
+        "O que é o Piracetam?",
+        "Para que serve o Piracetam?"
+      ],
+      "matchedTokens": [
+        "piracetam",
+        "400mg"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 34,
+      "name": "Bacopa Monnieri 250Mg 60 Cápsulas",
+      "link": "https://www.oficialfarma.com.br/bacopa-monnieri-250mg-60-capsulas/p",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/bacopa-monnieri-250mg-60-capsulas/p",
+      "title": "Bacopa Monnieri 250mg 60 Cápsulas",
+      "snippets": [
+        "Bacopa Monnieri para melhorar a memória e concentração com este suplemento natural. Benefícios comprovados para o cérebro e bem-estar mental. Acesse já",
+        "✅ Auxilia na memória e aprendizagem; ✅ Apoia a redução do estresse; ✅ Anti‑inflamatório natural; ✅ Promove a concentração; ✅ Ajuda na função hepática.",
+        "Bacopa Monnieri 250mg 60 Cápsulas",
+        "O que é o Bacopa Monnieri?",
+        "Para que serve o Bacopa Monnieri?"
+      ],
+      "matchedTokens": [
+        "bacopa",
+        "monnieri",
+        "250mg",
+        "60",
+        "capsulas"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 35,
+      "name": "WHEY",
+      "link": "https://www.mercadolivre.com.br/suplemento-em-po-100-hd-refil-black-skull-900g-wpc-wpi-e-wph-sabor-chocolate/p/MLB18995413?pdp_filters=item_id%3AMLB3916233318#cart_referer=item",
+      "status": "ok",
+      "score": 0.95,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.mercadolivre.com.br/suplemento-em-po-100-hd-refil-black-skull-900g-wpc-wpi-e-wph-sabor-chocolate/p/MLB18995413?pdp_filters=item_id%3AMLB3916233318",
+      "title": "Suplemento em Pó 100% Hd Refil Black Skull - 900g Wpc Wpi E Wph Sabor Chocolate",
+      "snippets": [
+        "✓ Compre online com segurança com Compra Garantida © Suplemento em Pó 100% Hd Refil Black Skull - 900g Wpc Wpi E Wph Sabor Chocolate ❤",
+        "Suplemento de uso esportivo. | Tamanho da porção: 30g. | Sem glúten. | Idade mínima recomendada: 19 anos.",
+        "Whey 100% HD é um suplemento avançado da linha caveira preta, composto por três tipos de whey protein: concentrado, isolado e hidrolisado. É uma excelente escolha para auxiliar no aumento de massa muscular. A fórmula também inclui BCAA, aminoácidos de cadeia ramificada que ajudam na recuperação pós-treino. Benefícios: - 3W (isolado, concentrado e hidrolisado) - Contribui para o aumento de massa muscular; - 4,5G de BCAA'S por dose; - Sem glúten; - Alto valor biológico; - SRO - processo de refinação que utiliza pressão da água para remover contaminantes, forçando as moléculas através de uma membrana semipermeável. Ingredientes: Proteína concentrada do soro do leite, proteína isolada do soro de leite, proteína hidrolisada do soro do leite, l-leucina, l-isoleucina, l-valina, aromatizante, espessante goma xantana, corante vermelho beterraba, acidulante ácido cítrico, edulcorantes sucralose e acessulfame de potássio. ALÉRGICOS: CONTÉM DERIVADOS DO LEITE. PODE CONTER AMENDOIM E DERIVADOS DE SOJA, OVO E TRIGO. CONTÉM LACTOSE. NÃO CONTÉM GLÚTEN. Sugestão de uso: Misture 3 colheres de sopa (aprox. 30g) de Whey 100% HD em 150 ml de água, ou ajuste a consistência conforme desejado, e consuma uma vez ao dia ou conforme orientação de um profissional especializado. Recomendado para adultos acima de 19 anos de idade. Aviso legal • Idade mínima recomendada: 19 anos. • Consumir junto com alimentos para facilitar sua assimilação. • Este produto é um suplemento dietético, não um medicamento. Suplementa dietas insuficientes. Consulte o seu médico e/ou farmacêutico.",
+        "Suplemento em Pó 100% Hd Refil Black Skull - 900g Wpc Wpi E Wph Sabor Chocolate",
+        "O que você precisa saber sobre este produto"
+      ],
+      "matchedTokens": [
+        "whey"
+      ],
+      "missingTokens": [],
+      "quantityHit": false,
+      "reasons": [
+        "URL final difere do link original."
+      ]
+    },
+    {
+      "scope": "supplements",
+      "row": 36,
+      "name": "CREATINA",
+      "link": "https://www.gsuplementos.com.br/creatina-monohidratada-250gr-growth-supplements-p985931",
+      "status": "suspeito",
+      "score": 0,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.gsuplementos.com.br/creatina-monohidratada-250gr-growth-supplements-p985931",
+      "title": "Verifying your browser. Please wait a few seconds...",
+      "snippets": [],
+      "matchedTokens": [],
+      "missingTokens": [
+        "creatina"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Possivel bloqueio/anti-bot: \"verifying your browser\".",
+        "Tokens ausentes: creatina."
+      ]
+    },
+    {
+      "scope": "supplements",
+      "row": 37,
+      "name": "Psyllium",
+      "link": "https://www.gsuplementos.com.br/fiber-premium",
+      "status": "suspeito",
+      "score": 0,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.gsuplementos.com.br/fiber-premium",
+      "title": "Verifying your browser. Please wait a few seconds...",
+      "snippets": [],
+      "matchedTokens": [],
+      "missingTokens": [
+        "psyllium"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Possivel bloqueio/anti-bot: \"verifying your browser\".",
+        "Tokens ausentes: psyllium."
+      ]
+    },
+    {
+      "scope": "supplements",
+      "row": 38,
+      "name": "VITAMINA C",
+      "link": "https://www.gsuplementos.com.br/vitamina-c-1000mg-120comp-growth-supplements",
+      "status": "suspeito",
+      "score": 0,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.gsuplementos.com.br/vitamina-c-1000mg-120comp-growth-supplements",
+      "title": "Verifying your browser. Please wait a few seconds...",
+      "snippets": [],
+      "matchedTokens": [],
+      "missingTokens": [
+        "vitamina"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Possivel bloqueio/anti-bot: \"verifying your browser\".",
+        "Tokens ausentes: vitamina."
+      ]
+    },
+    {
+      "scope": "supplements",
+      "row": 39,
+      "name": "NAC (N-ACETIL L-CISTEÍNA) 60CAPS ",
+      "link": "https://www.gsuplementos.com.br/nac-n-acetil-l-cisteina-60caps-growth-supplements",
+      "status": "suspeito",
+      "score": 0,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.gsuplementos.com.br/nac-n-acetil-l-cisteina-60caps-growth-supplements",
+      "title": "Verifying your browser. Please wait a few seconds...",
+      "snippets": [],
+      "matchedTokens": [],
+      "missingTokens": [
+        "nac",
+        "acetil",
+        "cisteina",
+        "60caps"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Possivel bloqueio/anti-bot: \"verifying your browser\".",
+        "Tokens ausentes: nac, acetil, cisteina, 60caps."
+      ]
+    },
+    {
+      "scope": "supplements",
+      "row": 40,
+      "name": "Beta-Alanina Em Pó",
+      "link": "https://www.gsuplementos.com.br/beta-alanina-em-po-growth-supplements",
+      "status": "suspeito",
+      "score": 0,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.gsuplementos.com.br/beta-alanina-em-po-growth-supplements",
+      "title": "Verifying your browser. Please wait a few seconds...",
+      "snippets": [],
+      "matchedTokens": [],
+      "missingTokens": [
+        "beta",
+        "alanina",
+        "po"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Possivel bloqueio/anti-bot: \"verifying your browser\".",
+        "Tokens ausentes: beta, alanina, po."
+      ]
+    },
+    {
+      "scope": "supplements",
+      "row": 41,
+      "name": "MULTIVITAMÍNICO",
+      "link": "https://www.gsuplementos.com.br/multivitaminico-120-caps-nova-formula-growth-supplements-p985851",
+      "status": "suspeito",
+      "score": 0,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.gsuplementos.com.br/multivitaminico-120-caps-nova-formula-growth-supplements-p985851",
+      "title": "Verifying your browser. Please wait a few seconds...",
+      "snippets": [],
+      "matchedTokens": [],
+      "missingTokens": [
+        "multivitaminico"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Possivel bloqueio/anti-bot: \"verifying your browser\".",
+        "Tokens ausentes: multivitaminico."
+      ]
+    },
+    {
+      "scope": "supplements",
+      "row": 42,
+      "name": "Ácido Alfa Lipóico 300mg 60 Cápsulas",
+      "link": "https://www.oficialfarma.com.br/acido-alfalipoico-300mg-60-capsulas/p",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/acido-alfalipoico-300mg-60-capsulas/p",
+      "title": "Ácido Alfa Lipóico 300mg 60 Cápsulas",
+      "snippets": [
+        "Ácido alfa-lipóico é um poderoso antioxidante que auxilia na saúde celular, metabolismo, controle glicêmico e combate ao envelhecimento precoce. Acesse já!",
+        "O ácido alfa-lipóico é um poderoso antioxidante com múltiplos benefícios para a saúde e a pele. Ele atua em diversos processos essenciais do organismo, incluindo: ✅ Neutralização dos radicais livres, prevenindo danos celulares. ✅ Redução do estresse oxidativo, melhorando a função mitocondrial. ✅ Auxílio no tratamento da polineuropatia diabética periférica. ✅ Modulação da resposta inflamatória, reduzindo substâncias pró-inflamatórias. ✅ Prevenção do envelhecimento precoce, ajudando a suavizar linhas de expressão e rugas.",
+        "Ácido Alfa Lipóico 300mg 60 Cápsulas",
+        "O que é o Ácido Alfa Lipóico?",
+        "Para que serve o Ácido Alfa Lipóico?"
+      ],
+      "matchedTokens": [
+        "acido",
+        "alfa",
+        "lipoico",
+        "300mg",
+        "60",
+        "capsulas"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 43,
+      "name": "L-Tirosina 500Mg ",
+      "link": "https://www.oficialfarma.com.br/l-tirosina-500mg-60-capsulas/p",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/l-tirosina-500mg-60-capsulas/p",
+      "title": "L-Tirosina 500Mg 60 Doses",
+      "snippets": [
+        "Tenha melhora da ansiedade, do sono, do estresse, do peso e do humor e o aumento da liberação do hormônio de crescimento com a L-Tirosina! Acesse agora!",
+        "✅ Estimula a memória, foco e humor; ✅ Apoia em distúrbios do sono; ✅ Auxilia na produção hormonal; ✅ Age em sintomas da ansiedade; ✅ Ajuda na hipertrofia. Aminoácido formulado para promover equilíbrio ao sistema nervoso, ajudando a manter o foco, o bem-estar e a disposição no dia a dia.",
+        "L-Tirosina 500Mg 60 Doses",
+        "O que é a L-Tirosina?",
+        "Para que serve a L-Tirosina?"
+      ],
+      "matchedTokens": [
+        "tirosina",
+        "500mg"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 44,
+      "name": "DEXTROSE (1KG) ",
+      "link": "https://www.gsuplementos.com.br/dextrose-1kg-growth-supplements-p985976",
+      "status": "suspeito",
+      "score": 0,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.gsuplementos.com.br/dextrose-1kg-growth-supplements-p985976",
+      "title": "Verifying your browser. Please wait a few seconds...",
+      "snippets": [],
+      "matchedTokens": [],
+      "missingTokens": [
+        "dextrose",
+        "1kg"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Possivel bloqueio/anti-bot: \"verifying your browser\".",
+        "Tokens ausentes: dextrose, 1kg."
+      ]
+    },
+    {
+      "scope": "supplements",
+      "row": 45,
+      "name": "Hidraplex ",
+      "link": "https://www.drogaraia.com.br/hidraplex-natural-4-envelopes-de-po-27-9g-cada.html?gad_source=1&gclid=CjwKCAiA0bWvBhBjEiwAtEsoW2BC2R1ajPT-Crlv85mAXyFlxisZVGde2ZMocA1TSvGnAM8oosq6lhoC3K4QAvD_BwE",
+      "status": "falho",
+      "score": 0,
+      "failureReason": "HTTP 403.",
+      "httpStatus": 403,
+      "finalUrl": "https://www.drogaraia.com.br/hidraplex-natural-4-envelopes-de-po-27-9g-cada.html?gad_source=1&gclid=CjwKCAiA0bWvBhBjEiwAtEsoW2BC2R1ajPT-Crlv85mAXyFlxisZVGde2ZMocA1TSvGnAM8oosq6lhoC3K4QAvD_BwE",
+      "title": "",
+      "snippets": [],
+      "matchedTokens": [],
+      "missingTokens": [
+        "hidraplex"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "HTTP 403."
+      ]
+    },
+    {
+      "scope": "supplements",
+      "row": 46,
+      "name": "GLICERINA",
+      "link": "https://www.drogal.com.br/glicerina-pura-farmax-100ml/p",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.drogal.com.br/glicerina-pura-farmax-100ml/p",
+      "title": "Glicerina Pura Farmax 100ml",
+      "snippets": [
+        "Glicerina Pura Farmax para hidratação e cuidados com a pele 100ml. Compre na Drogal e aproveite a entrega no mesmo dia ou retirada em 1h.",
+        "Glicerina Pura Farmax 100ml",
+        "Nossas lojasMeus PedidosEntre ou Cadastre-seMedicamentosDermocosméticosMamãe e BebêHigiene PessoalServiços e VacinasConveniênciaOfertasFarmácia em CasaCorrelatoGlicerina Pura Farmax 100mlDescrição do ProdutoA Glicerina Farmax é indicada para uso tópico em adultos e crianças. De origem vegetal, a glicerina previne a formação de rugas, atenuando as já presentes. Sua ação umectante combate a flacidez, mantendo a pele hidratada e nutrida. Ainda age contra o envelhecimento, pois ao reter a água na derme, a pele fica menos suscetível aos agressores externos que a contaminam no cotidiano. Seu uso pode ser hospitalar ou doméstico, desde que devidamente orientado por um médico responsável.EspecificaçõesOrigem:NacionalDescrição Marketplace:A Glicerina Farmax é indicada para uso tópico em adultos e crianças. De origem vegetal, a glicerina previne a formação de rugas, atenuando as já presentes. Sua ação umectante combate a flacidez, mantendo a pele hidratada e nutrida. Ainda age contra o envelhecimento, pois ao reter a água na derme, a pele fica menos suscetível aos agressores externos que a contaminam no cotidiano. Seu uso pode ser hospitalar ou doméstico, desde que devidamente orientado por um médico responsável.BloqueioVenda:NãoGlicerina Pura Farmax 100mlFarmaxCód: 20310A Glicerina Farmax é indicada para uso tópico em adultos e crianças. De origem vegetal, a glicerina previne a formação de rugas, atenuando as já presentes. Sua ação umectante combate a flaci...Ver maisR$ 9,29-+Comprar AvaliaçõesAvalie esse produtoSeus dadosNomeE-mailQual sua nota para esse produto?Deixe aqui sua mensagem sobre o produtoEnviar avaliaçãoParece que ainda não há avaliações!Já conhece esse produto? Que tal nos contar um pouquinho sobre ele.Escrever avaliaçãoPrecisa de ajuda?Atendimento ao cliente0800 771 2120Entre em contatosac@drogal.com.brCompre pelo telefone0800 347 0000Siga nossas redes sociaisSegurançaServiçosBulário AnvisaNossas LojasPrograma de Relacionamento Drogal MaisDisk DrogalDrogal Drive-ThruManipulaçãoDescontos de LaboratórioBioimpedânciaMomento SaúdeMedicamentos ControladosCartão DrogalTestes RápidosFornecedoresInstitucionalNossa históriaEspecial 90 AnosResponsabilidadesTrabalhe ConoscoMapa do siteBenefíciosConvênioOfertas do mêsFarmácia popularCentral de AtendimentoFale conoscoEntregas, Trocas e DevoluçõesPerguntas FrequentesFormas de PagamentoTermos de usoPolítica de PrivacidadeResponsabilidade socialBem-vindo à Drogal! Aqui, você encontra uma seleção completa de medicamentos, dermocosméticos e produtos de beleza, higiene pessoal, mamãe e bebê, conveniência e muito mais, para atender suas necessidades de saúde e bem-estar. Explore nossas ofertas e descubra o cuidado que você merece! Confira todas as categorias do site.Drogal Farmacêutica LTDA | CNPJ: 54.375.647/0066-72 | IE: 535.412.860.113 | Rua São João, 909 - Bairro Alto - Piracicaba/São Paulo, CEP: 13416-585 | SAC – Serviço de Atendimento ao Consumidor: 0800 771 2120 (Segunda à Sexta das 8h às 20h/ Sábado das 8h às 15h) ou sac@drogal.com.br / Farmacêutica responsável: Giovanna do Rosario Martins – CRF/SP 49.855 | Autorização de Funcionamento Anvisa (AFE): 7.15583.1 / CEVS: 353870901-477-000047-1-5. As informações contidas neste site, como promoções e ofertas de remédios e medicamentos, não devem ser usadas para automedicação e não substituem, em hipótese alguma, a medicação prescrita pelo profissional da área médica. Somente o médico está em condições de diagnosticar qualquer problema de saúde e prescrever o tratamento adequado. Para mais informações, consulte o site Anvisa. As fotos contidas em nosso site são meramente ilustrativas. Promoções e preços são válidos apenas para compras on-line, caso haja disponibilidade e estão sujeitos a alterações no decorrer do dia. Todos os direitos reservados.Powered by",
+        "Farmácia em CasaCorrelatoGlicerina Pura Farmax 100mlDescrição do ProdutoA Glicerina Farmax é indicada para uso tópico em adultos e crianças. De origem vegetal, a glicerina previne a formação de rugas, atenuando as já presentes. Sua ação umectante combate a flacidez, mantendo a pele hidratada e nutrida. Ainda age contra o envelhecimento, pois ao reter a água na derme, a pele fica menos suscetível aos agressores externos que a contaminam no cotidiano. Seu uso pode ser hospitalar ou doméstico, desde que devidamente orientado por um médico responsável.EspecificaçõesOrigem:NacionalDescrição Marketplace:A Glicerina Farmax é indicada para uso tópico em adultos e crianças. De origem vegetal, a glicerina previne a formação de rugas, atenuando as já presentes. Sua ação umectante combate a flacidez, mantendo a pele hidratada e nutrida. Ainda age contra o envelhecimento, pois ao reter a água na derme, a pele fica menos suscetível aos agressores externos que a contaminam no cotidiano. Seu uso pode ser hospitalar ou doméstico, desde que devidamente orientado por um médico responsável.BloqueioVenda:NãoGlicerina Pura Farmax 100mlFarmaxCód: 20310A Glicerina Farmax é indicada para uso tópico em adultos e crianças. De origem vegetal, a glicerina previne a formação de rugas, atenuando as já presentes. Sua ação umectante combate a flaci...Ver maisR$ 9,29-+Comprar",
+        "Farmácia em CasaCorrelatoGlicerina Pura Farmax 100ml"
+      ],
+      "matchedTokens": [
+        "glicerina"
+      ],
+      "missingTokens": [],
+      "quantityHit": false,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 47,
+      "name": "Complexo de Enzima Digestiva 60 Cápsulas",
+      "link": "https://www.oficialfarma.com.br/complexo-de-enzima-digestiva-60-capsulas/p",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/complexo-de-enzima-digestiva-60-capsulas/p",
+      "title": "Complexo de Enzima Digestiva 60 Cápsulas",
+      "snippets": [
+        "Complexo de enzimas digestivas melhora a digestão, reduz gases e inchaço, auxilia na absorção de nutrientes e alivia o desconforto gastrointestinal. Acesse já!",
+        "Uma fórmula desenvolvida para quem busca melhorar a digestão e maximizar a absorção de nutrientes essenciais. Com a combinação de diferentes enzimas digestivas, este suplemento oferece suporte digestivo completo, auxiliando na quebra eficiente de proteínas, gorduras e carboidratos. ✅ Melhora da digestão e absorção de nutrientes; ✅ Alívio de desconfortos digestivos como inchaço e gases; ✅ Auxilia na digestão de refeições mais pesadas; ✅ Facilita a absorção de micronutrientes essenciais.",
+        "Complexo de Enzima Digestiva 60 Cápsulas",
+        "Enzimas digestivas são cientificamente seguras e eficazes?",
+        "Como este Complexo de Enzimas atua no corpo?"
+      ],
+      "matchedTokens": [
+        "complexo",
+        "enzima",
+        "digestiva",
+        "60",
+        "capsulas"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 48,
+      "name": "Betaína + Pepsina ",
+      "link": "https://www.oficialfarma.com.br/betaina-pepsina-60-doses/p",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/betaina-pepsina-60-doses/p",
+      "title": "Betaína + Pepsina 60 Doses",
+      "snippets": [
+        "Ácido estomacal natural que tem papel fundamental no processo de digestão, funcionando como reforço do seu suco gástrico. Ideal para o uso antes da refeição. Se você sofre de azia, refluxo ou desconforto estomacal, a betaína irá ajudá-lo muito",
+        "Betaína + Pepsina 60 Doses",
+        "O QUE É A BETAÍNA + PEPSINA?",
+        "QAUIS SÃO OS BENEFÍCIOS DA BETAÍNA + PEPSINA?",
+        "QUAL A COMPOSIÇÃO DA BETAÍNA + PEPSINA?"
+      ],
+      "matchedTokens": [
+        "betaina",
+        "pepsina"
+      ],
+      "missingTokens": [],
+      "quantityHit": false,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 49,
+      "name": "Ginkgo Biloba 120Mg 60 Cápsulas",
+      "link": "https://www.oficialfarma.com.br/ginkgo-biloba-120mg-60-capsulas/p",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/ginkgo-biloba-120mg-60-capsulas/p",
+      "title": "Ginkgo Biloba 120mg 60 Cápsulas",
+      "snippets": [
+        "Ginkgo Biloba potencializa a memória sendo ideal para momentos de excesso de trabalho mental. Combate a labirintite, pois melhora a circulação sanguínea e poder antioxidante. Acesse já!",
+        "✅ Contribui para a memória; ✅ Regulação da circulação cardiovascular ✅ Auxilia na labirintite; ✅ Possui ação antioxidante; ✅ Contribui no foco mental. O Ginkgo Biloba é especialmente formulado para auxiliar de forma natural na melhora da saúde cerebral e da circulação.",
+        "Ginkgo Biloba 120mg 60 Cápsulas",
+        "O que é o Ginkgo Biloba?",
+        "Para que serve o Ginkgo Biloba?"
+      ],
+      "matchedTokens": [
+        "ginkgo",
+        "biloba",
+        "120mg",
+        "60",
+        "capsulas"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 50,
+      "name": "VITAMINA E",
+      "link": "https://www.gsuplementos.com.br/vitamina-e-120-caps-growth-supplements-p988068",
+      "status": "suspeito",
+      "score": 0,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.gsuplementos.com.br/vitamina-e-120-caps-growth-supplements-p988068",
+      "title": "Verifying your browser. Please wait a few seconds...",
+      "snippets": [],
+      "matchedTokens": [],
+      "missingTokens": [
+        "vitamina"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Possivel bloqueio/anti-bot: \"verifying your browser\".",
+        "Tokens ausentes: vitamina."
+      ]
+    },
+    {
+      "scope": "supplements",
+      "row": 51,
+      "name": "Cálcio + Vitamina D + Vitamina K ",
+      "link": "https://www.gsuplementos.com.br/calcio-vitamina-d-vitamina-k-120-comp-growth-supplements",
+      "status": "suspeito",
+      "score": 0,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.gsuplementos.com.br/calcio-vitamina-d-vitamina-k-120-comp-growth-supplements",
+      "title": "Verifying your browser. Please wait a few seconds...",
+      "snippets": [],
+      "matchedTokens": [],
+      "missingTokens": [
+        "calcio",
+        "vitamina"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Possivel bloqueio/anti-bot: \"verifying your browser\".",
+        "Tokens ausentes: calcio, vitamina."
+      ]
+    },
+    {
+      "scope": "supplements",
+      "row": 52,
+      "name": "Omega",
+      "link": "https://www.gsuplementos.com.br/dha-oleo-de-peixe-60soft-growth-supplements",
+      "status": "suspeito",
+      "score": 0,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.gsuplementos.com.br/dha-oleo-de-peixe-60soft-growth-supplements",
+      "title": "Verifying your browser. Please wait a few seconds...",
+      "snippets": [],
+      "matchedTokens": [],
+      "missingTokens": [
+        "omega"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Possivel bloqueio/anti-bot: \"verifying your browser\".",
+        "Tokens ausentes: omega."
+      ]
+    },
+    {
+      "scope": "supplements",
+      "row": 53,
+      "name": "Curcuma 450mg ",
+      "link": "https://www.oficialfarma.com.br/curcuma-450mg-60capsulas/p",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/curcuma-450mg-60capsulas/p",
+      "title": "Curcuma 450mg 60 Cápsulas",
+      "snippets": [
+        "Curcuma: Antioxidante natural com propriedades anti-inflamatórias. Descubra os benefícios para a sua saúde. Experimente agora!",
+        "Ajuda a reduzir inflamações; Proporciona poderosa ação antioxidante;Suporte à saúde das articulações;Auxilia na saúde cardiovascular. A Cúrcuma, também conhecida como açafrão-da-terra, é uma planta usada há séculos por suas propriedades medicinais. Seu principal componente ativo, a curcumina, é reconhecida por suas ações anti-inflamatórias e antioxidantes.",
+        "Curcuma 450mg 60 Cápsulas",
+        "Quais os benefícios da Cúrcuma?",
+        "Para que serve a Cúrcuma no corpo humano?"
+      ],
+      "matchedTokens": [
+        "curcuma",
+        "450mg"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 54,
+      "name": " Ashwagandha + Melissa + Passiflora + Kawa Kawa",
+      "link": "https://www.oficialfarma.com.br/kit-ashwagandha-500mg-30-capsulas-ginseng-indiano-melissa-passiflora-kawa-kawa-30-capsulas/p",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/kit-ashwagandha-500mg-30-capsulas-ginseng-indiano-melissa-passiflora-kawa-kawa-30-capsulas/p",
+      "title": "Anti Estresse - Ashwagandha + Melissa + Passiflora + Kawa Kawa",
+      "snippets": [
+        "#html-body [data-pb-style=DI02SO8]{justify-content:flex-start;display:flex;flex-direction:column;background-position:left top;background-size:cover;background-repeat:no-repeat;background-attachment:scroll}#html-body [data-pb-style=A9P2QEP],#html-body [dat",
+        "Kit Ashwagandha 500Mg 30 Cápsulas Ginseng indiano + Melissa + Passiflora + Kawa Kawa 30 Cápsulas",
+        "Anti Estresse - Ashwagandha + Melissa + Passiflora + Kawa Kawa",
+        "QUAIS SÃO OS BENEFÍCIOS?",
+        "Withania sominifera é amplamente utilizada em medicina Índiana como potente adaptógeno natural. É responsável por aumentar a energia, melhor a qualidade do sono, desempenho sexual, memória e concentração, portanto melhora a saúde geral e a longevidade, principalmente para pacientes que buscam redução de estresse, insônia e efeito imunoestimulante para aqueles com baixa contagem de células brancas do sangue. Referência: https://florien.com.br/wp-content/uploads/2016/06/ASHAWAGANDA.pdf"
+      ],
+      "matchedTokens": [
+        "ashwagandha",
+        "melissa",
+        "passiflora",
+        "kawa"
+      ],
+      "missingTokens": [],
+      "quantityHit": false,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 55,
+      "name": "5 htp 200 mg",
+      "link": "https://www.oficialfarma.com.br/5-htp-200mg-60-capsulas-grifonia-simplicifolia/p",
+      "status": "suspeito",
+      "score": 0.375,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/5-htp-200mg-60-capsulas-grifonia-simplicifolia/p",
+      "title": "5 Htp 200Mg 60 Cápsulas (Grifonia Simplicifolia)",
+      "snippets": [
+        "Conhecida como a pílula da felicidade, 5htp regula o humor, aumenta o bem-estar e combate o estresse e a ansiedade. Além disto, colabora também com a diminuição da vontade de comer doces e auxilia na melhora do sono",
+        "✅ Ajuda no bem-estar emocional; ✅ Melhora a qualidade do sono; ✅ Auxilia no controle do apetite; ✅ Apoia na redução da ansiedade; ✅ Alivia dores de cabeça leves. Especialmente formulado para quem busca mais serenidade, foco e qualidade de vida no dia a dia.",
+        "5 Htp 200Mg 60 Cápsulas (Grifonia Simplicifolia)",
+        "Para que serve o 5-HTP?",
+        "Para quem é recomendado o 5-HTP?"
+      ],
+      "matchedTokens": [
+        "htp"
+      ],
+      "missingTokens": [
+        "200"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Tokens ausentes: 200."
+      ]
+    },
+    {
+      "scope": "supplements",
+      "row": 56,
+      "name": "Gaba 400mg ",
+      "link": "https://www.oficialfarma.com.br/gaba-400mg-60-capsulas/p",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/gaba-400mg-60-capsulas/p",
+      "title": "Gaba 400mg 60 Cápsulas",
+      "snippets": [
+        "A Gaba atua como um neurotransmissor inibitório, reduzindo a atividade neural excessiva. Isso resulta em efeitos calmantes e de redução da ansiedade. Acesse agora!",
+        "O GABA (ácido gama-aminobutírico) é um poderoso aliado no equilíbrio da mente e do corpo, auxiliando na redução do estresse e ansiedade de forma natural. Suplemento ideal para promover relaxamento, melhorar a qualidade do sono e contribuir para o bem-estar geral. Auxilia na: ✅ Diminui a Ansiedade e Promove o Relaxamento; ✅ Melhora a Qualidade do Sono; ✅ Alivia o Estresse e Contribui para o Equilíbrio do Humor; ✅ Contribui para o Bem-Estar Geral; ✅ Auxilia nos distúrbios neurológicos, como depressão, perda de memória e na função cognitiva.",
+        "Gaba 400mg 60 Cápsulas",
+        "Precisando relaxar e melhorar seu sono? Conheça a Gaba",
+        "O que é a Gaba e para que serve?"
+      ],
+      "matchedTokens": [
+        "gaba",
+        "400mg"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 57,
+      "name": "L-Teanina 200Mg",
+      "link": "https://www.oficialfarma.com.br/l-teanina-200mg-60-capulas/p",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/l-teanina-200mg-60-capulas/p",
+      "title": "L-Teanina 200mg 60 Cápulas",
+      "snippets": [
+        "L-Teanina possui benefícios para o foco, relaxamento e redução do estresse. Esse poderoso aminoácido pode melhorar seu bem-estar mental e físico. Acesse já!",
+        "✅ Ajuda a reduzir o estresse; ✅ Apoia o controle da ansiedade; ✅ Alivia os sintomas da TPM; ✅ Favorece o foco e atenção; ✅ Melhora a qualidade do sono. Especialmente formulado para promover bem-estar mental e físico com ação suave, uma boa opção para rotinas agitadas e momentos de tensão.",
+        "L-Teanina 200mg 60 Cápulas",
+        "O que é a L-Teanina?",
+        "Para que serve a L-Teanina?"
+      ],
+      "matchedTokens": [
+        "teanina",
+        "200mg"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 58,
+      "name": "Mucuna 400Mg ",
+      "link": "https://www.oficialfarma.com.br/mucuna-400mg-60-capsulas/p",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/mucuna-400mg-60-capsulas/p",
+      "title": "Mucuna 400mg 60 Cápsulas",
+      "snippets": [
+        "Mucuna regula os níveis de liberação do GH, fortifica os músculos, melhora a coordenação, a agilidade mental e a força, além de melhorar a sensação de bem-estar. Acesse já!",
+        "✅ Estimula a dopamina; ✅ Promove o bem-estar mental; ✅ Apoia o desempenho sexual; ✅ Favorece a hipertrofia; ✅ Auxilia na liberação de GH.",
+        "Mucuna 400mg 60 Cápsulas",
+        "Para que serve a Mucuna?",
+        "Para quem é recomendada a Mucuna?"
+      ],
+      "matchedTokens": [
+        "mucuna",
+        "400mg"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 59,
+      "name": "GLICINA 3G",
+      "link": "https://produto.mercadolivre.com.br/MLB-3489320433-glicina-1kg-4well-100-pura-importada-_JM?searchVariation=179055503738#searchVariation%3D179055503738%26position%3D45%26search_layout%3Dstack%26type%3Ditem%26tracking_id%3Dffa3a7b1-062d-4256-91b9-737e0be1ac85",
+      "status": "suspeito",
+      "score": 0.375,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://produto.mercadolivre.com.br/MLB-3489320433-glicina-1kg-4well-100-pura-importada-_JM?searchVariation=179055503738",
+      "title": "Glicina 1kg Pó 4well Natural - R$ 149,9",
+      "snippets": [
+        "Frete grátis com entrega no mesmo dia ✓ Compre online com segurança com Compra Garantida © Glicina 1kg Pó 4well Natural ❤",
+        "Na 4well, acreditamos que sentir-se bem não precisa ser complicado. Por isso, desenvolvemos uma linha de suplementos e vitaminas práticos e eficazes que podem se encaixar perfeitamente em sua rotina diária. Com o nosso lema &quot;É prático sentir-se bem!&quot;, buscamos oferecer soluções convenientes para ajudá-lo a alcançar seus objetivos de saúde e condicionamento físico.Manter uma alimentação balanceada desempenha um papel crucial na promoção da qualidade de vida. Diante do estilo de vida acelerado que muitas pessoas enfrentam, por vezes, torna-se desafiador atender a todas as necessidades nutricionais essenciais para garantir a saúde e a vitalidade do corpo. Nesse contexto, os suplementos desempenham a função de complementar a dieta, auxiliando na obtenção das vitaminas, minerais, proteínas e demais componentes fundamentais para o adequado funcionamento do organismoEste produto é um suplemento dietético, não é um medicamento. Suplementa ante dietas insuficientes. Consulte seu médico e / ou farmacêutico.",
+        "Na 4well, acreditamos que sentir-se bem não precisa ser complicado. Por isso, desenvolvemos uma linha de suplementos e vitaminas práticos e eficazes que podem se encaixar perfeitamente em sua rotina diária. Com o nosso lema \"É prático sentir-se bem!\", buscamos oferecer soluções convenientes para ajudá-lo a alcançar seus objetivos de saúde e condicionamento físico. Manter uma alimentação balanceada desempenha um papel crucial na promoção da qualidade de vida. Diante do estilo de vida acelerado que muitas pessoas enfrentam, por vezes, torna-se desafiador atender a todas as necessidades nutricionais essenciais para garantir a saúde e a vitalidade do corpo. Nesse contexto, os suplementos desempenham a função de complementar a dieta, auxiliando na obtenção das vitaminas, minerais, proteínas e demais componentes fundamentais para o adequado funcionamento do organismo Este produto é um suplemento dietético, não é um medicamento. Suplementa ante dietas insuficientes. Consulte seu médico e / ou farmacêutico. Garantia do vendedor: 30 dias",
+        "Glicina 1kg Pó 4well Natural",
+        "Perguntas e respostas"
+      ],
+      "matchedTokens": [
+        "glicina"
+      ],
+      "missingTokens": [
+        "3g"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Tokens ausentes: 3g.",
+        "URL final difere do link original."
+      ]
+    },
+    {
+      "scope": "supplements",
+      "row": 60,
+      "name": "Valeriana 100Mg ",
+      "link": "https://www.oficialfarma.com.br/valeriana-100mg-60-capsulas/p",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/valeriana-100mg-60-capsulas/p",
+      "title": "Valeriana 100Mg 60 Cápsulas",
+      "snippets": [
+        "Eficaz para insônia, ansiedade, estresse e perda de peso. Acalma os ânimos e a gula. Acesse e confira já!",
+        "Combate o estresse e ansiedade e melhora o sono",
+        "Valeriana 100Mg 60 Cápsulas",
+        "Quais os benefícios da Valeriana?",
+        "Qual a composição da Valeriana?"
+      ],
+      "matchedTokens": [
+        "valeriana",
+        "100mg"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 61,
+      "name": "Magnésio Treonato 300Mg",
+      "link": "https://www.oficialfarma.com.br/magnesio-treonato-300mg-120-capsulas/p",
+      "status": "ok",
+      "score": 1,
+      "failureReason": "",
+      "httpStatus": 200,
+      "finalUrl": "https://www.oficialfarma.com.br/magnesio-treonato-300mg-120-capsulas/p",
+      "title": "Magnésio Treonato 300Mg 120 Cápsulas",
+      "snippets": [
+        "Magnésio Treonato 300mg 120 Cápsulas",
+        "✅ Melhora da memória; ✅ Apoia a saúde cerebral ✅ Ajuda no foco e atenção; ✅ Promove bem-estar emocional; ✅ Ajuda a proteger as células. Especialmente desenvolvido para aprimorar a memória, mais facilidade de manter o foco e o equilíbrio mental no dia a dia.",
+        "Magnésio Treonato 300Mg 120 Cápsulas",
+        "O que é o Magnésio Treonato?",
+        "Para que serve o Magnésio Treonato?"
+      ],
+      "matchedTokens": [
+        "magnesio",
+        "treonato",
+        "300mg"
+      ],
+      "missingTokens": [],
+      "quantityHit": true,
+      "reasons": []
+    },
+    {
+      "scope": "supplements",
+      "row": 62,
+      "name": "Voextor Vortioxetina 10mg - 30 comprimidos",
+      "link": null,
+      "status": "falho",
+      "score": 0,
+      "failureReason": "Item sem link.",
+      "httpStatus": null,
+      "finalUrl": null,
+      "title": "",
+      "snippets": [],
+      "matchedTokens": [],
+      "missingTokens": [
+        "voextor",
+        "vortioxetina",
+        "10mg",
+        "30",
+        "comprimidos"
+      ],
+      "quantityHit": false,
+      "reasons": [
+        "Item sem link."
+      ]
+    }
+  ]
+}

@@ -1,26 +1,367 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #050505;
+  --background-soft: #09090b;
+  --foreground: #f4f4f5;
+  --muted: #a1a1aa;
+  --panel: rgba(18, 18, 20, 0.94);
+  --panel-strong: rgba(24, 24, 27, 0.96);
+  --accent: #fb923c;
+  --accent-2: #fb923c;
+  --glow: rgba(251, 146, 60, 0.36);
+  --brand-background: #050505;
+  --brand-text: #f4f4f5;
+  --brand-link: #71717a;
+  --brand-primary: #fb923c;
+  --brand-primary-glow: rgba(251, 146, 60, 0.42);
+  --brand-danger: #fb923c;
+  --brand-danger-soft: rgba(251, 146, 60, 0.12);
+}
+
+:root[data-theme="default"] {
+  --accent: #35d6b4;
+  --accent-2: #8ff7c7;
+  --glow: rgba(53, 214, 180, 0.3);
+  --brand-primary: #35d6b4;
+  --brand-primary-glow: rgba(53, 214, 180, 0.34);
+}
+
+:root[data-theme="ocean"] {
+  --accent: #38bdf8;
+  --accent-2: #0ea5e9;
+  --glow: rgba(56, 189, 248, 0.32);
+  --brand-primary: #38bdf8;
+  --brand-primary-glow: rgba(56, 189, 248, 0.36);
+}
+
+:root[data-theme="sunset"] {
+  --accent: #f97316;
+  --accent-2: #fb7185;
+  --glow: rgba(251, 113, 133, 0.34);
+  --brand-primary: #f97316;
+  --brand-primary-glow: rgba(249, 115, 22, 0.34);
+}
+
+:root[data-theme="forest"] {
+  --accent: #34d399;
+  --accent-2: #84cc16;
+  --glow: rgba(52, 211, 153, 0.32);
+  --brand-primary: #34d399;
+  --brand-primary-glow: rgba(52, 211, 153, 0.34);
+}
+
+:root[data-theme="royal"] {
+  --accent: #a855f7;
+  --accent-2: #6366f1;
+  --glow: rgba(168, 85, 247, 0.34);
+  --brand-primary: #a855f7;
+  --brand-primary-glow: rgba(168, 85, 247, 0.34);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
+  --font-title: var(--font-space-grotesk);
+  --font-display: var(--font-space-grotesk);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  
+  --color-primary: #fb923c;
+  --color-primary-dim: #f97316;
+  --color-on-primary: #180d04;
+  --color-primary-container: #3b1e08;
+  --color-on-primary-container: #fed7aa;
+  
+  --color-secondary: #27272a;
+  --color-on-secondary: #f4f4f5;
+  --color-secondary-container: #18181b;
+  
+  --color-tertiary: #3f3f46;
+  --color-tertiary-dim: #27272a;
+  --color-on-tertiary: #fafafa;
+  
+  --color-surface-container: #121214;
+  --color-surface-container-low: #0d0d0f;
+  --color-surface-container-lowest: #000000;
+  --color-surface-container-high: #18181b;
+  --color-surface-container-highest: #212125;
+  --color-surface-bright: #27272a;
+  
+  --color-outline: #52525b;
+  --color-outline-variant: #27272a;
+  --color-on-surface: #f5f5f5;
+  --color-on-background: #f5f5f5;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root[data-theme="gold"] {
+  --accent: #facc15;
+  --accent-2: #f59e0b;
+  --glow: rgba(250, 204, 21, 0.32);
+  --brand-primary: #facc15;
+  --brand-primary-glow: rgba(250, 204, 21, 0.34);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
+  min-height: 100vh;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--brand-primary) 16%, transparent), transparent 28%),
+    radial-gradient(circle at 85% 8%, color-mix(in srgb, var(--accent-2) 12%, transparent), transparent 22%),
+    linear-gradient(180deg, #050505 0%, #09090b 42%, #030303 100%);
+  font-family: var(--font-inter), sans-serif;
+}
+
+a {
+  text-decoration: none;
+}
+
+textarea,
+input,
+button {
+  outline: none;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  color: #050505;
+}
+
+.animate-rise {
+  animation: rise 0.55s ease-out both;
+}
+
+.surface-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-position: center;
+  background-size: 26px 26px;
+}
+
+.glass-button {
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  background: linear-gradient(180deg, rgba(18, 18, 20, 0.98), rgba(10, 10, 12, 0.98));
+  color: #f4f4f5;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.glass-button:hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  transform: translateY(-1px);
+}
+
+.brand-grid {
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--accent) 8%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 8%, transparent) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.praxis-tech-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+
+.praxis-scanlines {
+  position: relative;
+}
+
+.praxis-scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.045) 0,
+    rgba(255, 255, 255, 0.045) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  opacity: 0.12;
+}
+
+.praxis-panel {
+  border: 1px solid rgba(63, 63, 70, 0.84);
+  background: linear-gradient(180deg, rgba(18, 18, 20, 0.96), rgba(10, 10, 12, 0.98));
+}
+
+.praxis-panel-active {
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent),
+    0 0 18px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.praxis-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.praxis-label {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: #a1a1aa;
+}
+
+.praxis-title {
+  font-family: var(--font-space-grotesk), sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.06em;
+  color: #f4f4f5;
+}
+
+.praxis-field {
+  border: 1px solid rgba(63, 63, 70, 0.84);
+  background: linear-gradient(180deg, rgba(14, 14, 17, 0.96), rgba(7, 7, 9, 0.98));
+  color: #f4f4f5;
+  border-radius: 0.125rem;
+}
+
+.praxis-field::placeholder {
+  color: #71717a;
+}
+
+.praxis-field:focus {
+  border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent),
+    0 0 18px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.praxis-button {
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  background: linear-gradient(180deg, rgba(18, 18, 20, 0.98), rgba(8, 8, 10, 1));
+  color: #f4f4f5;
+  border-radius: 0.125rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.praxis-button:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 92%, white 8%), color-mix(in srgb, var(--accent-2) 92%, black 8%));
+  color: #140a03;
+  box-shadow: 0 0 15px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.praxis-button-ghost {
+  border: 1px solid rgba(63, 63, 70, 0.84);
+  background: linear-gradient(180deg, rgba(18, 18, 20, 0.96), rgba(10, 10, 12, 0.98));
+  color: #d4d4d8;
+  border-radius: 0.125rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.praxis-button-ghost:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: #f4f4f5;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.praxis-accent-panel {
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 12%, rgba(18, 18, 20, 0.98)),
+    rgba(18, 18, 20, 0.98)
+  );
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.praxis-accent-chip {
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, rgba(0, 0, 0, 0.65));
+  color: var(--accent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.praxis-accent-progress {
+  background: linear-gradient(
+    90deg,
+    var(--accent) 0%,
+    color-mix(in srgb, var(--accent-2) 88%, var(--accent) 12%) 100%
+  );
+  box-shadow: 0 0 15px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.praxis-shell-backdrop {
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 12%, transparent), transparent 22%),
+    radial-gradient(circle at 82% 10%, color-mix(in srgb, var(--accent-2) 10%, transparent), transparent 18%),
+    linear-gradient(180deg, rgba(5, 5, 5, 0.98), rgba(9, 9, 11, 0.98));
+}
+
+.praxis-kpi {
+  border: 1px solid rgba(63, 63, 70, 0.84);
+  background: linear-gradient(180deg, rgba(18, 18, 20, 0.98), rgba(10, 10, 12, 1));
+  border-radius: 0.125rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.praxis-kpi::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.035) 0,
+    rgba(255, 255, 255, 0.035) 1px,
+    transparent 1px,
+    transparent 5px
+  );
+  opacity: 0.14;
+}
+
+@keyframes rise {
+  0% {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

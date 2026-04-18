@@ -23,6 +23,10 @@
 # misc
 .DS_Store
 *.pem
+.data/
+/.sources/
+/.tmp-video-frames/
+*.log
 
 # debug
 npm-debug.log*
@@ -39,3 +43,25 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# clerk configuration (can include secrets)
+/.clerk/
+
+# local dev tooling (Claude Code / agents / temp artifacts)
+.agents/
+.claude/
+.tools/
+.stitch/
+.playwright-cli/
+.openclaude-profile.json
+.tmp-*
+*.pid
+lint-results.txt
+
+# local test outputs / screenshots
+output/
+output-*.png
+.codex-nutrition-check.png
+test-results/
+tmp/
+tmp-*

@@ -1,0 +1,60 @@
+<svg width="640" height="820" viewBox="0 0 640 820" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="640" height="820" fill="#040505"/>
+  <rect x="34" y="34" width="572" height="752" fill="#070809" stroke="#1D1F22"/>
+  <rect x="74" y="74" width="492" height="672" fill="#050607" stroke="#121418"/>
+
+  <g opacity="0.08">
+    <path d="M106 170H534" stroke="#23262A"/>
+    <path d="M106 300H534" stroke="#23262A"/>
+    <path d="M106 430H534" stroke="#23262A"/>
+    <path d="M106 560H534" stroke="#23262A"/>
+    <path d="M106 690H534" stroke="#23262A"/>
+    <path d="M186 106V714" stroke="#1D2024"/>
+    <path d="M320 106V714" stroke="#1D2024"/>
+    <path d="M454 106V714" stroke="#1D2024"/>
+  </g>
+
+  <g opacity="0.22">
+    <circle cx="320" cy="384" r="122" stroke="#74D9E4" stroke-width="1.5"/>
+    <circle cx="320" cy="384" r="86" stroke="#74D9E4" stroke-width="1.5" stroke-dasharray="5 7"/>
+    <path d="M320 318L366 344L359 400L320 426L281 400L274 344L320 318Z" fill="#74D9E4" fill-opacity="0.1" stroke="#8DECF5" stroke-width="2.5"/>
+  </g>
+
+  <g>
+    <ellipse cx="322" cy="170" rx="54" ry="62" fill="#D6C7BB"/>
+    <path d="M275 154C281 114 315 98 350 104C383 109 404 136 398 176C386 165 372 158 352 156C322 153 299 162 275 154Z" fill="#15181D"/>
+    <path d="M304 224H340C389 224 429 264 429 313V372H211V313C211 264 251 224 304 224Z" fill="#5D5C5A"/>
+    <path d="M218 310C203 332 193 362 191 399C188 467 194 538 207 620H260L252 404L218 310Z" fill="#70706E"/>
+    <path d="M422 310C437 332 447 362 449 399C452 467 446 538 433 620H380L388 404L422 310Z" fill="#646462"/>
+    <path d="M252 372H388V612H252V372Z" fill="#6B6A68"/>
+    <path d="M286 612H350L344 748H289L286 612Z" fill="#575756"/>
+    <path d="M228 612H280L266 748H218L228 612Z" fill="#5D5D5B"/>
+    <path d="M360 612H412L422 748H374L360 612Z" fill="#525250"/>
+    <path d="M214 748H272V772H206L214 748Z" fill="#4A4B4D"/>
+    <path d="M288 748H345V814H288V748Z" fill="#454648"/>
+    <path d="M370 748H430V772H370V748Z" fill="#444548"/>
+
+    <path d="M320 336C344 349 358 377 357 404C333 413 307 413 283 404C282 377 296 349 320 336Z" fill="url(#coreBefore)"/>
+    <path d="M301 360C294 372 289 388 288 404" stroke="#8BE7F2" stroke-width="3" stroke-linecap="round" opacity="0.75"/>
+    <path d="M339 360C346 372 351 388 352 404" stroke="#8BE7F2" stroke-width="3" stroke-linecap="round" opacity="0.75"/>
+    <path d="M286 404C307 413 333 413 354 404" stroke="#9AF1F8" stroke-width="3" stroke-linecap="round" opacity="0.75"/>
+  </g>
+
+  <g filter="url(#dotGlow)">
+    <circle cx="275" cy="700" r="10" fill="#79E6F0"/>
+    <circle cx="320" cy="700" r="10" fill="#79E6F0"/>
+    <circle cx="365" cy="700" r="10" fill="#79E6F0"/>
+  </g>
+
+  <defs>
+    <radialGradient id="coreBefore" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(320 388) rotate(90) scale(62)">
+      <stop stop-color="#93EEF8" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#18AFC0" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="dotGlow" x="239" y="664" width="162" height="72" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+      <feGaussianBlur stdDeviation="13" result="effect1_foregroundBlur_0_1"/>
+    </filter>
+  </defs>
+</svg>
