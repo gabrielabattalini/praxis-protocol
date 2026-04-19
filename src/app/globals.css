@@ -17,6 +17,33 @@
   --brand-primary-glow: rgba(251, 146, 60, 0.42);
   --brand-danger: #fb923c;
   --brand-danger-soft: rgba(251, 146, 60, 0.12);
+
+  /* Praxis Redesign v2 — surface + line hierarchy */
+  --bg: #050505;
+  --bg-1: #0a0a0c;
+  --bg-2: #0f0f12;
+  --bg-3: #15151a;
+  --bg-4: #1c1c22;
+  --line-soft: #1a1a1f;
+  --line: #27272d;
+  --line-bright: #3a3a42;
+  --fg: #f4f4f5;
+  --fg-2: #c9c9d1;
+  --fg-3: #8b8b95;
+  --fg-4: #5a5a63;
+  --fg-5: #3d3d45;
+  --accent-bright: #fdba74;
+  --accent-deep: #c2410c;
+  --accent-glow: rgba(251, 146, 60, 0.35);
+  --ok: #4ade80;
+  --warn: #facc15;
+  --danger: #f87171;
+
+  /* Motion scale */
+  --motion-fast: 120ms cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-base: 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --motion-slow: 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-emphasized: 480ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 :root[data-theme="default"] {
@@ -469,4 +496,212 @@ button {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Praxis Redesign v2 — font families */
+.rx-display { font-family: var(--font-space-grotesk), sans-serif; }
+.rx-mono { font-family: var(--font-mono), ui-monospace, monospace; }
+.rx-serif { font-family: var(--font-instrument-serif), serif; }
+
+/* Mono label — 0.22em letterspacing, 10px */
+.rx-label {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  color: var(--fg-3);
+  text-transform: uppercase;
+}
+
+/* Artboard surface — matte black + grid texture */
+.rx-pa {
+  background:
+    radial-gradient(circle at 20% 0%, rgba(251, 146, 60, 0.06), transparent 40%),
+    radial-gradient(circle at 80% 100%, rgba(56, 189, 248, 0.03), transparent 40%),
+    var(--bg);
+  color: var(--fg);
+  position: relative;
+  font-family: var(--font-space-grotesk), sans-serif;
+}
+
+.rx-pa::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--line-soft) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Scanline overlay */
+.rx-scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.012) 0px,
+    rgba(255, 255, 255, 0.012) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Amber grid background — subtle */
+.rx-grid-bg {
+  background-image:
+    linear-gradient(rgba(251, 146, 60, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(251, 146, 60, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Panels — base + hot (accent-tinted) */
+.rx-panel {
+  background: linear-gradient(180deg, rgba(20, 20, 24, 0.8), rgba(12, 12, 16, 0.7));
+  border: 1px solid var(--line);
+  position: relative;
+}
+
+.rx-panel-hot {
+  background: linear-gradient(180deg, rgba(251, 146, 60, 0.05), rgba(251, 146, 60, 0.01));
+  border: 1px solid rgba(251, 146, 60, 0.3);
+  box-shadow:
+    0 0 24px rgba(251, 146, 60, 0.08),
+    inset 0 0 32px rgba(251, 146, 60, 0.02);
+  position: relative;
+}
+
+/* Chips */
+.rx-chip-mono {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  font-weight: 600;
+  color: var(--fg-3);
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.3);
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+
+.rx-chip-accent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  font-weight: 700;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  background: rgba(251, 146, 60, 0.1);
+  box-shadow: 0 0 12px rgba(251, 146, 60, 0.2);
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+
+/* Buttons */
+.rx-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: linear-gradient(180deg, var(--accent-bright), var(--accent));
+  color: #1a0a04;
+  border: none;
+  border-radius: 2px;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow:
+    0 0 18px rgba(251, 146, 60, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition: box-shadow var(--motion-fast), transform var(--motion-fast);
+}
+
+.rx-btn-primary:hover {
+  box-shadow: 0 0 28px rgba(251, 146, 60, 0.5);
+  transform: translateY(-1px);
+}
+
+.rx-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--fg-2);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color var(--motion-fast), color var(--motion-fast);
+}
+
+.rx-btn-ghost:hover {
+  border-color: var(--line-bright);
+  color: var(--fg);
+}
+
+/* Progress bar with glow */
+.rx-pbar {
+  height: 4px;
+  background: var(--line-soft);
+  overflow: hidden;
+  position: relative;
+  border-radius: 2px;
+}
+
+.rx-pbar > div {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* Centered fading divider */
+.rx-hr-tick {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--line-bright), transparent);
+  position: relative;
+}
+
+/* Form input shared style */
+.rx-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--fg);
+  font-family: var(--font-mono), monospace;
+  font-size: 13px;
+  border-radius: 2px;
+  outline: none;
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+.rx-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(251, 146, 60, 0.2), 0 0 16px rgba(251, 146, 60, 0.12);
+}
+
+.rx-input::placeholder {
+  color: var(--fg-4);
 }
