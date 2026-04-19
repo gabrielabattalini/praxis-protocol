@@ -65,6 +65,7 @@
   --font-sans: var(--font-inter);
   --font-title: var(--font-space-grotesk);
   --font-display: var(--font-space-grotesk);
+  --font-editorial-serif: var(--font-instrument-serif);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   
   --color-primary: #fb923c;
@@ -322,6 +323,110 @@ button {
     color-mix(in srgb, var(--accent-2) 88%, var(--accent) 12%) 100%
   );
   box-shadow: 0 0 15px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.editorial-kicker {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: #a1a1aa;
+}
+
+.editorial-title {
+  font-family: var(--font-space-grotesk), sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: #f4f4f5;
+}
+
+.editorial-accent {
+  font-family: var(--font-instrument-serif), serif;
+  font-style: italic;
+  font-weight: 400;
+  color: #c65622;
+}
+
+.editorial-panel {
+  border: 1px solid rgba(63, 63, 70, 0.84);
+  border-radius: 0.125rem;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 8%, transparent), transparent 34%),
+    linear-gradient(180deg, rgba(18, 18, 20, 0.96), rgba(10, 10, 12, 0.98));
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.editorial-chip {
+  border: 1px solid rgba(82, 82, 91, 0.72);
+  border-radius: 999px;
+  background: rgba(20, 20, 24, 0.9);
+  color: #d4d4d8;
+}
+
+.editorial-app-shell {
+  background:
+    radial-gradient(circle at top left, rgba(251, 146, 60, 0.12), transparent 24%),
+    radial-gradient(circle at 88% 8%, rgba(251, 146, 60, 0.06), transparent 16%),
+    linear-gradient(180deg, #050505 0%, #09090b 46%, #030303 100%);
+  color: #f4f4f5;
+}
+
+.editorial-app-sidebar {
+  border-color: rgba(63, 63, 70, 0.84);
+  background:
+    radial-gradient(circle at top left, rgba(251, 146, 60, 0.06), transparent 32%),
+    linear-gradient(180deg, rgba(8, 8, 10, 0.92), rgba(5, 5, 7, 0.98));
+}
+
+.editorial-app-card {
+  border: 1px solid rgba(63, 63, 70, 0.84);
+  border-radius: 0.125rem;
+  background: linear-gradient(180deg, rgba(18, 18, 20, 0.96), rgba(10, 10, 12, 0.98));
+  box-shadow:
+    0 18px 42px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.editorial-app-card-soft {
+  border: 1px solid rgba(63, 63, 70, 0.84);
+  border-radius: 0.125rem;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.editorial-app-link {
+  border: 1px solid rgba(63, 63, 70, 0.84);
+  border-radius: 0.125rem;
+  background: rgba(0, 0, 0, 0.22);
+  color: #d4d4d8;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.editorial-app-link:hover {
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  color: #f4f4f5;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.editorial-app-link-active {
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, rgba(0, 0, 0, 0.24));
+  color: var(--accent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.editorial-dark-card {
+  border: 1px solid rgba(63, 63, 70, 0.84);
+  border-radius: 1.35rem;
+  background: linear-gradient(180deg, rgba(18, 18, 20, 0.96), rgba(10, 10, 12, 0.98));
+  color: #f4f4f5;
 }
 
 .praxis-shell-backdrop {

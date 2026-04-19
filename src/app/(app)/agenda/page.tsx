@@ -119,14 +119,14 @@ export default function AgendaPage() {
 
   return (
     <div className="space-y-6">
-      <GlassPanel className="overflow-hidden border-emerald-400/15 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_42%),rgba(10,10,12,0.98)]">
+      <GlassPanel className="overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(251,146,60,0.10),transparent_36%),rgba(10,10,12,0.98)]">
         <div className="space-y-6">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.32em] text-emerald-300">
-                Semana
+              <p className="editorial-kicker text-[#c65622]">
+                Agenda
               </p>
-              <h1 className="mt-3 text-4xl font-semibold uppercase tracking-[-0.04em] text-white sm:text-5xl">
+              <h1 className="editorial-title mt-3 text-4xl text-white sm:text-5xl">
                 Linha do tempo semanal
               </h1>
               <p className="mt-3 text-sm uppercase tracking-[0.18em] text-zinc-500">
@@ -149,8 +149,8 @@ export default function AgendaPage() {
           </div>
 
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
-                Progresso semanal
+            <p className="editorial-kicker text-zinc-500">
+              Progresso semanal
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -227,10 +227,10 @@ export default function AgendaPage() {
         <div className="space-y-6 xl:sticky xl:top-24 xl:self-start">
           <GlassPanel className="space-y-5 border-emerald-400/18 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_46%),rgba(10,10,12,0.98)]">
             <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-zinc-500">
+              <p className="editorial-kicker text-zinc-500">
                 Dia selecionado
               </p>
-              <h2 className="mt-3 text-4xl font-semibold uppercase tracking-[-0.04em] text-white">
+              <h2 className="editorial-title mt-3 text-4xl text-white">
                 {selectedDay?.dayLabel ?? "Semana"}
               </h2>
               <p className="mt-3 text-sm leading-6 text-zinc-400">
@@ -240,25 +240,25 @@ export default function AgendaPage() {
 
             <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
               <div className="rounded-[20px] border border-zinc-800 bg-[rgba(18,18,20,0.92)] px-4 py-4">
-                <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
-                  Pendentes
-                </p>
+              <p className="editorial-kicker text-zinc-500">
+                Pendentes
+              </p>
                 <p className="mt-3 text-4xl font-semibold text-white">
                   {pendingItems.length.toString().padStart(2, "0")}
                 </p>
               </div>
               <div className="rounded-[20px] border border-zinc-800 bg-[rgba(18,18,20,0.92)] px-4 py-4">
-                <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
-                  Concluídas
-                </p>
+              <p className="editorial-kicker text-zinc-500">
+                Concluídas
+              </p>
                 <p className="mt-3 text-4xl font-semibold text-emerald-300">
                   {completedItems.length.toString().padStart(2, "0")}
                 </p>
               </div>
               <div className="rounded-[20px] border border-zinc-800 bg-[rgba(18,18,20,0.92)] px-4 py-4">
-                <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
-                  XP diário
-                </p>
+              <p className="editorial-kicker text-zinc-500">
+                XP diário
+              </p>
                 <p className="mt-3 text-3xl font-semibold text-white">
                   +{formatPoints(totalXp)}
                 </p>
@@ -267,7 +267,7 @@ export default function AgendaPage() {
 
             <div className="rounded-[20px] border border-zinc-800 bg-[rgba(18,18,20,0.92)] px-4 py-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
+                <p className="editorial-kicker text-zinc-500">
                   Consistência
                 </p>
                 <span className="text-sm font-semibold text-emerald-300">
@@ -315,10 +315,10 @@ export default function AgendaPage() {
         <GlassPanel className="space-y-5">
           <div className="flex flex-col gap-3 border-b border-zinc-800 pb-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-zinc-500">
+              <p className="editorial-kicker text-zinc-500">
                 Fluxo operacional
               </p>
-              <h2 className="mt-2 text-3xl font-semibold uppercase tracking-[-0.04em] text-white">
+              <h2 className="editorial-title mt-2 text-3xl text-white md:text-4xl">
                 Fluxo operacional do dia
               </h2>
             </div>

@@ -1077,16 +1077,20 @@ export default function TasksPage() {
 
   return (
     <div className="space-y-6">
-      <GlassPanel className="overflow-hidden border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_38%),rgba(10,10,12,0.96)]">
+      <GlassPanel className="overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(251,146,60,0.10),transparent_34%),rgba(10,10,12,0.96)]">
         <div className="space-y-6">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
             <div className="max-w-3xl">
-              <p className="text-xs uppercase tracking-[0.32em] text-emerald-300">
-                Linha do tempo
+              <p className="editorial-kicker text-[#c65622]">
+                Operação diária
               </p>
-              <h1 className="mt-3 text-4xl font-semibold uppercase tracking-[-0.04em] text-white sm:text-5xl">
-                Tarefas em modo execução
+              <h1 className="editorial-title mt-3 text-4xl text-white sm:text-5xl">
+                Tarefas em fluxo operacional
               </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-400">
+                A leitura do dia agora fica mais editorial e menos carregada:
+                calendário, consistência e execução no mesmo eixo visual.
+              </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -1131,10 +1135,10 @@ export default function TasksPage() {
 
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
+              <p className="editorial-kicker text-zinc-500">
                 Calendário de tarefas
               </p>
-              <p className="mt-2 text-sm text-zinc-500">
+              <p className="mt-2 text-sm leading-7 text-zinc-500">
                 {calendarView === "week"
                   ? "Visualização semanal do volume de execução."
                   : "Visualização mensal para enxergar carga e distribuição."}
@@ -1290,10 +1294,10 @@ export default function TasksPage() {
         <GlassPanel className="space-y-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-zinc-500">
+              <p className="editorial-kicker text-zinc-500">
                 Dia em foco
               </p>
-              <h2 className="mt-2 text-3xl font-semibold uppercase tracking-[-0.04em] text-white">
+              <h2 className="editorial-title mt-2 text-3xl text-white md:text-4xl">
                 Tarefas
               </h2>
               <p className="mt-2 text-sm text-zinc-500">{selectedDateSummaryLabel}</p>
@@ -1312,7 +1316,7 @@ export default function TasksPage() {
           <div className="rounded-[22px] border border-zinc-800 bg-[rgba(18,18,20,0.9)] px-5 py-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
+                <p className="editorial-kicker text-zinc-500">
                   Consistência diária
                 </p>
                 <p className="mt-2 text-2xl font-semibold text-white">
@@ -1332,8 +1336,8 @@ export default function TasksPage() {
             <div className="rounded-[24px] border border-zinc-800 bg-[rgba(14,14,17,0.96)] p-5">
               <div className="space-y-4">
                 <p className="text-sm leading-6 text-zinc-300">
-                  Toda nova meta nasce dentro de um módulo. Escolha a frente e
-                  o app te leva direto para a criação certa.
+                  Toda nova meta nasce dentro de um módulo. Escolha a frente e o
+                  app te leva direto para a criação certa.
                 </p>
 
                 {visibleModules.length ? (
@@ -1385,10 +1389,10 @@ export default function TasksPage() {
                             <Clock3 className="h-5 w-5 text-emerald-300" />
                           </div>
                           <div>
-                            <p className="text-xs uppercase tracking-[0.24em] text-emerald-300">
+                            <p className="editorial-kicker text-emerald-300">
                               {phase.window}
                             </p>
-                            <h3 className="mt-1 text-[1.75rem] font-semibold uppercase tracking-[-0.04em] text-white">
+                            <h3 className="editorial-title mt-1 text-[1.75rem] text-white">
                               {phase.label}
                             </h3>
                             <p className="mt-1 text-sm text-zinc-500">

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { ptBR } from "@clerk/localizations";
-import { Inter, Rajdhani, Space_Grotesk } from "next/font/google";
+import { Instrument_Serif, Inter, Rajdhani, Space_Grotesk } from "next/font/google";
 import { AppStoreProvider } from "@/components/providers/app-store-provider";
 import { AuthClientProvider } from "@/components/providers/auth-client-provider";
 import { NotificationsProvider } from "@/components/providers/notifications-provider";
@@ -23,6 +23,12 @@ const rajdhani = Rajdhani({
   variable: "--font-rajdhani",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
+});
+
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-instrument-serif",
+  subsets: ["latin"],
+  weight: "400",
 });
 
 export const metadata: Metadata = {
@@ -66,7 +72,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${spaceGrotesk.variable} ${rajdhani.variable} bg-[var(--background)] font-sans antialiased`}
+        className={`${inter.variable} ${spaceGrotesk.variable} ${rajdhani.variable} ${instrumentSerif.variable} bg-[var(--background)] font-sans antialiased`}
       >
         <AuthClientProvider
           clerkProps={{

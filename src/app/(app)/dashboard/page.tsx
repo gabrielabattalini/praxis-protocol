@@ -250,11 +250,13 @@ export default function DashboardPage() {
       <GlassPanel className="space-y-4 p-6 md:p-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="praxis-label text-[var(--accent)]">Abertura do dia</p>
-            <h2 className="praxis-title mt-2 text-3xl">O que fazer agora</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-500">
-              A ideia aqui é tirar fricção. Um toque te leva para a próxima ação mais
-              importante do ciclo.
+            <p className="editorial-kicker text-[#c65622]">Abertura do dia</p>
+            <h2 className="editorial-title mt-2 text-3xl text-zinc-100 md:text-4xl">
+              O que fazer agora
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-400">
+              Um painel menos teatral e mais útil: o próximo passo já aparece com
+              contexto, prioridade e caminho de execução.
             </p>
           </div>
           <button
@@ -319,9 +321,9 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        <div className="rounded-sm border border-zinc-800 bg-[rgba(10,10,12,0.82)] p-4">
-          <p className="praxis-label">Pressão do ciclo</p>
-          <p className="mt-2 text-sm leading-6 text-zinc-500">
+        <div className="rounded-[1.25rem] border border-zinc-800 bg-[rgba(10,10,12,0.82)] p-4">
+          <p className="editorial-kicker">Pressão do ciclo</p>
+          <p className="mt-2 text-sm leading-7 text-zinc-500">
             {nextManual
               ? `A próxima meta manual é ${nextManual.title.toLowerCase()}.`
               : "O ciclo atual está dominado pelas rotinas sincronizadas dos módulos."}
@@ -333,9 +335,11 @@ export default function DashboardPage() {
       <GlassPanel className="space-y-5 p-6 md:p-8">
         <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
           <div>
-            <p className="praxis-label text-[var(--accent)]">Score do dia</p>
-            <h2 className="praxis-title mt-2 text-3xl">Leitura de execução</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-500">
+            <p className="editorial-kicker text-[#c65622]">Score do dia</p>
+            <h2 className="editorial-title mt-2 text-3xl text-zinc-100 md:text-4xl">
+              Leitura de execução
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-400">
               O painel abre mostrando o estado real do dia, não só o que foi planejado.
             </p>
 
@@ -392,7 +396,7 @@ export default function DashboardPage() {
               </svg>
               <div className="absolute inset-0 grid place-items-center text-center">
                 <div>
-                  <p className="praxis-label">Execução</p>
+                  <p className="editorial-kicker">Execução</p>
                   <p className="mt-2 font-title text-5xl font-bold text-zinc-100">
                     {scorePercent}%
                   </p>
@@ -405,7 +409,7 @@ export default function DashboardPage() {
 
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
-                <p className="praxis-label">Hidratação</p>
+                <p className="editorial-kicker">Hidratação</p>
                 <p className="mt-2 text-xl font-semibold text-zinc-100">
                   {waterPercent}%
                 </p>
@@ -415,7 +419,7 @@ export default function DashboardPage() {
                 </p>
               </div>
               <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
-                <p className="praxis-label">Sequência</p>
+                <p className="editorial-kicker">Sequência</p>
                 <p className="mt-2 text-xl font-semibold text-zinc-100">
                   {user.streak} dias
                 </p>
@@ -432,8 +436,10 @@ export default function DashboardPage() {
       <GlassPanel className="space-y-4 p-6 md:p-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="praxis-label text-[var(--accent)]">Próximos blocos</p>
-            <h2 className="praxis-title mt-2 text-3xl">Linha do tempo de hoje</h2>
+            <p className="editorial-kicker text-[#c65622]">Próximos passos</p>
+            <h2 className="editorial-title mt-2 text-3xl text-zinc-100 md:text-4xl">
+              Linha do tempo de hoje
+            </h2>
           </div>
           <Link
             href="/agenda"
@@ -491,8 +497,10 @@ export default function DashboardPage() {
       <GlassPanel className="space-y-4 p-6 md:p-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="praxis-label text-[var(--accent)]">Ritmo</p>
-            <h2 className="praxis-title mt-2 text-3xl">Consistência na semana</h2>
+            <p className="editorial-kicker text-[#c65622]">Ritmo</p>
+            <h2 className="editorial-title mt-2 text-3xl text-zinc-100 md:text-4xl">
+              Consistência na semana
+            </h2>
           </div>
           <span className="rounded-sm border border-zinc-800 px-3 py-2 text-xs uppercase tracking-[0.18em] text-zinc-400">
             leitura por dia
@@ -527,8 +535,10 @@ export default function DashboardPage() {
       <GlassPanel className="space-y-4 p-6 md:p-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="praxis-label text-[var(--accent)]">Sistema</p>
-            <h2 className="praxis-title mt-2 text-3xl">Módulos ativos</h2>
+            <p className="editorial-kicker text-[#c65622]">Sistema</p>
+            <h2 className="editorial-title mt-2 text-3xl text-zinc-100 md:text-4xl">
+              Módulos ativos
+            </h2>
           </div>
           <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
             progresso por frente
@@ -579,8 +589,10 @@ export default function DashboardPage() {
       <GlassPanel className="space-y-4 p-6 md:p-8">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="praxis-label text-[var(--accent)]">Posição</p>
-            <h2 className="praxis-title mt-2 text-3xl">Leitura global</h2>
+            <p className="editorial-kicker text-[#c65622]">Posição</p>
+            <h2 className="editorial-title mt-2 text-3xl text-zinc-100 md:text-4xl">
+              Leitura global
+            </h2>
           </div>
           <Medal className="h-5 w-5 text-[var(--accent)]" />
         </div>
@@ -626,8 +638,10 @@ export default function DashboardPage() {
       <GlassPanel className="space-y-4 p-6 md:p-8">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="praxis-label text-[var(--accent)]">Perfil</p>
-            <h2 className="praxis-title mt-2 text-3xl">Status do operador</h2>
+            <p className="editorial-kicker text-[#c65622]">Perfil</p>
+            <h2 className="editorial-title mt-2 text-3xl text-zinc-100 md:text-4xl">
+              Status do operador
+            </h2>
           </div>
           <Shield className="h-5 w-5 text-[var(--accent)]" />
         </div>
@@ -678,18 +692,20 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <PageIntro
-        eyebrow="Hoje"
-        title="Painel do operador"
-        description="O Praxis agora abre como base operacional do dia: score, próximos blocos, módulos ativos e ações rápidas no mesmo lugar."
+        eyebrow="Comando"
+        title="Dashboard"
+        description="Visão central do operador: missões, ritmo semanal, módulos ativos e próximos passos no mesmo núcleo."
       />
 
       {isLayoutEditing ? (
         <GlassPanel className="space-y-4 p-6 md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="praxis-label text-[var(--accent)]">Personalização</p>
-              <h2 className="praxis-title mt-2 text-3xl">Editar layout do painel</h2>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-500">
+              <p className="editorial-kicker text-[#c65622]">Personalização</p>
+              <h2 className="editorial-title mt-2 text-3xl text-zinc-100 md:text-4xl">
+                Editar layout do painel
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-400">
                 Reordene os blocos que você vê primeiro e esconda o que não ajuda no ciclo
                 atual. Essa ordem fica presa à conta.
               </p>

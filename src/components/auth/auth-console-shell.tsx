@@ -22,91 +22,86 @@ export function AuthConsoleShell({
 }: AuthConsoleShellProps) {
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#050505] text-zinc-100 selection:bg-amber-400/30 selection:text-[#050505]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,146,60,0.12),transparent_24%),radial-gradient(circle_at_84%_12%,rgba(251,146,60,0.08),transparent_18%),linear-gradient(180deg,#050505_0%,#09090b_46%,#030303_100%)]" />
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.08]"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px)",
-          backgroundSize: "40px 40px",
-        }}
-      />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-amber-400/40 shadow-[0_0_18px_rgba(251,146,60,0.32)]" />
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-24 opacity-[0.07]"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(to bottom, rgba(251,146,60,0.55) 0px, rgba(251,146,60,0.55) 1px, transparent 1px, transparent 6px)",
-        }}
-      />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,146,60,0.12),transparent_28%),radial-gradient(circle_at_84%_12%,rgba(251,146,60,0.08),transparent_18%),linear-gradient(180deg,#050505_0%,#09090b_46%,#030303_100%)]" />
+      <div className="pointer-events-none absolute inset-0 praxis-tech-grid opacity-[0.08]" />
 
-      <main className="relative z-10 flex min-h-screen items-center justify-center px-4 py-8 md:px-6">
-        <section className="w-full max-w-[580px] border border-zinc-800 bg-[linear-gradient(180deg,rgba(12,12,14,0.96),rgba(6,6,8,0.98))] p-5 shadow-[0_0_0_1px_rgba(251,146,60,0.06),0_28px_120px_rgba(0,0,0,0.45)] backdrop-blur-xl md:p-7">
-          <div className="flex items-center justify-between gap-3 border-b border-zinc-800 pb-4">
-            <p className="font-mono text-[0.54rem] uppercase tracking-[0.28em] text-zinc-600">
-              Praxis Access Core
-            </p>
-            <div className="inline-flex items-center gap-2 rounded-sm border border-amber-400/18 bg-amber-400/10 px-3 py-1.5 font-mono text-[0.54rem] uppercase tracking-[0.22em] text-amber-300">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.55)]" />
-              Sessão isolada
+      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1440px] items-center px-4 py-8 md:px-6 lg:px-10">
+        <section className="grid w-full overflow-hidden border border-zinc-800 bg-[rgba(6,6,8,0.9)] lg:grid-cols-[minmax(0,0.92fr)_minmax(360px,0.88fr)]">
+          <div className="grid-bg hidden border-r border-zinc-800 px-8 py-10 lg:flex lg:flex-col lg:justify-between">
+            <div className="flex items-center gap-3">
+              <Image
+                src="/logo.png"
+                alt="Praxis Protocol"
+                width={28}
+                height={28}
+                className="h-7 w-auto"
+              />
+              <span className="praxis-label text-zinc-500">Praxis Protocol</span>
+            </div>
+
+            <div className="max-w-xl">
+              <p className="font-mono text-[0.64rem] uppercase tracking-[0.28em] text-[var(--accent)]">
+                {badge || "Operador - Gold III"}
+              </p>
+              <h1 className="mt-4 font-display text-4xl font-semibold leading-[0.98] tracking-[-0.03em] text-zinc-100 md:text-5xl">
+                Disciplina nao e humor.
+                <br />
+                E sistema.
+              </h1>
+              <p className="mt-6 max-w-lg text-base leading-8 text-zinc-400">
+                {description ||
+                  "Entre no Praxis para operar tarefas, agenda, treino, dieta e progresso no mesmo nucleo."}
+              </p>
+              <p className="mt-8 font-mono text-[0.56rem] uppercase tracking-[0.24em] text-zinc-600">
+                {"// manifesto.txt - secao 02"}
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 border-t border-zinc-800 pt-5">
+              <span className="font-mono text-[0.56rem] uppercase tracking-[0.24em] text-zinc-600">
+                Praxis/Auth/V2
+              </span>
+              <span className="font-mono text-[0.56rem] uppercase tracking-[0.24em] text-zinc-600">
+                * Sys online
+              </span>
             </div>
           </div>
 
-          <div className="pt-5 text-center">
-            <div className="flex flex-col items-center gap-4">
-              <div className="border border-zinc-700 bg-[#101012] p-2">
+          <div className="flex items-center justify-center px-6 py-10 md:px-8 lg:px-10">
+            <div className="w-full max-w-[380px]">
+              <div className="mb-8 text-center lg:hidden">
                 <Image
                   src="/logo.png"
                   alt="Praxis Protocol"
-                  width={40}
-                  height={40}
-                  className="h-10 w-10 object-contain"
+                  width={36}
+                  height={36}
+                  className="mx-auto h-9 w-auto"
                 />
               </div>
-              <div>
-                {badge ? (
-                  <p className="font-mono text-[0.56rem] uppercase tracking-[0.3em] text-amber-300">
-                    {badge}
-                  </p>
-                ) : null}
-                <p
-                  className={`font-display text-2xl font-semibold uppercase tracking-tight text-zinc-100 md:text-3xl ${
-                    badge ? "mt-2" : ""
-                  }`}
-                >
-                  {title}
+
+              <p className="praxis-label mb-3 text-[var(--accent)]">Acesso - Operador</p>
+              <h2 className="praxis-title text-3xl md:text-4xl">
+                {title || "Entrar no protocolo"}
+              </h2>
+
+              {description ? (
+                <p className="mt-4 text-sm leading-7 text-zinc-500 lg:hidden">
+                  {description}
                 </p>
+              ) : null}
+
+              <div className="mt-8">{children}</div>
+
+              <div className="mt-8 border-t border-zinc-800 pt-6 text-center">
+                <p className="text-sm text-zinc-500">{alternatePrompt}</p>
+                <Link
+                  href={alternateHref}
+                  className="mt-4 inline-flex h-11 items-center justify-center border border-zinc-700 bg-[#101012] px-5 font-mono text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-zinc-200 transition hover:border-amber-400/35 hover:bg-amber-400/10 hover:text-amber-200"
+                >
+                  {alternateLabel}
+                </Link>
               </div>
             </div>
-          </div>
-
-          {description ? (
-            <p className="mx-auto mt-5 max-w-md text-center text-sm leading-7 text-zinc-400 md:text-base md:leading-8">
-              {description}
-            </p>
-          ) : null}
-
-          <div className="mt-6 border border-amber-400/18 bg-[linear-gradient(180deg,rgba(251,146,60,0.06),rgba(8,8,9,0.98))] p-4 md:p-5">
-            <div className="text-center">
-              <p className="font-mono text-[0.54rem] uppercase tracking-[0.22em] text-zinc-500">
-                Painel de autenticação
-              </p>
-              <p className="mt-2 font-display text-xl font-semibold uppercase tracking-tight text-zinc-100">
-                Iniciar acesso seguro
-              </p>
-            </div>
-
-            <div className="mx-auto mt-5 max-w-[380px]">{children}</div>
-          </div>
-
-          <div className="mt-6 border-t border-zinc-800 pt-5 text-center">
-            <p className="text-sm text-zinc-500">{alternatePrompt}</p>
-            <Link
-              href={alternateHref}
-              className="mt-4 inline-flex h-11 items-center justify-center border border-zinc-700 bg-[#101012] px-5 font-mono text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-zinc-200 transition hover:border-amber-400/35 hover:bg-amber-400/10 hover:text-amber-200"
-            >
-              {alternateLabel}
-            </Link>
           </div>
         </section>
       </main>
