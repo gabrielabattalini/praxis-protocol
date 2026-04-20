@@ -47,6 +47,15 @@
 }
 
 :root[data-theme="default"] {
+  /* Praxis Redesign default — warm amber (matches :root fallback) */
+  --accent: #fb923c;
+  --accent-2: #fdba74;
+  --glow: rgba(251, 146, 60, 0.36);
+  --brand-primary: #fb923c;
+  --brand-primary-glow: rgba(251, 146, 60, 0.42);
+}
+
+:root[data-theme="teal"] {
   --accent: #35d6b4;
   --accent-2: #8ff7c7;
   --glow: rgba(53, 214, 180, 0.3);
@@ -704,4 +713,186 @@ button {
 
 .rx-input::placeholder {
   color: var(--fg-4);
+}
+
+/* Source-package aliases */
+.pa {
+  background:
+    radial-gradient(circle at 20% 0%, rgba(251, 146, 60, 0.06), transparent 40%),
+    radial-gradient(circle at 80% 100%, rgba(56, 189, 248, 0.03), transparent 40%),
+    var(--bg);
+  color: var(--fg);
+  position: relative;
+  font-family: var(--font-space-grotesk), sans-serif;
+}
+
+.pa::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--line-soft) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: 0.45;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.012) 0px,
+    rgba(255, 255, 255, 0.012) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(251, 146, 60, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(251, 146, 60, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.panel {
+  background: linear-gradient(180deg, rgba(20, 20, 24, 0.8), rgba(12, 12, 16, 0.7));
+  border: 1px solid var(--line);
+  position: relative;
+}
+
+.panel-hot {
+  background: linear-gradient(180deg, rgba(251, 146, 60, 0.05), rgba(251, 146, 60, 0.01));
+  border: 1px solid rgba(251, 146, 60, 0.3);
+  box-shadow:
+    0 0 24px rgba(251, 146, 60, 0.08),
+    inset 0 0 32px rgba(251, 146, 60, 0.02);
+  position: relative;
+}
+
+.display {
+  font-family: var(--font-space-grotesk), sans-serif;
+}
+
+.mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.label {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  color: var(--fg-3);
+  text-transform: uppercase;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: linear-gradient(180deg, var(--accent-bright), var(--accent));
+  color: #1a0a04;
+  border: none;
+  border-radius: 2px;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow:
+    0 0 18px rgba(251, 146, 60, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition: box-shadow var(--motion-fast), transform var(--motion-fast);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 0 28px rgba(251, 146, 60, 0.5);
+  transform: translateY(-1px);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--fg-2);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color var(--motion-fast), color var(--motion-fast);
+}
+
+.btn-ghost:hover {
+  border-color: var(--line-bright);
+  color: var(--fg);
+}
+
+.chip-mono {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  font-weight: 600;
+  color: var(--fg-3);
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.3);
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+
+.chip-accent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  font-weight: 700;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  background: rgba(251, 146, 60, 0.1);
+  box-shadow: 0 0 12px rgba(251, 146, 60, 0.2);
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+
+.pbar {
+  height: 4px;
+  background: var(--line-soft);
+  overflow: hidden;
+  position: relative;
+  border-radius: 2px;
+}
+
+.pbar > div {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.hr-tick {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--line-bright), transparent);
+  position: relative;
 }
