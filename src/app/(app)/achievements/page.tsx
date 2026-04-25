@@ -139,7 +139,7 @@ export default function AchievementsPage() {
                     ? `0 0 20px color-mix(in srgb, ${color} 25%, transparent)`
                     : "none",
                   fontSize: 24,
-                  borderRadius: 2,
+                  borderRadius: 12,
                 }}
               >
                 {achievement.icon}

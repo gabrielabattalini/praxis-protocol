@@ -236,6 +236,7 @@ button {
 .praxis-panel {
   border: 1px solid rgba(63, 63, 70, 0.84);
   background: linear-gradient(180deg, rgba(18, 18, 20, 0.96), rgba(10, 10, 12, 0.98));
+  border-radius: 20px;
 }
 
 .praxis-panel-active {
@@ -270,7 +271,7 @@ button {
   border: 1px solid rgba(63, 63, 70, 0.84);
   background: linear-gradient(180deg, rgba(14, 14, 17, 0.96), rgba(7, 7, 9, 0.98));
   color: #f4f4f5;
-  border-radius: 0.125rem;
+  border-radius: 12px;
 }
 
 .praxis-field::placeholder {
@@ -289,7 +290,7 @@ button {
   border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   background: linear-gradient(180deg, rgba(18, 18, 20, 0.98), rgba(8, 8, 10, 1));
   color: #f4f4f5;
-  border-radius: 0.125rem;
+  border-radius: 999px;
   font-family: var(--font-mono), monospace;
   font-size: 0.72rem;
   font-weight: 700;
@@ -315,7 +316,7 @@ button {
   border: 1px solid rgba(63, 63, 70, 0.84);
   background: linear-gradient(180deg, rgba(18, 18, 20, 0.96), rgba(10, 10, 12, 0.98));
   color: #d4d4d8;
-  border-radius: 0.125rem;
+  border-radius: 999px;
   font-family: var(--font-mono), monospace;
   font-size: 0.72rem;
   font-weight: 700;
@@ -386,7 +387,7 @@ button {
 
 .editorial-panel {
   border: 1px solid rgba(63, 63, 70, 0.84);
-  border-radius: 0.125rem;
+  border-radius: 999px;
   background:
     radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 8%, transparent), transparent 34%),
     linear-gradient(180deg, rgba(18, 18, 20, 0.96), rgba(10, 10, 12, 0.98));
@@ -419,7 +420,7 @@ button {
 
 .editorial-app-card {
   border: 1px solid rgba(63, 63, 70, 0.84);
-  border-radius: 0.125rem;
+  border-radius: 999px;
   background: linear-gradient(180deg, rgba(18, 18, 20, 0.96), rgba(10, 10, 12, 0.98));
   box-shadow:
     0 18px 42px rgba(0, 0, 0, 0.2),
@@ -428,13 +429,13 @@ button {
 
 .editorial-app-card-soft {
   border: 1px solid rgba(63, 63, 70, 0.84);
-  border-radius: 0.125rem;
+  border-radius: 999px;
   background: rgba(0, 0, 0, 0.28);
 }
 
 .editorial-app-link {
   border: 1px solid rgba(63, 63, 70, 0.84);
-  border-radius: 0.125rem;
+  border-radius: 999px;
   background: rgba(0, 0, 0, 0.22);
   color: #d4d4d8;
   transition:
@@ -475,7 +476,7 @@ button {
 .praxis-kpi {
   border: 1px solid rgba(63, 63, 70, 0.84);
   background: linear-gradient(180deg, rgba(18, 18, 20, 0.98), rgba(10, 10, 12, 1));
-  border-radius: 0.125rem;
+  border-radius: 999px;
   position: relative;
   overflow: hidden;
 }
@@ -570,119 +571,126 @@ button {
   background-size: 24px 24px;
 }
 
-/* Panels — base + hot (accent-tinted) */
+/* Panels — base + hot (accent-tinted) — v2.0 rounded */
 .rx-panel {
-  background: linear-gradient(180deg, rgba(20, 20, 24, 0.8), rgba(12, 12, 16, 0.7));
-  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(20, 20, 24, 0.96), rgba(10, 10, 12, 0.98));
+  border: 1px solid rgba(39, 39, 42, 0.8);
   position: relative;
+  border-radius: 20px;
 }
 
 .rx-panel-hot {
-  background: linear-gradient(180deg, rgba(251, 146, 60, 0.05), rgba(251, 146, 60, 0.01));
+  background: linear-gradient(180deg, rgba(251, 146, 60, 0.08), rgba(10, 10, 12, 0.98));
   border: 1px solid rgba(251, 146, 60, 0.3);
-  box-shadow:
-    0 0 24px rgba(251, 146, 60, 0.08),
-    inset 0 0 32px rgba(251, 146, 60, 0.02);
+  box-shadow: 0 0 32px rgba(251, 146, 60, 0.08);
   position: relative;
+  border-radius: 20px;
 }
 
-/* Chips */
+/* Chips — v2.0 pill */
 .rx-chip-mono {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 5px 12px;
   font-family: var(--font-mono), monospace;
   font-size: 10px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.18em;
   font-weight: 600;
-  color: var(--fg-3);
-  border: 1px solid var(--line);
-  background: rgba(0, 0, 0, 0.3);
+  color: var(--fg-2);
+  border: 1px solid rgba(39, 39, 42, 0.8);
+  background: rgba(18, 18, 20, 0.98);
   text-transform: uppercase;
-  border-radius: 2px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
 .rx-chip-accent {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 5px 12px;
   font-family: var(--font-mono), monospace;
   font-size: 10px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.18em;
   font-weight: 700;
   color: var(--accent);
-  border: 1px solid var(--accent);
-  background: rgba(251, 146, 60, 0.1);
-  box-shadow: 0 0 12px rgba(251, 146, 60, 0.2);
+  border: 1px solid rgba(251, 146, 60, 0.3);
+  background: rgba(251, 146, 60, 0.12);
+  box-shadow: 0 0 14px rgba(251, 146, 60, 0.18);
   text-transform: uppercase;
-  border-radius: 2px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
-/* Buttons */
+/* Buttons — v2.0 pill */
 .rx-btn-primary {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   padding: 10px 18px;
-  background: linear-gradient(180deg, var(--accent-bright), var(--accent));
-  color: #1a0a04;
-  border: none;
-  border-radius: 2px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 92%, white 8%), color-mix(in srgb, #f97316 92%, black 8%));
+  color: #140a03;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
   font-family: var(--font-mono), monospace;
   font-size: 11px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.18em;
   font-weight: 700;
   text-transform: uppercase;
   cursor: pointer;
-  box-shadow:
-    0 0 18px rgba(251, 146, 60, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 18px rgba(251, 146, 60, 0.25);
   transition: box-shadow var(--motion-fast), transform var(--motion-fast);
+  white-space: nowrap;
 }
 
 .rx-btn-primary:hover {
-  box-shadow: 0 0 28px rgba(251, 146, 60, 0.5);
+  box-shadow: 0 0 26px rgba(251, 146, 60, 0.4);
   transform: translateY(-1px);
 }
 
 .rx-btn-ghost {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   padding: 10px 18px;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(18, 18, 20, 0.98);
   color: var(--fg-2);
-  border: 1px solid var(--line);
-  border-radius: 2px;
+  border: 1px solid rgba(39, 39, 42, 0.6);
+  border-radius: 999px;
   font-family: var(--font-mono), monospace;
   font-size: 11px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.18em;
   font-weight: 600;
   text-transform: uppercase;
   cursor: pointer;
-  transition: border-color var(--motion-fast), color var(--motion-fast);
+  transition: border-color var(--motion-fast), color var(--motion-fast), background var(--motion-fast);
+  white-space: nowrap;
 }
 
 .rx-btn-ghost:hover {
-  border-color: var(--line-bright);
+  border-color: rgba(39, 39, 42, 1);
   color: var(--fg);
+  background: rgba(28, 28, 32, 0.98);
 }
 
-/* Progress bar with glow */
+/* Progress bar — v2.0 thicker pill */
 .rx-pbar {
-  height: 4px;
-  background: var(--line-soft);
+  height: 8px;
+  background: rgba(0, 0, 0, 0.6);
   overflow: hidden;
   position: relative;
-  border-radius: 2px;
+  border-radius: 999px;
+  border: 1px solid rgba(39, 39, 42, 0.8);
 }
 
 .rx-pbar > div {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), var(--accent-bright));
-  box-shadow: 0 0 8px var(--accent-glow);
+  background: linear-gradient(90deg, var(--accent), #f97316);
+  border-radius: 999px;
+  transition: width 0.5s ease;
 }
 
 /* Centered fading divider */
@@ -692,16 +700,16 @@ button {
   position: relative;
 }
 
-/* Form input shared style */
+/* Form input shared style — v2.0 rounded */
 .rx-input {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
+  padding: 11px 14px;
+  border: 1px solid rgba(39, 39, 42, 0.8);
   background: rgba(0, 0, 0, 0.4);
   color: var(--fg);
-  font-family: var(--font-mono), monospace;
-  font-size: 13px;
-  border-radius: 2px;
+  font-family: var(--font-sans), inherit;
+  font-size: 14px;
+  border-radius: 12px;
   outline: none;
   transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
 }
@@ -762,18 +770,18 @@ button {
 }
 
 .panel {
-  background: linear-gradient(180deg, rgba(20, 20, 24, 0.8), rgba(12, 12, 16, 0.7));
-  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(20, 20, 24, 0.96), rgba(10, 10, 12, 0.98));
+  border: 1px solid rgba(39, 39, 42, 0.8);
   position: relative;
+  border-radius: 20px;
 }
 
 .panel-hot {
-  background: linear-gradient(180deg, rgba(251, 146, 60, 0.05), rgba(251, 146, 60, 0.01));
+  background: linear-gradient(180deg, rgba(251, 146, 60, 0.08), rgba(10, 10, 12, 0.98));
   border: 1px solid rgba(251, 146, 60, 0.3);
-  box-shadow:
-    0 0 24px rgba(251, 146, 60, 0.08),
-    inset 0 0 32px rgba(251, 146, 60, 0.02);
+  box-shadow: 0 0 32px rgba(251, 146, 60, 0.08);
   position: relative;
+  border-radius: 20px;
 }
 
 .display {
@@ -799,24 +807,23 @@ button {
   justify-content: center;
   gap: 8px;
   padding: 10px 18px;
-  background: linear-gradient(180deg, var(--accent-bright), var(--accent));
-  color: #1a0a04;
-  border: none;
-  border-radius: 2px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 92%, white 8%), color-mix(in srgb, #f97316 92%, black 8%));
+  color: #140a03;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
   font-family: var(--font-mono), monospace;
   font-size: 11px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.18em;
   font-weight: 700;
   text-transform: uppercase;
   cursor: pointer;
-  box-shadow:
-    0 0 18px rgba(251, 146, 60, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 18px rgba(251, 146, 60, 0.25);
   transition: box-shadow var(--motion-fast), transform var(--motion-fast);
+  white-space: nowrap;
 }
 
 .btn-primary:hover {
-  box-shadow: 0 0 28px rgba(251, 146, 60, 0.5);
+  box-shadow: 0 0 26px rgba(251, 146, 60, 0.4);
   transform: translateY(-1px);
 }
 
@@ -826,69 +833,75 @@ button {
   justify-content: center;
   gap: 8px;
   padding: 10px 18px;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(18, 18, 20, 0.98);
   color: var(--fg-2);
-  border: 1px solid var(--line);
-  border-radius: 2px;
+  border: 1px solid rgba(39, 39, 42, 0.6);
+  border-radius: 999px;
   font-family: var(--font-mono), monospace;
   font-size: 11px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.18em;
   font-weight: 600;
   text-transform: uppercase;
   cursor: pointer;
-  transition: border-color var(--motion-fast), color var(--motion-fast);
+  transition: border-color var(--motion-fast), color var(--motion-fast), background var(--motion-fast);
+  white-space: nowrap;
 }
 
 .btn-ghost:hover {
-  border-color: var(--line-bright);
+  border-color: rgba(39, 39, 42, 1);
   color: var(--fg);
+  background: rgba(28, 28, 32, 0.98);
 }
 
 .chip-mono {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 5px 12px;
   font-family: var(--font-mono), monospace;
   font-size: 10px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.18em;
   font-weight: 600;
-  color: var(--fg-3);
-  border: 1px solid var(--line);
-  background: rgba(0, 0, 0, 0.3);
+  color: var(--fg-2);
+  border: 1px solid rgba(39, 39, 42, 0.8);
+  background: rgba(18, 18, 20, 0.98);
   text-transform: uppercase;
-  border-radius: 2px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
 .chip-accent {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 5px 12px;
   font-family: var(--font-mono), monospace;
   font-size: 10px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.18em;
   font-weight: 700;
   color: var(--accent);
-  border: 1px solid var(--accent);
-  background: rgba(251, 146, 60, 0.1);
-  box-shadow: 0 0 12px rgba(251, 146, 60, 0.2);
+  border: 1px solid rgba(251, 146, 60, 0.3);
+  background: rgba(251, 146, 60, 0.12);
+  box-shadow: 0 0 14px rgba(251, 146, 60, 0.18);
   text-transform: uppercase;
-  border-radius: 2px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
 .pbar {
-  height: 4px;
-  background: var(--line-soft);
+  height: 8px;
+  background: rgba(0, 0, 0, 0.6);
   overflow: hidden;
   position: relative;
-  border-radius: 2px;
+  border-radius: 999px;
+  border: 1px solid rgba(39, 39, 42, 0.8);
 }
 
 .pbar > div {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), var(--accent-bright));
-  box-shadow: 0 0 8px var(--accent-glow);
+  background: linear-gradient(90deg, var(--accent), #f97316);
+  border-radius: 999px;
+  transition: width 0.5s ease;
 }
 
 .hr-tick {

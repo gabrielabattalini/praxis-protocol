@@ -640,7 +640,7 @@ export default function ToolsPage() {
                       style={{
                         border: "1px solid var(--line)",
                         background: "rgba(0,0,0,0.3)",
-                        borderRadius: 2,
+                        borderRadius: 12,
                         color: active ? appTheme.accent : "var(--fg-3)",
                       }}
                     >
@@ -656,7 +656,7 @@ export default function ToolsPage() {
                         border: `1px solid ${active ? appTheme.accent : "var(--line)"}`,
                         background: active ? appTheme.chip : "transparent",
                         color: active ? appTheme.accent : "var(--fg-4)",
-                        borderRadius: 2,
+                        borderRadius: 12,
                       }}
                     >
                       {app.status}
@@ -692,7 +692,7 @@ export default function ToolsPage() {
             color: "var(--fg)",
             fontSize: 11,
             letterSpacing: "0.12em",
-            borderRadius: 2,
+            borderRadius: 12,
             boxShadow: `0 0 20px ${theme.accent}40`,
           }}
         >

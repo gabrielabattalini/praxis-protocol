@@ -185,7 +185,7 @@ function TabContent({
                     background: option.primary,
                     boxShadow: `0 0 20px ${option.glow}`,
                     marginBottom: 10,
-                    borderRadius: 2,
+                    borderRadius: 12,
                   }}
                 />
                 <div
@@ -285,7 +285,7 @@ function TabContent({
                     border: `1px solid ${active ? "var(--accent)" : "var(--line)"}`,
                     background: active ? "rgba(251,146,60,0.08)" : "rgba(0,0,0,0.3)",
                     color: active ? "var(--accent)" : "var(--fg-3)",
-                    borderRadius: 2,
+                    borderRadius: 12,
                   }}
                 >
                   <Icon className="h-4 w-4" />
@@ -322,7 +322,7 @@ function TabContent({
                     color: active ? "var(--accent)" : "var(--fg-3)",
                     letterSpacing: "0.18em",
                     textTransform: "uppercase",
-                    borderRadius: 2,
+                    borderRadius: 12,
                   }}
                 >
                   {active ? "ATIVO" : "INATIVO"}
@@ -542,7 +542,7 @@ function TabContent({
               background: "rgba(251,146,60,0.08)",
               color: "var(--accent)",
               fontSize: 12,
-              borderRadius: 2,
+              borderRadius: 12,
             }}
           >
             {lastError}
@@ -642,7 +642,7 @@ function TabContent({
                       color: active ? "var(--accent)" : "var(--fg-3)",
                       letterSpacing: "0.18em",
                       textTransform: "uppercase",
-                      borderRadius: 2,
+                      borderRadius: 12,
                       flexShrink: 0,
                     }}
                   >
@@ -702,7 +702,7 @@ function TabContent({
                 background: "rgba(0,0,0,0.3)",
                 fontSize: 13,
                 color: "var(--fg-2)",
-                borderRadius: 2,
+                borderRadius: 12,
               }}
             >
               <span

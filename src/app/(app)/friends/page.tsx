@@ -169,7 +169,7 @@ export default function FriendsPage() {
                     padding: 10,
                     border: "1px solid var(--line)",
                     background: "rgba(0,0,0,0.3)",
-                    borderRadius: 2,
+                    borderRadius: 12,
                   }}
                 >
                   <div
@@ -200,7 +200,7 @@ export default function FriendsPage() {
                     padding: 10,
                     border: "1px solid var(--line)",
                     background: "rgba(0,0,0,0.3)",
-                    borderRadius: 2,
+                    borderRadius: 12,
                   }}
                 >
                   <div

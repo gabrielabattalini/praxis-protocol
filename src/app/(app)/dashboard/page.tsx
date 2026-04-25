@@ -563,7 +563,7 @@ export default function DashboardPage() {
               padding: 10,
               border: "1px solid var(--line)",
               background: "rgba(0,0,0,0.3)",
-              borderRadius: 2,
+              borderRadius: 12,
             }}
           >
             <div
@@ -597,7 +597,7 @@ export default function DashboardPage() {
               padding: 10,
               border: "1px solid var(--line)",
               background: "rgba(0,0,0,0.3)",
-              borderRadius: 2,
+              borderRadius: 12,
             }}
           >
             <div
@@ -948,7 +948,7 @@ export default function DashboardPage() {
               padding: 10,
               border: "1px solid var(--line)",
               background: "rgba(0,0,0,0.3)",
-              borderRadius: 2,
+              borderRadius: 12,
             }}
           >
             <div
@@ -1013,7 +1013,7 @@ export default function DashboardPage() {
           border: "1px solid var(--line)",
           background: "rgba(0,0,0,0.3)",
           marginBottom: 12,
-          borderRadius: 2,
+          borderRadius: 12,
         }}
       >
         <div
@@ -1062,7 +1062,7 @@ export default function DashboardPage() {
                 background: isSelf
                   ? "rgba(251,146,60,0.08)"
                   : "rgba(0,0,0,0.3)",
-                borderRadius: 2,
+                borderRadius: 12,
               }}
             >
               <div
@@ -1313,7 +1313,7 @@ export default function DashboardPage() {
                     padding: 12,
                     border: "1px solid var(--line)",
                     background: "rgba(0,0,0,0.3)",
-                    borderRadius: 2,
+                    borderRadius: 12,
                   }}
                 >
                   <div

@@ -105,6 +105,8 @@ export function Avatar({
     LEGEND: "#fb923c",
   };
   const color = tierColor[tier.toUpperCase()] ?? "#facc15";
+  // v2.0 — square-rounded avatars (14px for medium, scales with size)
+  const radius = size <= 32 ? 10 : size <= 56 ? 14 : 18;
   return (
     <div
       style={{
@@ -117,7 +119,7 @@ export function Avatar({
         display: "grid",
         placeItems: "center",
         flexShrink: 0,
-        borderRadius: 2,
+        borderRadius: radius,
       }}
     >
       <span
@@ -158,16 +160,17 @@ export function RankChip({ tier }: { tier: string }) {
         display: "inline-flex",
         alignItems: "center",
         gap: 6,
-        padding: "3px 8px",
+        padding: "4px 10px",
         fontSize: 10,
         letterSpacing: "0.2em",
         fontWeight: 700,
-        color: "#facc15",
-        border: "1px solid rgba(250,204,21,0.5)",
-        background: "rgba(250,204,21,0.08)",
-        boxShadow: "0 0 10px rgba(250,204,21,0.15)",
-        borderRadius: 2,
+        color: "#fdba74",
+        border: "1px solid rgba(251,146,60,0.35)",
+        background: "rgba(251,146,60,0.1)",
+        boxShadow: "0 0 12px rgba(251,146,60,0.18)",
+        borderRadius: 999,
         textTransform: "uppercase",
+        whiteSpace: "nowrap",
       }}
     >
       ◆ {tier}
@@ -267,7 +270,7 @@ export function MiniStat({
         padding: 12,
         border: "1px solid var(--line)",
         background: "rgba(0,0,0,0.3)",
-        borderRadius: 2,
+        borderRadius: 12,
         position: "relative",
       }}
     >
@@ -363,7 +366,7 @@ export function ModuleTile({
     padding: 12,
     border: `1px solid ${hot ? "rgba(251,146,60,0.4)" : "var(--line)"}`,
     background: hot ? "rgba(251,146,60,0.05)" : "rgba(0,0,0,0.3)",
-    borderRadius: 2,
+    borderRadius: 12,
     display: "block",
     transition: "border-color 120ms ease, background 120ms ease",
   };
@@ -749,7 +752,7 @@ export function TaskRow({
           state === "done" ? "rgba(0,0,0,0.3)" : "rgba(20,20,24,0.5)",
         opacity: state === "done" ? 0.65 : 1,
         cursor: onClick ? "pointer" : "default",
-        borderRadius: 2,
+        borderRadius: 12,
       }}
       onClick={onClick}
     >
@@ -769,7 +772,7 @@ export function TaskRow({
           background: state === "done" ? stateColor : "transparent",
           padding: 0,
           cursor: "pointer",
-          borderRadius: 2,
+          borderRadius: 12,
         }}
         aria-label="Toggle task"
       >
@@ -887,7 +890,7 @@ export function ModuleShell({
               border: "1px solid var(--accent)",
               background: "rgba(251,146,60,0.08)",
               color: "var(--accent)",
-              borderRadius: 2,
+              borderRadius: 12,
               flexShrink: 0,
             }}
           >

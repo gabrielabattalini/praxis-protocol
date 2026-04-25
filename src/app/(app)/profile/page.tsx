@@ -97,7 +97,7 @@ const fieldStyle: React.CSSProperties = {
   padding: "10px 12px",
   background: "rgba(0,0,0,0.4)",
   border: "1px solid var(--line)",
-  borderRadius: 2,
+  borderRadius: 12,
   color: "var(--fg)",
   fontSize: 13,
   fontFamily: "inherit",
@@ -302,7 +302,7 @@ export default function ProfilePage() {
                   border: "1px solid var(--line)",
                   color: "var(--fg-2)",
                   letterSpacing: "0.18em",
-                  borderRadius: 2,
+                  borderRadius: 12,
                   textTransform: "uppercase",
                 }}
               >
@@ -385,7 +385,7 @@ export default function ProfilePage() {
                   padding: 12,
                   border: "1px solid var(--line)",
                   background: "rgba(0,0,0,0.3)",
-                  borderRadius: 2,
+                  borderRadius: 12,
                 }}
               >
                 <div
@@ -457,7 +457,7 @@ export default function ProfilePage() {
                 padding: "10px 14px",
                 border: "1px solid var(--line)",
                 background: "rgba(0,0,0,0.3)",
-                borderRadius: 2,
+                borderRadius: 12,
                 textAlign: "right",
               }}
             >
@@ -488,7 +488,7 @@ export default function ProfilePage() {
                 padding: "10px 14px",
                 border: "1px solid var(--line)",
                 background: "rgba(0,0,0,0.3)",
-                borderRadius: 2,
+                borderRadius: 12,
                 textAlign: "right",
               }}
             >
@@ -519,7 +519,7 @@ export default function ProfilePage() {
                 padding: "10px 14px",
                 border: "1px solid var(--line)",
                 background: "rgba(0,0,0,0.3)",
-                borderRadius: 2,
+                borderRadius: 12,
                 textAlign: "right",
               }}
             >
@@ -552,7 +552,7 @@ export default function ProfilePage() {
                 padding: "10px 14px",
                 border: "1px solid var(--line)",
                 background: "rgba(0,0,0,0.3)",
-                borderRadius: 2,
+                borderRadius: 12,
                 textAlign: "right",
               }}
             >
@@ -749,7 +749,7 @@ export default function ProfilePage() {
                 padding: 12,
                 border: "1px solid var(--line)",
                 background: "rgba(0,0,0,0.3)",
-                borderRadius: 2,
+                borderRadius: 12,
                 cursor: "pointer",
               }}
             >
@@ -781,7 +781,7 @@ export default function ProfilePage() {
                 padding: 12,
                 border: "1px solid var(--line)",
                 background: "rgba(0,0,0,0.3)",
-                borderRadius: 2,
+                borderRadius: 12,
                 cursor: "pointer",
               }}
             >
@@ -810,7 +810,7 @@ export default function ProfilePage() {
                 padding: 12,
                 border: "1px solid var(--line)",
                 background: "rgba(0,0,0,0.3)",
-                borderRadius: 2,
+                borderRadius: 12,
                 cursor: "pointer",
               }}
             >
@@ -928,7 +928,7 @@ export default function ProfilePage() {
                   background: active
                     ? "rgba(251,146,60,0.08)"
                     : "rgba(0,0,0,0.3)",
-                  borderRadius: 2,
+                  borderRadius: 12,
                   cursor: "pointer",
                   textAlign: "left",
                   fontFamily: "inherit",
@@ -938,7 +938,7 @@ export default function ProfilePage() {
                 <div
                   style={{
                     height: 52,
-                    borderRadius: 2,
+                    borderRadius: 12,
                     background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.secondary} 100%)`,
                     boxShadow: active ? `0 0 18px ${theme.glow}` : "none",
                     border: "1px solid rgba(255,255,255,0.04)",

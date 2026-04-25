@@ -283,7 +283,7 @@ export default function AgendaPage() {
                     padding: 10,
                     border: "1px solid var(--line)",
                     background: "rgba(0,0,0,0.3)",
-                    borderRadius: 2,
+                    borderRadius: 12,
                   }}
                 >
                   <div
@@ -449,7 +449,7 @@ export default function AgendaPage() {
                     padding: "3px 8px",
                     border: "1px solid rgba(251,146,60,0.4)",
                     background: "rgba(251,146,60,0.08)",
-                    borderRadius: 2,
+                    borderRadius: 12,
                   }}
                 >
                   {featuredItem.time || "Sem horário"}
@@ -463,7 +463,7 @@ export default function AgendaPage() {
                     textTransform: "uppercase",
                     padding: "3px 8px",
                     border: "1px solid var(--line)",
-                    borderRadius: 2,
+                    borderRadius: 12,
                   }}
                 >
                   {featuredItem.badgeLabel}
@@ -512,7 +512,7 @@ export default function AgendaPage() {
                       padding: 10,
                       border: "1px solid var(--line)",
                       background: "rgba(0,0,0,0.3)",
-                      borderRadius: 2,
+                      borderRadius: 12,
                     }}
                   >
                     <div
@@ -563,7 +563,7 @@ export default function AgendaPage() {
                         : "rgba(20,20,24,0.5)",
                       opacity: item.completed ? 0.7 : 1,
                       borderLeft: `2px solid ${tone.color}`,
-                      borderRadius: 2,
+                      borderRadius: 12,
                       textDecoration: "none",
                       color: "inherit",
                     }}
@@ -587,7 +587,7 @@ export default function AgendaPage() {
                         border: `1px solid ${tone.color}`,
                         background: "rgba(0,0,0,0.3)",
                         color: tone.color,
-                        borderRadius: 2,
+                        borderRadius: 12,
                       }}
                     >
                       <Icon className="h-3.5 w-3.5" />
@@ -621,7 +621,7 @@ export default function AgendaPage() {
                             padding: "2px 6px",
                             border: `1px solid ${tone.color}`,
                             background: "rgba(0,0,0,0.3)",
-                            borderRadius: 2,
+                            borderRadius: 12,
                           }}
                         >
                           {item.badgeLabel}
@@ -669,7 +669,7 @@ export default function AgendaPage() {
                 padding: 40,
                 textAlign: "center",
                 border: "1px dashed var(--line)",
-                borderRadius: 2,
+                borderRadius: 12,
               }}
             >
               <Clock3

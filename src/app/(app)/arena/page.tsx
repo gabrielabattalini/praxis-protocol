@@ -475,7 +475,7 @@ export default function ArenaPage() {
                 padding: 12,
                 border: "1px solid var(--line)",
                 background: "rgba(0,0,0,0.3)",
-                borderRadius: 2,
+                borderRadius: 12,
               }}
             >
               <div
