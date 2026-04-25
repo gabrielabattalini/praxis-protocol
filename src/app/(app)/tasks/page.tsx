@@ -16,8 +16,11 @@ import {
   Plus,
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
-import { GlassPanel } from "@/components/ui/glass-panel";
-import { ProgressBar } from "@/components/ui/progress-bar";
+import {
+  RxPBar,
+  RxPageHeader,
+  RxPanel,
+} from "@/components/redesign/primitives";
 import { moduleCatalog } from "@/lib/mock-data";
 import type {
   MealPlanBlock,
@@ -1077,7 +1080,7 @@ export default function TasksPage() {
 
   return (
     <div className="space-y-6">
-      <GlassPanel className="overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(251,146,60,0.10),transparent_34%),rgba(10,10,12,0.96)]">
+      <RxPanel className="overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(251,146,60,0.10),transparent_34%),rgba(10,10,12,0.96)]">
         <div className="space-y-6">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
             <div className="max-w-3xl">
@@ -1288,10 +1291,10 @@ export default function TasksPage() {
             </div>
           )}
         </div>
-      </GlassPanel>
+      </RxPanel>
 
       <div className="space-y-6">
-        <GlassPanel className="space-y-6">
+        <RxPanel className="space-y-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="editorial-kicker text-zinc-500">
@@ -1328,7 +1331,7 @@ export default function TasksPage() {
               </span>
             </div>
             <div className="mt-4">
-              <ProgressBar value={consistencyRate} />
+              <RxPBar value={consistencyRate} />
             </div>
           </div>
 
@@ -1436,7 +1439,7 @@ export default function TasksPage() {
                 : `Nada programado para ${selectedDateLabel.toLowerCase()}.`}
             </div>
           )}
-        </GlassPanel>
+        </RxPanel>
       </div>
     </div>
   );

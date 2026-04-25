@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
+import { Check } from "lucide-react";
 
 export function RxPanel({
   children,
@@ -490,5 +491,490 @@ export function MissionCard({
         </div>
       ) : null}
     </Wrapper>
+  );
+}
+
+// RxPageHeader — command-style header matching design's AppShell title/subtitle + actions
+export function RxPageHeader({
+  title,
+  subtitle,
+  actions,
+}: {
+  title: string;
+  subtitle?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        padding: "18px 0",
+        borderBottom: "1px solid var(--line-soft)",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 14,
+        flexWrap: "wrap",
+        marginBottom: 24,
+      }}
+    >
+      <div style={{ minWidth: 0 }}>
+        <RxLabel>{title.toUpperCase()}</RxLabel>
+        {subtitle ? (
+          <div
+            style={{
+              fontSize: 13,
+              color: "var(--fg-3)",
+              marginTop: 4,
+            }}
+          >
+            {subtitle}
+          </div>
+        ) : null}
+      </div>
+      {actions ? (
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            alignItems: "center",
+            flexWrap: "wrap",
+          }}
+        >
+          {actions}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// RadarChart — 5-axis skill chart (Profile, Arena)
+export function RadarChart({
+  values,
+  size = 180,
+}: {
+  values: Record<string, number>;
+  size?: number;
+}) {
+  const keys = Object.keys(values);
+  const n = keys.length;
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size * 0.42;
+  const pt = (i: number, v: number): [number, number] => {
+    const angle = ((Math.PI * 2) / n) * i - Math.PI / 2;
+    const rr = r * (v / 100);
+    return [cx + Math.cos(angle) * rr, cy + Math.sin(angle) * rr];
+  };
+  const outer: [number, number][] = keys.map((_, i) => {
+    const a = ((Math.PI * 2) / n) * i - Math.PI / 2;
+    return [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
+  });
+  const poly = keys
+    .map((k, i) => pt(i, values[k]).join(","))
+    .join(" ");
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      {[0.25, 0.5, 0.75, 1].map((s) => (
+        <polygon
+          key={s}
+          points={outer
+            .map(([x, y]) => {
+              const dx = x - cx;
+              const dy = y - cy;
+              return `${cx + dx * s},${cy + dy * s}`;
+            })
+            .join(" ")}
+          fill="none"
+          stroke="var(--line)"
+          strokeWidth="1"
+        />
+      ))}
+      {outer.map(([x, y], i) => (
+        <line
+          key={i}
+          x1={cx}
+          y1={cy}
+          x2={x}
+          y2={y}
+          stroke="var(--line)"
+          strokeWidth="1"
+        />
+      ))}
+      <polygon
+        points={poly}
+        fill="var(--accent)"
+        fillOpacity="0.15"
+        stroke="var(--accent)"
+        strokeWidth="1.5"
+        style={{ filter: "drop-shadow(0 0 8px var(--accent-glow))" }}
+      />
+      {keys.map((k, i) => {
+        const [x, y] = pt(i, values[k]);
+        return <circle key={k} cx={x} cy={y} r="3" fill="var(--accent)" />;
+      })}
+      {keys.map((k, i) => {
+        const a = ((Math.PI * 2) / n) * i - Math.PI / 2;
+        const lx = cx + Math.cos(a) * (r + 16);
+        const ly = cy + Math.sin(a) * (r + 16);
+        return (
+          <text
+            key={`lbl-${k}`}
+            x={lx}
+            y={ly}
+            fontSize="9"
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill="var(--fg-3)"
+            fontFamily="var(--rx-mono, ui-monospace, monospace)"
+            letterSpacing="0.14em"
+            style={{ textTransform: "uppercase" }}
+          >
+            {k.toUpperCase()}
+          </text>
+        );
+      })}
+    </svg>
+  );
+}
+
+// KPIMini — right-aligned label/value divider (ModuleShell hero)
+export function KPIMini({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      style={{
+        textAlign: "right",
+        borderLeft: "1px solid var(--line)",
+        paddingLeft: 12,
+      }}
+    >
+      <div
+        className="rx-mono"
+        style={{
+          fontSize: 9,
+          color: "var(--fg-3)",
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+        }}
+      >
+        {label}
+      </div>
+      <div
+        className="rx-display"
+        style={{
+          fontSize: 18,
+          fontWeight: 700,
+          color: "var(--fg)",
+          letterSpacing: "-0.02em",
+        }}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+// MacroDot — centered macro nutrient pill (NutritionBoard meals)
+export function MacroDot({
+  value,
+  label,
+  color = "var(--accent)",
+}: {
+  value: string;
+  label: string;
+  color?: string;
+}) {
+  return (
+    <div style={{ textAlign: "center", minWidth: 44 }}>
+      <div
+        className="rx-mono"
+        style={{ fontSize: 11, color, fontWeight: 600 }}
+      >
+        {value}
+      </div>
+      <div
+        className="rx-mono"
+        style={{
+          fontSize: 9,
+          color: "var(--fg-4)",
+          letterSpacing: "0.18em",
+          marginTop: 2,
+          textTransform: "uppercase",
+        }}
+      >
+        {label}
+      </div>
+    </div>
+  );
+}
+
+// TaskRow — inline task row with checkbox + time + title + difficulty + xp
+export function TaskRow({
+  time,
+  moduleLabel,
+  title,
+  meta,
+  difficulty = 3,
+  state,
+  xp,
+  onToggle,
+  onClick,
+}: {
+  time: string;
+  moduleLabel: string;
+  title: string;
+  meta?: string;
+  difficulty?: number;
+  state: "pending" | "done" | "overdue";
+  xp: string;
+  onToggle?: () => void;
+  onClick?: () => void;
+}) {
+  const stateColor =
+    state === "done"
+      ? "var(--ok)"
+      : state === "overdue"
+        ? "var(--danger)"
+        : "var(--accent)";
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "28px 64px 1fr auto auto",
+        gap: 14,
+        padding: "12px 14px",
+        alignItems: "center",
+        border: "1px solid var(--line)",
+        marginBottom: 4,
+        background:
+          state === "done" ? "rgba(0,0,0,0.3)" : "rgba(20,20,24,0.5)",
+        opacity: state === "done" ? 0.65 : 1,
+        cursor: onClick ? "pointer" : "default",
+        borderRadius: 2,
+      }}
+      onClick={onClick}
+    >
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle?.();
+        }}
+        style={{
+          width: 18,
+          height: 18,
+          border: `1.5px solid ${stateColor}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: state === "done" ? stateColor : "transparent",
+          padding: 0,
+          cursor: "pointer",
+          borderRadius: 2,
+        }}
+        aria-label="Toggle task"
+      >
+        {state === "done" ? <Check size={10} color="var(--bg)" /> : null}
+      </button>
+      <div
+        className="rx-mono"
+        style={{
+          fontSize: 11,
+          color: "var(--fg-3)",
+          letterSpacing: "0.1em",
+        }}
+      >
+        {time}
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 13,
+            color: "var(--fg)",
+            textDecoration: state === "done" ? "line-through" : "none",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {title}
+        </div>
+        <div
+          className="rx-mono"
+          style={{
+            fontSize: 9,
+            color: "var(--fg-4)",
+            letterSpacing: "0.16em",
+            marginTop: 2,
+            textTransform: "uppercase",
+          }}
+        >
+          {moduleLabel}
+          {meta ? ` · ${meta}` : ""}
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 2 }}>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div
+            key={i}
+            style={{
+              width: 6,
+              height: 6,
+              background:
+                i < difficulty ? "var(--accent)" : "var(--line-bright)",
+              transform: "rotate(45deg)",
+            }}
+          />
+        ))}
+      </div>
+      <div
+        className="rx-mono"
+        style={{
+          fontSize: 11,
+          color: "var(--accent)",
+          fontWeight: 600,
+          minWidth: 44,
+          textAlign: "right",
+        }}
+      >
+        {xp}
+      </div>
+    </div>
+  );
+}
+
+// ModuleShell — hero + tabs wrapper for all module pages
+export function ModuleShell({
+  Icon,
+  name,
+  streak,
+  completion,
+  lastRecord,
+  tabs,
+  activeTab,
+  onTabChange,
+  hero,
+  children,
+}: {
+  Icon: LucideIcon;
+  name: string;
+  streak: string;
+  completion: string;
+  lastRecord: string;
+  tabs: string[];
+  activeTab: string;
+  onTabChange?: (tab: string) => void;
+  hero?: { title?: string; desc?: string };
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <div className="rx-panel-hot" style={{ padding: 20, marginBottom: 16 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 18,
+            flexWrap: "wrap",
+          }}
+        >
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "1px solid var(--accent)",
+              background: "rgba(251,146,60,0.08)",
+              color: "var(--accent)",
+              borderRadius: 2,
+              flexShrink: 0,
+            }}
+          >
+            <Icon size={24} />
+          </div>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div
+              className="rx-mono"
+              style={{
+                fontSize: 10,
+                color: "var(--accent)",
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                fontWeight: 700,
+              }}
+            >
+              ▸ MÓDULO · {name.toUpperCase()}
+            </div>
+            <div
+              className="rx-display"
+              style={{
+                fontSize: 26,
+                fontWeight: 700,
+                letterSpacing: "-0.02em",
+                marginTop: 2,
+                color: "var(--fg)",
+              }}
+            >
+              {hero?.title ?? name}
+            </div>
+            {hero?.desc ? (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--fg-3)",
+                  marginTop: 2,
+                }}
+              >
+                {hero.desc}
+              </div>
+            ) : null}
+          </div>
+          <div style={{ display: "flex", gap: 12 }}>
+            <KPIMini label="STREAK" value={streak} />
+            <KPIMini label="CONCL." value={completion} />
+            <KPIMini label="ÚLTIMO" value={lastRecord} />
+          </div>
+        </div>
+      </div>
+      {tabs.length > 0 ? (
+        <div
+          style={{
+            display: "flex",
+            gap: 0,
+            borderBottom: "1px solid var(--line)",
+            marginBottom: 18,
+            overflowX: "auto",
+          }}
+        >
+          {tabs.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => onTabChange?.(t)}
+              style={{
+                padding: "12px 18px",
+                color: activeTab === t ? "var(--accent)" : "var(--fg-3)",
+                borderBottom:
+                  activeTab === t
+                    ? "2px solid var(--accent)"
+                    : "2px solid transparent",
+                fontFamily: "var(--rx-mono, ui-monospace, monospace)",
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+                background: "transparent",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {children}
+    </div>
   );
 }

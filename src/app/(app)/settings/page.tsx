@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   BellRing,
   RefreshCw,
@@ -11,10 +12,34 @@ import {
 import { usePushNotifications } from "@/components/providers/notifications-provider";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { StripeCheckoutButton } from "@/components/billing/stripe-checkout-button";
-import { GlassPanel } from "@/components/ui/glass-panel";
-import { PageIntro } from "@/components/ui/page-intro";
+import {
+  RxLabel,
+  RxPageHeader,
+  RxPanel,
+} from "@/components/redesign/primitives";
 import { moduleCatalog, themeOptions } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+
+type SettingsTab =
+  | "account"
+  | "appearance"
+  | "themes"
+  | "notifications"
+  | "privacy"
+  | "sync"
+  | "subscription"
+  | "data";
+
+const settingsTabs: Array<{ id: SettingsTab; label: string }> = [
+  { id: "account", label: "Conta" },
+  { id: "appearance", label: "Aparência" },
+  { id: "themes", label: "Temas" },
+  { id: "notifications", label: "Notificações" },
+  { id: "privacy", label: "Privacidade" },
+  { id: "sync", label: "Sincronização" },
+  { id: "subscription", label: "Assinatura" },
+  { id: "data", label: "Dados" },
+];
 
 const toggles: Array<{
   key: "sound" | "vibration";
@@ -28,8 +53,8 @@ const toggles: Array<{
   },
   {
     key: "vibration",
-    title: "Vibra\u00e7\u00e3o",
-    description: "Feedback t\u00e1til nas a\u00e7\u00f5es compat\u00edveis.",
+    title: "Vibração",
+    description: "Feedback tátil nas ações compatíveis.",
   },
 ];
 
@@ -71,18 +96,18 @@ function subscriptionLabel(status: string) {
     case "error":
       return "Falha";
     default:
-      return "N\u00e3o inscrito";
+      return "Não inscrito";
   }
 }
 
-function syncLabel(status: string) {
+function syncStatusLabel(status: string) {
   switch (status) {
     case "synced":
       return "Sincronizado";
     case "syncing":
       return "Sincronizando";
     case "backend-unavailable":
-      return "Servidor indispon\u00edvel";
+      return "Servidor indisponível";
     case "error":
       return "Falha";
     default:
@@ -90,7 +115,11 @@ function syncLabel(status: string) {
   }
 }
 
-export default function SettingsPage() {
+function TabContent({
+  tab,
+}: {
+  tab: SettingsTab;
+}) {
   const { state, actions } = useAppStore();
   const {
     supported,
@@ -111,6 +140,635 @@ export default function SettingsPage() {
     sendTestNotification,
   } = usePushNotifications();
 
+  if (tab === "themes") {
+    return (
+      <div>
+        <RxLabel>TEMA DO PROTOCOLO</RxLabel>
+        <div
+          className="rx-display"
+          style={{
+            fontSize: 24,
+            fontWeight: 600,
+            marginBottom: 20,
+            marginTop: 8,
+            color: "var(--fg)",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          Acento visual
+        </div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+            gap: 12,
+          }}
+        >
+          {themeOptions.map((option) => {
+            const active = state.settings.theme === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => actions.setTheme(option.id)}
+                className={active ? "rx-panel-hot" : "rx-panel"}
+                style={{
+                  padding: 16,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  width: "100%",
+                }}
+              >
+                <div
+                  style={{
+                    height: 48,
+                    background: option.primary,
+                    boxShadow: `0 0 20px ${option.glow}`,
+                    marginBottom: 10,
+                    borderRadius: 2,
+                  }}
+                />
+                <div
+                  className="rx-mono"
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: "0.18em",
+                    color: active ? "var(--accent)" : "var(--fg-2)",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {option.name}
+                </div>
+                <div
+                  className="rx-mono"
+                  style={{
+                    fontSize: 9,
+                    color: "var(--fg-4)",
+                    marginTop: 2,
+                    letterSpacing: "0.1em",
+                  }}
+                >
+                  {option.primary}
+                </div>
+                {active ? (
+                  <div
+                    className="rx-mono"
+                    style={{
+                      fontSize: 9,
+                      color: "var(--accent)",
+                      marginTop: 6,
+                      letterSpacing: "0.18em",
+                    }}
+                  >
+                    ● ATIVO
+                  </div>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  if (tab === "appearance") {
+    return (
+      <div>
+        <RxLabel>PREFERÊNCIAS DE INTERFACE</RxLabel>
+        <div
+          className="rx-display"
+          style={{
+            fontSize: 24,
+            fontWeight: 600,
+            marginTop: 8,
+            marginBottom: 20,
+            color: "var(--fg)",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          Som e vibração
+        </div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: 12,
+          }}
+        >
+          {toggles.map((toggle) => {
+            const Icon = toggleIcons[toggle.key];
+            const active = state.settings[toggle.key];
+            return (
+              <button
+                key={toggle.key}
+                type="button"
+                aria-pressed={active}
+                onClick={() => actions.toggleSetting(toggle.key)}
+                className={active ? "rx-panel-hot" : "rx-panel"}
+                style={{
+                  padding: 16,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  display: "grid",
+                  gridTemplateColumns: "auto 1fr auto",
+                  gap: 12,
+                  alignItems: "center",
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: 40,
+                    width: 40,
+                    border: `1px solid ${active ? "var(--accent)" : "var(--line)"}`,
+                    background: active ? "rgba(251,146,60,0.08)" : "rgba(0,0,0,0.3)",
+                    color: active ? "var(--accent)" : "var(--fg-3)",
+                    borderRadius: 2,
+                  }}
+                >
+                  <Icon className="h-4 w-4" />
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: "var(--fg)",
+                    }}
+                  >
+                    {toggle.title}
+                  </div>
+                  <div
+                    className="rx-mono"
+                    style={{
+                      fontSize: 10,
+                      color: "var(--fg-3)",
+                      marginTop: 4,
+                      letterSpacing: "0.08em",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {toggle.description}
+                  </div>
+                </div>
+                <span
+                  className="rx-mono"
+                  style={{
+                    fontSize: 10,
+                    padding: "6px 10px",
+                    border: `1px solid ${active ? "var(--accent)" : "var(--line)"}`,
+                    color: active ? "var(--accent)" : "var(--fg-3)",
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    borderRadius: 2,
+                  }}
+                >
+                  {active ? "ATIVO" : "INATIVO"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ marginTop: 32 }}>
+          <RxLabel>DENSIDADE</RxLabel>
+          <div
+            className="rx-mono"
+            style={{
+              fontSize: 11,
+              color: "var(--fg-3)",
+              marginTop: 6,
+              letterSpacing: "0.08em",
+              maxWidth: 460,
+            }}
+          >
+            Confortável · padrão do Praxis Protocol.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (tab === "notifications") {
+    return (
+      <div>
+        <RxLabel>ALERTAS NO PC E CELULAR</RxLabel>
+        <div
+          className="rx-display"
+          style={{
+            fontSize: 24,
+            fontWeight: 600,
+            marginTop: 8,
+            marginBottom: 8,
+            color: "var(--fg)",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          Canal de notificações
+        </div>
+        <div
+          style={{
+            fontSize: 13,
+            color: "var(--fg-3)",
+            marginBottom: 20,
+            maxWidth: 620,
+            lineHeight: 1.6,
+          }}
+        >
+          O Praxis sincroniza a agenda da sua conta e dispara alertas no
+          navegador mesmo com a aba fechada. Ative uma vez em cada dispositivo.
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: 12,
+            marginBottom: 20,
+          }}
+        >
+          {[
+            {
+              label: "STATUS",
+              value: enabled ? "Canal ativo" : "Canal desativado",
+              hint: supported
+                ? `${itemCount} alertas · ${deviceCount} dispositivos`
+                : "Navegador sem suporte",
+            },
+            {
+              label: "PERMISSÃO",
+              value: permissionLabel(permission),
+              hint: `${registrationLabel(registrationState)} · ${subscriptionLabel(subscriptionState)}`,
+            },
+            {
+              label: "SINCRONIZAÇÃO",
+              value: syncStatusLabel(syncState),
+              hint: lastSyncAt
+                ? `Última: ${new Date(lastSyncAt).toLocaleString("pt-BR")}`
+                : "Ainda não houve sync",
+            },
+            {
+              label: "DISPOSITIVO",
+              value: hasSubscription ? "Inscrito" : "Sem inscrição",
+              hint: endpointStatus || "Aguardando ativação",
+            },
+          ].map((row) => (
+            <RxPanel key={row.label} style={{ padding: 14 }}>
+              <div
+                className="rx-mono"
+                style={{
+                  fontSize: 9,
+                  color: "var(--fg-3)",
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {row.label}
+              </div>
+              <div
+                className="rx-display"
+                style={{
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: "var(--fg)",
+                  marginTop: 4,
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                {row.value}
+              </div>
+              <div
+                className="rx-mono"
+                style={{
+                  fontSize: 10,
+                  color: "var(--fg-4)",
+                  marginTop: 4,
+                  letterSpacing: "0.08em",
+                  lineHeight: 1.5,
+                }}
+              >
+                {row.hint}
+              </div>
+            </RxPanel>
+          ))}
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            marginBottom: 14,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => void togglePush()}
+            disabled={!supported}
+            className={cn(supported ? "rx-btn-primary" : "rx-btn-ghost")}
+            style={{
+              padding: "8px 14px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              opacity: supported ? 1 : 0.5,
+              cursor: supported ? "pointer" : "not-allowed",
+            }}
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+            {enabled ? "Desativar neste dispositivo" : "Ativar neste dispositivo"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void activatePush()}
+            disabled={!supported}
+            className="rx-btn-ghost"
+            style={{
+              padding: "8px 14px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              opacity: supported ? 1 : 0.5,
+              cursor: supported ? "pointer" : "not-allowed",
+            }}
+          >
+            <BellRing className="h-3.5 w-3.5" />
+            Pedir permissão
+          </button>
+          <button
+            type="button"
+            onClick={() => void syncNow()}
+            disabled={!supported}
+            className="rx-btn-ghost"
+            style={{
+              padding: "8px 14px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              opacity: supported ? 1 : 0.5,
+              cursor: supported ? "pointer" : "not-allowed",
+            }}
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Sincronizar agenda
+          </button>
+          <button
+            type="button"
+            onClick={() => void sendTestNotification()}
+            disabled={!supported || permission !== "granted"}
+            className="rx-btn-ghost"
+            style={{
+              padding: "8px 14px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              opacity: supported && permission === "granted" ? 1 : 0.5,
+              cursor:
+                supported && permission === "granted" ? "pointer" : "not-allowed",
+            }}
+          >
+            <Send className="h-3.5 w-3.5" />
+            Enviar teste
+          </button>
+        </div>
+
+        {lastError ? (
+          <div
+            style={{
+              padding: "10px 14px",
+              border: "1px solid rgba(251,146,60,0.3)",
+              background: "rgba(251,146,60,0.08)",
+              color: "var(--accent)",
+              fontSize: 12,
+              borderRadius: 2,
+            }}
+          >
+            {lastError}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (tab === "privacy") {
+    return (
+      <div>
+        <RxLabel>MÓDULOS VISÍVEIS</RxLabel>
+        <div
+          className="rx-display"
+          style={{
+            fontSize: 24,
+            fontWeight: 600,
+            marginTop: 8,
+            marginBottom: 8,
+            color: "var(--fg)",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          O que fica na navegação
+        </div>
+        <div
+          style={{
+            fontSize: 13,
+            color: "var(--fg-3)",
+            marginBottom: 20,
+            maxWidth: 620,
+            lineHeight: 1.6,
+          }}
+        >
+          Desative o que não faz parte da sua rotina. O módulo some da barra
+          lateral e do dashboard sem apagar histórico.
+        </div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+            gap: 12,
+          }}
+        >
+          {moduleCatalog.map((module) => {
+            const active = state.settings.activeModules[module.id];
+            return (
+              <button
+                key={module.id}
+                type="button"
+                onClick={() => actions.toggleModuleVisibility(module.id)}
+                className={active ? "rx-panel-hot" : "rx-panel"}
+                style={{
+                  padding: 14,
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: active ? "var(--accent)" : "var(--fg)",
+                      }}
+                    >
+                      {module.name}
+                    </div>
+                    <div
+                      className="rx-mono"
+                      style={{
+                        fontSize: 10,
+                        color: "var(--fg-3)",
+                        marginTop: 4,
+                        letterSpacing: "0.08em",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {module.description}
+                    </div>
+                  </div>
+                  <span
+                    className="rx-mono"
+                    style={{
+                      fontSize: 9,
+                      padding: "4px 8px",
+                      border: `1px solid ${active ? "var(--accent)" : "var(--line)"}`,
+                      color: active ? "var(--accent)" : "var(--fg-3)",
+                      letterSpacing: "0.18em",
+                      textTransform: "uppercase",
+                      borderRadius: 2,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {active ? "VISÍVEL" : "OCULTO"}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  if (tab === "subscription") {
+    return (
+      <div>
+        <RxLabel>PLANO PRAXIS PRO</RxLabel>
+        <div
+          className="rx-display"
+          style={{
+            fontSize: 24,
+            fontWeight: 600,
+            marginTop: 8,
+            marginBottom: 8,
+            color: "var(--fg)",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          Assinatura e benefícios
+        </div>
+        <div
+          style={{
+            fontSize: 13,
+            color: "var(--fg-3)",
+            marginBottom: 20,
+            maxWidth: 620,
+            lineHeight: 1.6,
+          }}
+        >
+          Libere os 13 módulos, arena ilimitada e sincronização em nuvem.
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {[
+            "Notificações sincronizadas no PC e no celular",
+            "Configuração de aparência, voz e horários por conta",
+            "Mais clareza para a experiência premium em cada módulo",
+          ].map((item) => (
+            <div
+              key={item}
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 10,
+                padding: "10px 14px",
+                border: "1px solid var(--line)",
+                background: "rgba(0,0,0,0.3)",
+                fontSize: 13,
+                color: "var(--fg-2)",
+                borderRadius: 2,
+              }}
+            >
+              <span
+                style={{
+                  marginTop: 6,
+                  width: 6,
+                  height: 6,
+                  background: "var(--accent)",
+                  flexShrink: 0,
+                  transform: "rotate(45deg)",
+                }}
+              />
+              <span style={{ lineHeight: 1.5 }}>{item}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 18 }}>
+          <StripeCheckoutButton
+            source="settings-module"
+            className="rx-btn-primary"
+            noteClassName="text-zinc-500"
+            errorClassName="text-amber-200"
+          >
+            Ver planos e liberar acesso
+          </StripeCheckoutButton>
+        </div>
+      </div>
+    );
+  }
+
+  // Default placeholder for tabs not yet wired (account, sync, data)
+  return (
+    <RxPanel style={{ padding: 32, textAlign: "center" }}>
+      <RxLabel>EM BREVE</RxLabel>
+      <div
+        className="rx-display"
+        style={{
+          fontSize: 18,
+          fontWeight: 600,
+          marginTop: 10,
+          color: "var(--fg)",
+        }}
+      >
+        Esta seção está pronta para receber conteúdo.
+      </div>
+      <div
+        style={{
+          fontSize: 12,
+          color: "var(--fg-3)",
+          marginTop: 6,
+          maxWidth: 420,
+          marginLeft: "auto",
+          marginRight: "auto",
+        }}
+      >
+        Use uma das abas à esquerda — Temas, Aparência, Notificações,
+        Privacidade ou Assinatura.
+      </div>
+    </RxPanel>
+  );
+}
+
+export default function SettingsPage() {
+  const { state } = useAppStore();
+  const [tab, setTab] = useState<SettingsTab>("themes");
+
   const activeModulesCount = moduleCatalog.filter(
     (module) => state.settings.activeModules[module.id],
   ).length;
@@ -119,408 +777,59 @@ export default function SettingsPage() {
     themeOptions[0];
 
   return (
-    <div className="space-y-6">
-      <PageIntro
-        eyebrow="Sistema"
-        title="Configurações"
-        description="Controle \u00e1udio, vibra\u00e7\u00e3o, notifica\u00e7\u00f5es sincronizadas por conta e a visibilidade dos m\u00f3dulos do Praxis."
+    <div>
+      <RxPageHeader
+        title="Preferências"
+        subtitle={
+          <>
+            Tema <span style={{ color: "var(--accent)" }}>{activeTheme.name}</span>{" "}
+            · {activeModulesCount} módulos visíveis
+          </>
+        }
       />
 
-      <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <GlassPanel className="space-y-5 p-6 md:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="max-w-2xl">
-              <p className="praxis-label text-[var(--accent)]">Hub central</p>
-              <h2 className="praxis-title mt-2 text-3xl">
-                Personalização, sincronização e identidade em um único lugar.
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-zinc-500">
-                Ajuste a experiência do Praxis para que ela fique igual em qualquer
-                dispositivo da mesma conta.
-              </p>
-            </div>
-            <div className="rounded-sm border border-zinc-800 bg-black/40 px-4 py-3 text-right">
-              <p className="praxis-label">Conta ativa</p>
-              <p className="mt-1 text-lg font-semibold text-zinc-100">
-                {activeTheme.name}
-              </p>
-              <p className="mt-1 text-sm text-zinc-500">Ajustes sincronizados.</p>
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="praxis-panel rounded-sm px-4 py-4">
-              <p className="praxis-label">Tema</p>
-              <p className="mt-2 text-2xl font-semibold text-zinc-100">{activeTheme.name}</p>
-              <p className="mt-2 text-sm text-zinc-500">Visual atual do app.</p>
-            </div>
-            <div className="praxis-panel rounded-sm px-4 py-4">
-              <p className="praxis-label">Som</p>
-              <p className="mt-2 text-2xl font-semibold text-zinc-100">
-                {state.settings.sound ? "Ativo" : "Inativo"}
-              </p>
-              <p className="mt-2 text-sm text-zinc-500">Feedback auditivo do sistema.</p>
-            </div>
-            <div className="praxis-panel rounded-sm px-4 py-4">
-              <p className="praxis-label">Vibração</p>
-              <p className="mt-2 text-2xl font-semibold text-zinc-100">
-                {state.settings.vibration ? "Ativa" : "Inativa"}
-              </p>
-              <p className="mt-2 text-sm text-zinc-500">Resposta tátil nas ações.</p>
-            </div>
-            <div className="praxis-panel rounded-sm px-4 py-4">
-              <p className="praxis-label">Módulos</p>
-              <p className="mt-2 text-2xl font-semibold text-zinc-100">
-                {activeModulesCount}
-              </p>
-              <p className="mt-2 text-sm text-zinc-500">Visíveis na navegação.</p>
-            </div>
-          </div>
-        </GlassPanel>
-
-        <GlassPanel className="space-y-4 border-[rgba(251,146,60,0.16)] bg-[linear-gradient(180deg,rgba(22,16,8,0.96),rgba(8,8,10,0.94))] p-6 md:p-8">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="praxis-label text-[var(--accent)]">Plano premium</p>
-              <h3 className="praxis-title mt-2 text-2xl">
-                Deixe a conta ainda mais forte com upgrade contextual.
-              </h3>
-            </div>
-            <ShieldCheck className="h-6 w-6 text-[var(--accent)]" />
-          </div>
-
-          <p className="text-sm leading-6 text-zinc-500">
-            Configure o resto, mantenha o básico visível e habilite o que vai
-            sustentar a rotina diária no longo prazo.
-          </p>
-
-          <div className="space-y-3">
-            <div className="flex items-start gap-3 rounded-sm border border-zinc-800 bg-black/30 px-4 py-3">
-              <span className="mt-1 h-2 w-2 rounded-full bg-[var(--accent)]" />
-              <p className="text-sm leading-6 text-zinc-300">
-                Notificações sincronizadas no PC e no celular.
-              </p>
-            </div>
-            <div className="flex items-start gap-3 rounded-sm border border-zinc-800 bg-black/30 px-4 py-3">
-              <span className="mt-1 h-2 w-2 rounded-full bg-[var(--accent)]" />
-              <p className="text-sm leading-6 text-zinc-300">
-                Configuração de aparência, voz e horários por conta.
-              </p>
-            </div>
-            <div className="flex items-start gap-3 rounded-sm border border-zinc-800 bg-black/30 px-4 py-3">
-              <span className="mt-1 h-2 w-2 rounded-full bg-[var(--accent)]" />
-              <p className="text-sm leading-6 text-zinc-300">
-                Mais clareza para a experiência premium em cada módulo.
-              </p>
-            </div>
-          </div>
-
-          <StripeCheckoutButton
-            source="settings-module"
-            className="w-full rounded-sm border-[rgba(251,146,60,0.18)] bg-[linear-gradient(135deg,var(--accent)_0%,#fbbf24_100%)] px-4 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_40px_rgba(251,146,60,0.22)]"
-            noteClassName="text-zinc-500"
-            errorClassName="text-amber-200"
-          >
-            Ver planos e liberar acesso
-          </StripeCheckoutButton>
-        </GlassPanel>
-      </section>
-
-      <section className="grid gap-4 md:grid-cols-3">
-        <GlassPanel className="praxis-kpi space-y-2">
-          <p className="praxis-label text-[var(--accent)]">Som</p>
-          <p className="font-title text-3xl font-bold text-zinc-100">
-            {state.settings.sound ? "Ativo" : "Inativo"}
-          </p>
-          <p className="text-sm leading-6 text-zinc-500">
-            Feedback auditivo do sistema.
-          </p>
-        </GlassPanel>
-
-        <GlassPanel className="praxis-kpi space-y-2">
-          <p className="praxis-label text-[var(--accent)]">Vibra\u00e7\u00e3o</p>
-          <p className="font-title text-3xl font-bold text-zinc-100">
-            {state.settings.vibration ? "Ativa" : "Inativa"}
-          </p>
-          <p className="text-sm leading-6 text-zinc-500">
-            Resposta t\u00e1til para opera\u00e7\u00f5es compat\u00edveis.
-          </p>
-        </GlassPanel>
-
-        <GlassPanel className="praxis-kpi space-y-2">
-          <p className="praxis-label text-[var(--accent)]">M\u00f3dulos</p>
-          <p className="font-title text-3xl font-bold text-zinc-100">
-            {activeModulesCount}
-          </p>
-          <p className="text-sm leading-6 text-zinc-500">
-            Vis\u00edveis na navega\u00e7\u00e3o lateral.
-          </p>
-        </GlassPanel>
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-        <div className="space-y-6">
-          <GlassPanel className="space-y-4">
-            <div>
-              <p className="praxis-label text-[var(--accent)]">Controles</p>
-              <h2 className="praxis-title mt-2 text-3xl">
-                Prefer\u00eancias do sistema
-              </h2>
-            </div>
-
-            <div className="space-y-3">
-              {toggles.map((toggle) => {
-                const Icon = toggleIcons[toggle.key];
-                const active = state.settings[toggle.key];
-
-                return (
-                  <button
-                    key={toggle.key}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => actions.toggleSetting(toggle.key)}
-                    className={cn(
-                      "praxis-panel grid w-full min-w-0 cursor-pointer select-none grid-cols-1 gap-4 overflow-hidden rounded-sm px-4 py-4 text-left transition hover:border-[rgba(251,146,60,0.22)] md:grid-cols-[minmax(0,1fr)_auto]",
-                      active && "border-[rgba(251,146,60,0.28)] bg-[rgba(251,146,60,0.04)]",
-                    )}
-                  >
-                    <div className="flex min-w-0 items-start gap-3">
-                      <span
-                        className={cn(
-                          "mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-sm border",
-                          active
-                            ? "border-[rgba(251,146,60,0.28)] bg-[rgba(251,146,60,0.08)] text-[var(--accent)]"
-                            : "border-zinc-800 bg-[rgba(14,14,17,0.96)] text-zinc-500",
-                        )}
-                      >
-                        <Icon className="h-4 w-4" />
-                      </span>
-
-                      <div className="min-w-0">
-                        <p className="font-medium text-zinc-100">{toggle.title}</p>
-                        <p className="mt-1 text-sm leading-6 text-zinc-500">
-                          {toggle.description}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3 md:justify-end">
-                      <span
-                        className={cn(
-                          "praxis-label shrink-0 rounded-sm border px-3 py-2",
-                          active
-                            ? "border-[rgba(251,146,60,0.28)] text-[var(--accent)]"
-                            : "border-zinc-800 text-zinc-500",
-                        )}
-                      >
-                        {active ? "Ativo" : "Inativo"}
-                      </span>
-
-                      <span
-                        className={cn(
-                          "relative inline-flex h-7 w-12 shrink-0 rounded-full border transition",
-                          active
-                            ? "border-[rgba(251,146,60,0.28)] bg-[rgba(251,146,60,0.16)]"
-                            : "border-zinc-800 bg-[rgba(14,14,17,0.96)]",
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "absolute left-1 top-1 h-5 w-5 rounded-full bg-zinc-200 transition-transform",
-                            active && "translate-x-5 bg-[var(--accent)]",
-                          )}
-                        />
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </GlassPanel>
-
-          <GlassPanel className="space-y-4">
-            <div>
-              <p className="praxis-label text-[var(--accent)]">
-                Notifica\u00e7\u00f5es
-              </p>
-              <h2 className="praxis-title mt-2 text-3xl">
-                Alertas no PC e no celular
-              </h2>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-500">
-                O Praxis sincroniza a agenda da sua conta e pode disparar alertas no
-                navegador com a aba fechada. Cada dispositivo precisa ser ativado uma vez
-                com permiss\u00e3o do navegador.
-              </p>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="praxis-panel rounded-sm px-4 py-4">
-                <p className="praxis-label">Status</p>
-                <p className="mt-2 text-xl font-semibold text-zinc-100">
-                  {enabled ? "Canal ativo" : "Canal desativado"}
-                </p>
-                <p className="mt-2 text-sm text-zinc-500">
-                  {supported
-                    ? `${itemCount} alerta(s) sincronizados em ${deviceCount} dispositivo(s).`
-                    : "Este navegador n\u00e3o suporta notifica\u00e7\u00f5es push."}
-                </p>
-              </div>
-
-              <div className="praxis-panel rounded-sm px-4 py-4">
-                <p className="praxis-label">Permiss\u00e3o</p>
-                <p className="mt-2 text-xl font-semibold text-zinc-100">
-                  {permissionLabel(permission)}
-                </p>
-                <p className="mt-2 text-sm text-zinc-500">
-                  {registrationLabel(registrationState)} {" \u00b7 "}
-                  {subscriptionLabel(subscriptionState)}
-                </p>
-              </div>
-
-              <div className="praxis-panel rounded-sm px-4 py-4">
-                <p className="praxis-label">Sincroniza\u00e7\u00e3o</p>
-                <p className="mt-2 text-xl font-semibold text-zinc-100">
-                  {syncLabel(syncState)}
-                </p>
-                <p className="mt-2 text-sm text-zinc-500">
-                  {lastSyncAt
-                    ? `\u00daltima sincroniza\u00e7\u00e3o em ${new Date(lastSyncAt).toLocaleString("pt-BR")}`
-                    : "Ainda n\u00e3o houve sincroniza\u00e7\u00e3o confirmada."}
-                </p>
-              </div>
-
-              <div className="praxis-panel rounded-sm px-4 py-4">
-                <p className="praxis-label">Dispositivo</p>
-                <p className="mt-2 text-xl font-semibold text-zinc-100">
-                  {hasSubscription ? "Inscrito" : "Sem inscri\u00e7\u00e3o ativa"}
-                </p>
-                <p className="mt-2 text-sm text-zinc-500">
-                  {endpointStatus || "Aguardando ativa\u00e7\u00e3o neste navegador."}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "240px 1fr",
+          gap: 24,
+        }}
+      >
+        {/* Left nav */}
+        <div style={{ alignSelf: "start" }}>
+          {settingsTabs.map((item) => {
+            const active = tab === item.id;
+            return (
               <button
+                key={item.id}
                 type="button"
-                onClick={() => void togglePush()}
-                disabled={!supported}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-sm border px-4 py-3 text-sm font-medium",
-                  supported
-                    ? "border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.08)] text-[var(--accent)]"
-                    : "cursor-not-allowed border-zinc-800 bg-[rgba(14,14,17,0.96)] text-zinc-500",
-                )}
+                onClick={() => setTab(item.id)}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderLeft: active
+                    ? "2px solid var(--accent)"
+                    : "2px solid transparent",
+                  color: active ? "var(--accent)" : "var(--fg-2)",
+                  background: active ? "rgba(251,146,60,0.06)" : "transparent",
+                  fontSize: 13,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontWeight: active ? 600 : 400,
+                  transition: "color 120ms ease, background 120ms ease",
+                }}
               >
-                <ShieldCheck className="h-4 w-4" />
-                {enabled ? "Desativar neste dispositivo" : "Ativar neste dispositivo"}
+                {item.label}
               </button>
-
-              <button
-                type="button"
-                onClick={() => void activatePush()}
-                disabled={!supported}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-sm border px-4 py-3 text-sm font-medium",
-                  supported
-                    ? "border-zinc-800 bg-[rgba(14,14,17,0.96)] text-zinc-100"
-                    : "cursor-not-allowed border-zinc-800 bg-[rgba(14,14,17,0.96)] text-zinc-500",
-                )}
-              >
-                <BellRing className="h-4 w-4" />
-                Pedir permiss\u00e3o
-              </button>
-
-              <button
-                type="button"
-                onClick={() => void syncNow()}
-                disabled={!supported}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-sm border px-4 py-3 text-sm font-medium",
-                  supported
-                    ? "border-zinc-800 bg-[rgba(14,14,17,0.96)] text-zinc-100"
-                    : "cursor-not-allowed border-zinc-800 bg-[rgba(14,14,17,0.96)] text-zinc-500",
-                )}
-              >
-                <RefreshCw className="h-4 w-4" />
-                Sincronizar agenda
-              </button>
-
-              <button
-                type="button"
-                onClick={() => void sendTestNotification()}
-                disabled={!supported || permission !== "granted"}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-sm border px-4 py-3 text-sm font-medium",
-                  supported && permission === "granted"
-                    ? "border-zinc-800 bg-[rgba(14,14,17,0.96)] text-zinc-100"
-                    : "cursor-not-allowed border-zinc-800 bg-[rgba(14,14,17,0.96)] text-zinc-500",
-                )}
-              >
-                <Send className="h-4 w-4" />
-                Enviar teste
-              </button>
-            </div>
-
-            {lastError ? (
-              <div className="rounded-sm border border-[rgba(251,146,60,0.22)] bg-[rgba(251,146,60,0.08)] px-4 py-3 text-sm text-[var(--accent)]">
-                {lastError}
-              </div>
-            ) : null}
-          </GlassPanel>
+            );
+          })}
         </div>
 
-        <GlassPanel className="space-y-4">
-          <div>
-            <p className="praxis-label text-[var(--accent)]">M\u00f3dulos ativos</p>
-            <h2 className="praxis-title mt-2 text-3xl">O que fica vis\u00edvel no app</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-500">
-              Desative o que n\u00e3o faz parte da sua rotina. O m\u00f3dulo some da barra lateral
-              e do dashboard sem quebrar o hist\u00f3rico.
-            </p>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            {moduleCatalog.map((module) => {
-              const active = state.settings.activeModules[module.id];
-
-              return (
-                <button
-                  key={module.id}
-                  type="button"
-                  onClick={() => actions.toggleModuleVisibility(module.id)}
-                  className={cn(
-                    "praxis-panel group min-w-0 rounded-sm p-4 text-left transition hover:border-[rgba(251,146,60,0.22)]",
-                    active && "border-[rgba(251,146,60,0.28)] bg-[rgba(251,146,60,0.06)]",
-                  )}
-                >
-                  <div className="flex min-w-0 items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-zinc-100">
-                        {module.name}
-                      </p>
-                      <p className="mt-2 line-clamp-3 text-sm leading-6 text-zinc-500">
-                        {module.description}
-                      </p>
-                    </div>
-
-                    <span
-                      className={cn(
-                        "praxis-label shrink-0 rounded-sm border px-3 py-2",
-                        active
-                          ? "border-[rgba(251,146,60,0.28)] text-[var(--accent)]"
-                          : "border-zinc-800 text-zinc-500",
-                      )}
-                    >
-                      {active ? "Vis\u00edvel" : "Oculto"}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </GlassPanel>
-      </section>
+        {/* Content */}
+        <div>
+          <TabContent tab={tab} />
+        </div>
+      </div>
     </div>
   );
 }

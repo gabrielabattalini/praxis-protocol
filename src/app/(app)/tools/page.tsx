@@ -13,6 +13,7 @@ import {
   Waves,
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
+import { RxPageHeader } from "@/components/redesign/primitives";
 
 type ToolAppId = "focus-timer" | "white-noise" | "breathing-reset";
 type TimerMode = "focus" | "break";
@@ -568,33 +569,107 @@ export default function ToolsPage() {
   };
 
   return (
-    <div className="space-y-8">
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
-        <div className="space-y-3">
-          <p className="font-mono text-[0.6rem] uppercase tracking-[0.28em] text-zinc-600">Ferramentas internas</p>
-          <h1 className="font-display text-5xl font-bold uppercase tracking-tight text-zinc-100 sm:text-6xl">Ferramentas<span style={{ color: theme.accent }}>.</span></h1>
-          <p className="max-w-xl text-base leading-7 text-zinc-400">Apps rápidos para entrar em execução e manter o estado de flow contínuo.</p>
-        </div>
-        <div className="flex flex-wrap gap-3 xl:justify-end">
-          <Link href="/tasks" className="inline-flex h-12 items-center gap-2 rounded-sm border border-zinc-800 bg-[#171719] px-5 font-mono text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-zinc-100 transition hover:border-[color:color-mix(in_srgb,white_18%,transparent)]"><span className="grid h-5 w-5 place-items-center rounded-full border text-[10px]" style={{ borderColor: "color-mix(in srgb, var(--accent) 38%, transparent)", color: theme.accent }}><ArrowRight className="h-3 w-3" /></span>Abrir tarefas</Link>
-          <Link href="/agenda" className="inline-flex h-12 items-center rounded-sm border border-zinc-800 px-5 font-mono text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-zinc-500 transition hover:border-zinc-700 hover:text-zinc-100">Voltar para agenda</Link>
-        </div>
-      </section>
+    <div>
+      <RxPageHeader
+        title="Ferramentas"
+        subtitle={
+          <>
+            Apps internos · Foco, ruído e respiração ·{" "}
+            <span style={{ color: theme.accent }}>
+              {apps.find((a) => a.id === activeAppId)?.title}
+            </span>
+          </>
+        }
+        actions={
+          <>
+            <Link
+              href="/tasks"
+              className="rx-btn-primary"
+              style={{ padding: "8px 14px", display: "inline-flex", alignItems: "center", gap: 8 }}
+            >
+              Tarefas <ArrowRight className="h-3 w-3" />
+            </Link>
+            <Link
+              href="/agenda"
+              className="rx-btn-ghost"
+              style={{ padding: "8px 14px" }}
+            >
+              Agenda
+            </Link>
+          </>
+        }
+      />
       <section className="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)_320px]">
         <aside className="space-y-3">
-          <p className="font-mono text-[0.56rem] uppercase tracking-[0.24em] text-zinc-600">Ferramentas internas</p>
+          <p
+            className="rx-mono"
+            style={{
+              fontSize: 9,
+              color: "var(--fg-3)",
+              letterSpacing: "0.24em",
+              textTransform: "uppercase",
+            }}
+          >
+            ▸ FERRAMENTAS
+          </p>
           <div className="space-y-3">
             {apps.map((app) => {
               const active = app.id === activeAppId;
               const Icon = app.icon;
               const appTheme = themes[app.id];
               return (
-                <button key={app.id} type="button" onClick={() => setActiveAppId(app.id)} className={["w-full rounded-sm border bg-[#141416] px-4 py-4 text-left transition", active ? "border-transparent" : "border-zinc-800 opacity-72 hover:opacity-100 hover:border-zinc-700"].join(" ")} style={active ? { boxShadow: `inset 3px 0 0 0 ${appTheme.accent}` } : undefined}>
+                <button
+                  key={app.id}
+                  type="button"
+                  onClick={() => setActiveAppId(app.id)}
+                  className={active ? "rx-panel-hot" : "rx-panel"}
+                  style={{
+                    width: "100%",
+                    padding: 14,
+                    textAlign: "left",
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    color: "inherit",
+                    opacity: active ? 1 : 0.75,
+                    borderLeft: active ? `3px solid ${appTheme.accent}` : undefined,
+                  }}
+                >
                   <div className="flex items-start justify-between gap-3">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-sm border border-zinc-800 bg-[#0d0d0f]" style={active ? { color: appTheme.accent } : undefined}><Icon className="h-4 w-4" /></span>
-                    <span className="rounded-sm border px-2 py-1 font-mono text-[0.48rem] uppercase tracking-[0.14em]" style={{ borderColor: active ? "transparent" : "#27272a", backgroundColor: active ? appTheme.chip : "transparent", color: active ? appTheme.accent : "#71717a" }}>{app.status}</span>
+                    <span
+                      className="grid h-9 w-9 shrink-0 place-items-center"
+                      style={{
+                        border: "1px solid var(--line)",
+                        background: "rgba(0,0,0,0.3)",
+                        borderRadius: 2,
+                        color: active ? appTheme.accent : "var(--fg-3)",
+                      }}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span
+                      className="rx-mono"
+                      style={{
+                        fontSize: 9,
+                        padding: "3px 6px",
+                        letterSpacing: "0.18em",
+                        textTransform: "uppercase",
+                        border: `1px solid ${active ? appTheme.accent : "var(--line)"}`,
+                        background: active ? appTheme.chip : "transparent",
+                        color: active ? appTheme.accent : "var(--fg-4)",
+                        borderRadius: 2,
+                      }}
+                    >
+                      {app.status}
+                    </span>
                   </div>
-                  <div className="mt-4"><p className="text-sm font-semibold text-zinc-100">{app.title}</p><p className="mt-1 text-xs leading-6 text-zinc-500">{app.desc}</p></div>
+                  <div className="mt-3">
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "var(--fg)" }}>
+                      {app.title}
+                    </p>
+                    <p style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 4, lineHeight: 1.5 }}>
+                      {app.desc}
+                    </p>
+                  </div>
                 </button>
               );
             })}
@@ -603,7 +678,27 @@ export default function ToolsPage() {
         <div className="space-y-4">{main()}</div>
         <aside className="space-y-4">{side()}</aside>
       </section>
-      {toast ? <div className="fixed bottom-24 right-4 z-40 rounded-sm border px-4 py-3 text-sm text-zinc-100 shadow-xl lg:right-8" style={{ borderColor: `${theme.accent}40`, backgroundColor: "#111113" }}>{toast}</div> : null}
+      {toast ? (
+        <div
+          className="rx-mono"
+          style={{
+            position: "fixed",
+            bottom: 96,
+            right: 16,
+            zIndex: 40,
+            padding: "10px 14px",
+            border: `1px solid ${theme.accent}`,
+            background: "rgba(20,20,24,0.96)",
+            color: "var(--fg)",
+            fontSize: 11,
+            letterSpacing: "0.12em",
+            borderRadius: 2,
+            boxShadow: `0 0 20px ${theme.accent}40`,
+          }}
+        >
+          {toast}
+        </div>
+      ) : null}
     </div>
   );
 }

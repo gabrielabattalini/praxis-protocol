@@ -1,92 +1,301 @@
 "use client";
 
+import { useMemo } from "react";
 import { useAppStore } from "@/components/providers/app-store-provider";
-import { GlassPanel } from "@/components/ui/glass-panel";
-import { PageIntro } from "@/components/ui/page-intro";
+import {
+  Avatar,
+  RankChip,
+  RxLabel,
+  RxPageHeader,
+  RxPanel,
+} from "@/components/redesign/primitives";
 import { rankingSeed } from "@/lib/mock-data";
-import { cn, formatPoints } from "@/lib/utils";
+import { formatPoints } from "@/lib/utils";
+
+function initialsFor(name: string) {
+  return (
+    name
+      .split(/[\s.]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "OP"
+  );
+}
 
 export default function RankingPage() {
   const { user } = useAppStore();
-  const leaderboard = [...rankingSeed];
 
-  leaderboard.push({
-    id: "current-user",
-    name: user.name,
-    username: user.username,
-    totalXp: user.totalXp,
-    level: user.level,
-    rankTier: user.rankTier,
-    rankLabel: user.rankLabel,
-  });
+  const leaderboard = useMemo(() => {
+    const list = [
+      ...rankingSeed,
+      {
+        id: "current-user",
+        name: user.name,
+        username: user.username,
+        totalXp: user.totalXp,
+        level: user.level,
+        rankTier: user.rankTier,
+        rankLabel: user.rankLabel,
+      },
+    ];
+    list.sort((left, right) => right.totalXp - left.totalXp);
+    return list;
+  }, [
+    user.level,
+    user.name,
+    user.rankLabel,
+    user.rankTier,
+    user.totalXp,
+    user.username,
+  ]);
 
-  leaderboard.sort((left, right) => right.totalXp - left.totalXp);
-  const currentIndex = leaderboard.findIndex((entry) => entry.id === "current-user");
+  const currentIndex = leaderboard.findIndex(
+    (entry) => entry.id === "current-user",
+  );
+
+  // Top 3 for podium — order them as [2nd, 1st, 3rd] with varied heights
+  const podium = leaderboard.slice(0, 3);
+  const podiumLayout =
+    podium.length === 3
+      ? [
+          { entry: podium[1], pos: 2, height: 140, hot: false },
+          { entry: podium[0], pos: 1, height: 190, hot: true },
+          { entry: podium[2], pos: 3, height: 110, hot: false },
+        ]
+      : podium.map((entry, idx) => ({
+          entry,
+          pos: idx + 1,
+          height: 150 - idx * 20,
+          hot: idx === 0,
+        }));
+
+  const tableRows = leaderboard.slice(0, 20);
 
   return (
-    <div className="space-y-6">
-      <PageIntro
-        eyebrow="Competição"
-        title="Ranking"
-        description="Escala gamificada de rank E a S, progressão de nível e leitura geral do sistema com destaque para o operador atual."
+    <div>
+      <RxPageHeader
+        title="Leaderboard"
+        subtitle={
+          <>
+            Global · {leaderboard.length} operadores · você está em{" "}
+            <span style={{ color: "var(--accent)" }}>#{currentIndex + 1}</span>
+          </>
+        }
       />
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-[0.82fr_1.18fr]">
-        <GlassPanel className="space-y-4">
-          <div>
-            <p className="praxis-label text-[var(--accent)]">Sua posição</p>
-            <h2 className="praxis-title mt-2 text-4xl">#{currentIndex + 1}</h2>
-          </div>
-          <div className="praxis-kpi space-y-3 p-4">
-            <p className="truncate text-2xl font-medium text-zinc-100">{user.name}</p>
-            <p className="truncate text-sm text-zinc-500">{user.username}</p>
-            <p className="font-title text-4xl font-bold text-zinc-100">
-              {formatPoints(user.totalXp)} XP
-            </p>
-            <p className="praxis-label text-[var(--accent)]">
-              Rank {user.rankTier} | Nível {user.level}
-            </p>
-          </div>
-        </GlassPanel>
-
-        <GlassPanel className="space-y-4">
-          <div>
-            <p className="praxis-label text-[var(--accent)]">Top geral</p>
-            <h2 className="praxis-title mt-2 text-3xl">Tabela principal</h2>
-          </div>
-          <div className="space-y-3">
-            {leaderboard.slice(0, 10).map((entry, index) => (
+      {/* Podium */}
+      {podium.length > 0 ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              podium.length === 3 ? "1fr 1.2fr 1fr" : `repeat(${podium.length}, 1fr)`,
+            gap: 16,
+            marginBottom: 32,
+            alignItems: "end",
+          }}
+        >
+          {podiumLayout.map(({ entry, pos, height, hot }) => (
+            <div
+              key={entry.id}
+              className={hot ? "rx-panel-hot" : "rx-panel"}
+              style={{
+                padding: 20,
+                textAlign: "center",
+                height: height + 100,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                position: "relative",
+              }}
+            >
               <div
-                key={entry.id}
-                className={cn(
-                  "flex min-w-0 flex-col items-stretch justify-between gap-4 rounded-sm border px-4 py-4 sm:flex-row sm:items-center",
-                  entry.id === "current-user"
-                    ? "border-[rgba(251,146,60,0.32)] bg-[rgba(251,146,60,0.08)]"
-                    : "border-zinc-800 bg-[linear-gradient(180deg,rgba(18,18,20,0.96),rgba(10,10,12,0.98))]",
-                )}
+                className="rx-display"
+                style={{
+                  position: "absolute",
+                  top: 8,
+                  right: 12,
+                  fontSize: 48,
+                  fontWeight: 700,
+                  color: hot ? "var(--accent)" : "var(--fg-4)",
+                  letterSpacing: "-0.03em",
+                  lineHeight: 1,
+                  opacity: 0.8,
+                }}
               >
-                <div className="flex min-w-0 items-center gap-4">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-sm border border-zinc-800 bg-black/60 text-sm font-semibold text-zinc-200">
-                    {index + 1}
+                #{pos}
+              </div>
+              <Avatar
+                initials={initialsFor(entry.name)}
+                size={hot ? 64 : 52}
+                tier={entry.rankTier}
+                online={false}
+              />
+              <div
+                className="rx-display"
+                style={{
+                  fontSize: hot ? 20 : 16,
+                  fontWeight: 700,
+                  marginTop: 12,
+                  color: "var(--fg)",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {entry.username}
+              </div>
+              <div style={{ marginTop: 6 }}>
+                <RankChip tier={`${entry.rankTier} ${entry.rankLabel ?? ""}`.trim()} />
+              </div>
+              <div
+                className="rx-display"
+                style={{
+                  fontSize: 24,
+                  fontWeight: 700,
+                  color: "var(--accent)",
+                  marginTop: 10,
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {formatPoints(entry.totalXp)}
+              </div>
+              <div
+                className="rx-mono"
+                style={{
+                  fontSize: 9,
+                  color: "var(--fg-3)",
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  marginTop: 2,
+                }}
+              >
+                XP TOTAL
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {/* Table */}
+      <RxPanel style={{ padding: 0, overflow: "hidden" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "50px 1fr 120px 100px 80px",
+            padding: "12px 18px",
+            borderBottom: "1px solid var(--line)",
+            background: "rgba(0,0,0,0.4)",
+          }}
+        >
+          {["RANK", "OPERADOR", "TIER", "XP TOTAL", "NÍVEL"].map((h) => (
+            <div
+              key={h}
+              className="rx-mono"
+              style={{
+                fontSize: 9,
+                color: "var(--fg-3)",
+                letterSpacing: "0.22em",
+                fontWeight: 600,
+                textTransform: "uppercase",
+              }}
+            >
+              {h}
+            </div>
+          ))}
+        </div>
+        {tableRows.map((entry, index) => {
+          const isSelf = entry.id === "current-user";
+          return (
+            <div
+              key={entry.id}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "50px 1fr 120px 100px 80px",
+                padding: "12px 18px",
+                borderBottom: "1px solid var(--line-soft)",
+                background: isSelf
+                  ? "rgba(251,146,60,0.08)"
+                  : "transparent",
+                borderLeft: isSelf
+                  ? "2px solid var(--accent)"
+                  : "2px solid transparent",
+                alignItems: "center",
+                fontSize: 13,
+              }}
+            >
+              <div
+                className="rx-mono"
+                style={{
+                  color: isSelf ? "var(--accent)" : "var(--fg-3)",
+                  fontWeight: 600,
+                }}
+              >
+                #{index + 1}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  minWidth: 0,
+                }}
+              >
+                <Avatar
+                  initials={initialsFor(entry.name)}
+                  size={28}
+                  tier={entry.rankTier}
+                  online={false}
+                />
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      color: isSelf ? "var(--accent)" : "var(--fg)",
+                      fontWeight: isSelf ? 600 : 400,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {entry.username}
                   </div>
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-zinc-100">{entry.name}</p>
-                    <p className="truncate text-sm text-zinc-500">{entry.username}</p>
+                  <div
+                    className="rx-mono"
+                    style={{
+                      fontSize: 9,
+                      color: "var(--fg-4)",
+                      letterSpacing: "0.12em",
+                      marginTop: 2,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {entry.name}
                   </div>
-                </div>
-                <div className="text-left sm:text-right">
-                  <p className="font-semibold text-zinc-100">
-                    {formatPoints(entry.totalXp)} XP
-                  </p>
-                  <p className="text-sm text-zinc-500">
-                    Rank {entry.rankTier} | Nível {entry.level}
-                  </p>
                 </div>
               </div>
-            ))}
-          </div>
-        </GlassPanel>
-      </section>
+              <div
+                className="rx-mono"
+                style={{
+                  fontSize: 10,
+                  color: "var(--accent)",
+                  letterSpacing: "0.14em",
+                }}
+              >
+                ◆ {entry.rankTier} {entry.rankLabel}
+              </div>
+              <div className="rx-mono" style={{ color: "var(--fg-2)" }}>
+                {formatPoints(entry.totalXp)}
+              </div>
+              <div className="rx-mono" style={{ color: "var(--fg-3)" }}>
+                LVL {entry.level}
+              </div>
+            </div>
+          );
+        })}
+      </RxPanel>
     </div>
   );
 }
