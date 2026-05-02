@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useState } from "react";
@@ -16,11 +16,7 @@ import {
   Plus,
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
-import {
-  RxPBar,
-  RxPageHeader,
-  RxPanel,
-} from "@/components/redesign/primitives";
+import { RxPBar } from "@/components/redesign/primitives";
 import { moduleCatalog } from "@/lib/mock-data";
 import type {
   MealPlanBlock,
@@ -120,6 +116,32 @@ const weekdayShortLabels: Record<Weekday, string> = {
 const calendarHeaderLabels = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
 
 const hiddenLegacyTaskIds = new Set(["task-pull", "task-push", "task-legs"]);
+
+const phaseAccent: Record<
+  "morning" | "afternoon" | "night" | "unscheduled",
+  { border: string; bg: string; color: string }
+> = {
+  morning: {
+    border: "rgba(56,189,248,0.3)",
+    bg: "rgba(56,189,248,0.08)",
+    color: "#7dd3fc",
+  },
+  afternoon: {
+    border: "rgba(251,146,60,0.3)",
+    bg: "rgba(251,146,60,0.08)",
+    color: "#fdba74",
+  },
+  night: {
+    border: "rgba(167,139,250,0.3)",
+    bg: "rgba(167,139,250,0.08)",
+    color: "#c4b5fd",
+  },
+  unscheduled: {
+    border: "rgba(113,113,122,0.3)",
+    bg: "rgba(39,39,42,0.4)",
+    color: "#a1a1aa",
+  },
+};
 
 function taskSourceLabel(moduleId: Task["moduleId"]) {
   if (!moduleId) return "Meta personalizada";
@@ -258,27 +280,6 @@ function detailToneClasses(tone?: AgendaDetailItem["tone"]) {
 
   return {
     card: "border-zinc-800 bg-[rgba(18,18,20,0.96)]",
-    badge: "border-zinc-800 bg-[rgba(18,18,20,0.96)] text-zinc-300",
-  };
-}
-
-function agendaItemToneClasses(item: AgendaItem) {
-  if (item.completed) {
-    return {
-      card: "border-zinc-800 bg-[rgba(14,14,17,0.92)]",
-      badge: "border-zinc-800 bg-[rgba(18,18,20,0.96)] text-zinc-300",
-    };
-  }
-
-  if (item.kind === "workout") {
-    return {
-      card: "border-[rgba(251,146,60,0.18)] bg-[rgba(251,146,60,0.06)]",
-      badge: "border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] text-[var(--accent)]",
-    };
-  }
-
-  return {
-    card: "border-zinc-800 bg-[rgba(14,14,17,0.96)]",
     badge: "border-zinc-800 bg-[rgba(18,18,20,0.96)] text-zinc-300",
   };
 }
@@ -718,7 +719,6 @@ export default function TasksPage() {
     const isExpanded = expandedItemId === item.id;
     const hasDetails =
       item.kind !== "workout" && Boolean(item.detailItems?.length);
-    const tone = agendaItemToneClasses(item);
     const isCompleted = item.completed;
     const canUpdateSelectedDate = isSelectedDateToday;
     const detailBlockId = item.detailItems?.[0]?.blockId;
@@ -727,70 +727,146 @@ export default function TasksPage() {
       Boolean(detailBlockId) &&
       Boolean(item.detailItems?.length);
     const canToggleAlarm = Boolean(item.reminderId || item.reminderConfig);
-    const titleClass = isCompleted
-      ? "mt-3 break-words text-xl font-semibold uppercase tracking-[-0.03em] text-zinc-500 line-through decoration-slate-500/80"
-      : "mt-3 break-words text-xl font-semibold uppercase tracking-[-0.03em] text-white";
-    const descriptionClass = isCompleted
-      ? "mt-2 break-words text-sm leading-6 text-zinc-500 line-through decoration-slate-600/70"
-      : item.kind === "workout"
-        ? "mt-2 break-words text-sm leading-6 text-zinc-300"
-        : "mt-2 break-words text-sm leading-6 text-zinc-500";
-    const statClass = isCompleted
-      ? "rounded-full border border-slate-200/10 bg-slate-300/6 px-3 py-1.5 text-zinc-500 line-through decoration-slate-500/80"
-      : item.kind === "workout"
-        ? `rounded-full border px-3 py-1.5 ${tone.badge}`
-        : "rounded-full border border-zinc-800 bg-[rgba(18,18,20,0.98)] px-3 py-1.5";
+
+    const cardClasses = [
+      "item-card",
+      isCompleted ? "completed" : "",
+      options?.featured && !isCompleted ? "featured" : "",
+      !isCompleted && !options?.featured && item.kind === "workout"
+        ? "accent-card"
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    const titleStyle: React.CSSProperties = isCompleted
+      ? {
+          fontSize: 16,
+          fontWeight: 600,
+          color: "#71717a",
+          textDecoration: "line-through",
+        }
+      : {
+          fontSize: 16,
+          fontWeight: 600,
+          color: "var(--fg)",
+        };
+
+    const descriptionStyle: React.CSSProperties = {
+      fontSize: 13,
+      color: isCompleted ? "#71717a" : "var(--fg-3)",
+      marginTop: 4,
+      lineHeight: 1.55,
+      textDecoration: isCompleted ? "line-through" : "none",
+    };
+
+    const categoryBadgeClass =
+      isCompleted
+        ? "badge badge-dim"
+        : item.kind === "workout" || item.kind === "nutrition"
+          ? "badge badge-accent"
+          : "badge";
 
     return (
       <div
         key={item.id}
-        className={`rounded-[20px] border px-4 py-4 md:px-5 ${tone.card} ${
-          options?.featured && !isCompleted
-            ? "border-emerald-400/35 bg-[linear-gradient(135deg,rgba(16,185,129,0.14),rgba(24,24,26,0.98))] shadow-[0_0_0_1px_rgba(16,185,129,0.12)]"
-            : ""
-        } ${isCompleted ? "opacity-80" : ""
-        }`}
+        className={cardClasses}
+        style={{ display: "grid", gap: 16 }}
       >
-        <div className="grid gap-4 lg:grid-cols-[96px_minmax(0,1fr)_228px]">
-          <div className="flex min-h-[92px] items-center border-b border-zinc-800/80 pb-4 lg:min-h-0 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-5">
-            <div className="text-left lg:text-center">
-              <span className="whitespace-nowrap text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+        <div
+          style={{
+            display: "grid",
+            gap: 16,
+            gridTemplateColumns: "minmax(0,1fr)",
+          }}
+          className="lg:grid-cols-[80px_minmax(0,1fr)_220px]"
+        >
+          {/* Time block */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}
+          >
+            <span
+              style={{
+                fontFamily: "var(--font-mono), monospace",
+                fontSize: 10,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                color: "var(--fg-3)",
+              }}
+            >
               {item.time ? "Horário" : "Fluxo"}
-              </span>
-              <div className="mt-3 whitespace-nowrap text-[2.1rem] font-semibold leading-none tracking-tight tabular-nums text-white">
-                {item.time || "--:--"}
-              </div>
+            </span>
+            <div
+              style={{
+                fontFamily: "var(--font-space-grotesk), sans-serif",
+                fontSize: 28,
+                fontWeight: 600,
+                lineHeight: 1,
+                letterSpacing: "-0.02em",
+                color: isCompleted ? "#a1a1aa" : "var(--fg)",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {item.time || "--:--"}
             </div>
           </div>
 
+          {/* Body */}
           {item.kind === "workout" && item.moduleRoute ? (
-            <Link href={item.moduleRoute} className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-zinc-300">
-                <span className={`rounded-full border px-3 py-1.5 ${tone.badge}`}>
-                  {item.categoryLabel}
-                </span>
-                <span className="rounded-full border border-zinc-800 bg-[rgba(18,18,20,0.96)] px-3 py-1.5 text-zinc-300">
-                  {item.originLabel}
-                </span>
+            <Link
+              href={item.moduleRoute}
+              style={{ minWidth: 0, color: "inherit", textDecoration: "none" }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  marginBottom: 10,
+                }}
+              >
+                <span className={categoryBadgeClass}>{item.categoryLabel}</span>
+                <span className="badge badge-dim">{item.originLabel}</span>
               </div>
-              <p className={titleClass}>{item.title}</p>
-              <p className={descriptionClass}>{item.description}</p>
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] uppercase tracking-[0.16em] text-zinc-500">
-                <span>{item.sourceLabel}</span>
+              <div style={titleStyle}>{item.title}</div>
+              <div style={descriptionStyle}>{item.description}</div>
+              <div
+                style={{
+                  marginTop: 8,
+                  fontSize: 11,
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
+                  color: "var(--fg-3)",
+                }}
+              >
+                {item.sourceLabel}
               </div>
               {item.stats?.length ? (
-                <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                <div
+                  style={{
+                    marginTop: 10,
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 6,
+                  }}
+                >
                   {item.stats.map((stat) => (
-                    <span key={stat} className={statClass}>
+                    <span key={stat} className="badge badge-sm">
                       {stat}
                     </span>
                   ))}
                 </div>
               ) : null}
               <p
-                className={`mt-3 text-xs ${
-                  isCompleted ? "text-zinc-500" : "text-rose-100/85"
-                }`}
+                style={{
+                  marginTop: 10,
+                  fontSize: 12,
+                  color: isCompleted ? "#71717a" : "#fca5a5",
+                }}
               >
                 {item.workoutLoggedToday
                   ? "Treino salvo no histórico de carga."
@@ -803,34 +879,65 @@ export default function TasksPage() {
             <button
               type="button"
               onClick={() => toggleDetails(item.id)}
-              className="min-w-0 flex-1 text-left"
+              style={{
+                minWidth: 0,
+                textAlign: "left",
+                background: "transparent",
+                border: "none",
+                padding: 0,
+                color: "inherit",
+                cursor: "pointer",
+              }}
             >
-              <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-zinc-300">
-                <span className={`rounded-full border px-3 py-1.5 ${tone.badge}`}>
-                  {item.categoryLabel}
-                </span>
-                <span className="rounded-full border border-zinc-800 bg-[rgba(18,18,20,0.96)] px-3 py-1.5 text-zinc-300">
-                  {item.originLabel}
-                </span>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  marginBottom: 10,
+                }}
+              >
+                <span className={categoryBadgeClass}>{item.categoryLabel}</span>
+                <span className="badge badge-dim">{item.originLabel}</span>
               </div>
-              <p className={titleClass}>{item.title}</p>
-              <p className={descriptionClass}>{item.description}</p>
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] uppercase tracking-[0.16em] text-zinc-500">
-                <span>{item.sourceLabel}</span>
+              <div style={titleStyle}>{item.title}</div>
+              <div style={descriptionStyle}>{item.description}</div>
+              <div
+                style={{
+                  marginTop: 8,
+                  fontSize: 11,
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
+                  color: "var(--fg-3)",
+                }}
+              >
+                {item.sourceLabel}
               </div>
               {item.stats?.length ? (
-                <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                <div
+                  style={{
+                    marginTop: 10,
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 6,
+                  }}
+                >
                   {item.stats.map((stat) => (
-                    <span key={stat} className={statClass}>
+                    <span key={stat} className="badge badge-sm">
                       {stat}
                     </span>
                   ))}
                 </div>
               ) : null}
               <div
-                className={`mt-3 inline-flex items-center gap-2 text-xs ${
-                  isCompleted ? "text-zinc-500" : "text-[var(--accent)]"
-                }`}
+                style={{
+                  marginTop: 10,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: 12,
+                  color: isCompleted ? "#71717a" : "var(--accent)",
+                }}
               >
                 {item.detailHint}
                 {isExpanded ? (
@@ -841,27 +948,39 @@ export default function TasksPage() {
               </div>
             </button>
           ) : (
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-zinc-300">
-                <span className={`rounded-full border px-3 py-1.5 ${tone.badge}`}>
-                  {item.categoryLabel}
-                </span>
-                <span className="rounded-full border border-zinc-800 bg-[rgba(18,18,20,0.96)] px-3 py-1.5 text-zinc-300">
-                  {item.originLabel}
-                </span>
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  marginBottom: 10,
+                }}
+              >
+                <span className={categoryBadgeClass}>{item.categoryLabel}</span>
+                <span className="badge badge-dim">{item.originLabel}</span>
               </div>
-              <p className={titleClass}>{item.title}</p>
-              <p className={descriptionClass}>{item.description}</p>
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] uppercase tracking-[0.16em] text-zinc-500">
-                <span>{item.sourceLabel}</span>
+              <div style={titleStyle}>{item.title}</div>
+              <div style={descriptionStyle}>{item.description}</div>
+              <div
+                style={{
+                  marginTop: 8,
+                  fontSize: 11,
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
+                  color: "var(--fg-3)",
+                }}
+              >
+                {item.sourceLabel}
               </div>
               {item.recurrenceLabel ? (
                 <p
-                  className={`mt-3 text-xs ${
-                    isCompleted
-                      ? "text-zinc-500 line-through decoration-slate-600/70"
-                      : "text-[var(--accent)]"
-                  }`}
+                  style={{
+                    marginTop: 10,
+                    fontSize: 12,
+                    color: isCompleted ? "#71717a" : "var(--accent)",
+                    textDecoration: isCompleted ? "line-through" : "none",
+                  }}
                 >
                   {item.recurrenceLabel}
                 </p>
@@ -869,21 +988,30 @@ export default function TasksPage() {
             </div>
           )}
 
-          <div className="flex w-full shrink-0 flex-col gap-2 xl:w-auto xl:min-w-[220px]">
+          {/* Actions */}
+          <div
+            className="task-actions"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              minWidth: 0,
+            }}
+          >
             {item.manualTaskId ? (
               <>
                 {canUpdateSelectedDate ? (
                   <button
                     type="button"
                     onClick={() => actions.toggleTask(item.manualTaskId!)}
-                    className={`inline-flex w-full items-center justify-center gap-2 rounded-[10px] border px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] ${
-                      item.completed
-                        ? "border-zinc-800 bg-[rgba(18,18,20,0.98)] text-zinc-300"
-                        : "border-emerald-400/30 bg-emerald-400/14 text-emerald-100 shadow-[0_0_14px_rgba(16,185,129,0.12)]"
+                    className={`v2-btn v2-btn-sm ${
+                      item.completed ? "" : "v2-btn-ok"
                     }`}
                   >
                     <CheckCircle2 className="h-3.5 w-3.5" />
-                    {item.completed ? "Marcar como pendente" : "Marcar como concluída"}
+                    {item.completed
+                      ? "Marcar como pendente"
+                      : "Marcar como concluída"}
                   </button>
                 ) : null}
                 {item.canPostpone ? (
@@ -899,7 +1027,7 @@ export default function TasksPage() {
                         },
                       })
                     }
-                    className="inline-flex w-full items-center justify-center rounded-[10px] border border-zinc-800 bg-[rgba(18,18,20,0.98)] px-3 py-3 text-[11px] uppercase tracking-[0.14em] text-zinc-300"
+                    className="v2-btn v2-btn-sm v2-btn-ghost"
                   >
                     {item.postponeLabel}
                   </button>
@@ -907,8 +1035,11 @@ export default function TasksPage() {
               </>
             ) : item.workoutDayId ? (
               item.workoutLoggedToday ? (
-                <div className="inline-flex w-full items-center justify-center gap-2 rounded-[10px] border border-zinc-800 bg-[rgba(18,18,20,0.98)] px-3 py-3 text-center text-[11px] uppercase tracking-[0.14em] text-zinc-300">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" />
+                <div className="v2-btn v2-btn-sm" style={{ cursor: "default" }}>
+                  <CheckCircle2
+                    className="h-3.5 w-3.5"
+                    style={{ color: "var(--ok)" }}
+                  />
                   Treino salvo no histórico
                 </div>
               ) : (
@@ -920,10 +1051,8 @@ export default function TasksPage() {
                       dateKey: selectedDateKey,
                     })
                   }
-                  className={`inline-flex w-full items-center justify-center gap-2 rounded-[10px] border px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] ${
-                    item.completed
-                      ? "border-zinc-800 bg-[rgba(18,18,20,0.98)] text-zinc-300"
-                      : "border-emerald-400/30 bg-emerald-400/14 text-emerald-100 shadow-[0_0_14px_rgba(16,185,129,0.12)]"
+                  className={`v2-btn v2-btn-sm ${
+                    item.completed ? "" : "v2-btn-ok"
                   }`}
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" />
@@ -942,10 +1071,8 @@ export default function TasksPage() {
                       completed: !item.completed,
                     })
                   }
-                  className={`inline-flex w-full items-center justify-center gap-2 rounded-[10px] border px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] ${
-                    item.completed
-                      ? "border-zinc-800 bg-[rgba(18,18,20,0.98)] text-zinc-300"
-                      : "border-emerald-400/30 bg-emerald-400/14 text-emerald-100 shadow-[0_0_14px_rgba(16,185,129,0.12)]"
+                  className={`v2-btn v2-btn-sm ${
+                    item.completed ? "" : "v2-btn-ok"
                   }`}
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" />
@@ -957,7 +1084,8 @@ export default function TasksPage() {
             {item.moduleRoute ? (
               <Link
                 href={item.moduleRoute}
-                className="inline-flex w-full items-center justify-center rounded-[10px] border border-zinc-800 bg-[rgba(18,18,20,0.98)] px-3 py-3 text-[11px] uppercase tracking-[0.14em] text-zinc-300"
+                className="v2-btn v2-btn-sm v2-btn-ghost"
+                style={{ textDecoration: "none" }}
               >
                 {item.kind === "workout" ? "Abrir treino" : "Abrir"}
               </Link>
@@ -967,10 +1095,8 @@ export default function TasksPage() {
               <button
                 type="button"
                 onClick={() => handleAlarmToggle(item)}
-                className={`inline-flex w-full items-center justify-center gap-2 rounded-[10px] border px-3 py-3 text-[11px] uppercase tracking-[0.14em] ${
-                  item.reminderEnabled
-                    ? "border-emerald-400/24 bg-emerald-400/10 text-emerald-100"
-                    : "border-zinc-800 bg-[rgba(18,18,20,0.98)] text-zinc-300"
+                className={`v2-btn v2-btn-sm ${
+                  item.reminderEnabled ? "v2-btn-ok" : "v2-btn-ghost"
                 }`}
               >
                 {item.reminderEnabled ? (
@@ -985,79 +1111,84 @@ export default function TasksPage() {
         </div>
 
         {hasDetails && isExpanded ? (
-          <div className="mt-4 border-t border-zinc-800 pt-4">
-            <div className="space-y-3">
-              {item.detailItems?.map((detail) => {
-                const detailTone = detailToneClasses(detail.tone);
+          <div
+            style={{
+              borderTop: "1px solid var(--line)",
+              paddingTop: 14,
+              display: "grid",
+              gap: 10,
+            }}
+          >
+            {item.detailItems?.map((detail) => {
+              const detailTone = detailToneClasses(detail.tone);
 
-                return (
-                  <div
-                    key={detail.id}
-                    className={`flex items-start justify-between gap-3 rounded-sm border px-4 py-3 ${
-                      detail.completed
-                        ? "border-slate-200/10 bg-slate-300/5 opacity-80"
-                        : detailTone.card
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap gap-2 text-xs text-zinc-500">
-                        <span
-                          className={`rounded-sm border px-3 py-1.5 ${
-                            detail.completed
-                              ? "border-slate-200/10 bg-slate-300/8 text-zinc-300"
-                              : detailTone.badge
-                          }`}
-                        >
-                          {detail.badge}
+              return (
+                <div
+                  key={detail.id}
+                  className={`flex items-start justify-between gap-3 rounded-[14px] border px-4 py-3 ${
+                    detail.completed
+                      ? "border-slate-200/10 bg-slate-300/5 opacity-80"
+                      : detailTone.card
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <span
+                        className={`rounded-full border px-3 py-1 ${
+                          detail.completed
+                            ? "border-slate-200/10 bg-slate-300/8 text-zinc-300"
+                            : detailTone.badge
+                        }`}
+                      >
+                        {detail.badge}
+                      </span>
+                      {detail.completed !== undefined ? (
+                        <span className="rounded-full border border-zinc-800 bg-[rgba(18,18,20,0.96)] px-3 py-1 text-zinc-300">
+                          {detail.completed ? "Concluído" : "Pendente"}
                         </span>
-                        {detail.completed !== undefined ? (
-                          <span className="rounded-sm border border-zinc-800 bg-[rgba(18,18,20,0.96)] px-3 py-1.5">
-                            {detail.completed ? "Concluído" : "Pendente"}
-                          </span>
-                        ) : null}
-                      </div>
-                      <p
-                        className={`mt-2 font-medium ${
-                          detail.completed
-                            ? "text-zinc-500 line-through decoration-slate-500/80"
-                            : "text-white"
-                        }`}
-                      >
-                        {detail.title}
-                      </p>
-                      <p
-                        className={`mt-1 text-sm leading-6 ${
-                          detail.completed
-                            ? "text-zinc-500 line-through decoration-slate-600/70"
-                            : "text-zinc-500"
-                        }`}
-                      >
-                        {detail.subtitle}
-                      </p>
+                      ) : null}
                     </div>
-
-                    {detail.blockId && detail.mealItemId && canUpdateSelectedDate ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          actions.toggleMealItemCompleted({
-                            blockId: detail.blockId!,
-                            itemId: detail.mealItemId!,
-                          })
-                        }
-                        className={`rounded-sm border px-3 py-2 text-xs ${
-                          detail.completed
-                            ? "border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] text-emerald-100"
-                            : "border-zinc-800 bg-[rgba(18,18,20,0.98)] text-zinc-300"
-                        }`}
-                      >
-                        {detail.completed ? "Desfazer" : "Concluir"}
-                      </button>
-                    ) : null}
+                    <p
+                      className={`mt-2 font-medium ${
+                        detail.completed
+                          ? "text-zinc-500 line-through"
+                          : "text-white"
+                      }`}
+                    >
+                      {detail.title}
+                    </p>
+                    <p
+                      className={`mt-1 text-sm leading-6 ${
+                        detail.completed
+                          ? "text-zinc-500 line-through"
+                          : "text-zinc-500"
+                      }`}
+                    >
+                      {detail.subtitle}
+                    </p>
                   </div>
-                );
-              })}
-            </div>
+
+                  {detail.blockId &&
+                  detail.mealItemId &&
+                  canUpdateSelectedDate ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        actions.toggleMealItemCompleted({
+                          blockId: detail.blockId!,
+                          itemId: detail.mealItemId!,
+                        })
+                      }
+                      className={`v2-btn v2-btn-xs ${
+                        detail.completed ? "v2-btn-ok" : "v2-btn-ghost"
+                      }`}
+                    >
+                      {detail.completed ? "Desfazer" : "Concluir"}
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         ) : null}
       </div>
@@ -1079,369 +1210,601 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <RxPanel className="overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(251,146,60,0.10),transparent_34%),rgba(10,10,12,0.96)]">
-        <div className="space-y-6">
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-            <div className="max-w-3xl">
-              <p className="editorial-kicker text-[#c65622]">
-                Operação diária
-              </p>
-              <h1 className="editorial-title mt-3 text-4xl text-white sm:text-5xl">
-                Tarefas em fluxo operacional
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-400">
-                A leitura do dia agora fica mais editorial e menos carregada:
-                calendário, consistência e execução no mesmo eixo visual.
-              </p>
-            </div>
+    <div>
+      {/* Page header */}
+      <div style={{ marginBottom: 24 }}>
+        <div className="page-eyebrow" style={{ color: "var(--ok)" }}>
+          Linha do tempo
+        </div>
+        <h1 className="page-title-v2">Tarefas em modo execução</h1>
+        <p className="page-description-v2">
+          Calendário, consistência e execução no mesmo eixo visual. Acompanhe o
+          fluxo do dia em manhã, tarde e noite.
+        </p>
+      </div>
 
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setShowCreateTaskForm((current) => !current)}
-                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition ${
-                  showCreateTaskForm
-                    ? "border-emerald-400/40 bg-emerald-400/14 text-emerald-100"
-                    : "border-zinc-800 bg-[rgba(18,18,20,0.98)] text-white hover:border-zinc-700"
-                }`}
-              >
-                <Plus className="h-4 w-4" />
-                {showCreateTaskForm ? "Fechar criação" : "Nova meta"}
-              </button>
-              <button
-                type="button"
-                onClick={() => focusDate(today)}
-                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition ${
-                  isSelectedDateToday
-                    ? "border-emerald-400/40 bg-emerald-400/14 text-emerald-100"
-                    : "border-zinc-800 bg-[rgba(18,18,20,0.98)] text-zinc-300"
-                }`}
-              >
-                <CalendarDays className="h-4 w-4" />
-                Hoje
-              </button>
-              <button
-                type="button"
-                onClick={() => focusDate(tomorrow)}
-                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition ${
-                  isSelectedDateTomorrow
-                    ? "border-emerald-400/40 bg-emerald-400/14 text-emerald-100"
-                    : "border-zinc-800 bg-[rgba(18,18,20,0.98)] text-zinc-300"
-                }`}
-              >
-                <ArrowRight className="h-4 w-4" />
-                Amanhã
-              </button>
+      {/* Controls + calendar */}
+      <div className="glass glass-ok" style={{ marginBottom: 20 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 16,
+            flexWrap: "wrap",
+            marginBottom: 20,
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div
+              className="page-eyebrow"
+              style={{ color: "var(--ok)", marginBottom: 6 }}
+            >
+              Calendário de tarefas
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--font-space-grotesk), sans-serif",
+                fontSize: 22,
+                fontWeight: 700,
+                letterSpacing: "-0.02em",
+                color: "var(--fg)",
+              }}
+            >
+              {calendarView === "week"
+                ? "Visualização semanal"
+                : "Visualização mensal"}
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: "var(--fg-3)",
+                marginTop: 4,
+                lineHeight: 1.6,
+              }}
+            >
+              {calendarView === "week"
+                ? "Volume de execução por dia desta semana."
+                : "Distribuição mensal para enxergar a carga e o ritmo."}
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="editorial-kicker text-zinc-500">
-                Calendário de tarefas
-              </p>
-              <p className="mt-2 text-sm leading-7 text-zinc-500">
-                {calendarView === "week"
-                  ? "Visualização semanal do volume de execução."
-                  : "Visualização mensal para enxergar carga e distribuição."}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => moveCalendar(-1)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-800 bg-[rgba(18,18,20,0.98)] text-zinc-300 transition hover:border-zinc-700"
-                aria-label={
-                  calendarView === "week" ? "Semana anterior" : "Mês anterior"
-                }
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="rounded-full border border-zinc-800 bg-[rgba(18,18,20,0.98)] px-3 py-2 text-xs uppercase tracking-[0.18em] text-zinc-300">
-                {calendarView === "week" ? weeklyRangeLabel : visibleMonthLabel}
-              </span>
-              <button
-                type="button"
-                onClick={() => moveCalendar(1)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-800 bg-[rgba(18,18,20,0.98)] text-zinc-300 transition hover:border-zinc-700"
-                aria-label={
-                  calendarView === "week" ? "Próxima semana" : "Próximo mês"
-                }
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setCalendarView("week")}
-                className={`inline-flex items-center rounded-full border px-4 py-2.5 text-sm font-medium transition ${
-                  calendarView === "week"
-                    ? "border-emerald-400/40 bg-emerald-400/14 text-emerald-100"
-                    : "border-zinc-800 bg-[rgba(18,18,20,0.98)] text-zinc-300"
-                }`}
-              >
-                Semanal
-              </button>
-              <button
-                type="button"
-                onClick={() => setCalendarView("month")}
-                className={`inline-flex items-center rounded-full border px-4 py-2.5 text-sm font-medium transition ${
-                  calendarView === "month"
-                    ? "border-emerald-400/40 bg-emerald-400/14 text-emerald-100"
-                    : "border-zinc-800 bg-[rgba(18,18,20,0.98)] text-zinc-300"
-                }`}
-              >
-                Mensal
-              </button>
-            </div>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              alignItems: "center",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setShowCreateTaskForm((current) => !current)}
+              className={`v2-btn v2-btn-sm ${
+                showCreateTaskForm ? "v2-btn-ok" : ""
+              }`}
+            >
+              <Plus className="h-4 w-4" />
+              {showCreateTaskForm ? "Fechar criação" : "Nova meta"}
+            </button>
+            <button
+              type="button"
+              onClick={() => focusDate(today)}
+              className={`v2-btn v2-btn-sm ${
+                isSelectedDateToday ? "v2-btn-ok" : ""
+              }`}
+            >
+              <CalendarDays className="h-4 w-4" />
+              Hoje
+            </button>
+            <button
+              type="button"
+              onClick={() => focusDate(tomorrow)}
+              className={`v2-btn v2-btn-sm ${
+                isSelectedDateTomorrow ? "v2-btn-ok" : ""
+              }`}
+            >
+              <ArrowRight className="h-4 w-4" />
+              Amanhã
+            </button>
           </div>
+        </div>
 
-          {calendarView === "week" ? (
-            <div className="overflow-x-auto pb-1">
-              <div className="grid min-w-[720px] gap-3 grid-cols-7">
-                {weeklyProgress.map((day) => (
+        {/* Calendar nav */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            alignItems: "center",
+            gap: 8,
+            flexWrap: "wrap",
+            marginBottom: 16,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => moveCalendar(-1)}
+            className="v2-btn v2-btn-icon v2-btn-ghost"
+            aria-label={
+              calendarView === "week" ? "Semana anterior" : "Mês anterior"
+            }
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span
+            className="badge"
+            style={{ fontSize: 11, padding: "8px 14px" }}
+          >
+            {calendarView === "week" ? weeklyRangeLabel : visibleMonthLabel}
+          </span>
+          <button
+            type="button"
+            onClick={() => moveCalendar(1)}
+            className="v2-btn v2-btn-icon v2-btn-ghost"
+            aria-label={
+              calendarView === "week" ? "Próxima semana" : "Próximo mês"
+            }
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setCalendarView("week")}
+            className={`v2-btn v2-btn-sm ${
+              calendarView === "week" ? "v2-btn-ok" : "v2-btn-ghost"
+            }`}
+          >
+            Semanal
+          </button>
+          <button
+            type="button"
+            onClick={() => setCalendarView("month")}
+            className={`v2-btn v2-btn-sm ${
+              calendarView === "month" ? "v2-btn-ok" : "v2-btn-ghost"
+            }`}
+          >
+            Mensal
+          </button>
+        </div>
+
+        {/* Calendar grid */}
+        {calendarView === "week" ? (
+          <div style={{ overflowX: "auto", paddingBottom: 4 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+                gap: 10,
+                minWidth: 720,
+              }}
+            >
+              {weeklyProgress.map((day) => {
+                const active = day.isSelected || day.isToday;
+                return (
                   <button
                     type="button"
                     key={day.id}
                     onClick={() => focusDate(day.date)}
-                    className={`rounded-[22px] border px-4 py-4 text-center transition ${
-                      day.isSelected
-                        ? "border-emerald-400/45 bg-[rgba(16,185,129,0.12)] shadow-[0_0_0_1px_rgba(16,185,129,0.14)]"
-                        : day.isToday
-                        ? "border-emerald-400/45 bg-[rgba(16,185,129,0.12)] shadow-[0_0_0_1px_rgba(16,185,129,0.14)]"
-                        : "border-zinc-800 bg-[rgba(18,18,20,0.88)]"
-                    }`}
+                    style={{
+                      borderRadius: 20,
+                      padding: "14px 8px",
+                      textAlign: "center",
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                      border: active
+                        ? "1px solid rgba(74,222,128,0.45)"
+                        : "1px solid rgba(39,39,42,0.8)",
+                      background: active
+                        ? "rgba(74,222,128,0.1)"
+                        : "rgba(18,18,20,0.88)",
+                    }}
                   >
-                    <p className="text-[11px] uppercase tracking-[0.28em] text-zinc-500">
-                      {day.weekdayLabel}
-                    </p>
-                    <div className="mt-4 flex items-center justify-center">
-                      <div
-                        className={`flex h-12 w-12 items-center justify-center rounded-full border text-lg font-semibold ${
-                          day.isSelected || day.isToday
-                            ? "border-emerald-400/40 bg-emerald-400/12 text-emerald-100"
-                            : "border-zinc-800 bg-black/40 text-white"
-                        }`}
-                      >
-                        {day.dateLabel}
-                      </div>
-                    </div>
-                    <p className="mt-4 text-xs uppercase tracking-[0.18em] text-zinc-500">
-                      {day.total} tarefas
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto pb-1">
-              <div className="min-w-[720px] space-y-3">
-                <div className="grid grid-cols-7 gap-3">
-                  {calendarHeaderLabels.map((label) => (
                     <div
-                      key={label}
-                      className="rounded-[16px] border border-zinc-800 bg-[rgba(18,18,20,0.88)] px-3 py-3 text-center text-[11px] uppercase tracking-[0.24em] text-zinc-500"
+                      className="field-label"
+                      style={{
+                        marginBottom: 0,
+                        color: active ? "var(--ok)" : "#71717a",
+                      }}
                     >
-                      {label}
+                      {day.weekdayLabel}
                     </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 gap-3">
-                  {monthlyProgress.map((day, index) =>
-                    day ? (
-                      <button
-                        type="button"
-                        key={day.id}
-                        onClick={() => focusDate(day.date)}
-                        className={`min-h-[96px] rounded-[20px] border px-3 py-3 transition ${
-                          day.isSelected
-                            ? "border-emerald-400/45 bg-[rgba(16,185,129,0.12)] shadow-[0_0_0_1px_rgba(16,185,129,0.14)]"
-                            : day.isToday
-                              ? "border-emerald-400/25 bg-[rgba(16,185,129,0.08)]"
-                              : "border-zinc-800 bg-[rgba(18,18,20,0.88)]"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span
-                            className={`text-sm font-semibold ${
-                              day.isSelected || day.isToday ? "text-white" : "text-zinc-300"
-                            }`}
-                          >
-                            {day.dateLabel}
-                          </span>
-                          {day.total > 0 ? (
-                            <span className="rounded-full border border-zinc-800 bg-black/30 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-zinc-400">
-                              {day.total}
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="mt-5 text-[11px] uppercase tracking-[0.18em] text-zinc-500">
-                          {day.total > 0 ? `${day.total} tarefas` : "Sem tarefas"}
-                        </p>
-                      </button>
-                    ) : (
-                      <div
-                        key={`empty-${index}`}
-                        className="min-h-[96px] rounded-[20px] border border-dashed border-zinc-900 bg-[rgba(10,10,12,0.4)]"
-                      />
-                    ),
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </RxPanel>
-
-      <div className="space-y-6">
-        <RxPanel className="space-y-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <p className="editorial-kicker text-zinc-500">
-                Dia em foco
-              </p>
-              <h2 className="editorial-title mt-2 text-3xl text-white md:text-4xl">
-                Tarefas
-              </h2>
-              <p className="mt-2 text-sm text-zinc-500">{selectedDateSummaryLabel}</p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-full border border-zinc-800 bg-[rgba(18,18,20,0.98)] px-3 py-2 text-xs uppercase tracking-[0.18em] text-zinc-300">
-                {activeTimelineItems.length} tarefas
-              </span>
-              <span className="rounded-full border border-zinc-800 bg-[rgba(18,18,20,0.98)] px-3 py-2 text-xs uppercase tracking-[0.18em] text-zinc-300">
-                {pendingAgenda.length} pendentes
-              </span>
-            </div>
-          </div>
-
-          <div className="rounded-[22px] border border-zinc-800 bg-[rgba(18,18,20,0.9)] px-5 py-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="editorial-kicker text-zinc-500">
-                  Consistência diária
-                </p>
-                <p className="mt-2 text-2xl font-semibold text-white">
-                  {Math.round(consistencyRate)}%
-                </p>
-              </div>
-              <span className="rounded-full border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2 text-xs uppercase tracking-[0.18em] text-zinc-300">
-                {completedAgenda.length}/{activeTimelineItems.length || 0}
-              </span>
-            </div>
-            <div className="mt-4">
-              <RxPBar value={consistencyRate} />
-            </div>
-          </div>
-
-          {showCreateTaskForm ? (
-            <div className="rounded-[24px] border border-zinc-800 bg-[rgba(14,14,17,0.96)] p-5">
-              <div className="space-y-4">
-                <p className="text-sm leading-6 text-zinc-300">
-                  Toda nova meta nasce dentro de um módulo. Escolha a frente e o
-                  app te leva direto para a criação certa.
-                </p>
-
-                {visibleModules.length ? (
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {visibleModules.map((module) => (
-                      <Link
-                        key={module.id}
-                        href={module.route}
-                        onClick={() => setShowCreateTaskForm(false)}
-                        className={`rounded-[20px] border border-zinc-800 bg-gradient-to-br ${module.color} p-4 transition hover:-translate-y-0.5`}
-                      >
-                        <p className={`text-sm font-semibold ${module.accent}`}>
-                          {module.name}
-                        </p>
-                        <p className="mt-2 text-sm leading-6 text-zinc-200">
-                          {module.description}
-                        </p>
-                        <p className="mt-3 text-xs uppercase tracking-[0.18em] text-zinc-300">
-                          Abrir módulo
-                        </p>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-[18px] border border-dashed border-zinc-800 px-4 py-6 text-sm text-zinc-500">
-                    Nenhum módulo ativo no momento. Reative os módulos em
-                    Configurações para criar novas metas.
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : null}
-
-          {activeTimelineItems.length ? (
-            <div className="space-y-6">
-              {activeTimelineBuckets.map((phase) => {
-                const phaseProgress =
-                  phase.total > 0 ? (phase.completed / phase.total) * 100 : 0;
-
-                return (
-                  <section
-                    key={phase.id}
-                    className="rounded-[26px] border border-zinc-800 bg-[rgba(24,24,26,0.94)] p-4 md:p-5"
-                  >
-                    <div className="space-y-4">
-                      <div className="flex flex-col gap-4 border-l-2 border-emerald-400 pl-4 md:flex-row md:items-center md:justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10">
-                            <Clock3 className="h-5 w-5 text-emerald-300" />
-                          </div>
-                          <div>
-                            <p className="editorial-kicker text-emerald-300">
-                              {phase.window}
-                            </p>
-                            <h3 className="editorial-title mt-1 text-[1.75rem] text-white">
-                              {phase.label}
-                            </h3>
-                            <p className="mt-1 text-sm text-zinc-500">
-                              {phase.description}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="min-w-[180px]">
-                          <div className="flex items-center justify-between text-xs uppercase tracking-[0.18em] text-zinc-500">
-                            <span>Progresso</span>
-                            <span>
-                              {phase.completed}/{phase.total}
-                            </span>
-                          </div>
-                          <div className="mt-3 h-2 overflow-hidden rounded-full border border-zinc-800 bg-black/40">
-                            <div
-                              className="h-full rounded-full bg-[linear-gradient(90deg,#10b981_0%,#34d399_100%)]"
-                              style={{ width: `${phaseProgress}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        {phase.items.map((item) =>
-                          renderAgendaItemCard(item, {
-                            featured: item.id === featuredAgendaItemId,
-                          }),
-                        )}
-                      </div>
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: "50%",
+                        margin: "8px auto",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 18,
+                        fontWeight: 600,
+                        border: active
+                          ? "1px solid rgba(74,222,128,0.4)"
+                          : "1px solid rgba(39,39,42,0.8)",
+                        background: active
+                          ? "rgba(74,222,128,0.12)"
+                          : "rgba(0,0,0,0.4)",
+                        color: active ? "#d1fae5" : "var(--fg)",
+                      }}
+                    >
+                      {day.dateLabel}
                     </div>
-                  </section>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: active ? "var(--ok)" : "#71717a",
+                      }}
+                    >
+                      {day.total} tarefas
+                    </div>
+                  </button>
                 );
               })}
             </div>
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto", paddingBottom: 4 }}>
+            <div style={{ minWidth: 720, display: "grid", gap: 10 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+                  gap: 10,
+                }}
+              >
+                {calendarHeaderLabels.map((label) => (
+                  <div
+                    key={label}
+                    style={{
+                      borderRadius: 14,
+                      border: "1px solid rgba(39,39,42,0.8)",
+                      background: "rgba(18,18,20,0.88)",
+                      padding: "10px 8px",
+                      textAlign: "center",
+                      fontFamily: "var(--font-mono), monospace",
+                      fontSize: 10,
+                      letterSpacing: "0.24em",
+                      textTransform: "uppercase",
+                      color: "#71717a",
+                    }}
+                  >
+                    {label}
+                  </div>
+                ))}
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+                  gap: 10,
+                }}
+              >
+                {monthlyProgress.map((day, index) =>
+                  day ? (
+                    <button
+                      type="button"
+                      key={day.id}
+                      onClick={() => focusDate(day.date)}
+                      style={{
+                        minHeight: 92,
+                        borderRadius: 18,
+                        padding: 12,
+                        transition: "all 0.15s",
+                        border: day.isSelected
+                          ? "1px solid rgba(74,222,128,0.45)"
+                          : day.isToday
+                            ? "1px solid rgba(74,222,128,0.25)"
+                            : "1px solid rgba(39,39,42,0.8)",
+                        background: day.isSelected
+                          ? "rgba(74,222,128,0.1)"
+                          : day.isToday
+                            ? "rgba(74,222,128,0.06)"
+                            : "rgba(18,18,20,0.88)",
+                        textAlign: "left",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 600,
+                            color:
+                              day.isSelected || day.isToday
+                                ? "var(--fg)"
+                                : "#a1a1aa",
+                          }}
+                        >
+                          {day.dateLabel}
+                        </span>
+                        {day.total > 0 ? (
+                          <span
+                            className="badge badge-sm"
+                            style={{ padding: "2px 8px" }}
+                          >
+                            {day.total}
+                          </span>
+                        ) : null}
+                      </div>
+                      <p
+                        style={{
+                          marginTop: 16,
+                          fontSize: 11,
+                          letterSpacing: "0.18em",
+                          textTransform: "uppercase",
+                          color: "#71717a",
+                        }}
+                      >
+                        {day.total > 0 ? `${day.total} tarefas` : "Sem tarefas"}
+                      </p>
+                    </button>
+                  ) : (
+                    <div
+                      key={`empty-${index}`}
+                      style={{
+                        minHeight: 92,
+                        borderRadius: 18,
+                        border: "1px dashed rgba(39,39,42,0.6)",
+                        background: "rgba(10,10,12,0.4)",
+                      }}
+                    />
+                  ),
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Stats row */}
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            alignItems: "center",
+            marginTop: 18,
+          }}
+        >
+          <span className="badge">
+            {activeTimelineItems.length} tarefas
+          </span>
+          <span className="badge badge-ok">
+            {completedAgenda.length} concluídas
+          </span>
+          <span className="badge">{pendingAgenda.length} pendentes</span>
+          <span className="badge" style={{ marginLeft: "auto" }}>
+            {selectedDateSummaryLabel}
+          </span>
+        </div>
+      </div>
+
+      {/* Create task form */}
+      {showCreateTaskForm ? (
+        <div
+          className="glass"
+          style={{
+            marginBottom: 20,
+            borderColor: "rgba(74,222,128,0.2)",
+          }}
+        >
+          <div className="field-label" style={{ marginBottom: 10 }}>
+            Nova meta
+          </div>
+          <p
+            style={{
+              fontSize: 13,
+              color: "var(--fg-3)",
+              lineHeight: 1.55,
+              marginBottom: 14,
+            }}
+          >
+            Toda nova meta nasce dentro de um módulo. Escolha a frente e o app
+            te leva direto para a criação certa.
+          </p>
+
+          {visibleModules.length ? (
+            <div
+              style={{
+                display: "grid",
+                gap: 10,
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              }}
+            >
+              {visibleModules.map((module) => (
+                <Link
+                  key={module.id}
+                  href={module.route}
+                  onClick={() => setShowCreateTaskForm(false)}
+                  className={`item-card bg-gradient-to-br ${module.color}`}
+                  style={{ textDecoration: "none", color: "inherit" }}
+                >
+                  <p
+                    className={`text-sm font-semibold ${module.accent}`}
+                    style={{ marginBottom: 6 }}
+                  >
+                    {module.name}
+                  </p>
+                  <p
+                    style={{
+                      fontSize: 13,
+                      lineHeight: 1.55,
+                      color: "var(--fg-2)",
+                    }}
+                  >
+                    {module.description}
+                  </p>
+                  <p
+                    style={{
+                      marginTop: 10,
+                      fontFamily: "var(--font-mono), monospace",
+                      fontSize: 10,
+                      letterSpacing: "0.2em",
+                      textTransform: "uppercase",
+                      color: "#d4d4d8",
+                    }}
+                  >
+                    Abrir módulo →
+                  </p>
+                </Link>
+              ))}
+            </div>
           ) : (
-            <div className="rounded-[24px] border border-dashed border-zinc-800 px-5 py-10 text-center text-sm text-zinc-500">
+            <div
+              style={{
+                borderRadius: 16,
+                border: "1px dashed rgba(39,39,42,0.8)",
+                padding: "20px 16px",
+                fontSize: 13,
+                color: "#71717a",
+                textAlign: "center",
+              }}
+            >
+              Nenhum módulo ativo no momento. Reative os módulos em
+              Configurações para criar novas metas.
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {/* Consistency KPI */}
+      <div className="glass" style={{ marginBottom: 16 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 14,
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <div className="field-label" style={{ marginBottom: 6 }}>
+              Consistência diária
+            </div>
+            <div className="kpi-value">{Math.round(consistencyRate)}%</div>
+            <div className="kpi-sub">{selectedDateSummaryLabel}</div>
+          </div>
+          <span className="badge">
+            {completedAgenda.length}/{activeTimelineItems.length || 0}
+          </span>
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <RxPBar value={consistencyRate} />
+        </div>
+      </div>
+
+      {/* Timeline */}
+      <div className="glass">
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+            marginBottom: 18,
+          }}
+        >
+          <h2
+            style={{
+              fontFamily: "var(--font-space-grotesk), sans-serif",
+              fontSize: 22,
+              fontWeight: 700,
+              letterSpacing: "-0.02em",
+              color: "var(--fg)",
+            }}
+          >
+            Tarefas
+          </h2>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <span className="badge badge-ok">
+              {completedAgenda.length} concluídas
+            </span>
+            <span className="badge">{pendingAgenda.length} pendentes</span>
+          </div>
+        </div>
+
+        {activeTimelineItems.length ? (
+          <div style={{ display: "grid", gap: 24 }}>
+            {activeTimelineBuckets.map((phase) => {
+              const accent = phaseAccent[phase.id];
+              return (
+                <section key={phase.id}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "10px 0",
+                      borderBottom: "1px solid rgba(39,39,42,0.5)",
+                      marginBottom: 12,
+                    }}
+                  >
+                    <span
+                      className="badge"
+                      style={{
+                        borderColor: accent.border,
+                        background: accent.bg,
+                        color: accent.color,
+                      }}
+                    >
+                      {phase.label}
+                    </span>
+                    <span className="field-label" style={{ marginBottom: 0 }}>
+                      {phase.window}
+                    </span>
+                    <span
+                      style={{
+                        marginLeft: "auto",
+                        fontSize: 11,
+                        color: "#71717a",
+                      }}
+                    >
+                      {phase.completed}/{phase.total} concluídas
+                    </span>
+                  </div>
+                  <div style={{ display: "grid", gap: 14 }}>
+                    {phase.items.map((item) =>
+                      renderAgendaItemCard(item, {
+                        featured: item.id === featuredAgendaItemId,
+                      }),
+                    )}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        ) : (
+          <div
+            style={{
+              borderRadius: 20,
+              border: "1px dashed rgba(39,39,42,0.8)",
+              padding: "40px 20px",
+              textAlign: "center",
+              color: "#71717a",
+            }}
+          >
+            <Clock3
+              className="h-5 w-5"
+              style={{ color: "var(--fg-3)", margin: "0 auto 10px" }}
+            />
+            <div style={{ fontSize: 14 }}>
               {isSelectedDateToday
                 ? "Nada programado para hoje."
                 : `Nada programado para ${selectedDateLabel.toLowerCase()}.`}
             </div>
-          )}
-        </RxPanel>
+          </div>
+        )}
       </div>
     </div>
   );
 }
-

@@ -7,7 +7,6 @@ import {
   Activity,
   ArrowDown,
   ArrowUp,
-  Bell,
   Brain,
   Briefcase,
   Calendar,
@@ -19,36 +18,23 @@ import {
   MoonStar,
   Pill,
   Plus,
-  Search,
   Shield,
   ShoppingBasket,
   Sparkles,
   Stethoscope,
-  Target,
-  TrendingUp,
   UtensilsCrossed,
   Wallet,
-  Zap,
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import {
-  Avatar,
-  MiniStat,
   MissionCard,
-  ModuleTile,
-  RankChip,
   RxChip,
-  RxLabel,
-  RxPBar,
-  RxPanel,
-  Streak,
-  XPBar,
 } from "@/components/redesign/primitives";
 import { buildAgendaEvents, buildWeekAgenda } from "@/lib/agenda";
 import { moduleCatalog, rankingSeed } from "@/lib/mock-data";
 import type { AgendaEvent } from "@/lib/agenda";
 import type { DashboardSectionId, ModuleId } from "@/lib/types";
-import { cn, formatPoints } from "@/lib/utils";
+import { formatPoints } from "@/lib/utils";
 
 type ModuleSnapshot = {
   id: ModuleId;
@@ -116,24 +102,15 @@ function difficultyForItem(item: AgendaEvent): number {
   return 2;
 }
 
-function weekdayFull(date: Date) {
-  return new Intl.DateTimeFormat("pt-BR", { weekday: "long" }).format(date);
-}
-
-function dayShort(date: Date) {
-  return new Intl.DateTimeFormat("pt-BR", {
+function formatHeaderDate(date: Date) {
+  const formatted = new Intl.DateTimeFormat("pt-BR", {
     day: "numeric",
     month: "short",
+    year: "numeric",
   })
     .format(date)
     .replace(".", "");
-}
-
-function hourTag(date: Date) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+  return formatted;
 }
 
 export default function DashboardPage() {
@@ -364,308 +341,418 @@ export default function DashboardPage() {
     return buckets;
   }, [todayAgenda]);
 
+  const totalAgenda = todayAgenda.length;
+  const executionPct = totalAgenda
+    ? Math.round((completedItems.length / totalAgenda) * 100)
+    : 0;
+  const ringCircumference = 2 * Math.PI * 46; // ~289
+  const ringDashOffset = ringCircumference * (1 - executionPct / 100);
+
   const heroHud = (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "minmax(0, 1.6fr) minmax(0, 1fr)",
-        gap: 20,
-      }}
-    >
-      <RxPanel
-        style={{ padding: 24, position: "relative", overflow: "hidden" }}
+    <div className="glass">
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) minmax(0, 360px)",
+          gap: 32,
+          alignItems: "start",
+        }}
       >
-        <div
-          className="rx-grid-bg"
-          style={{ position: "absolute", inset: 0, opacity: 0.3 }}
-          aria-hidden
-        />
-        <div style={{ position: "relative" }}>
-          <div
+        <div>
+          <div className="praxis-label" style={{ color: "var(--accent)", marginBottom: 8 }}>
+            Score do dia
+          </div>
+          <h2 className="praxis-title" style={{ fontSize: 24 }}>
+            Leitura de execução
+          </h2>
+          <p
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 14,
-              marginBottom: 20,
+              fontSize: 13,
+              color: "#71717a",
+              marginTop: 8,
+              lineHeight: 1.6,
             }}
           >
-            <Avatar
-              initials={squareInitials(user.name)}
-              size={64}
-              tier={user.rankTier}
-            />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                className="rx-mono"
-                style={{
-                  fontSize: 10,
-                  letterSpacing: "0.22em",
-                  color: "var(--fg-3)",
-                  marginBottom: 4,
-                  textTransform: "uppercase",
-                }}
-              >
-                OPERADOR · ATIVO
-              </div>
-              <div
-                className="rx-display"
-                style={{
-                  fontSize: 28,
-                  fontWeight: 700,
-                  letterSpacing: "-0.02em",
-                  color: "var(--fg)",
-                }}
-              >
-                {user.username}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  alignItems: "center",
-                  marginTop: 6,
-                  flexWrap: "wrap",
-                }}
-              >
-                <RankChip tier={`${user.rankTier} ${user.rankLabel}`} />
-                <span
-                  className="rx-mono"
-                  style={{
-                    fontSize: 10,
-                    color: "var(--fg-3)",
-                    letterSpacing: "0.18em",
-                  }}
-                >
-                  RANK GLOBAL · #{rankingPosition} / {leaderboard.length}
-                </span>
-              </div>
-            </div>
-            <Streak days={user.streak} />
-          </div>
-
-          <XPBar value={xpProgress} level={user.level} />
+            Estado real do dia — não só o que foi planejado.
+          </p>
 
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
+              gridTemplateColumns: "repeat(3, 1fr)",
               gap: 10,
               marginTop: 20,
             }}
           >
-            <MiniStat
-              label="XP HOJE"
-              value={`+${formatPoints(earnedXpToday)}`}
-              Icon={Zap}
-            />
-            <MiniStat
-              label="MISSÕES"
-              value={`${completedItems.length}/${todayAgenda.length}`}
-              Icon={Target}
-            />
-            <MiniStat
-              label="XP 7D"
-              value={`+${formatPoints(weekXp)}`}
-              Icon={TrendingUp}
-            />
-            <MiniStat
-              label="DISCIP."
-              value={`${disciplinePct}%`}
-              Icon={Shield}
-            />
+            <div className="kpi">
+              <div className="praxis-label">Pendentes</div>
+              <div className="kpi-value">{pendingItems.length}</div>
+            </div>
+            <div className="kpi">
+              <div className="praxis-label">Concluídas</div>
+              <div className="kpi-value">{completedItems.length}</div>
+            </div>
+            <div className="kpi">
+              <div className="praxis-label">XP em aberto</div>
+              <div className="kpi-value">{formatPoints(openXp)}</div>
+            </div>
+          </div>
+
+          {/* Hero level / XP */}
+          <div
+            style={{
+              marginTop: 20,
+              padding: 16,
+              border: "1px solid rgba(39,39,42,0.8)",
+              borderRadius: 14,
+              background: "rgba(0,0,0,0.3)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline",
+                marginBottom: 8,
+              }}
+            >
+              <div className="praxis-label">Nível {user.level}</div>
+              <span
+                className="praxis-label"
+                style={{ color: "var(--accent)" }}
+              >
+                {xpProgress}% → {user.level + 1}
+              </span>
+            </div>
+            <div className="progress-track">
+              <div
+                className="progress-fill"
+                style={{ width: `${xpProgress}%` }}
+              />
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, 1fr)",
+                gap: 8,
+                marginTop: 14,
+              }}
+            >
+              <div>
+                <div className="praxis-label">XP HOJE</div>
+                <div
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 700,
+                    color: "#f4f4f5",
+                    marginTop: 4,
+                  }}
+                >
+                  +{formatPoints(earnedXpToday)}
+                </div>
+              </div>
+              <div>
+                <div className="praxis-label">MISSÕES</div>
+                <div
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 700,
+                    color: "#f4f4f5",
+                    marginTop: 4,
+                  }}
+                >
+                  {completedItems.length}/{totalAgenda}
+                </div>
+              </div>
+              <div>
+                <div className="praxis-label">XP 7D</div>
+                <div
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 700,
+                    color: "#f4f4f5",
+                    marginTop: 4,
+                  }}
+                >
+                  +{formatPoints(weekXp)}
+                </div>
+              </div>
+              <div>
+                <div className="praxis-label">DISCIP.</div>
+                <div
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 700,
+                    color: "#f4f4f5",
+                    marginTop: 4,
+                  }}
+                >
+                  {disciplinePct}%
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </RxPanel>
 
-      <RxPanel style={{ padding: 20 }}>
         <div
           style={{
             display: "flex",
-            justifyContent: "space-between",
+            flexDirection: "column",
             alignItems: "center",
-            marginBottom: 14,
+            gap: 20,
           }}
         >
-          <RxLabel>OPERAÇÕES · HOJE</RxLabel>
           <div
-            className="rx-mono"
-            style={{
-              fontSize: 10,
-              color: "var(--accent)",
-              letterSpacing: "0.18em",
-            }}
+            className="score-ring"
+            style={{ position: "relative", width: 200, height: 200 }}
           >
-            {completedItems.length}/{todayAgenda.length} ·{" "}
-            {todayAgenda.length
-              ? Math.round((completedItems.length / todayAgenda.length) * 100)
-              : 0}
-            %
-          </div>
-        </div>
-
-        <svg
-          width="100%"
-          height="60"
-          viewBox="0 0 288 60"
-          style={{ marginBottom: 14 }}
-          aria-hidden
-        >
-          {histogramBars.map((bucket, i) => {
-            const total = bucket.done + bucket.pending;
-            const synthetic =
-              total > 0
-                ? Math.min(50, 8 + total * 10)
-                : 4 + Math.max(0, Math.sin(i * 0.7) * 4 + 3);
-            const h = synthetic;
-            const fill =
-              bucket.done > 0
-                ? "var(--accent)"
-                : bucket.pending > 0
-                  ? "var(--warn)"
-                  : "var(--line-bright)";
-            const opacity = bucket.done > 0 ? 0.9 : bucket.pending > 0 ? 0.7 : 0.35;
-            return (
-              <rect
-                key={i}
-                x={i * 12}
-                y={60 - h}
-                width={8}
-                height={h}
-                fill={fill}
-                opacity={opacity}
+            <svg
+              width={200}
+              height={200}
+              viewBox="0 0 120 120"
+              style={{ display: "block", transform: "rotate(-90deg)" }}
+            >
+              <circle
+                cx="60"
+                cy="60"
+                r="46"
+                fill="none"
+                stroke="rgba(39,39,42,.9)"
+                strokeWidth="10"
               />
-            );
-          })}
-        </svg>
-
-        <div
-          className="rx-mono"
-          style={{
-            fontSize: 10,
-            color: "var(--fg-4)",
-            letterSpacing: "0.14em",
-            marginBottom: 10,
-            textTransform: "uppercase",
-          }}
-        >
-          XP POR HORA · 24H
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 8,
-          }}
-        >
-          <div
-            style={{
-              padding: 10,
-              border: "1px solid var(--line)",
-              background: "rgba(0,0,0,0.3)",
-              borderRadius: 12,
-            }}
-          >
-            <div
-              className="rx-mono"
-              style={{
-                fontSize: 9,
-                color: "var(--ok)",
-                letterSpacing: "0.14em",
-              }}
-            >
-              ● EM DIA
-            </div>
+              <circle
+                cx="60"
+                cy="60"
+                r="46"
+                fill="none"
+                stroke="url(#dashboard-score-gradient)"
+                strokeWidth="10"
+                strokeLinecap="round"
+                strokeDasharray={ringCircumference}
+                strokeDashoffset={ringDashOffset}
+              />
+              <defs>
+                <linearGradient
+                  id="dashboard-score-gradient"
+                  x1="0%"
+                  y1="0%"
+                  x2="100%"
+                  y2="0%"
+                >
+                  <stop offset="0%" stopColor="#fb923c" />
+                  <stop offset="100%" stopColor="#f97316" />
+                </linearGradient>
+              </defs>
+            </svg>
             <div
               style={{
-                color: "var(--fg-2)",
-                fontSize: 11,
-                marginTop: 2,
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
-              {completedItems.length > 0
-                ? `${completedItems.length} ${
-                    completedItems.length === 1
-                      ? "missão fechada"
-                      : "missões fechadas"
-                  }`
-                : "Inicie a primeira ação"}
+              <div className="praxis-label">Execução</div>
+              <div
+                className="praxis-title"
+                style={{ fontSize: 42, marginTop: 4 }}
+              >
+                {executionPct}%
+              </div>
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: "#71717a",
+                }}
+              >
+                ciclo diário
+              </div>
             </div>
           </div>
+
           <div
             style={{
-              padding: 10,
-              border: "1px solid var(--line)",
-              background: "rgba(0,0,0,0.3)",
-              borderRadius: 12,
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 10,
+              width: "100%",
             }}
           >
-            <div
-              className="rx-mono"
-              style={{
-                fontSize: 9,
-                color: pendingItems.length > 0 ? "var(--warn)" : "var(--fg-3)",
-                letterSpacing: "0.14em",
-              }}
-            >
-              ◆ PENDENTES
+            <div className="kpi">
+              <div className="praxis-label">Operador</div>
+              <div className="kpi-value" style={{ fontSize: 22 }}>
+                {squareInitials(user.name)}
+              </div>
+              <div className="kpi-sub">{user.username}</div>
             </div>
-            <div
-              style={{
-                color: "var(--fg-2)",
-                fontSize: 11,
-                marginTop: 2,
-              }}
-            >
-              {pendingItems.length > 0
-                ? `${pendingItems.length} · +${formatPoints(openXp)} XP`
-                : "Nada restante"}
+            <div className="kpi">
+              <div className="praxis-label">Sequência</div>
+              <div className="kpi-value" style={{ fontSize: 22 }}>
+                {user.streak}d
+              </div>
+              <div className="kpi-sub">Consistência ativa</div>
             </div>
           </div>
+
+          <div style={{ width: "100%" }}>
+            <span className="rank-tag">
+              ◆ {user.rankTier} {user.rankLabel} · #{rankingPosition}/
+              {leaderboard.length}
+            </span>
+          </div>
         </div>
-      </RxPanel>
+      </div>
     </div>
   );
 
-  const missionsSection = (
-    <div>
+  const operationsPanel = (
+    <div className="glass">
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "baseline",
-          marginBottom: 14,
+          alignItems: "center",
+          marginBottom: 16,
+        }}
+      >
+        <div>
+          <div
+            className="praxis-label"
+            style={{ color: "var(--accent)", marginBottom: 8 }}
+          >
+            Operações · hoje
+          </div>
+          <h2 className="praxis-title" style={{ fontSize: 24 }}>
+            XP por hora · 24h
+          </h2>
+        </div>
+        <span className="badge badge-accent">
+          {completedItems.length}/{totalAgenda} · {executionPct}%
+        </span>
+      </div>
+
+      <svg
+        width="100%"
+        height="80"
+        viewBox="0 0 288 80"
+        style={{ marginBottom: 14 }}
+        aria-hidden
+      >
+        {histogramBars.map((bucket, i) => {
+          const total = bucket.done + bucket.pending;
+          const synthetic =
+            total > 0
+              ? Math.min(70, 10 + total * 14)
+              : 4 + Math.max(0, Math.sin(i * 0.7) * 4 + 3);
+          const h = synthetic;
+          const fill =
+            bucket.done > 0
+              ? "var(--accent)"
+              : bucket.pending > 0
+                ? "var(--warn)"
+                : "var(--line-bright)";
+          const opacity =
+            bucket.done > 0 ? 0.9 : bucket.pending > 0 ? 0.7 : 0.35;
+          return (
+            <rect
+              key={i}
+              x={i * 12}
+              y={80 - h}
+              width={8}
+              height={h}
+              fill={fill}
+              opacity={opacity}
+              rx={2}
+            />
+          );
+        })}
+      </svg>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 10,
+        }}
+      >
+        <div className="item-card">
+          <div
+            className="praxis-label"
+            style={{ color: "var(--ok)" }}
+          >
+            ● Em dia
+          </div>
+          <div
+            style={{ fontSize: 13, color: "#a1a1aa", marginTop: 6 }}
+          >
+            {completedItems.length > 0
+              ? `${completedItems.length} ${
+                  completedItems.length === 1
+                    ? "missão fechada"
+                    : "missões fechadas"
+                }`
+              : "Inicie a primeira ação"}
+          </div>
+        </div>
+        <div className="item-card">
+          <div
+            className="praxis-label"
+            style={{
+              color: pendingItems.length > 0 ? "var(--warn)" : "#71717a",
+            }}
+          >
+            ◆ Pendentes
+          </div>
+          <div
+            style={{ fontSize: 13, color: "#a1a1aa", marginTop: 6 }}
+          >
+            {pendingItems.length > 0
+              ? `${pendingItems.length} · +${formatPoints(openXp)} XP`
+              : "Nada restante"}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const missionsSection = (
+    <div className="glass">
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          marginBottom: 16,
           gap: 14,
           flexWrap: "wrap",
         }}
       >
         <div>
           <div
-            className="rx-display"
-            style={{
-              fontSize: 18,
-              fontWeight: 600,
-              color: "var(--fg)",
-              letterSpacing: "-0.01em",
-            }}
+            className="praxis-label"
+            style={{ color: "var(--accent)", marginBottom: 8 }}
           >
             Missões do dia
           </div>
-          <div
-            className="rx-mono"
+          <h2 className="praxis-title" style={{ fontSize: 24 }}>
+            Fila de execução
+          </h2>
+          <p
             style={{
-              fontSize: 10,
-              color: "var(--fg-4)",
-              letterSpacing: "0.18em",
-              marginTop: 4,
-              textTransform: "uppercase",
+              fontSize: 13,
+              color: "#71717a",
+              marginTop: 6,
             }}
           >
-            {pendingItems.length} PENDENTES · {completedItems.length} CONCLUÍDAS · +
-            {formatPoints(openXp)} XP DISPONÍVEIS
-          </div>
+            {pendingItems.length} pendentes · {completedItems.length}{" "}
+            concluídas · +{formatPoints(openXp)} XP disponíveis
+          </p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <RxChip
             as="button"
             active={missionFilter === "all"}
@@ -691,40 +778,27 @@ export default function DashboardPage() {
       </div>
 
       {filteredMissions.length === 0 ? (
-        <RxPanel
-          style={{
-            padding: 32,
-            textAlign: "center",
-          }}
+        <div
+          className="item-card"
+          style={{ padding: 32, textAlign: "center" }}
         >
           <CheckCircle2
             className="mx-auto h-6 w-6"
             style={{ color: "var(--ok)" }}
           />
           <div
-            className="rx-display"
-            style={{
-              marginTop: 12,
-              fontSize: 18,
-              fontWeight: 600,
-              color: "var(--fg)",
-            }}
+            className="praxis-title"
+            style={{ marginTop: 12, fontSize: 18 }}
           >
             Tudo limpo por aqui
           </div>
           <div
-            className="rx-mono"
-            style={{
-              marginTop: 6,
-              fontSize: 10,
-              letterSpacing: "0.16em",
-              color: "var(--fg-3)",
-              textTransform: "uppercase",
-            }}
+            className="praxis-label"
+            style={{ marginTop: 6 }}
           >
             Nenhuma missão nesse filtro
           </div>
-        </RxPanel>
+        </div>
       ) : (
         <div
           style={{
@@ -753,299 +827,350 @@ export default function DashboardPage() {
   );
 
   const modulesPanel = (
-    <RxPanel style={{ padding: 20 }}>
+    <div className="glass">
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 14,
+          alignItems: "flex-end",
+          marginBottom: 16,
         }}
       >
-        <RxLabel>MÓDULOS ATIVOS · {activeModuleCount}</RxLabel>
+        <div>
+          <div
+            className="praxis-label"
+            style={{ color: "var(--accent)", marginBottom: 8 }}
+          >
+            Sistema
+          </div>
+          <h2 className="praxis-title" style={{ fontSize: 24 }}>
+            Módulos ativos · {activeModuleCount}
+          </h2>
+        </div>
         <Link
           href="/profile"
-          className="rx-mono"
-          style={{
-            fontSize: 10,
-            color: "var(--accent)",
-            letterSpacing: "0.14em",
-          }}
+          className="praxis-label"
+          style={{ color: "var(--accent)", textDecoration: "none" }}
         >
-          VER TODOS ▸
+          Ver todos →
         </Link>
       </div>
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 8,
+          gridTemplateColumns: "repeat(2, 1fr)",
+          gap: 12,
         }}
       >
-        {topModules.map((module, idx) => (
-          <ModuleTile
-            key={module.id}
-            name={module.name}
-            stat={module.summary}
-            Icon={module.icon}
-            hot={idx === 0}
-            href={module.route}
-          />
-        ))}
+        {topModules.map((module) => {
+          const Icon = module.icon;
+          return (
+            <Link
+              key={module.id}
+              href={module.route}
+              className="item-card"
+              style={{ display: "block", textDecoration: "none", color: "inherit" }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  marginBottom: 16,
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#f4f4f5",
+                      marginBottom: 4,
+                    }}
+                  >
+                    {module.name}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#71717a" }}>
+                    {module.detail}
+                  </div>
+                </div>
+                <div className="mod-icon">
+                  <Icon size={18} />
+                </div>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: 6,
+                }}
+              >
+                <div className="praxis-label">Progresso</div>
+                <div style={{ fontSize: 11, color: "#71717a" }}>
+                  {module.total > 0
+                    ? `${module.completed}/${module.total}`
+                    : "—"}
+                </div>
+              </div>
+              <div className="progress-track">
+                <div
+                  className="progress-fill"
+                  style={{ width: `${module.progress}%` }}
+                />
+              </div>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "#71717a",
+                  marginTop: 12,
+                }}
+              >
+                {module.summary}
+              </div>
+            </Link>
+          );
+        })}
         {topModules.length === 0 ? (
           <div
-            className="rx-mono"
+            className="praxis-label"
             style={{
               gridColumn: "1 / -1",
               padding: 24,
               textAlign: "center",
-              fontSize: 10,
-              letterSpacing: "0.18em",
-              color: "var(--fg-4)",
-              textTransform: "uppercase",
             }}
           >
-            NENHUM MÓDULO ATIVO
+            Nenhum módulo ativo
           </div>
         ) : null}
       </div>
-    </RxPanel>
+    </div>
   );
 
   const agendaPanel = (
-    <RxPanel style={{ padding: 20 }}>
+    <div className="glass">
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 14,
+          alignItems: "flex-end",
+          marginBottom: 16,
         }}
       >
-        <RxLabel>AGENDA · PRÓXIMAS 8H</RxLabel>
-        <Link href="/agenda" style={{ color: "var(--fg-3)" }}>
-          <Calendar className="h-3.5 w-3.5" />
+        <div>
+          <div
+            className="praxis-label"
+            style={{ color: "var(--accent)", marginBottom: 8 }}
+          >
+            Próximos blocos
+          </div>
+          <h2 className="praxis-title" style={{ fontSize: 24 }}>
+            Linha do tempo · próximas 8h
+          </h2>
+        </div>
+        <Link
+          href="/agenda"
+          className="praxis-label"
+          style={{ color: "var(--accent)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
+        >
+          <Calendar className="h-3.5 w-3.5" /> Ver semana →
         </Link>
       </div>
       {nextFocusItems.length === 0 ? (
         <div
-          className="rx-mono"
-          style={{
-            padding: 24,
-            textAlign: "center",
-            fontSize: 10,
-            letterSpacing: "0.18em",
-            color: "var(--fg-4)",
-            textTransform: "uppercase",
-          }}
+          className="praxis-label"
+          style={{ padding: 24, textAlign: "center" }}
         >
-          AGENDA LIVRE
+          Agenda livre
         </div>
       ) : (
-        <div>
-          {nextFocusItems.map((item, i) => {
-            const color =
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+          }}
+        >
+          {nextFocusItems.map((item) => {
+            const tone =
               item.kind === "meal"
-                ? "var(--ok)"
+                ? "ok"
                 : item.kind === "workout"
-                  ? "var(--accent)"
-                  : "var(--fg-3)";
+                  ? "accent"
+                  : "default";
+            const moduleBadgeClass =
+              tone === "accent" ? "badge badge-accent" : "badge";
             return (
               <Link
                 key={item.id}
                 href={item.route}
-                style={{
-                  display: "flex",
-                  gap: 14,
-                  padding: "10px 0",
-                  borderTop: i === 0 ? "none" : "1px solid var(--line-soft)",
-                  alignItems: "center",
-                }}
+                className={
+                  tone === "accent" ? "timeline-item accent-card" : "timeline-item"
+                }
+                style={{ textDecoration: "none", color: "inherit" }}
               >
-                <div
-                  className="rx-mono"
-                  style={{
-                    fontSize: 11,
-                    color: "var(--fg-3)",
-                    minWidth: 44,
-                    letterSpacing: "0.06em",
-                  }}
-                >
-                  {item.time ?? "—"}
-                </div>
-                <div
-                  style={{
-                    width: 2,
-                    height: 18,
-                    background: color,
-                  }}
-                />
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="timeline-time">{item.time ?? "—"}</div>
+                <div className="timeline-body">
                   <div
                     style={{
-                      fontSize: 13,
-                      color: "var(--fg)",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
+                      display: "flex",
+                      gap: 6,
+                      flexWrap: "wrap",
+                      marginBottom: 6,
                     }}
                   >
-                    {item.title}
+                    <span className={moduleBadgeClass}>
+                      {moduleLabelFromRoute(item.route)}
+                    </span>
+                    <span className="badge badge-dim">
+                      {item.sourceLabel}
+                    </span>
                   </div>
-                  <div
-                    className="rx-mono"
-                    style={{
-                      fontSize: 9,
-                      color: "var(--fg-4)",
-                      letterSpacing: "0.16em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    {item.sourceLabel}
-                  </div>
+                  <div className="timeline-title">{item.title}</div>
+                  {item.description ? (
+                    <div className="timeline-sub">{item.description}</div>
+                  ) : null}
                 </div>
               </Link>
             );
           })}
         </div>
       )}
-    </RxPanel>
+    </div>
   );
 
   const telemetryPanel = (
-    <RxPanel style={{ padding: 20 }}>
+    <div className="glass">
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 14,
+          alignItems: "flex-end",
+          marginBottom: 16,
         }}
       >
-        <RxLabel>RITMO · 7 DIAS</RxLabel>
-        <span
-          className="rx-mono"
-          style={{
-            fontSize: 10,
-            letterSpacing: "0.18em",
-            color: "var(--accent)",
-          }}
-        >
-          {disciplinePct}% DISCIP.
+        <div>
+          <div
+            className="praxis-label"
+            style={{ color: "var(--accent)", marginBottom: 8 }}
+          >
+            Ritmo
+          </div>
+          <h2 className="praxis-title" style={{ fontSize: 24 }}>
+            Consistência na semana
+          </h2>
+        </div>
+        <span className="badge badge-accent">
+          {disciplinePct}% disciplina
         </span>
       </div>
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(7, 1fr)",
-          gap: 6,
+          gap: 10,
         }}
       >
-        {currentWeek.map((day) => (
-          <div
-            key={day.dateKey}
-            style={{
-              padding: 10,
-              border: "1px solid var(--line)",
-              background: "rgba(0,0,0,0.3)",
-              borderRadius: 12,
-            }}
-          >
+        {currentWeek.map((day) => {
+          const isToday =
+            day.date.toDateString() === today.toDateString();
+          return (
             <div
-              className="rx-mono"
+              key={day.dateKey}
               style={{
-                fontSize: 9,
-                letterSpacing: "0.18em",
-                color: "var(--fg-3)",
-                textTransform: "uppercase",
+                border: isToday
+                  ? "1px solid rgba(74,222,128,.4)"
+                  : "1px solid rgba(39,39,42,.8)",
+                background: isToday
+                  ? "rgba(74,222,128,.08)"
+                  : undefined,
+                borderRadius: 20,
+                padding: "14px 8px",
+                textAlign: "center",
               }}
             >
-              {day.shortLabel.slice(0, 3)}
+              <div
+                className="praxis-label"
+                style={{
+                  marginBottom: 8,
+                  color: isToday ? "var(--ok)" : undefined,
+                }}
+              >
+                {day.shortLabel.slice(0, 3)}
+              </div>
+              <div
+                style={{
+                  fontSize: 24,
+                  fontWeight: 600,
+                  color: "#f4f4f5",
+                  fontFamily: "var(--font-space-grotesk), sans-serif",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {day.percent}%
+              </div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "#71717a",
+                  marginTop: 8,
+                }}
+              >
+                {day.completedCount}/{day.totalCount}
+              </div>
+              <div className="progress-track progress-thin" style={{ marginTop: 8 }}>
+                <div
+                  className="progress-fill"
+                  style={{
+                    width: `${Math.max(day.percent, day.totalCount > 0 ? 6 : 0)}%`,
+                  }}
+                />
+              </div>
             </div>
-            <div
-              className="rx-display"
-              style={{
-                fontSize: 18,
-                fontWeight: 700,
-                color: "var(--fg)",
-                marginTop: 4,
-                letterSpacing: "-0.02em",
-              }}
-            >
-              {day.percent}%
-            </div>
-            <div
-              className="rx-mono"
-              style={{
-                fontSize: 9,
-                color: "var(--fg-4)",
-                letterSpacing: "0.12em",
-                marginTop: 3,
-              }}
-            >
-              {day.completedCount}/{day.totalCount}
-            </div>
-            <div style={{ marginTop: 6 }}>
-              <RxPBar value={Math.max(day.percent, day.totalCount > 0 ? 6 : 0)} />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-    </RxPanel>
+    </div>
   );
 
   const rankingPanel = (
-    <RxPanel style={{ padding: 20 }}>
+    <div className="glass">
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 14,
+          alignItems: "flex-end",
+          marginBottom: 16,
         }}
       >
-        <RxLabel>RANKING · GLOBAL</RxLabel>
+        <div>
+          <div
+            className="praxis-label"
+            style={{ color: "var(--accent)", marginBottom: 8 }}
+          >
+            Posição
+          </div>
+          <h2 className="praxis-title" style={{ fontSize: 24 }}>
+            Leitura global
+          </h2>
+        </div>
         <Medal className="h-4 w-4" style={{ color: "var(--accent)" }} />
       </div>
-      <div
-        style={{
-          padding: 12,
-          border: "1px solid var(--line)",
-          background: "rgba(0,0,0,0.3)",
-          marginBottom: 12,
-          borderRadius: 12,
-        }}
-      >
-        <div
-          className="rx-mono"
-          style={{
-            fontSize: 10,
-            color: "var(--fg-3)",
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-          }}
-        >
-          VOCÊ ESTÁ EM
+      <div className="item-card" style={{ marginBottom: 16 }}>
+        <div className="praxis-label" style={{ marginBottom: 8 }}>
+          Você está em
         </div>
         <div
-          className="rx-display"
-          style={{
-            fontSize: 30,
-            fontWeight: 700,
-            color: "var(--fg)",
-            marginTop: 4,
-            letterSpacing: "-0.03em",
-          }}
+          className="praxis-title"
+          style={{ fontSize: 32, color: "var(--accent)" }}
         >
           #{rankingPosition}
         </div>
-        <div
-          style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 4 }}
-        >
+        <div style={{ fontSize: 13, color: "#71717a", marginTop: 8 }}>
           {formatPoints(user.totalXp)} XP · {user.rankTier} {user.rankLabel}
         </div>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {leaderboard.slice(0, 5).map((entry, index) => {
           const isSelf = entry.id === "praxis-user";
           return (
@@ -1053,128 +1178,145 @@ export default function DashboardPage() {
               key={entry.id}
               style={{
                 display: "flex",
-                justifyContent: "space-between",
                 alignItems: "center",
-                padding: "8px 10px",
+                gap: 12,
+                padding: 12,
                 border: isSelf
-                  ? "1px solid rgba(251,146,60,0.4)"
-                  : "1px solid var(--line)",
-                background: isSelf
-                  ? "rgba(251,146,60,0.08)"
-                  : "rgba(0,0,0,0.3)",
+                  ? "1px solid rgba(251,146,60,.25)"
+                  : "1px solid rgba(39,39,42,.6)",
                 borderRadius: 12,
+                background: isSelf ? "rgba(251,146,60,.06)" : undefined,
               }}
             >
               <div
+                className="lb-pos"
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  minWidth: 0,
+                  color: isSelf ? "var(--accent)" : undefined,
+                  minWidth: 32,
                 }}
               >
-                <span
-                  className="rx-mono"
+                #{index + 1}
+              </div>
+              <div
+                className="avatar-v2"
+                style={{ width: 32, height: 32, fontSize: 12, borderRadius: 8 }}
+              >
+                {squareInitials(entry.name)}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
                   style={{
-                    fontSize: 10,
-                    color: isSelf ? "var(--accent)" : "var(--fg-4)",
-                    letterSpacing: "0.12em",
-                    width: 24,
-                  }}
-                >
-                  #{index + 1}
-                </span>
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontWeight: isSelf ? 600 : 500,
-                    color: isSelf ? "var(--accent)" : "var(--fg-2)",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#f4f4f5",
                     whiteSpace: "nowrap",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                   }}
                 >
                   {entry.name}
-                </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: isSelf ? "var(--accent)" : "#71717a",
+                  }}
+                >
+                  {isSelf ? "Você" : `@${entry.username}`}
+                </div>
               </div>
-              <span
-                className="rx-mono"
+              <div
                 style={{
-                  fontSize: 10,
-                  color: isSelf ? "var(--accent)" : "var(--fg-3)",
-                  letterSpacing: "0.12em",
-                  flexShrink: 0,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#f4f4f5",
                 }}
               >
                 {formatPoints(entry.totalXp)} XP
-              </span>
+              </div>
             </div>
           );
         })}
       </div>
-    </RxPanel>
+    </div>
   );
 
   const skillsPanel = (
-    <RxPanel style={{ padding: 20 }}>
+    <div className="glass">
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 14,
+          alignItems: "flex-end",
+          marginBottom: 16,
         }}
       >
-        <RxLabel>STATUS · OPERADOR</RxLabel>
+        <div>
+          <div
+            className="praxis-label"
+            style={{ color: "var(--accent)", marginBottom: 8 }}
+          >
+            Perfil
+          </div>
+          <h2 className="praxis-title" style={{ fontSize: 24 }}>
+            Status do operador
+          </h2>
+        </div>
         <Shield className="h-4 w-4" style={{ color: "var(--accent)" }} />
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {[
-          { label: "ENERGIA", value: user.skillScores.energy },
-          { label: "FOCO", value: user.skillScores.focus },
-          { label: "DISCIPL.", value: user.skillScores.discipline },
-          { label: "PRODUÇÃO", value: user.skillScores.production },
-          { label: "MOTIVAÇÃO", value: user.skillScores.motivation },
-        ].map((item) => (
-          <div key={item.label}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: 4,
-              }}
-            >
-              <span
-                className="rx-mono"
-                style={{
-                  fontSize: 10,
-                  letterSpacing: "0.18em",
-                  color: "var(--fg-3)",
-                }}
-              >
-                {item.label}
-              </span>
-              <span
-                className="rx-mono"
-                style={{
-                  fontSize: 10,
-                  letterSpacing: "0.12em",
-                  color: "var(--accent)",
-                }}
-              >
-                {item.value.toFixed(1)}/5
-              </span>
-            </div>
-            <RxPBar value={(item.value / 5) * 100} />
+      <div className="item-card" style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="avatar-v2 avatar-lg">
+            {squareInitials(user.name)}
           </div>
-        ))}
+          <div>
+            <div
+              style={{ fontWeight: 600, fontSize: 16, color: "#f4f4f5" }}
+            >
+              {user.username}
+            </div>
+            <div
+              style={{ fontSize: 11, color: "#71717a", marginTop: 4 }}
+            >
+              @{user.username}
+            </div>
+            <div className="rank-tag" style={{ marginTop: 8 }}>
+              ◆ {user.rankTier} {user.rankLabel} · Nível {user.level}
+            </div>
+          </div>
+        </div>
       </div>
-    </RxPanel>
+      <div>
+        {[
+          { label: "Energia", value: user.skillScores.energy },
+          { label: "Foco", value: user.skillScores.focus },
+          { label: "Disciplina", value: user.skillScores.discipline },
+          { label: "Produção", value: user.skillScores.production },
+          { label: "Motivação", value: user.skillScores.motivation },
+        ].map((item) => {
+          const pct = (item.value / 5) * 100;
+          return (
+            <div key={item.label} className="skill-row">
+              <div className="skill-name">{item.label}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="progress-track">
+                  <div
+                    className="progress-fill"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+              <div className="skill-val">{item.value.toFixed(1)}/5</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 
   const sectionCards: Record<DashboardSectionId, React.ReactNode> = {
     "quick-actions": heroHud,
-    score: missionsSection,
+    score: operationsPanel,
     timeline: agendaPanel,
     telemetry: telemetryPanel,
     modules: modulesPanel,
@@ -1182,140 +1324,94 @@ export default function DashboardPage() {
     skills: skillsPanel,
   };
 
+  // Pair ranking + skills into a 2-up grid when both visible (matches design)
+  const renderSection = (sectionId: DashboardSectionId) => sectionCards[sectionId];
+
   return (
-    <div
-      className="rx-pa"
-      style={{
-        margin: "-24px -24px -32px",
-        padding: "0 24px 32px",
-        minHeight: "calc(100vh - 120px)",
-      }}
-    >
-      {/* Command header */}
+    <div>
+      {/* Page header */}
+      <div style={{ marginBottom: 24 }}>
+        <div className="page-eyebrow">Hoje · {formatHeaderDate(today)}</div>
+        <h1 className="page-title-v2">Painel do operador</h1>
+        <p className="page-description-v2">
+          Score, próximos blocos, módulos ativos e ações rápidas no mesmo
+          lugar.
+        </p>
+      </div>
+
+      {/* Action row */}
       <div
         style={{
-          position: "relative",
-          zIndex: 2,
-          padding: "18px 0",
-          borderBottom: "1px solid var(--line-soft)",
           display: "flex",
-          justifyContent: "space-between",
+          justifyContent: "flex-end",
+          gap: 10,
           alignItems: "center",
-          gap: 14,
           flexWrap: "wrap",
-          marginBottom: 24,
+          marginBottom: 20,
         }}
       >
-        <div>
-          <RxLabel>COMANDO</RxLabel>
-          <div
-            style={{
-              fontSize: 13,
-              color: "var(--fg-3)",
-              marginTop: 4,
-              textTransform: "capitalize",
-            }}
-          >
-            {weekdayFull(today)} · {dayShort(today)} · {hourTag(today)} ·{" "}
-            <span style={{ color: "var(--accent)" }}>
-              {user.streak}º dia no protocolo
-            </span>
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
+        <button
+          type="button"
+          onClick={() => setIsLayoutEditing((current) => !current)}
+          className={isLayoutEditing ? "v2-btn v2-btn-primary" : "v2-btn"}
         >
-          <div style={{ position: "relative", width: 240 }}>
-            <input
-              className="rx-input"
-              placeholder="Buscar missão, módulo, registro"
-              style={{ paddingLeft: 32, fontSize: 12 }}
-            />
-            <Search
-              className="h-3 w-3"
-              style={{
-                position: "absolute",
-                left: 10,
-                top: 12,
-                color: "var(--fg-4)",
-              }}
-            />
-          </div>
-          <button
-            type="button"
-            className="rx-btn-ghost"
-            style={{ padding: "9px 10px" }}
-            aria-label="Notificações"
-          >
-            <Bell className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsLayoutEditing((current) => !current)}
-            className={cn(
-              isLayoutEditing ? "rx-chip-accent" : "rx-btn-ghost",
-            )}
-            style={{ padding: "9px 14px" }}
-          >
-            {isLayoutEditing ? "FECHAR" : "LAYOUT"}
-          </button>
-          <Link href="/tasks" className="rx-btn-primary">
-            <Plus className="h-3 w-3" /> Missão
-          </Link>
-        </div>
+          {isLayoutEditing ? "Fechar layout" : "Editar layout"}
+        </button>
+        <Link
+          href="/tasks"
+          className="v2-btn v2-btn-primary"
+          style={{ textDecoration: "none" }}
+        >
+          <Plus className="h-3.5 w-3.5" /> Missão
+        </Link>
       </div>
 
       {isLayoutEditing ? (
-        <RxPanel style={{ padding: 20, marginBottom: 24 }}>
+        <div className="glass" style={{ marginBottom: 24 }}>
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "baseline",
-              marginBottom: 14,
+              alignItems: "flex-end",
+              marginBottom: 16,
               gap: 14,
               flexWrap: "wrap",
             }}
           >
             <div>
-              <RxLabel>LAYOUT · PERSONALIZAÇÃO</RxLabel>
               <div
+                className="praxis-label"
+                style={{ color: "var(--accent)", marginBottom: 8 }}
+              >
+                Layout · personalização
+              </div>
+              <h2 className="praxis-title" style={{ fontSize: 24 }}>
+                Reordene o painel
+              </h2>
+              <p
                 style={{
                   fontSize: 13,
-                  color: "var(--fg-3)",
-                  marginTop: 4,
+                  color: "#71717a",
+                  marginTop: 6,
                   maxWidth: 560,
                 }}
               >
-                Reordene ou oculte blocos do painel. Essa ordem fica presa à conta.
-              </div>
+                Reordene ou oculte blocos do painel. Essa ordem fica presa à
+                conta.
+              </p>
             </div>
           </div>
           <div
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-              gap: 10,
+              gap: 12,
             }}
           >
             {sectionOrder.map((sectionId, index) => {
               const hidden = hiddenSections.has(sectionId);
               return (
-                <div
-                  key={sectionId}
-                  style={{
-                    padding: 12,
-                    border: "1px solid var(--line)",
-                    background: "rgba(0,0,0,0.3)",
-                    borderRadius: 12,
-                  }}
-                >
+                <div key={sectionId} className="item-card">
                   <div
                     style={{
                       display: "flex",
@@ -1329,31 +1425,21 @@ export default function DashboardPage() {
                         style={{
                           fontSize: 13,
                           fontWeight: 600,
-                          color: "var(--fg)",
+                          color: "#f4f4f5",
                         }}
                       >
                         {dashboardSectionLabels[sectionId]}
                       </div>
                       <div
-                        className="rx-mono"
-                        style={{
-                          fontSize: 9,
-                          letterSpacing: "0.16em",
-                          color: "var(--fg-4)",
-                          marginTop: 4,
-                          textTransform: "uppercase",
-                        }}
+                        className="praxis-label"
+                        style={{ marginTop: 6 }}
                       >
-                        {hidden ? "OCULTO" : "VISÍVEL"}
+                        {hidden ? "Oculto" : "Visível"}
                       </div>
                     </div>
                     <span
-                      className="rx-mono"
-                      style={{
-                        fontSize: 10,
-                        letterSpacing: "0.12em",
-                        color: "var(--fg-4)",
-                      }}
+                      className="praxis-label"
+                      style={{ color: "#71717a" }}
                     >
                       #{index + 1}
                     </span>
@@ -1361,25 +1447,25 @@ export default function DashboardPage() {
                   <div
                     style={{
                       display: "flex",
-                      gap: 6,
-                      marginTop: 10,
+                      gap: 8,
+                      marginTop: 12,
                       flexWrap: "wrap",
                     }}
                   >
                     <button
                       type="button"
-                      className={hidden ? "rx-btn-ghost" : "rx-chip-accent"}
-                      style={{ padding: "6px 10px" }}
+                      className={
+                        hidden ? "v2-btn v2-btn-xs" : "v2-btn v2-btn-primary v2-btn-xs"
+                      }
                       onClick={() =>
                         actions.toggleDashboardSectionVisibility(sectionId)
                       }
                     >
-                      {hidden ? "MOSTRAR" : "OCULTAR"}
+                      {hidden ? "Mostrar" : "Ocultar"}
                     </button>
                     <button
                       type="button"
-                      className="rx-btn-ghost"
-                      style={{ padding: "6px 10px" }}
+                      className="v2-btn v2-btn-ghost v2-btn-xs"
                       disabled={index === 0}
                       onClick={() =>
                         actions.reorderDashboardSection({
@@ -1388,12 +1474,11 @@ export default function DashboardPage() {
                         })
                       }
                     >
-                      <ArrowUp className="h-3 w-3" /> SUBIR
+                      <ArrowUp className="h-3 w-3" /> Subir
                     </button>
                     <button
                       type="button"
-                      className="rx-btn-ghost"
-                      style={{ padding: "6px 10px" }}
+                      className="v2-btn v2-btn-ghost v2-btn-xs"
                       disabled={index === sectionOrder.length - 1}
                       onClick={() =>
                         actions.reorderDashboardSection({
@@ -1402,27 +1487,19 @@ export default function DashboardPage() {
                         })
                       }
                     >
-                      <ArrowDown className="h-3 w-3" /> DESCER
+                      <ArrowDown className="h-3 w-3" /> Descer
                     </button>
                   </div>
                 </div>
               );
             })}
           </div>
-        </RxPanel>
+        </div>
       ) : null}
 
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 24,
-          position: "relative",
-          zIndex: 2,
-        }}
-      >
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {visibleSectionOrder.map((sectionId) => (
-          <div key={sectionId}>{sectionCards[sectionId]}</div>
+          <div key={sectionId}>{renderSection(sectionId)}</div>
         ))}
       </div>
     </div>
