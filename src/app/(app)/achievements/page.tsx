@@ -2,13 +2,7 @@
 
 import { useState } from "react";
 import { achievementCatalog } from "@/lib/mock-data";
-import {
-  RxChip,
-  RxLabel,
-  RxPBar,
-  RxPageHeader,
-  RxPanel,
-} from "@/components/redesign/primitives";
+import { RxChip, RxPBar } from "@/components/redesign/primitives";
 import type { AchievementCategory, Achievement } from "@/lib/types";
 
 const filters: Array<{ id: AchievementCategory | "all"; label: string }> = [
@@ -21,6 +15,15 @@ const filters: Array<{ id: AchievementCategory | "all"; label: string }> = [
   { id: "modules", label: "Módulos" },
   { id: "ranking", label: "Ranking" },
 ];
+
+// Map achievement rarity → v2.0 rarity class
+const rarityClass: Record<Achievement["rarity"], string> = {
+  Comum: "",
+  Incomum: "rare",
+  Raro: "rare",
+  Épico: "epic",
+  Lendário: "legendary",
+};
 
 const rarityColors: Record<Achievement["rarity"], string> = {
   Comum: "var(--fg-3)",
@@ -39,21 +42,22 @@ export default function AchievementsPage() {
 
   return (
     <div>
-      <RxPageHeader
-        title="Conquistas"
-        subtitle={
-          <>
-            {unlockedCount} desbloqueadas · {visible.length} totais ·{" "}
-            {visible.length - unlockedCount} em progresso
-          </>
-        }
-      />
+      {/* Page header */}
+      <div className="page-header" style={{ marginBottom: 28 }}>
+        <div className="page-eyebrow">Registro de méritos</div>
+        <h1 className="page-title-v2">Conquistas</h1>
+        <p className="page-description-v2">
+          {unlockedCount} desbloqueadas · {visible.length} totais ·{" "}
+          {visible.length - unlockedCount} em progresso
+        </p>
+      </div>
 
+      {/* Filter chips */}
       <div
         style={{
           display: "flex",
           gap: 8,
-          marginBottom: 18,
+          marginBottom: 24,
           flexWrap: "wrap",
         }}
       >
@@ -69,87 +73,63 @@ export default function AchievementsPage() {
         ))}
       </div>
 
+      {/* Achievement grid */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-          gap: 14,
+          gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+          gap: 16,
         }}
       >
         {visible.map((achievement) => {
           const color = rarityColors[achievement.rarity];
-          const done = achievement.unlocked;
+          const rarityCls = rarityClass[achievement.rarity];
+          const stateCls = achievement.unlocked ? "unlocked" : "locked";
           return (
             <div
               key={achievement.id}
-              className="rx-panel"
-              style={{
-                padding: 18,
-                position: "relative",
-                opacity: done ? 1 : 0.55,
-                borderColor: done ? color : "var(--line)",
-                minHeight: 180,
-              }}
+              className={`achievement-card ${rarityCls} ${stateCls}`.trim()}
             >
-              {done ? (
-                <div
-                  className="rx-mono"
-                  style={{
-                    position: "absolute",
-                    top: 8,
-                    right: 8,
-                    fontSize: 9,
-                    color,
-                    letterSpacing: "0.16em",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  ◆ {achievement.rarity}
-                </div>
-              ) : (
-                <div
-                  className="rx-mono"
-                  style={{
-                    position: "absolute",
-                    top: 8,
-                    right: 8,
-                    fontSize: 9,
-                    color: "var(--fg-4)",
-                    letterSpacing: "0.16em",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  ◇ {achievement.rarity}
-                </div>
-              )}
+              {/* Rarity badge — top-right */}
               <div
+                className="praxis-label"
                 style={{
-                  width: 56,
-                  height: 56,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  border: `1.5px solid ${done ? color : "var(--line-bright)"}`,
-                  background: done
+                  position: "absolute",
+                  top: 12,
+                  right: 14,
+                  fontSize: 9,
+                  color: achievement.unlocked ? color : "var(--fg-4)",
+                  letterSpacing: "0.18em",
+                }}
+              >
+                {achievement.unlocked ? "◆" : "◇"} {achievement.rarity}
+              </div>
+
+              {/* Icon tile */}
+              <div
+                className="achievement-icon"
+                style={{
+                  border: `1.5px solid ${achievement.unlocked ? color : "rgba(39,39,42,0.8)"}`,
+                  background: achievement.unlocked
                     ? `color-mix(in srgb, ${color} 15%, transparent)`
                     : "rgba(0,0,0,0.3)",
-                  color: done ? color : "var(--fg-4)",
-                  marginBottom: 14,
-                  boxShadow: done
+                  color: achievement.unlocked ? color : "var(--fg-4)",
+                  boxShadow: achievement.unlocked
                     ? `0 0 20px color-mix(in srgb, ${color} 25%, transparent)`
                     : "none",
                   fontSize: 24,
-                  borderRadius: 12,
                 }}
               >
                 {achievement.icon}
               </div>
+
+              {/* Title + desc */}
               <div
-                className="rx-display"
                 style={{
-                  fontSize: 14,
+                  fontFamily: "var(--font-space-grotesk), sans-serif",
+                  fontSize: 15,
                   fontWeight: 600,
-                  marginBottom: 4,
+                  marginBottom: 6,
                   color: "var(--fg)",
                   letterSpacing: "-0.01em",
                 }}
@@ -157,18 +137,18 @@ export default function AchievementsPage() {
                 {achievement.name}
               </div>
               <div
-                className="rx-mono"
                 style={{
-                  fontSize: 10,
-                  color: "var(--fg-4)",
-                  letterSpacing: "0.1em",
-                  lineHeight: 1.5,
+                  fontSize: 12,
+                  color: "var(--fg-3)",
+                  lineHeight: 1.55,
                 }}
               >
                 {achievement.description}
               </div>
-              {!done ? (
-                <div style={{ marginTop: 12 }}>
+
+              {/* Progress for locked items */}
+              {!achievement.unlocked ? (
+                <div style={{ marginTop: 14 }}>
                   <RxPBar value={38} />
                 </div>
               ) : null}
@@ -178,12 +158,12 @@ export default function AchievementsPage() {
       </div>
 
       {visible.length === 0 ? (
-        <RxPanel style={{ padding: 32, textAlign: "center" }}>
-          <RxLabel>NENHUMA CONQUISTA</RxLabel>
-          <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 6 }}>
+        <div className="glass" style={{ padding: 40, textAlign: "center", marginTop: 16 }}>
+          <div className="praxis-label">NENHUMA CONQUISTA</div>
+          <div style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 8 }}>
             Ajuste o filtro para ver outras conquistas.
           </div>
-        </RxPanel>
+        </div>
       ) : null}
     </div>
   );

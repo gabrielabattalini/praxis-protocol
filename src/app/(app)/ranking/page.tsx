@@ -2,13 +2,7 @@
 
 import { useMemo } from "react";
 import { useAppStore } from "@/components/providers/app-store-provider";
-import {
-  Avatar,
-  RankChip,
-  RxLabel,
-  RxPageHeader,
-  RxPanel,
-} from "@/components/redesign/primitives";
+import { Avatar, RankChip } from "@/components/redesign/primitives";
 import { rankingSeed } from "@/lib/mock-data";
 import { formatPoints } from "@/lib/utils";
 
@@ -55,37 +49,36 @@ export default function RankingPage() {
     (entry) => entry.id === "current-user",
   );
 
-  // Top 3 for podium — order them as [2nd, 1st, 3rd] with varied heights
+  // Top 3 for podium — order them as [2nd, 1st, 3rd]
   const podium = leaderboard.slice(0, 3);
   const podiumLayout =
     podium.length === 3
       ? [
-          { entry: podium[1], pos: 2, height: 140, hot: false },
-          { entry: podium[0], pos: 1, height: 190, hot: true },
-          { entry: podium[2], pos: 3, height: 110, hot: false },
+          { entry: podium[1], pos: 2, isFirst: false },
+          { entry: podium[0], pos: 1, isFirst: true },
+          { entry: podium[2], pos: 3, isFirst: false },
         ]
       : podium.map((entry, idx) => ({
           entry,
           pos: idx + 1,
-          height: 150 - idx * 20,
-          hot: idx === 0,
+          isFirst: idx === 0,
         }));
 
   const tableRows = leaderboard.slice(0, 20);
 
   return (
     <div>
-      <RxPageHeader
-        title="Leaderboard"
-        subtitle={
-          <>
-            Global · {leaderboard.length} operadores · você está em{" "}
-            <span style={{ color: "var(--accent)" }}>#{currentIndex + 1}</span>
-          </>
-        }
-      />
+      {/* Page header */}
+      <div className="page-header" style={{ marginBottom: 28 }}>
+        <div className="page-eyebrow">Leaderboard global</div>
+        <h1 className="page-title-v2">Ranking</h1>
+        <p className="page-description-v2">
+          {leaderboard.length} operadores · você está em{" "}
+          <span style={{ color: "var(--accent)" }}>#{currentIndex + 1}</span>
+        </p>
+      </div>
 
-      {/* Podium */}
+      {/* Podium — top 3 with first centered + accent */}
       {podium.length > 0 ? (
         <div
           style={{
@@ -97,47 +90,24 @@ export default function RankingPage() {
             alignItems: "end",
           }}
         >
-          {podiumLayout.map(({ entry, pos, height, hot }) => (
+          {podiumLayout.map(({ entry, pos, isFirst }) => (
             <div
               key={entry.id}
-              className={hot ? "rx-panel-hot" : "rx-panel"}
-              style={{
-                padding: 20,
-                textAlign: "center",
-                height: height + 100,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "flex-end",
-                position: "relative",
-              }}
+              className={`podium-card${isFirst ? " first" : ""}`}
             >
-              <div
-                className="rx-display"
-                style={{
-                  position: "absolute",
-                  top: 8,
-                  right: 12,
-                  fontSize: 48,
-                  fontWeight: 700,
-                  color: hot ? "var(--accent)" : "var(--fg-4)",
-                  letterSpacing: "-0.03em",
-                  lineHeight: 1,
-                  opacity: 0.8,
-                }}
-              >
-                #{pos}
+              <div className="podium-rank">#{pos}</div>
+              <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+                <Avatar
+                  initials={initialsFor(entry.name)}
+                  size={isFirst ? 64 : 52}
+                  tier={entry.rankTier}
+                  online={false}
+                />
               </div>
-              <Avatar
-                initials={initialsFor(entry.name)}
-                size={hot ? 64 : 52}
-                tier={entry.rankTier}
-                online={false}
-              />
               <div
-                className="rx-display"
                 style={{
-                  fontSize: hot ? 20 : 16,
+                  fontFamily: "var(--font-space-grotesk), sans-serif",
+                  fontSize: isFirst ? 18 : 15,
                   fontWeight: 700,
                   marginTop: 12,
                   color: "var(--fg)",
@@ -146,29 +116,17 @@ export default function RankingPage() {
               >
                 {entry.username}
               </div>
-              <div style={{ marginTop: 6 }}>
+              <div style={{ marginTop: 8, display: "flex", justifyContent: "center" }}>
                 <RankChip tier={`${entry.rankTier} ${entry.rankLabel ?? ""}`.trim()} />
               </div>
+              <div className="podium-xp">{formatPoints(entry.totalXp)}</div>
               <div
-                className="rx-display"
-                style={{
-                  fontSize: 24,
-                  fontWeight: 700,
-                  color: "var(--accent)",
-                  marginTop: 10,
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                {formatPoints(entry.totalXp)}
-              </div>
-              <div
-                className="rx-mono"
+                className="praxis-label"
                 style={{
                   fontSize: 9,
                   color: "var(--fg-3)",
+                  marginTop: 4,
                   letterSpacing: "0.2em",
-                  textTransform: "uppercase",
-                  marginTop: 2,
                 }}
               >
                 XP TOTAL
@@ -178,21 +136,20 @@ export default function RankingPage() {
         </div>
       ) : null}
 
-      {/* Table */}
-      <RxPanel style={{ padding: 0, overflow: "hidden" }}>
+      {/* Leaderboard table */}
+      <div className="glass" style={{ padding: 0, overflow: "hidden" }}>
         <div
+          className="lb-row"
           style={{
-            display: "grid",
-            gridTemplateColumns: "50px 1fr 120px 100px 80px",
-            padding: "12px 18px",
-            borderBottom: "1px solid var(--line)",
             background: "rgba(0,0,0,0.4)",
+            borderBottom: "1px solid rgba(39,39,42,0.8)",
+            padding: "14px 18px",
           }}
         >
-          {["RANK", "OPERADOR", "TIER", "XP TOTAL", "NÍVEL"].map((h) => (
+          {["RANK", "OPERADOR", "TIER", "XP TOTAL", "STREAK", "NÍVEL"].map((h) => (
             <div
               key={h}
-              className="rx-mono"
+              className="praxis-label"
               style={{
                 fontSize: 9,
                 color: "var(--fg-3)",
@@ -210,92 +167,37 @@ export default function RankingPage() {
           return (
             <div
               key={entry.id}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "50px 1fr 120px 100px 80px",
-                padding: "12px 18px",
-                borderBottom: "1px solid var(--line-soft)",
-                background: isSelf
-                  ? "rgba(251,146,60,0.08)"
-                  : "transparent",
-                borderLeft: isSelf
-                  ? "2px solid var(--accent)"
-                  : "2px solid transparent",
-                alignItems: "center",
-                fontSize: 13,
-              }}
+              className={`lb-row${isSelf ? " me" : ""}`}
             >
-              <div
-                className="rx-mono"
-                style={{
-                  color: isSelf ? "var(--accent)" : "var(--fg-3)",
-                  fontWeight: 600,
-                }}
-              >
+              <div className="lb-pos" style={{ color: isSelf ? "var(--accent)" : undefined, fontWeight: isSelf ? 700 : 400 }}>
                 #{index + 1}
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  minWidth: 0,
-                }}
-              >
+              <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
                 <Avatar
                   initials={initialsFor(entry.name)}
-                  size={28}
+                  size={32}
                   tier={entry.rankTier}
                   online={false}
                 />
                 <div style={{ minWidth: 0 }}>
-                  <div
-                    style={{
-                      color: isSelf ? "var(--accent)" : "var(--fg)",
-                      fontWeight: isSelf ? 600 : 400,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
+                  <div className="lb-name" style={{ color: isSelf ? "var(--accent)" : undefined, fontWeight: isSelf ? 700 : 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {entry.username}
                   </div>
-                  <div
-                    className="rx-mono"
-                    style={{
-                      fontSize: 9,
-                      color: "var(--fg-4)",
-                      letterSpacing: "0.12em",
-                      marginTop: 2,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
+                  <div className="lb-sub" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {entry.name}
                   </div>
                 </div>
               </div>
-              <div
-                className="rx-mono"
-                style={{
-                  fontSize: 10,
-                  color: "var(--accent)",
-                  letterSpacing: "0.14em",
-                }}
-              >
-                ◆ {entry.rankTier} {entry.rankLabel}
+              <div>
+                <RankChip tier={`${entry.rankTier} ${entry.rankLabel ?? ""}`.trim()} />
               </div>
-              <div className="rx-mono" style={{ color: "var(--fg-2)" }}>
-                {formatPoints(entry.totalXp)}
-              </div>
-              <div className="rx-mono" style={{ color: "var(--fg-3)" }}>
-                LVL {entry.level}
-              </div>
+              <div className="lb-xp">{formatPoints(entry.totalXp)}</div>
+              <div className="lb-streak">—</div>
+              <div className="lb-streak">LV {entry.level}</div>
             </div>
           );
         })}
-      </RxPanel>
+      </div>
     </div>
   );
 }

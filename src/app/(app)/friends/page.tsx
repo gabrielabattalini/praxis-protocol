@@ -3,14 +3,7 @@
 import { useState } from "react";
 import { Plus, Swords } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
-import {
-  Avatar,
-  RankChip,
-  RxChip,
-  RxLabel,
-  RxPageHeader,
-  RxPanel,
-} from "@/components/redesign/primitives";
+import { Avatar, RankChip, RxChip } from "@/components/redesign/primitives";
 import { rankingSeed } from "@/lib/mock-data";
 import type { FriendTab } from "@/lib/types";
 import { formatPoints } from "@/lib/utils";
@@ -45,47 +38,42 @@ export default function FriendsPage() {
   }));
 
   const visible = tab === "online" ? operators.filter((op) => op.online) : operators;
-
   const onlineCount = operators.filter((op) => op.online).length;
 
   return (
     <div>
-      <RxPageHeader
-        title="Operadores"
-        subtitle={
-          <>
-            {operators.length} conexões sugeridas · {onlineCount} online · você é{" "}
-            <span style={{ color: "var(--accent)" }}>{user.username}</span>
-          </>
-        }
-        actions={
-          <>
-            <button
-              type="button"
-              className="rx-btn-primary"
-              style={{ padding: "8px 14px", display: "inline-flex", alignItems: "center", gap: 8 }}
-            >
-              <Plus className="h-3 w-3" /> Convidar
-            </button>
-            <button
-              type="button"
-              className="rx-btn-ghost"
-              style={{ padding: "8px 14px" }}
-            >
-              Pedidos · 0
-            </button>
-          </>
-        }
-      />
-
+      {/* Page header */}
       <div
+        className="page-header"
         style={{
           display: "flex",
-          gap: 8,
-          marginBottom: 18,
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          gap: 16,
           flexWrap: "wrap",
+          marginBottom: 28,
         }}
       >
+        <div>
+          <div className="page-eyebrow">Rede ativa</div>
+          <h1 className="page-title-v2">Operadores</h1>
+          <p className="page-description-v2">
+            {operators.length} conexões sugeridas · {onlineCount} online · você é{" "}
+            <span style={{ color: "var(--accent)" }}>{user.username}</span>
+          </p>
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button type="button" className="v2-btn v2-btn-primary">
+            <Plus className="h-3.5 w-3.5" /> Convidar
+          </button>
+          <button type="button" className="v2-btn v2-btn-ghost">
+            Pedidos · 0
+          </button>
+        </div>
+      </div>
+
+      {/* Tab chips */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
         {tabs.map((item) => (
           <RxChip
             key={item.id}
@@ -99,40 +87,42 @@ export default function FriendsPage() {
       </div>
 
       {tab === "requests" ? (
-        <RxPanel style={{ padding: 32, textAlign: "center" }}>
-          <RxLabel>NENHUMA SOLICITAÇÃO</RxLabel>
-          <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 6 }}>
+        <div className="glass" style={{ padding: 40, textAlign: "center" }}>
+          <div className="praxis-label">NENHUMA SOLICITAÇÃO</div>
+          <div style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 8 }}>
             Quando houver pedidos de amizade, eles aparecerão aqui.
           </div>
-        </RxPanel>
+        </div>
       ) : (
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
             gap: 16,
           }}
         >
           {visible.map((op) => (
-            <RxPanel key={op.id} style={{ padding: 18 }}>
+            <div key={op.id} className="item-card">
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: 12,
-                  marginBottom: 14,
+                  marginBottom: 16,
                 }}
               >
-                <Avatar
-                  initials={initialsFor(op.name)}
-                  size={44}
-                  tier={op.rankTier}
-                  online={op.online}
-                />
+                <div style={{ position: "relative" }}>
+                  <Avatar
+                    initials={initialsFor(op.name)}
+                    size={48}
+                    tier={op.rankTier}
+                    online={op.online}
+                  />
+                </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div
-                    className="rx-display"
                     style={{
+                      fontFamily: "var(--font-space-grotesk), sans-serif",
                       fontSize: 15,
                       fontWeight: 600,
                       color: "var(--fg)",
@@ -144,17 +134,17 @@ export default function FriendsPage() {
                   >
                     {op.username}
                   </div>
-                  <div style={{ marginTop: 4 }}>
+                  <div style={{ marginTop: 6 }}>
                     <RankChip tier={`${op.rankTier} ${op.rankLabel ?? ""}`.trim()} />
                   </div>
                 </div>
                 <button
                   type="button"
-                  className="rx-btn-ghost"
-                  style={{ padding: 8 }}
+                  className="v2-btn v2-btn-icon"
                   aria-label="Duelar"
+                  title="Duelar"
                 >
-                  <Swords className="h-3.5 w-3.5" />
+                  <Swords className="h-4 w-4" />
                 </button>
               </div>
               <div
@@ -164,81 +154,37 @@ export default function FriendsPage() {
                   gap: 8,
                 }}
               >
-                <div
-                  style={{
-                    padding: 10,
-                    border: "1px solid var(--line)",
-                    background: "rgba(0,0,0,0.3)",
-                    borderRadius: 12,
-                  }}
-                >
+                <div className="kpi" style={{ padding: 12 }}>
+                  <div className="praxis-label" style={{ fontSize: 9 }}>XP TOTAL</div>
                   <div
-                    className="rx-mono"
-                    style={{
-                      fontSize: 9,
-                      color: "var(--fg-3)",
-                      letterSpacing: "0.18em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    XP TOTAL
-                  </div>
-                  <div
-                    className="rx-display"
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 600,
-                      color: "var(--accent)",
-                      marginTop: 2,
-                    }}
+                    className="kpi-value"
+                    style={{ fontSize: 18, color: "var(--accent)", marginTop: 2 }}
                   >
                     {formatPoints(op.totalXp)}
                   </div>
                 </div>
-                <div
-                  style={{
-                    padding: 10,
-                    border: "1px solid var(--line)",
-                    background: "rgba(0,0,0,0.3)",
-                    borderRadius: 12,
-                  }}
-                >
+                <div className="kpi" style={{ padding: 12 }}>
+                  <div className="praxis-label" style={{ fontSize: 9 }}>STREAK</div>
                   <div
-                    className="rx-mono"
-                    style={{
-                      fontSize: 9,
-                      color: "var(--fg-3)",
-                      letterSpacing: "0.18em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    STREAK
-                  </div>
-                  <div
-                    className="rx-display"
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 600,
-                      color: "var(--fg)",
-                      marginTop: 2,
-                    }}
+                    className="kpi-value"
+                    style={{ fontSize: 18, marginTop: 2 }}
                   >
                     {op.streakDays}d
                   </div>
                 </div>
               </div>
-            </RxPanel>
+            </div>
           ))}
         </div>
       )}
 
       {tab !== "requests" && visible.length === 0 ? (
-        <RxPanel style={{ padding: 32, textAlign: "center", marginTop: 16 }}>
-          <RxLabel>NENHUM OPERADOR ONLINE</RxLabel>
-          <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 6 }}>
+        <div className="glass" style={{ padding: 40, textAlign: "center", marginTop: 16 }}>
+          <div className="praxis-label">NENHUM OPERADOR ONLINE</div>
+          <div style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 8 }}>
             Seus contatos aparecerão aqui quando estiverem ativos.
           </div>
-        </RxPanel>
+        </div>
       ) : null}
     </div>
   );
