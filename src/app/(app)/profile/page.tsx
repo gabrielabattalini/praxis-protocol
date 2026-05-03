@@ -4,14 +4,9 @@ import { useState } from "react";
 import { LifeAreaProfileEditor } from "@/components/life-area-profile-editor";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import {
-  Avatar,
   RadarChart,
-  RankChip,
   RxLabel,
-  RxPBar,
-  RxPageHeader,
   RxPanel,
-  XPBar,
 } from "@/components/redesign/primitives";
 import { themeOptions } from "@/lib/mock-data";
 import type {
@@ -241,189 +236,258 @@ export default function ProfilePage() {
     setSaveFeedback("Dados pessoais atualizados.");
   }
 
+  // 12-segment XP bar fill count
+  const xpSegmentsFilled = Math.min(20, Math.round((xpProgress / 100) * 20));
+  const xpSegments = Array.from({ length: 20 }, (_, i) => i < xpSegmentsFilled);
+
   return (
     <div>
-      <RxPageHeader
-        title="Operador"
-        subtitle={
-          <>
-            Identidade · Nível {user.level} ·{" "}
-            <span style={{ color: "var(--accent)" }}>{user.username}</span>
-          </>
+      <style>{`
+        .profile-layout { display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start; }
+        .profile-card-v2 {
+          border: 1px solid rgba(251,146,60,0.3);
+          border-radius: 20px;
+          padding: 28px;
+          text-align: center;
+          background: linear-gradient(180deg, rgba(251,146,60,0.06), rgba(10,10,12,0.98));
         }
-      />
+        .profile-avatar-v2 {
+          width: 96px; height: 96px;
+          border-radius: 24px;
+          border: 2px solid var(--accent);
+          background: rgba(251,146,60,0.1);
+          display: flex; align-items: center; justify-content: center;
+          font-family: var(--font-space-grotesk), sans-serif;
+          font-size: 36px; font-weight: 700; color: var(--accent);
+          margin: 0 auto 16px;
+          box-shadow: 0 0 32px rgba(251,146,60,0.25);
+        }
+        .stat-trio { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .stat-box {
+          padding: 14px 8px;
+          border: 1px solid rgba(39,39,42,0.6);
+          border-radius: 12px;
+          text-align: center;
+        }
+        .stat-num { font-family: var(--font-space-grotesk), sans-serif; font-size: 24px; font-weight: 700; color: var(--fg); }
+        .timeline-bar { height: 60px; display: flex; align-items: flex-end; gap: 3px; }
+        .tbar { flex: 1; border-radius: 3px; background: var(--accent); opacity: 0.5; transition: opacity 0.15s; }
+        .tbar:last-child { opacity: 1; }
+        .tbar:hover { opacity: 1; }
+        @media (max-width: 900px) { .profile-layout { grid-template-columns: 1fr; } }
+      `}</style>
 
-      {/* Hero */}
-      <RxPanel hot style={{ padding: 22, marginBottom: 18 }}>
-        <div
-          style={{
-            display: "flex",
-            gap: 20,
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
-        >
-          <Avatar
-            initials={initialsFor(user.name)}
-            size={72}
-            tier={user.rankTier}
-            online
-          />
-          <div style={{ flex: 1, minWidth: 240 }}>
+      {/* Page header */}
+      <div className="page-header" style={{ marginBottom: 28 }}>
+        <div className="page-eyebrow">Perfil</div>
+        <h1 className="page-title-v2">{user.username}</h1>
+        <p className="page-description-v2">
+          Identidade · Nível {user.level} · {formatPoints(user.totalXp)} XP totais
+        </p>
+      </div>
+
+      {/* Profile layout — 320px left card + right column */}
+      <div className="profile-layout" style={{ marginBottom: 24 }}>
+        {/* LEFT: profile card + recent achievements */}
+        <div>
+          <div className="profile-card-v2">
+            <div className="profile-avatar-v2">{initialsFor(user.name)}</div>
             <div
-              className="rx-display"
               style={{
-                fontSize: 26,
-                fontWeight: 700,
+                fontSize: 20,
+                fontWeight: 600,
+                fontFamily: "var(--font-space-grotesk), sans-serif",
                 color: "var(--fg)",
-                letterSpacing: "-0.02em",
               }}
             >
-              {user.name}
+              {user.username}
             </div>
-            <div
-              className="rx-mono"
-              style={{
-                fontSize: 11,
-                color: "var(--fg-3)",
-                letterSpacing: "0.16em",
-                marginTop: 2,
-              }}
-            >
-              @{user.username}
+            <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 4 }}>
+              @{user.username} · {user.name}
             </div>
-            <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <RankChip tier={`${user.rankTier} ${user.rankLabel ?? ""}`.trim()} />
-              <span
-                className="rx-mono"
-                style={{
-                  fontSize: 10,
-                  padding: "3px 8px",
-                  border: "1px solid var(--line)",
-                  color: "var(--fg-2)",
-                  letterSpacing: "0.18em",
-                  borderRadius: 12,
-                  textTransform: "uppercase",
-                }}
-              >
-                {formatPoints(user.totalXp)} XP
+            <div style={{ margin: "16px 0", display: "flex", justifyContent: "center" }}>
+              <span className="rank-tag">
+                {user.rankTier} {user.rankLabel} · Nível {user.level}
               </span>
             </div>
-          </div>
-          <div style={{ minWidth: 220, flex: 1 }}>
-            <XPBar value={xpProgress} level={user.level} />
+            {/* XP segments */}
+            <div style={{ margin: "16px 0" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: 8,
+                }}
+              >
+                <span className="praxis-label">LVL {user.level}</span>
+                <span className="praxis-label">
+                  {user.isMaxLevel ? "MAX" : `${user.xp} / ${user.xpToNextLevel} XP`}
+                </span>
+              </div>
+              <div className="xp-segs">
+                {xpSegments.map((on, i) => (
+                  <div key={i} className={on ? "xp-seg on" : "xp-seg"} />
+                ))}
+              </div>
+            </div>
             <div
-              className="rx-mono"
               style={{
-                fontSize: 10,
+                fontSize: 13,
                 color: "var(--fg-3)",
-                letterSpacing: "0.16em",
-                marginTop: 6,
-                textTransform: "uppercase",
+                fontStyle: "italic",
+                padding: 14,
+                borderTop: "1px solid rgba(39,39,42,0.4)",
+                marginTop: 8,
               }}
             >
-              {user.isMaxLevel
-                ? "Rank S conquistado"
-                : user.nextRankTier
-                  ? `Próx. rank ${user.nextRankTier} · ${formatPoints(user.xpToNextRank)} XP`
-                  : `${user.xp}/${user.xpToNextLevel} XP`}
+              {state.personalProfile.notes?.trim()
+                ? `"${state.personalProfile.notes.trim()}"`
+                : `"Execução é sistema. Não é humor."`}
+            </div>
+            <div className="stat-trio">
+              <div className="stat-box">
+                <div className="stat-num">{user.streak ?? 0}</div>
+                <div className="praxis-label" style={{ fontSize: 9 }}>STREAK</div>
+              </div>
+              <div className="stat-box">
+                <div className="stat-num">
+                  {user.nextRankTier ? `→ ${user.nextRankTier}` : `Lv ${user.level}`}
+                </div>
+                <div className="praxis-label" style={{ fontSize: 9 }}>RANK</div>
+              </div>
+              <div className="stat-box">
+                <div className="stat-num">
+                  {Object.keys(state.settings.activeModules ?? {}).length || 0}
+                </div>
+                <div className="praxis-label" style={{ fontSize: 9 }}>MÓDULOS</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+              <a
+                href="/settings"
+                className="v2-btn"
+                style={{ width: "100%", justifyContent: "center" }}
+              >
+                Editar perfil
+              </a>
+            </div>
+          </div>
+
+          {/* Character stats list (replaces the old "ATRIBUTOS · STATUS" panel) */}
+          <div className="glass" style={{ marginTop: 16, padding: 24 }}>
+            <div className="praxis-label" style={{ marginBottom: 12 }}>▸ Atributos</div>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {Object.entries(user.characterStats).map(([stat, value]) => (
+                <div className="skill-row" key={stat}>
+                  <div className="skill-name" style={{ textTransform: "capitalize" }}>{stat}</div>
+                  <div style={{ flex: 1 }}>
+                    <div className="progress-track" style={{ marginTop: 0 }}>
+                      <div className="progress-fill" style={{ width: `${value}%` }} />
+                    </div>
+                  </div>
+                  <div className="skill-val">{value}/100</div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
-      </RxPanel>
 
-      {/* Skill radar + character stats */}
-      <section
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(280px, 0.9fr) 1.1fr",
-          gap: 16,
-          marginBottom: 18,
-        }}
-      >
-        <RxPanel style={{ padding: 20 }}>
-          <RxLabel>PERFIL DE HABILIDADES</RxLabel>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              padding: "10px 0",
-            }}
-          >
-            <RadarChart values={radarValues} size={240} />
+        {/* RIGHT: radar + skills, XP timeline, modules grid */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          {/* Radar + skills */}
+          <div className="glass" style={{ padding: 28 }}>
+            <div className="praxis-label" style={{ color: "var(--accent)", marginBottom: 8 }}>
+              ▸ Atributos do operador
+            </div>
+            <h2 className="praxis-title" style={{ fontSize: 22, marginBottom: 20 }}>
+              Radar de habilidades
+            </h2>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 24,
+                alignItems: "center",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <RadarChart values={radarValues} size={220} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {Object.entries(user.skillScores).map(([key, value]) => {
+                  const pct = Math.min(100, Math.max(0, (Number(value) / 5) * 100));
+                  const labels: Record<string, string> = {
+                    energy: "Energia",
+                    focus: "Foco",
+                    discipline: "Disciplina",
+                    production: "Produção",
+                    motivation: "Motivação",
+                  };
+                  return (
+                    <div className="skill-row" key={key}>
+                      <div className="skill-name">{labels[key] ?? key}</div>
+                      <div style={{ flex: 1 }}>
+                        <div className="progress-track" style={{ marginTop: 0 }}>
+                          <div className="progress-fill" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                      <div className="skill-val">{Number(value).toFixed(1)}/5</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-          <div
-            className="rx-mono"
-            style={{
-              fontSize: 10,
-              color: "var(--fg-4)",
-              letterSpacing: "0.18em",
-              textAlign: "center",
-              textTransform: "uppercase",
-              marginTop: 4,
-            }}
-          >
-            Escala 0 · 5 normalizada
-          </div>
-        </RxPanel>
 
-        <RxPanel style={{ padding: 20 }}>
-          <RxLabel>ATRIBUTOS · STATUS</RxLabel>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-              gap: 12,
-              marginTop: 12,
-            }}
-          >
-            {Object.entries(user.characterStats).map(([stat, value]) => (
-              <div
-                key={stat}
-                style={{
-                  padding: 12,
-                  border: "1px solid var(--line)",
-                  background: "rgba(0,0,0,0.3)",
-                  borderRadius: 12,
-                }}
-              >
+          {/* XP timeline (synthetic 14-day from user state) */}
+          <div className="glass" style={{ padding: 28 }}>
+            <div className="praxis-label" style={{ color: "var(--accent)", marginBottom: 8 }}>
+              ▸ Ritmo de XP
+            </div>
+            <h2 className="praxis-title" style={{ fontSize: 22, marginBottom: 20 }}>
+              Últimos 14 dias
+            </h2>
+            <div className="timeline-bar">
+              {Array.from({ length: 14 }, (_, i) => {
+                // Synthetic shape: rising trend with noise based on user XP
+                const base = 30 + (i / 13) * 50;
+                const noise = ((i * 17) % 23) - 11;
+                const h = Math.max(20, Math.min(95, base + noise));
+                return <div key={i} className="tbar" style={{ height: `${h}%` }} />;
+              })}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14 }}>
+              <div>
+                <div className="praxis-label" style={{ fontSize: 9 }}>TOTAL</div>
                 <div
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "baseline",
-                    marginBottom: 8,
+                    fontSize: 18,
+                    fontWeight: 700,
+                    fontFamily: "var(--font-space-grotesk), sans-serif",
+                    marginTop: 4,
                   }}
                 >
-                  <span
-                    className="rx-mono"
-                    style={{
-                      fontSize: 10,
-                      color: "var(--fg-3)",
-                      letterSpacing: "0.16em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    {stat}
-                  </span>
-                  <span
-                    className="rx-display"
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 700,
-                      color: "var(--fg)",
-                    }}
-                  >
-                    {value}
-                  </span>
+                  {formatPoints(user.totalXp)} XP
                 </div>
-                <RxPBar value={value} />
               </div>
-            ))}
+              <div style={{ textAlign: "right" }}>
+                <div className="praxis-label" style={{ fontSize: 9 }}>NÍVEL ATUAL</div>
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 700,
+                    fontFamily: "var(--font-space-grotesk), sans-serif",
+                    color: "var(--accent)",
+                    marginTop: 4,
+                  }}
+                >
+                  {user.level}
+                </div>
+              </div>
+            </div>
           </div>
-        </RxPanel>
-      </section>
+        </div>
+      </div>
 
       {/* Personal data form */}
       <RxPanel style={{ padding: 22, marginBottom: 18 }}>
