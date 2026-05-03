@@ -543,7 +543,7 @@ export default function AgendaPage() {
           ) : null}
 
           {selectedDay?.items.length ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {flowItems.map((item) => {
                 const tone = toneForKind(item.kind);
                 const Icon = tone.icon;
@@ -551,87 +551,63 @@ export default function AgendaPage() {
                   <Link
                     key={item.id}
                     href={item.route}
+                    className={`timeline-item${item.completed ? " completed" : ""}`}
                     style={{
-                      display: "grid",
-                      gridTemplateColumns: "54px 36px 1fr auto",
-                      gap: 12,
-                      alignItems: "center",
-                      padding: "12px 14px",
-                      border: "1px solid var(--line)",
-                      background: item.completed
-                        ? "rgba(0,0,0,0.3)"
-                        : "rgba(20,20,24,0.5)",
-                      opacity: item.completed ? 0.7 : 1,
-                      borderLeft: `2px solid ${tone.color}`,
-                      borderRadius: 12,
                       textDecoration: "none",
                       color: "inherit",
+                      borderLeft: `3px solid ${tone.color}`,
+                      opacity: item.completed ? 0.7 : 1,
                     }}
                   >
-                    <div
-                      className="rx-mono"
-                      style={{
-                        fontSize: 11,
-                        color: "var(--fg-3)",
-                        letterSpacing: "0.1em",
-                      }}
-                    >
-                      {item.time || "--:--"}
-                    </div>
+                    <div className="timeline-time">{item.time || "--:--"}</div>
                     <div
                       style={{
-                        width: 30,
-                        height: 30,
+                        width: 36,
+                        height: 36,
                         display: "grid",
                         placeItems: "center",
                         border: `1px solid ${tone.color}`,
                         background: "rgba(0,0,0,0.3)",
                         color: tone.color,
                         borderRadius: 12,
+                        flexShrink: 0,
                       }}
                     >
-                      <Icon className="h-3.5 w-3.5" />
+                      <Icon className="h-4 w-4" />
                     </div>
-                    <div style={{ minWidth: 0 }}>
+                    <div className="timeline-body">
                       <div
                         style={{
                           display: "flex",
                           gap: 8,
                           alignItems: "center",
                           flexWrap: "wrap",
+                          marginBottom: 4,
                         }}
                       >
                         <span
+                          className="timeline-title"
                           style={{
-                            fontSize: 13,
-                            color: "var(--fg)",
-                            fontWeight: 600,
                             textDecoration: item.completed ? "line-through" : "none",
+                            marginBottom: 0,
                           }}
                         >
                           {item.title}
                         </span>
                         <span
-                          className="rx-mono"
+                          className="badge badge-sm"
                           style={{
-                            fontSize: 9,
-                            letterSpacing: "0.18em",
                             color: tone.color,
-                            textTransform: "uppercase",
-                            padding: "2px 6px",
-                            border: `1px solid ${tone.color}`,
+                            borderColor: tone.color,
                             background: "rgba(0,0,0,0.3)",
-                            borderRadius: 12,
                           }}
                         >
                           {item.badgeLabel}
                         </span>
                       </div>
                       <div
+                        className="timeline-sub"
                         style={{
-                          fontSize: 12,
-                          color: "var(--fg-3)",
-                          marginTop: 2,
                           overflow: "hidden",
                           textOverflow: "ellipsis",
                           whiteSpace: "nowrap",
@@ -640,21 +616,15 @@ export default function AgendaPage() {
                         {item.description}
                       </div>
                       <div
-                        className="rx-mono"
-                        style={{
-                          fontSize: 9,
-                          color: "var(--fg-4)",
-                          letterSpacing: "0.16em",
-                          marginTop: 2,
-                          textTransform: "uppercase",
-                        }}
+                        className="praxis-label"
+                        style={{ fontSize: 9, marginTop: 4, color: "var(--fg-4)" }}
                       >
                         {item.sourceLabel}
                       </div>
                     </div>
-                    <div style={{ justifySelf: "end" }}>
+                    <div style={{ justifySelf: "end", alignSelf: "center" }}>
                       {item.completed ? (
-                        <CheckCircle2 className="h-4 w-4" style={{ color: "var(--ok)" }} />
+                        <CheckCircle2 className="h-5 w-5" style={{ color: "var(--ok)" }} />
                       ) : (
                         <ArrowRight className="h-4 w-4" style={{ color: "var(--fg-3)" }} />
                       )}
