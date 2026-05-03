@@ -12,11 +12,7 @@ import {
 import { usePushNotifications } from "@/components/providers/notifications-provider";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { StripeCheckoutButton } from "@/components/billing/stripe-checkout-button";
-import {
-  RxLabel,
-  RxPageHeader,
-  RxPanel,
-} from "@/components/redesign/primitives";
+import { RxLabel, RxPanel } from "@/components/redesign/primitives";
 import { moduleCatalog, themeOptions } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
@@ -778,25 +774,50 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <RxPageHeader
-        title="Preferências"
-        subtitle={
-          <>
-            Tema <span style={{ color: "var(--accent)" }}>{activeTheme.name}</span>{" "}
-            · {activeModulesCount} módulos visíveis
-          </>
+      <style>{`
+        .settings-layout-v2 { display: grid; grid-template-columns: 220px 1fr; gap: 28px; align-items: start; }
+        .settings-nav-v2 { border: 1px solid rgba(39,39,42,0.8); border-radius: 16px; overflow: hidden; background: rgba(14,14,17,0.96); }
+        .settings-nav-item-v2 {
+          width: 100%;
+          padding: 12px 16px;
+          font-size: 14px;
+          color: #a1a1aa;
+          border-bottom: 1px solid rgba(39,39,42,0.5);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          transition: all 0.15s;
+          background: transparent;
+          border-left: 2px solid transparent;
+          border-right: none;
+          border-top: none;
+          text-align: left;
+          font-family: inherit;
         }
-      />
+        .settings-nav-item-v2:last-of-type { border-bottom: none; }
+        .settings-nav-item-v2:hover { background: rgba(255,255,255,0.03); color: #f4f4f5; }
+        .settings-nav-item-v2.active {
+          color: var(--accent);
+          background: rgba(251,146,60,0.06);
+          border-left-color: var(--accent);
+        }
+        @media (max-width: 900px) { .settings-layout-v2 { grid-template-columns: 1fr; } }
+      `}</style>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "240px 1fr",
-          gap: 24,
-        }}
-      >
+      {/* Page header */}
+      <div className="page-header" style={{ marginBottom: 28 }}>
+        <div className="page-eyebrow">Configurações</div>
+        <h1 className="page-title-v2">Preferências</h1>
+        <p className="page-description-v2">
+          Tema <span style={{ color: "var(--accent)" }}>{activeTheme.name}</span>{" "}
+          · {activeModulesCount} módulos visíveis
+        </p>
+      </div>
+
+      <div className="settings-layout-v2">
         {/* Left nav */}
-        <div style={{ alignSelf: "start" }}>
+        <div className="settings-nav-v2">
           {settingsTabs.map((item) => {
             const active = tab === item.id;
             return (
@@ -804,20 +825,7 @@ export default function SettingsPage() {
                 key={item.id}
                 type="button"
                 onClick={() => setTab(item.id)}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderLeft: active
-                    ? "2px solid var(--accent)"
-                    : "2px solid transparent",
-                  color: active ? "var(--accent)" : "var(--fg-2)",
-                  background: active ? "rgba(251,146,60,0.06)" : "transparent",
-                  fontSize: 13,
-                  cursor: "pointer",
-                  textAlign: "left",
-                  fontWeight: active ? 600 : 400,
-                  transition: "color 120ms ease, background 120ms ease",
-                }}
+                className={`settings-nav-item-v2${active ? " active" : ""}`}
               >
                 {item.label}
               </button>
@@ -826,7 +834,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Content */}
-        <div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <TabContent tab={tab} />
         </div>
       </div>
