@@ -497,41 +497,38 @@ export function MissionCard({
   );
 }
 
-// RxPageHeader — command-style header matching design's AppShell title/subtitle + actions
+// RxPageHeader — v2.0 design bundle's page header (eyebrow + 36px title + description)
+// Consumes uppercase title and renders it with proper case in the big display, while
+// the title prop also drives the page-eyebrow microlabel.
 export function RxPageHeader({
   title,
   subtitle,
   actions,
+  eyebrow,
 }: {
   title: string;
   subtitle?: ReactNode;
   actions?: ReactNode;
+  eyebrow?: string;
 }) {
   return (
     <div
       style={{
-        padding: "18px 0",
-        borderBottom: "1px solid var(--line-soft)",
+        marginBottom: 28,
         display: "flex",
         justifyContent: "space-between",
-        alignItems: "center",
-        gap: 14,
+        alignItems: "flex-end",
+        gap: 16,
         flexWrap: "wrap",
-        marginBottom: 24,
       }}
     >
       <div style={{ minWidth: 0 }}>
-        <RxLabel>{title.toUpperCase()}</RxLabel>
+        <div className="page-eyebrow">{(eyebrow ?? "Praxis").toUpperCase()}</div>
+        <h1 className="page-title-v2">{title}</h1>
         {subtitle ? (
-          <div
-            style={{
-              fontSize: 13,
-              color: "var(--fg-3)",
-              marginTop: 4,
-            }}
-          >
+          <p className="page-description-v2">
             {subtitle}
-          </div>
+          </p>
         ) : null}
       </div>
       {actions ? (
