@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
-import { PageIntro } from "@/components/ui/page-intro";
 import { ProgressCurveChart } from "@/components/ui/progress-curve-chart";
 import type { Task, TaskDifficulty, TaskRecurrence, Weekday } from "@/lib/types";
 import {
@@ -424,11 +423,26 @@ export default function HealthModulePage() {
 
   return (
     <div className="space-y-6">
-      <PageIntro
-        eyebrow="Módulo"
-        title="Saúde"
-        description="Organize exames, consultas e check-ups periódicos em um fluxo simples, preventivo e integrado às tarefas."
-      />
+      <div className="mod-hero">
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div className="mod-icon" style={{ width: 56, height: 56, borderRadius: 14, fontSize: 24 }}>❤️</div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div className="praxis-label" style={{ color: "var(--accent)", marginBottom: 4 }}>▸ MÓDULO · SAÚDE</div>
+            <div className="praxis-title" style={{ fontSize: 26 }}>Exames e check-ups</div>
+            <div style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 4 }}>
+              Organize exames, consultas e check-ups periódicos integrados às tarefas.
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+            <div style={{ textAlign: "right", borderLeft: "1px solid rgba(39,39,42,0.6)", paddingLeft: 16 }}>
+              <div className="praxis-label" style={{ fontSize: 9 }}>HOJE</div>
+              <div style={{ fontSize: 18, fontWeight: 600, fontFamily: "var(--font-space-grotesk), sans-serif", marginTop: 2 }}>
+                {healthTasksToday.length}/{healthTasks.length}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <GlassPanel className="space-y-2">

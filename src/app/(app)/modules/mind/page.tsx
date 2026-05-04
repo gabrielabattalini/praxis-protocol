@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
-import { PageIntro } from "@/components/ui/page-intro";
 import type { Weekday } from "@/lib/types";
 import {
   formatRecurrence,
@@ -175,35 +174,50 @@ export default function MindModulePage() {
 
   return (
     <div className="space-y-6">
-      <PageIntro
-        eyebrow="Módulo"
-        title="Mente"
-        description="Crie tarefas mentais recorrentes, com leitura limpa e sem elementos escapando das caixas."
-      />
+      {/* Module hero */}
+      <div className="mod-hero">
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div className="mod-icon" style={{ width: 56, height: 56, borderRadius: 14, fontSize: 24 }}>🧠</div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div className="praxis-label" style={{ color: "var(--accent)", marginBottom: 4 }}>▸ MÓDULO · MENTE</div>
+            <div className="praxis-title" style={{ fontSize: 26 }}>Planejamento mental</div>
+            <div style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 4 }}>
+              Tarefas mentais recorrentes — meditação, journaling, blocos de foco.
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+            <div style={{ textAlign: "right", borderLeft: "1px solid rgba(39,39,42,0.6)", paddingLeft: 16 }}>
+              <div className="praxis-label" style={{ fontSize: 9 }}>HOJE</div>
+              <div style={{ fontSize: 18, fontWeight: 600, fontFamily: "var(--font-space-grotesk), sans-serif", marginTop: 2 }}>
+                {mindTasksToday.length}/{mindTasks.length}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <GlassPanel className="space-y-2">
-          <p className="praxis-label text-[var(--accent)]">Tarefas mentais</p>
-          <p className="font-title text-4xl font-bold text-zinc-100">{mindTasks.length}</p>
-          <p className="text-sm leading-6 text-zinc-500">Total do módulo</p>
-        </GlassPanel>
-        <GlassPanel className="space-y-2">
-          <p className="praxis-label text-[var(--accent)]">Pendentes</p>
-          <p className="font-title text-4xl font-bold text-zinc-100">{openCount}</p>
-          <p className="text-sm leading-6 text-zinc-500">Ainda em aberto</p>
-        </GlassPanel>
-        <GlassPanel className="space-y-2">
-          <p className="praxis-label text-[var(--accent)]">Para hoje</p>
-          <p className="font-title text-4xl font-bold text-zinc-100">{mindTasksToday.length}</p>
-          <p className="text-sm leading-6 text-zinc-500">
-            Programadas para {weekdayLongLabel(todayWeekday).toLowerCase()}
-          </p>
-        </GlassPanel>
-        <GlassPanel className="space-y-2">
-          <p className="praxis-label text-[var(--accent)]">XP em aberto</p>
-          <p className="font-title text-4xl font-bold text-zinc-100">{mindXpOpen}</p>
-          <p className="text-sm leading-6 text-zinc-500">Carga atual da mente</p>
-        </GlassPanel>
+      {/* KPI grid */}
+      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+        <div className="kpi">
+          <div className="praxis-label">Tarefas mentais</div>
+          <div className="kpi-value">{mindTasks.length}</div>
+          <div className="kpi-sub">Total do módulo</div>
+        </div>
+        <div className="kpi">
+          <div className="praxis-label">Pendentes</div>
+          <div className="kpi-value" style={{ color: openCount > 0 ? "var(--accent)" : "var(--fg)" }}>{openCount}</div>
+          <div className="kpi-sub">Em aberto</div>
+        </div>
+        <div className="kpi">
+          <div className="praxis-label">Para hoje</div>
+          <div className="kpi-value">{mindTasksToday.length}</div>
+          <div className="kpi-sub">{weekdayLongLabel(todayWeekday).toLowerCase()}</div>
+        </div>
+        <div className="kpi">
+          <div className="praxis-label">XP em aberto</div>
+          <div className="kpi-value" style={{ color: "var(--accent)" }}>{mindXpOpen}</div>
+          <div className="kpi-sub">Carga da mente</div>
+        </div>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
