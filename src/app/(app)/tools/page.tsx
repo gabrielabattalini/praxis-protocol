@@ -360,25 +360,25 @@ export default function ToolsPage() {
     if (activeAppId === "white-noise") {
       return (
         <>
-          <section className="rounded-sm border border-zinc-800 px-6 py-6 sm:px-8 sm:py-8" style={{ background: themes["white-noise"].panel }}>
+          <section className="rounded-2xl border border-zinc-800/70 px-6 py-6 sm:px-8 sm:py-8" style={{ background: themes["white-noise"].panel }}>
             <div className="flex items-center justify-between gap-4">
               <p className="font-mono text-[0.56rem] uppercase tracking-[0.24em] text-zinc-600">Paisagem sonora ativa</p>
-              <div className="rounded-sm border border-zinc-800 bg-[#101012] px-3 py-2"><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Estado</p><p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: themes["white-noise"].accent }}>{noiseState.playing ? "Tocando" : "Pronto"}</p></div>
+              <div className="rounded-2xl border border-zinc-800/70 bg-[#101012] px-3 py-2"><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Estado</p><p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: themes["white-noise"].accent }}>{noiseState.playing ? "Tocando" : "Pronto"}</p></div>
             </div>
             <div className="mt-8 text-center">
               <p className="font-display text-5xl font-bold uppercase tracking-tight sm:text-6xl" style={{ color: themes["white-noise"].accent }}>{sound.label}</p>
               <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-zinc-400">{sound.desc}</p>
               <div className="mt-8 flex min-h-[7rem] items-end justify-center gap-3">{Array.from({ length: 12 }, (_, i) => <span key={i} className="w-2 rounded-full transition-all duration-700" style={{ height: noiseState.playing ? `${22 + ((i * 17) % 44)}px` : "18px", backgroundColor: themes["white-noise"].accent, opacity: noiseState.playing ? 0.35 + ((i % 5) * 0.12) : 0.16, boxShadow: noiseState.playing ? `0 0 18px ${themes["white-noise"].accent}33` : "none" }} />)}</div>
               <div className="mt-8 flex w-full max-w-[30rem] flex-col items-center gap-3 sm:flex-row sm:justify-center">
-                <button type="button" onClick={() => void toggleNoise()} className="inline-flex h-14 min-w-[14rem] items-center justify-center gap-2 rounded-sm px-6 font-semibold text-[#051015] transition hover:brightness-105" style={{ backgroundColor: themes["white-noise"].accent, boxShadow: themes["white-noise"].glow }}>{noiseState.playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}{noiseState.playing ? "Pausar camada" : "Iniciar camada"}</button>
+                <button type="button" onClick={() => void toggleNoise()} className="inline-flex h-14 min-w-[14rem] items-center justify-center gap-2 rounded-xl px-6 font-semibold text-[#051015] transition hover:brightness-105" style={{ backgroundColor: themes["white-noise"].accent, boxShadow: themes["white-noise"].glow }}>{noiseState.playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}{noiseState.playing ? "Pausar camada" : "Iniciar camada"}</button>
               </div>
               <div className="mt-4 grid w-full max-w-[30rem] gap-3 sm:grid-cols-2">
-                <button type="button" onClick={silenceNoise} className="inline-flex h-12 items-center justify-center gap-2 rounded-sm border border-zinc-800 bg-[#202023] px-4 text-sm font-semibold text-zinc-100 transition hover:border-zinc-700"><RotateCcw className="h-4 w-4" />Silenciar</button>
-                <div className="inline-flex h-12 items-center justify-center rounded-sm border border-zinc-800 bg-[#171719] px-4 text-sm font-semibold text-zinc-100">Volume {noiseState.volume}%</div>
+                <button type="button" onClick={silenceNoise} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-zinc-800/70 bg-[#202023] px-4 text-sm font-semibold text-zinc-100 transition hover:border-zinc-700"><RotateCcw className="h-4 w-4" />Silenciar</button>
+                <div className="inline-flex h-12 items-center justify-center rounded-2xl border border-zinc-800/70 bg-[#171719] px-4 text-sm font-semibold text-zinc-100">Volume {noiseState.volume}%</div>
               </div>
             </div>
           </section>
-          <section className="grid gap-4 rounded-sm border border-zinc-800 bg-[linear-gradient(180deg,#141416,#101012)] px-6 py-5 sm:grid-cols-[minmax(0,1fr)_120px]">
+          <section className="grid gap-4 rounded-2xl border border-zinc-800/70 bg-[linear-gradient(180deg,#141416,#101012)] px-6 py-5 sm:grid-cols-[minmax(0,1fr)_120px]">
             <div className="space-y-3">
               <p className="font-display text-3xl font-bold uppercase tracking-tight text-zinc-100 sm:text-4xl">Sustente o ambiente certo</p>
               <p className="max-w-2xl text-sm leading-7 text-zinc-400">O objetivo aqui é reduzir ruído mental, não distrair com música. Você liga, escolhe a textura e deixa o ambiente trabalhar por você.</p>
@@ -388,7 +388,7 @@ export default function ToolsPage() {
                 <div><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Camada</p><p className="mt-2 text-lg font-semibold text-zinc-100">{noiseState.playing ? "Ativa" : "Pronta"}</p></div>
               </div>
             </div>
-            <div className="flex flex-col items-center justify-center rounded-sm border border-zinc-800 bg-[#111113] px-4 py-5 text-center"><p className="font-display text-4xl font-bold tracking-tight" style={{ color: themes["white-noise"].accent }}>3x</p><p className="mt-2 font-mono text-[0.52rem] uppercase tracking-[0.2em] text-zinc-600">Perfis de som</p></div>
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-zinc-800/70 bg-[#111113] px-4 py-5 text-center"><p className="font-display text-4xl font-bold tracking-tight" style={{ color: themes["white-noise"].accent }}>3x</p><p className="mt-2 font-mono text-[0.52rem] uppercase tracking-[0.2em] text-zinc-600">Perfis de som</p></div>
           </section>
         </>
       );
@@ -396,10 +396,10 @@ export default function ToolsPage() {
     if (activeAppId === "breathing-reset") {
       return (
         <>
-          <section className="rounded-sm border border-zinc-800 px-6 py-6 sm:px-8 sm:py-8" style={{ background: themes["breathing-reset"].panel }}>
+          <section className="rounded-2xl border border-zinc-800/70 px-6 py-6 sm:px-8 sm:py-8" style={{ background: themes["breathing-reset"].panel }}>
             <div className="flex items-center justify-between gap-4">
               <p className="font-mono text-[0.56rem] uppercase tracking-[0.24em] text-zinc-600">Reset respiratório</p>
-              <div className="rounded-sm border border-zinc-800 bg-[#101012] px-3 py-2"><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Estado</p><p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: themes["breathing-reset"].accent }}>{breathState.running ? "Guiando" : "Pronto"}</p></div>
+              <div className="rounded-2xl border border-zinc-800/70 bg-[#101012] px-3 py-2"><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Estado</p><p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: themes["breathing-reset"].accent }}>{breathState.running ? "Guiando" : "Pronto"}</p></div>
             </div>
             <div className="mt-8 flex flex-col items-center text-center">
               <div className="relative grid h-52 w-52 place-items-center rounded-full border border-zinc-800 transition-transform duration-700 sm:h-60 sm:w-60" style={{ transform: `scale(${orbScale})`, boxShadow: `0 0 0 14px ${themes["breathing-reset"].chip}, 0 0 42px rgba(192,132,252,0.16)`, background: "radial-gradient(circle at center, rgba(192,132,252,0.18), rgba(14,14,16,0.96) 68%)" }}>
@@ -407,15 +407,15 @@ export default function ToolsPage() {
               </div>
               <p className="mt-8 max-w-xl text-sm leading-7 text-zinc-400">{activePhase?.hint ?? "Puxe o ar com ritmo e presença."}</p>
               <div className="mt-8 flex w-full max-w-[30rem] flex-col items-center gap-3 sm:flex-row sm:justify-center">
-                <button type="button" onClick={toggleBreath} className="inline-flex h-14 min-w-[14rem] items-center justify-center gap-2 rounded-sm px-6 font-semibold text-[#15081d] transition hover:brightness-105" style={{ backgroundColor: themes["breathing-reset"].accent, boxShadow: themes["breathing-reset"].glow }}>{breathState.running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}{breathState.running ? "Pausar guia" : "Iniciar protocolo"}</button>
+                <button type="button" onClick={toggleBreath} className="inline-flex h-14 min-w-[14rem] items-center justify-center gap-2 rounded-xl px-6 font-semibold text-[#15081d] transition hover:brightness-105" style={{ backgroundColor: themes["breathing-reset"].accent, boxShadow: themes["breathing-reset"].glow }}>{breathState.running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}{breathState.running ? "Pausar guia" : "Iniciar protocolo"}</button>
               </div>
               <div className="mt-4 grid w-full max-w-[30rem] gap-3 sm:grid-cols-2">
-                <button type="button" onClick={resetBreath} className="inline-flex h-12 items-center justify-center gap-2 rounded-sm border border-zinc-800 bg-[#202023] px-4 text-sm font-semibold text-zinc-100 transition hover:border-zinc-700"><RotateCcw className="h-4 w-4" />Reiniciar</button>
-                <button type="button" onClick={skipBreath} className="inline-flex h-12 items-center justify-center gap-2 rounded-sm border border-zinc-800 bg-[#171719] px-4 text-sm font-semibold text-zinc-100 transition hover:border-zinc-700"><SkipForward className="h-4 w-4" />Próxima fase</button>
+                <button type="button" onClick={resetBreath} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-zinc-800/70 bg-[#202023] px-4 text-sm font-semibold text-zinc-100 transition hover:border-zinc-700"><RotateCcw className="h-4 w-4" />Reiniciar</button>
+                <button type="button" onClick={skipBreath} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-zinc-800/70 bg-[#171719] px-4 text-sm font-semibold text-zinc-100 transition hover:border-zinc-700"><SkipForward className="h-4 w-4" />Próxima fase</button>
               </div>
             </div>
           </section>
-          <section className="grid gap-4 rounded-sm border border-zinc-800 bg-[linear-gradient(180deg,#141416,#101012)] px-6 py-5 sm:grid-cols-[minmax(0,1fr)_120px]">
+          <section className="grid gap-4 rounded-2xl border border-zinc-800/70 bg-[linear-gradient(180deg,#141416,#101012)] px-6 py-5 sm:grid-cols-[minmax(0,1fr)_120px]">
             <div className="space-y-3">
               <p className="font-display text-3xl font-bold uppercase tracking-tight text-zinc-100 sm:text-4xl">Volte ao eixo sem drama</p>
               <p className="max-w-2xl text-sm leading-7 text-zinc-400">Quando o cérebro acelera demais, o objetivo não é performar. É baixar o ruído fisiológico e retomar com mais clareza.</p>
@@ -425,32 +425,32 @@ export default function ToolsPage() {
                 <div><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Protocolo</p><p className="mt-2 text-lg font-semibold text-zinc-100">{breath.label}</p></div>
               </div>
             </div>
-            <div className="flex flex-col items-center justify-center rounded-sm border border-zinc-800 bg-[#111113] px-4 py-5 text-center"><p className="font-display text-4xl font-bold tracking-tight" style={{ color: themes["breathing-reset"].accent }}>{cycleSeconds}s</p><p className="mt-2 font-mono text-[0.52rem] uppercase tracking-[0.2em] text-zinc-600">por ciclo</p></div>
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-zinc-800/70 bg-[#111113] px-4 py-5 text-center"><p className="font-display text-4xl font-bold tracking-tight" style={{ color: themes["breathing-reset"].accent }}>{cycleSeconds}s</p><p className="mt-2 font-mono text-[0.52rem] uppercase tracking-[0.2em] text-zinc-600">por ciclo</p></div>
           </section>
         </>
       );
     }
     return (
       <>
-        <section className="rounded-sm border border-zinc-800 px-6 py-6 sm:px-8 sm:py-8" style={{ background: themes["focus-timer"].panel }}>
+        <section className="rounded-2xl border border-zinc-800/70 px-6 py-6 sm:px-8 sm:py-8" style={{ background: themes["focus-timer"].panel }}>
           <div className="flex items-center justify-between gap-4">
             <p className="font-mono text-[0.56rem] uppercase tracking-[0.24em] text-zinc-600">{focus.mode === "focus" ? "Bloco de foco do dia" : "Bloco de pausa"}</p>
-            <div className="rounded-sm border border-zinc-800 bg-[#101012] px-3 py-2"><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Estado</p><p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: themes["focus-timer"].accent }}>{focus.running ? (focus.mode === "focus" ? "Em foco" : "Em pausa") : "Pronto"}</p></div>
+            <div className="rounded-2xl border border-zinc-800/70 bg-[#101012] px-3 py-2"><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Estado</p><p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: themes["focus-timer"].accent }}>{focus.running ? (focus.mode === "focus" ? "Em foco" : "Em pausa") : "Pronto"}</p></div>
           </div>
           <div className="mt-8 flex flex-col items-center text-center">
             <div className="font-display text-[5rem] font-bold leading-none tracking-tight sm:text-[7rem]" style={{ color: themes["focus-timer"].accent }}>{fmt(focus.remaining)}</div>
             <div className="mt-7 h-[3px] w-full max-w-[17rem] overflow-hidden rounded-full bg-white/12"><div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, Math.max(0, focusProgress * 100))}%`, backgroundColor: themes["focus-timer"].accent, boxShadow: "0 0 18px rgba(0,227,138,0.38)" }} /></div>
             <div className="mt-8 flex w-full max-w-[30rem] flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <button type="button" onClick={toggleFocus} className="inline-flex h-14 min-w-[14rem] items-center justify-center gap-2 rounded-sm px-6 font-semibold text-[#07110c] transition hover:brightness-105" style={{ backgroundColor: themes["focus-timer"].accent, boxShadow: themes["focus-timer"].glow }}>{focus.running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}{focus.running ? "Pausar" : focus.mode === "focus" ? "Iniciar foco" : "Iniciar pausa"}</button>
+              <button type="button" onClick={toggleFocus} className="inline-flex h-14 min-w-[14rem] items-center justify-center gap-2 rounded-xl px-6 font-semibold text-[#07110c] transition hover:brightness-105" style={{ backgroundColor: themes["focus-timer"].accent, boxShadow: themes["focus-timer"].glow }}>{focus.running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}{focus.running ? "Pausar" : focus.mode === "focus" ? "Iniciar foco" : "Iniciar pausa"}</button>
             </div>
             <div className="mt-4 grid w-full max-w-[30rem] gap-3 sm:grid-cols-2">
-              <button type="button" onClick={resetFocus} className="inline-flex h-12 items-center justify-center gap-2 rounded-sm border border-zinc-800 bg-[#202023] px-4 text-sm font-semibold text-zinc-100 transition hover:border-zinc-700"><RotateCcw className="h-4 w-4" />Reiniciar</button>
-              <button type="button" onClick={skipFocus} className="inline-flex h-12 items-center justify-center gap-2 rounded-sm border border-zinc-800 bg-[#171719] px-4 text-sm font-semibold text-zinc-100 transition hover:border-zinc-700"><SkipForward className="h-4 w-4" />{focus.mode === "focus" ? "Nova pausa" : "Novo foco"}</button>
+              <button type="button" onClick={resetFocus} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-zinc-800/70 bg-[#202023] px-4 text-sm font-semibold text-zinc-100 transition hover:border-zinc-700"><RotateCcw className="h-4 w-4" />Reiniciar</button>
+              <button type="button" onClick={skipFocus} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-zinc-800/70 bg-[#171719] px-4 text-sm font-semibold text-zinc-100 transition hover:border-zinc-700"><SkipForward className="h-4 w-4" />{focus.mode === "focus" ? "Nova pausa" : "Novo foco"}</button>
             </div>
           </div>
-          {toast ? <div className="mt-6 rounded-sm border px-4 py-3 text-sm text-zinc-100" style={{ borderColor: "rgba(0,227,138,0.24)", backgroundColor: "rgba(0,227,138,0.08)" }}>{toast}</div> : null}
+          {toast ? <div className="mt-6 rounded-xl border px-4 py-3 text-sm text-zinc-100" style={{ borderColor: "rgba(0,227,138,0.24)", backgroundColor: "rgba(0,227,138,0.08)" }}>{toast}</div> : null}
         </section>
-        <section className="grid gap-4 rounded-sm border border-zinc-800 bg-[linear-gradient(180deg,#141416,#101012)] px-6 py-5 sm:grid-cols-[minmax(0,1fr)_120px]">
+        <section className="grid gap-4 rounded-2xl border border-zinc-800/70 bg-[linear-gradient(180deg,#141416,#101012)] px-6 py-5 sm:grid-cols-[minmax(0,1fr)_120px]">
           <div className="space-y-3">
             <p className="font-display text-3xl font-bold uppercase tracking-tight text-zinc-100 sm:text-4xl">Potencialize sua execução</p>
             <p className="max-w-2xl text-sm leading-7 text-zinc-400">Cada ciclo concluído reforça ritmo, reduz atrito na retomada e mantém o dia em protocolo.</p>
@@ -460,7 +460,7 @@ export default function ToolsPage() {
               <div><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Preset ativo</p><p className="mt-2 text-lg font-semibold text-zinc-100">{focus.presetId === "custom" ? "Custom" : focusActivePreset?.label ?? "Custom"}</p></div>
             </div>
           </div>
-          <div className="flex flex-col items-center justify-center rounded-sm border border-zinc-800 bg-[#111113] px-4 py-5 text-center"><p className="font-display text-4xl font-bold tracking-tight" style={{ color: themes["focus-timer"].accent }}>+{focusXp}</p><p className="mt-2 font-mono text-[0.52rem] uppercase tracking-[0.2em] text-zinc-600">XP por ritmo</p></div>
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-zinc-800/70 bg-[#111113] px-4 py-5 text-center"><p className="font-display text-4xl font-bold tracking-tight" style={{ color: themes["focus-timer"].accent }}>+{focusXp}</p><p className="mt-2 font-mono text-[0.52rem] uppercase tracking-[0.2em] text-zinc-600">XP por ritmo</p></div>
         </section>
       </>
     );
@@ -470,7 +470,7 @@ export default function ToolsPage() {
     if (activeAppId === "white-noise") {
       return (
         <>
-          <section className="rounded-sm border border-zinc-800 bg-[#141416] p-5">
+          <section className="rounded-2xl border border-zinc-800/70 bg-[#141416] p-5">
             <div className="flex items-center gap-3">
               <Clock3 className="h-4 w-4" style={{ color: themes["white-noise"].accent }} />
               <p className="font-mono text-[0.56rem] uppercase tracking-[0.22em] text-zinc-600">Configuração rápida</p>
@@ -480,7 +480,7 @@ export default function ToolsPage() {
               <input type="range" min={0} max={100} value={noiseState.volume} onChange={(event) => setNoiseState((current) => ({ ...current, volume: Number(event.target.value) }))} className="mt-3 w-full" style={{ accentColor: themes["white-noise"].accent }} />
             </div>
           </section>
-          <section className="rounded-sm border border-zinc-800 bg-[#141416] p-5">
+          <section className="rounded-2xl border border-zinc-800/70 bg-[#141416] p-5">
             <div className="flex items-center gap-3">
               <Waves className="h-4 w-4" style={{ color: themes["white-noise"].accent }} />
               <p className="font-mono text-[0.56rem] uppercase tracking-[0.22em] text-zinc-600">Perfis sonoros</p>
@@ -489,7 +489,7 @@ export default function ToolsPage() {
               {noisePresets.map((preset) => {
                 const active = noiseState.presetId === preset.id;
                 return (
-                  <button key={preset.id} type="button" onClick={() => setNoiseState((current) => ({ ...current, presetId: preset.id }))} className={["w-full rounded-sm border px-4 py-4 text-left transition", active ? "border-[rgba(114,215,255,0.26)] bg-[rgba(114,215,255,0.08)]" : "border-zinc-800 bg-[#0f0f11] hover:border-zinc-700"].join(" ")}>
+                  <button key={preset.id} type="button" onClick={() => setNoiseState((current) => ({ ...current, presetId: preset.id }))} className={["w-full rounded-xl border px-4 py-4 text-left transition", active ? "border-[rgba(114,215,255,0.26)] bg-[rgba(114,215,255,0.08)]" : "border-zinc-800 bg-[#0f0f11] hover:border-zinc-700"].join(" ")}>
                     <p className="text-base font-semibold text-zinc-100">{preset.label}</p>
                     <p className="mt-1 font-mono text-[0.5rem] uppercase tracking-[0.16em] text-zinc-600">{preset.desc}</p>
                   </button>
@@ -503,21 +503,21 @@ export default function ToolsPage() {
     if (activeAppId === "breathing-reset") {
       return (
         <>
-          <section className="rounded-sm border border-zinc-800 bg-[#141416] p-5">
+          <section className="rounded-2xl border border-zinc-800/70 bg-[#141416] p-5">
             <div className="flex items-center gap-3">
               <Clock3 className="h-4 w-4" style={{ color: themes["breathing-reset"].accent }} />
               <p className="font-mono text-[0.56rem] uppercase tracking-[0.22em] text-zinc-600">Protocolo ativo</p>
             </div>
             <div className="mt-4 space-y-3">
               {phases.map((phase) => (
-                <div key={phase.phase} className={["rounded-sm border px-4 py-3", phase.phase === breathState.phase ? "border-[rgba(192,132,252,0.26)] bg-[rgba(192,132,252,0.08)]" : "border-zinc-800 bg-[#0f0f11]"].join(" ")}>
+                <div key={phase.phase} className={["rounded-xl border px-4 py-3", phase.phase === breathState.phase ? "border-[rgba(192,132,252,0.26)] bg-[rgba(192,132,252,0.08)]" : "border-zinc-800 bg-[#0f0f11]"].join(" ")}>
                   <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold text-zinc-100">{phase.label}</p><span className="text-sm font-semibold text-zinc-400">{phase.duration}s</span></div>
                   <p className="mt-1 text-xs leading-6 text-zinc-500">{phase.hint}</p>
                 </div>
               ))}
             </div>
           </section>
-          <section className="rounded-sm border border-zinc-800 bg-[#141416] p-5">
+          <section className="rounded-2xl border border-zinc-800/70 bg-[#141416] p-5">
             <div className="flex items-center gap-3">
               <RotateCcw className="h-4 w-4" style={{ color: themes["breathing-reset"].accent }} />
               <p className="font-mono text-[0.56rem] uppercase tracking-[0.22em] text-zinc-600">Presets respiratórios</p>
@@ -526,7 +526,7 @@ export default function ToolsPage() {
               {breathPresets.map((preset) => {
                 const active = breathState.presetId === preset.id;
                 return (
-                  <button key={preset.id} type="button" onClick={() => setBreathPreset(preset.id)} className={["w-full rounded-sm border px-4 py-4 text-left transition", active ? "border-[rgba(192,132,252,0.26)] bg-[rgba(192,132,252,0.08)]" : "border-zinc-800 bg-[#0f0f11] hover:border-zinc-700"].join(" ")}>
+                  <button key={preset.id} type="button" onClick={() => setBreathPreset(preset.id)} className={["w-full rounded-xl border px-4 py-4 text-left transition", active ? "border-[rgba(192,132,252,0.26)] bg-[rgba(192,132,252,0.08)]" : "border-zinc-800 bg-[#0f0f11] hover:border-zinc-700"].join(" ")}>
                     <div className="flex items-start justify-between gap-3"><div><p className="text-base font-semibold text-zinc-100">{preset.label}</p><p className="mt-1 font-mono text-[0.5rem] uppercase tracking-[0.16em] text-zinc-600">{preset.desc}</p></div><span className="text-sm font-semibold text-zinc-400">{preset.inhale}/{preset.hold}/{preset.exhale}</span></div>
                   </button>
                 );
@@ -538,17 +538,17 @@ export default function ToolsPage() {
     }
     return (
       <>
-        <section className="rounded-sm border border-zinc-800 bg-[#141416] p-5">
+        <section className="rounded-2xl border border-zinc-800/70 bg-[#141416] p-5">
           <div className="flex items-center gap-3">
             <Clock3 className="h-4 w-4" style={{ color: themes["focus-timer"].accent }} />
             <p className="font-mono text-[0.56rem] uppercase tracking-[0.22em] text-zinc-600">Configuração rápida</p>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3">
-            <label className="space-y-2"><span className="font-mono text-[0.52rem] uppercase tracking-[0.18em] text-zinc-600">Foco (min)</span><input type="number" min={1} value={focus.focus} onChange={(event) => setFocusMinutes(event.target.value)} className="h-16 w-full rounded-sm border border-zinc-800 bg-[#0d0d0f] px-4 text-2xl font-semibold text-zinc-100 outline-none transition focus:border-[rgba(0,227,138,0.45)]" /></label>
-            <label className="space-y-2"><span className="font-mono text-[0.52rem] uppercase tracking-[0.18em] text-zinc-600">Pausa (min)</span><input type="number" min={1} value={focus.pause} onChange={(event) => setPauseMinutes(event.target.value)} className="h-16 w-full rounded-sm border border-zinc-800 bg-[#0d0d0f] px-4 text-2xl font-semibold text-zinc-100 outline-none transition focus:border-[rgba(0,227,138,0.45)]" /></label>
+            <label className="space-y-2"><span className="font-mono text-[0.52rem] uppercase tracking-[0.18em] text-zinc-600">Foco (min)</span><input type="number" min={1} value={focus.focus} onChange={(event) => setFocusMinutes(event.target.value)} className="h-16 w-full rounded-2xl border border-zinc-800/70 bg-[#0d0d0f] px-4 text-2xl font-semibold text-zinc-100 outline-none transition focus:border-[rgba(0,227,138,0.45)]" /></label>
+            <label className="space-y-2"><span className="font-mono text-[0.52rem] uppercase tracking-[0.18em] text-zinc-600">Pausa (min)</span><input type="number" min={1} value={focus.pause} onChange={(event) => setPauseMinutes(event.target.value)} className="h-16 w-full rounded-2xl border border-zinc-800/70 bg-[#0d0d0f] px-4 text-2xl font-semibold text-zinc-100 outline-none transition focus:border-[rgba(0,227,138,0.45)]" /></label>
           </div>
         </section>
-        <section className="rounded-sm border border-zinc-800 bg-[#141416] p-5">
+        <section className="rounded-2xl border border-zinc-800/70 bg-[#141416] p-5">
           <div className="flex items-center gap-3">
             <TimerReset className="h-4 w-4" style={{ color: themes["focus-timer"].accent }} />
             <p className="font-mono text-[0.56rem] uppercase tracking-[0.22em] text-zinc-600">Presets de sessão</p>
@@ -557,7 +557,7 @@ export default function ToolsPage() {
             {focusPresets.map((preset) => {
               const active = focus.presetId === preset.id;
               return (
-                <button key={preset.id} type="button" onClick={() => setFocusPreset(preset.id)} className={["w-full rounded-sm border px-4 py-4 text-left transition", active ? "border-[rgba(0,227,138,0.26)] bg-[rgba(0,227,138,0.08)]" : "border-zinc-800 bg-[#0f0f11] hover:border-zinc-700"].join(" ")}>
+                <button key={preset.id} type="button" onClick={() => setFocusPreset(preset.id)} className={["w-full rounded-xl border px-4 py-4 text-left transition", active ? "border-[rgba(0,227,138,0.26)] bg-[rgba(0,227,138,0.08)]" : "border-zinc-800 bg-[#0f0f11] hover:border-zinc-700"].join(" ")}>
                   <div className="flex items-start justify-between gap-3"><div><p className="text-base font-semibold text-zinc-100">{preset.label}</p><p className="mt-1 font-mono text-[0.5rem] uppercase tracking-[0.16em] text-zinc-600">{preset.desc}</p></div><span className="text-sm font-semibold text-zinc-400">{preset.focus}/{preset.pause}</span></div>
                 </button>
               );
