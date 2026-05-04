@@ -10,14 +10,17 @@ import {
   ChevronRight,
   Clock3,
   Dumbbell,
-  Sparkles,
   UtensilsCrossed,
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
-import { GlassPanel } from "@/components/ui/glass-panel";
-import { ProgressBar } from "@/components/ui/progress-bar";
+import {
+  RxLabel,
+  RxPBar,
+  RxPageHeader,
+  RxPanel,
+} from "@/components/redesign/primitives";
 import { buildWeekAgenda, type AgendaEvent } from "@/lib/agenda";
-import { cn, formatPoints } from "@/lib/utils";
+import { formatPoints } from "@/lib/utils";
 
 function formatFullDate(date: Date) {
   return date.toLocaleDateString("pt-BR", {
@@ -43,35 +46,18 @@ function toneForKind(kind: AgendaEvent["kind"]) {
   if (kind === "meal") {
     return {
       icon: UtensilsCrossed,
-      badge:
-        "border-lime-400/20 bg-lime-400/10 text-lime-100",
-      iconWrap:
-        "border-lime-400/15 bg-lime-400/10 text-lime-300",
-      card:
-        "border-zinc-800 bg-[rgba(18,18,20,0.92)] hover:border-lime-400/20",
+      color: "var(--ok)",
     };
   }
-
   if (kind === "workout") {
     return {
       icon: Dumbbell,
-      badge:
-        "border-amber-400/20 bg-amber-400/10 text-amber-100",
-      iconWrap:
-        "border-amber-400/15 bg-amber-400/10 text-[var(--accent)]",
-      card:
-        "border-zinc-800 bg-[rgba(18,18,20,0.92)] hover:border-[rgba(251,146,60,0.24)]",
+      color: "var(--accent)",
     };
   }
-
   return {
     icon: CalendarClock,
-    badge:
-      "border-zinc-800 bg-[rgba(14,14,17,0.96)] text-zinc-300",
-    iconWrap:
-      "border-zinc-800 bg-[rgba(14,14,17,0.96)] text-zinc-300",
-    card:
-      "border-zinc-800 bg-[rgba(18,18,20,0.92)] hover:border-zinc-700",
+    color: "var(--fg-3)",
   };
 }
 
@@ -118,211 +104,315 @@ export default function AgendaPage() {
   ].filter((item) => item.id !== featuredItem?.id);
 
   return (
-    <div className="space-y-6">
-      <GlassPanel className="overflow-hidden border-emerald-400/15 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_42%),rgba(10,10,12,0.98)]">
-        <div className="space-y-6">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.32em] text-emerald-300">
-                Semana
-              </p>
-              <h1 className="mt-3 text-4xl font-semibold uppercase tracking-[-0.04em] text-white sm:text-5xl">
-                Linha do tempo semanal
-              </h1>
-              <p className="mt-3 text-sm uppercase tracking-[0.18em] text-zinc-500">
-                Período ativo: {formatWeekRange(weekAgenda)}
-              </p>
-            </div>
+    <div>
+      <RxPageHeader
+        title="Agenda"
+        subtitle={
+          <>
+            Período · {formatWeekRange(weekAgenda)} ·{" "}
+            <span style={{ color: "var(--accent)" }}>
+              {selectedDayIndex >= 0 ? `dia ${selectedDayIndex + 1}/7` : "semana"}
+            </span>
+          </>
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => setWeekOffset((c) => c - 1)}
+              className="rx-btn-ghost"
+              style={{ padding: 8 }}
+              aria-label="Semana anterior"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setWeekOffset((c) => c + 1)}
+              className="rx-btn-ghost"
+              style={{ padding: 8 }}
+              aria-label="Próxima semana"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <Link
+              href="/tasks"
+              className="rx-btn-primary"
+              style={{ padding: "8px 14px", display: "inline-flex", alignItems: "center", gap: 8 }}
+            >
+              Tarefas <ArrowRight className="h-3 w-3" />
+            </Link>
+          </>
+        }
+      />
 
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="rounded-full border border-zinc-800 bg-[rgba(18,18,20,0.96)] px-4 py-2 text-xs uppercase tracking-[0.18em] text-zinc-300">
-                {selectedDayIndex >= 0 ? `Dia ${selectedDayIndex + 1}/7` : "Semana"}
+      {/* Week strip */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+          gap: 10,
+          marginBottom: 18,
+        }}
+      >
+        {weekAgenda.map((day) => {
+          const selected = day.dateKey === selectedDay?.dateKey;
+          const completion =
+            day.totalCount > 0
+              ? Math.round((day.completedCount / day.totalCount) * 100)
+              : 0;
+          return (
+            <button
+              key={day.dateKey}
+              type="button"
+              onClick={() => setSelectedDateKey(day.dateKey)}
+              className={selected ? "rx-panel-hot" : "rx-panel"}
+              style={{
+                padding: 12,
+                textAlign: "center",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                color: "inherit",
+                border: selected ? "1px solid var(--accent)" : undefined,
+              }}
+            >
+              <div
+                className="rx-mono"
+                style={{
+                  fontSize: 9,
+                  color: selected ? "var(--accent)" : "var(--fg-3)",
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {day.shortLabel}
               </div>
-              <Link
-                href="/tasks"
-                className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/14 px-4 py-2.5 text-sm font-medium text-emerald-100 transition hover:border-emerald-400/45"
+              <div
+                className="rx-display"
+                style={{
+                  fontSize: 22,
+                  fontWeight: 700,
+                  color: selected ? "var(--accent)" : "var(--fg)",
+                  marginTop: 6,
+                  letterSpacing: "-0.02em",
+                }}
               >
-                Abrir tarefas
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+                {day.date.getDate().toString().padStart(2, "0")}
+              </div>
+              <div
+                className="rx-mono"
+                style={{
+                  fontSize: 9,
+                  color: "var(--fg-4)",
+                  letterSpacing: "0.18em",
+                  marginTop: 6,
+                }}
+              >
+                {day.completedCount}/{day.totalCount}
+              </div>
+              <div style={{ marginTop: 6 }}>
+                <RxPBar value={completion} />
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Split */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(260px, 300px) 1fr",
+          gap: 16,
+        }}
+      >
+        {/* Sidebar */}
+        <div>
+          <RxPanel style={{ padding: 18, marginBottom: 14 }}>
+            <RxLabel>DIA SELECIONADO</RxLabel>
+            <div
+              className="rx-display"
+              style={{
+                fontSize: 22,
+                fontWeight: 700,
+                color: "var(--fg)",
+                marginTop: 8,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              {selectedDay?.dayLabel ?? "Semana"}
             </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
-                Progresso semanal
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setWeekOffset((current) => current - 1)}
-                className="grid h-10 w-10 place-items-center rounded-full border border-zinc-800 bg-[rgba(18,18,20,0.96)] text-zinc-300 transition hover:border-zinc-700"
-                aria-label="Semana anterior"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setWeekOffset((current) => current + 1)}
-                className="grid h-10 w-10 place-items-center rounded-full border border-zinc-800 bg-[rgba(18,18,20,0.96)] text-zinc-300 transition hover:border-zinc-700"
-                aria-label="Próxima semana"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--fg-3)",
+                marginTop: 4,
+              }}
+            >
+              {selectedDay ? formatFullDate(selectedDay.date) : "Selecione um dia."}
             </div>
-          </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-            {weekAgenda.map((day) => {
-              const selected = day.dateKey === selectedDay?.dateKey;
-              const completion =
-                day.totalCount > 0
-                  ? Math.round((day.completedCount / day.totalCount) * 100)
-                  : 0;
-
-              return (
-                <button
-                  key={day.dateKey}
-                  type="button"
-                  onClick={() => setSelectedDateKey(day.dateKey)}
-                  className={cn(
-                    "rounded-[22px] border px-4 py-4 text-center transition",
-                    selected
-                      ? "border-emerald-400/40 bg-[rgba(16,185,129,0.14)] shadow-[0_0_0_1px_rgba(16,185,129,0.14)]"
-                      : "border-zinc-800 bg-[rgba(18,18,20,0.92)] hover:border-zinc-700",
-                  )}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: 8,
+                marginTop: 14,
+              }}
+            >
+              {[
+                {
+                  label: "PEND.",
+                  value: pendingItems.length.toString().padStart(2, "0"),
+                  color: "var(--fg)",
+                },
+                {
+                  label: "CONCL.",
+                  value: completedItems.length.toString().padStart(2, "0"),
+                  color: "var(--ok)",
+                },
+                {
+                  label: "XP",
+                  value: `+${formatPoints(totalXp)}`,
+                  color: "var(--accent)",
+                },
+              ].map((kpi) => (
+                <div
+                  key={kpi.label}
+                  style={{
+                    padding: 10,
+                    border: "1px solid var(--line)",
+                    background: "rgba(0,0,0,0.3)",
+                    borderRadius: 12,
+                  }}
                 >
-                  <p className="text-[11px] uppercase tracking-[0.28em] text-zinc-500">
-                    {day.shortLabel}
-                  </p>
-                  <div className="mt-4 flex items-center justify-center">
-                    <div
-                      className={cn(
-                        "flex h-12 w-12 items-center justify-center rounded-full border text-lg font-semibold",
-                        selected
-                          ? "border-emerald-400/35 bg-emerald-400/12 text-emerald-100"
-                          : "border-zinc-800 bg-black/40 text-white",
-                      )}
-                    >
-                      {day.date.getDate().toString().padStart(2, "0")}
-                    </div>
+                  <div
+                    className="rx-mono"
+                    style={{
+                      fontSize: 9,
+                      color: "var(--fg-3)",
+                      letterSpacing: "0.18em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {kpi.label}
                   </div>
-                  <p className="mt-4 text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    {day.completedCount}/{day.totalCount}
-                  </p>
-                  <div className="mt-3 h-1.5 overflow-hidden rounded-full border border-zinc-800 bg-black/50">
-                    <div
-                      className="h-full rounded-full bg-[linear-gradient(90deg,#10b981_0%,#34d399_100%)]"
-                      style={{ width: `${Math.max(day.totalCount ? 8 : 0, completion)}%` }}
-                    />
+                  <div
+                    className="rx-display"
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 700,
+                      color: kpi.color,
+                      marginTop: 2,
+                      letterSpacing: "-0.02em",
+                    }}
+                  >
+                    {kpi.value}
                   </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </GlassPanel>
-
-      <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
-        <div className="space-y-6 xl:sticky xl:top-24 xl:self-start">
-          <GlassPanel className="space-y-5 border-emerald-400/18 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_46%),rgba(10,10,12,0.98)]">
-            <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-zinc-500">
-                Dia selecionado
-              </p>
-              <h2 className="mt-3 text-4xl font-semibold uppercase tracking-[-0.04em] text-white">
-                {selectedDay?.dayLabel ?? "Semana"}
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-zinc-400">
-                {selectedDay ? formatFullDate(selectedDay.date) : "Selecione um dia."}
-              </p>
+                </div>
+              ))}
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-              <div className="rounded-[20px] border border-zinc-800 bg-[rgba(18,18,20,0.92)] px-4 py-4">
-                <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
-                  Pendentes
-                </p>
-                <p className="mt-3 text-4xl font-semibold text-white">
-                  {pendingItems.length.toString().padStart(2, "0")}
-                </p>
-              </div>
-              <div className="rounded-[20px] border border-zinc-800 bg-[rgba(18,18,20,0.92)] px-4 py-4">
-                <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
-                  Concluídas
-                </p>
-                <p className="mt-3 text-4xl font-semibold text-emerald-300">
-                  {completedItems.length.toString().padStart(2, "0")}
-                </p>
-              </div>
-              <div className="rounded-[20px] border border-zinc-800 bg-[rgba(18,18,20,0.92)] px-4 py-4">
-                <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
-                  XP diário
-                </p>
-                <p className="mt-3 text-3xl font-semibold text-white">
-                  +{formatPoints(totalXp)}
-                </p>
-              </div>
-            </div>
-
-            <div className="rounded-[20px] border border-zinc-800 bg-[rgba(18,18,20,0.92)] px-4 py-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
+            <div style={{ marginTop: 14 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
+                  marginBottom: 6,
+                }}
+              >
+                <span
+                  className="rx-mono"
+                  style={{
+                    fontSize: 10,
+                    color: "var(--fg-3)",
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                  }}
+                >
                   Consistência
-                </p>
-                <span className="text-sm font-semibold text-emerald-300">
+                </span>
+                <span
+                  className="rx-mono"
+                  style={{
+                    fontSize: 11,
+                    color: "var(--ok)",
+                    fontWeight: 600,
+                  }}
+                >
                   {Math.round(consistency)}%
                 </span>
               </div>
-              <div className="mt-4">
-                <ProgressBar value={consistency} />
-              </div>
+              <RxPBar value={consistency} />
             </div>
+          </RxPanel>
 
-            <div className="overflow-hidden rounded-[24px] border border-emerald-400/18 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.18),transparent_58%),linear-gradient(180deg,rgba(20,20,22,0.94),rgba(10,10,12,0.98))]">
-              <div className="space-y-4 p-5">
-                <div className="flex h-36 items-end rounded-[18px] border border-emerald-400/10 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.18),transparent_46%),linear-gradient(180deg,#151517_0%,#0b0b0d_100%)] p-4">
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-200">
-                      Virtude pela disciplina
-                    </p>
-                    <p className="mt-2 max-w-[180px] text-xs leading-6 text-zinc-400">
-                      O dia fica mais leve quando o próximo bloco já vem claro.
-                    </p>
-                  </div>
-                </div>
-                <div className="grid gap-3">
-                  <Link
-                    href="/tasks"
-                    className="inline-flex items-center justify-between rounded-[16px] border border-zinc-800 bg-[rgba(18,18,20,0.96)] px-4 py-3 text-sm text-white transition hover:border-zinc-700"
-                  >
-                    Registrar refeição
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                  <Link
-                    href="/modules/nutrition"
-                    className="inline-flex items-center justify-between rounded-[16px] border border-zinc-800 bg-[rgba(18,18,20,0.96)] px-4 py-3 text-sm text-white transition hover:border-zinc-700"
-                  >
-                    Registrar biometria
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </div>
-              </div>
+          <RxPanel style={{ padding: 14 }}>
+            <RxLabel>AÇÕES RÁPIDAS</RxLabel>
+            <div
+              style={{
+                display: "grid",
+                gap: 8,
+                marginTop: 10,
+              }}
+            >
+              <Link
+                href="/tasks"
+                className="rx-btn-ghost"
+                style={{
+                  padding: "10px 12px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  textDecoration: "none",
+                }}
+              >
+                <span>Registrar refeição</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+              <Link
+                href="/modules/nutrition"
+                className="rx-btn-ghost"
+                style={{
+                  padding: "10px 12px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  textDecoration: "none",
+                }}
+              >
+                <span>Registrar biometria</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
-          </GlassPanel>
+          </RxPanel>
         </div>
 
-        <GlassPanel className="space-y-5">
-          <div className="flex flex-col gap-3 border-b border-zinc-800 pb-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-zinc-500">
-                Fluxo operacional
-              </p>
-              <h2 className="mt-2 text-3xl font-semibold uppercase tracking-[-0.04em] text-white">
-                Fluxo operacional do dia
-              </h2>
-            </div>
-            <span className="rounded-full border border-zinc-800 bg-[rgba(18,18,20,0.96)] px-3 py-2 text-xs uppercase tracking-[0.18em] text-zinc-300">
+        {/* Main flow */}
+        <RxPanel style={{ padding: 20 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-end",
+              gap: 10,
+              marginBottom: 16,
+              paddingBottom: 14,
+              borderBottom: "1px solid var(--line)",
+              flexWrap: "wrap",
+            }}
+          >
+            <RxLabel>FLUXO OPERACIONAL DO DIA</RxLabel>
+            <span
+              className="rx-mono"
+              style={{
+                fontSize: 10,
+                color: "var(--fg-3)",
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+              }}
+            >
               {selectedDay?.totalCount ?? 0} blocos
             </span>
           </div>
@@ -330,124 +420,213 @@ export default function AgendaPage() {
           {featuredItem ? (
             <Link
               href={featuredItem.route}
-              className="block rounded-[26px] border border-emerald-400/35 bg-[linear-gradient(135deg,rgba(16,185,129,0.16),rgba(10,10,12,0.98))] p-5 shadow-[0_0_0_1px_rgba(16,185,129,0.12)] transition hover:border-emerald-400/50"
+              className="rx-panel-hot"
+              style={{
+                display: "block",
+                padding: 18,
+                marginBottom: 14,
+                textDecoration: "none",
+                color: "inherit",
+              }}
             >
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="space-y-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full border border-emerald-400/20 bg-emerald-400/12 px-3 py-1.5 text-[10px] uppercase tracking-[0.22em] text-emerald-100">
-                      {featuredItem.time || "Sem horário"}
-                    </span>
-                    <span className="rounded-full border border-zinc-800 bg-[rgba(18,18,20,0.92)] px-3 py-1.5 text-[10px] uppercase tracking-[0.22em] text-zinc-300">
-                      {featuredItem.badgeLabel}
-                    </span>
-                  </div>
-                  <div>
-                    <h3 className="text-3xl font-semibold text-white">
-                      {featuredItem.title}
-                    </h3>
-                    <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-300">
-                      {featuredItem.description}
-                    </p>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-[16px] border border-zinc-800 bg-[rgba(18,18,20,0.92)] px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-                        Origem
-                      </p>
-                      <p className="mt-2 text-sm font-semibold text-white">
-                        {featuredItem.sourceLabel}
-                      </p>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  marginBottom: 10,
+                }}
+              >
+                <span
+                  className="rx-mono"
+                  style={{
+                    fontSize: 10,
+                    color: "var(--accent)",
+                    letterSpacing: "0.22em",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    padding: "3px 8px",
+                    border: "1px solid rgba(251,146,60,0.4)",
+                    background: "rgba(251,146,60,0.08)",
+                    borderRadius: 12,
+                  }}
+                >
+                  {featuredItem.time || "Sem horário"}
+                </span>
+                <span
+                  className="rx-mono"
+                  style={{
+                    fontSize: 10,
+                    color: "var(--fg-2)",
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    padding: "3px 8px",
+                    border: "1px solid var(--line)",
+                    borderRadius: 12,
+                  }}
+                >
+                  {featuredItem.badgeLabel}
+                </span>
+              </div>
+              <div
+                className="rx-display"
+                style={{
+                  fontSize: 22,
+                  fontWeight: 700,
+                  color: "var(--fg)",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {featuredItem.title}
+              </div>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "var(--fg-3)",
+                  marginTop: 6,
+                  lineHeight: 1.5,
+                }}
+              >
+                {featuredItem.description}
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                  gap: 8,
+                  marginTop: 14,
+                }}
+              >
+                {[
+                  { label: "ORIGEM", value: featuredItem.sourceLabel },
+                  {
+                    label: "STATUS",
+                    value: featuredItem.completed ? "Concluído" : "Em execução",
+                  },
+                  { label: "TAG", value: featuredItem.badgeLabel },
+                ].map((kpi) => (
+                  <div
+                    key={kpi.label}
+                    style={{
+                      padding: 10,
+                      border: "1px solid var(--line)",
+                      background: "rgba(0,0,0,0.3)",
+                      borderRadius: 12,
+                    }}
+                  >
+                    <div
+                      className="rx-mono"
+                      style={{
+                        fontSize: 9,
+                        color: "var(--fg-3)",
+                        letterSpacing: "0.2em",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {kpi.label}
                     </div>
-                    <div className="rounded-[16px] border border-zinc-800 bg-[rgba(18,18,20,0.92)] px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-                        Status
-                      </p>
-                      <p className="mt-2 text-sm font-semibold text-white">
-                        {featuredItem.completed ? "Concluído" : "Em execução"}
-                      </p>
-                    </div>
-                    <div className="rounded-[16px] border border-zinc-800 bg-[rgba(18,18,20,0.92)] px-4 py-3">
-                      <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-                        Tag
-                      </p>
-                      <p className="mt-2 text-sm font-semibold text-white">
-                        {featuredItem.badgeLabel}
-                      </p>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "var(--fg)",
+                        fontWeight: 600,
+                        marginTop: 4,
+                      }}
+                    >
+                      {kpi.value}
                     </div>
                   </div>
-                </div>
-
-                <div className="flex shrink-0 items-center gap-3">
-                  <span className="inline-flex h-12 items-center rounded-full border border-emerald-400/25 bg-emerald-400/14 px-5 text-sm font-medium text-emerald-100">
-                    Abrir bloco
-                  </span>
-                </div>
+                ))}
               </div>
             </Link>
           ) : null}
 
           {selectedDay?.items.length ? (
-            <div className="space-y-3">
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {flowItems.map((item) => {
                 const tone = toneForKind(item.kind);
                 const Icon = tone.icon;
-
                 return (
                   <Link
                     key={item.id}
                     href={item.route}
-                    className={cn(
-                      "flex items-center justify-between gap-4 rounded-[22px] border px-4 py-4 transition",
-                      item.completed
-                        ? "border-zinc-800 bg-[rgba(14,14,17,0.88)] opacity-80 hover:border-zinc-700"
-                        : tone.card,
-                    )}
+                    className={`timeline-item${item.completed ? " completed" : ""}`}
+                    style={{
+                      textDecoration: "none",
+                      color: "inherit",
+                      borderLeft: `3px solid ${tone.color}`,
+                      opacity: item.completed ? 0.7 : 1,
+                    }}
                   >
-                    <div className="flex min-w-0 items-start gap-4">
-                      <div className="w-16 shrink-0 pt-1 text-right">
-                        <p className="text-sm font-medium text-zinc-200">
-                          {item.time || "--:--"}
-                        </p>
-                      </div>
-
-                      <span
-                        className={cn(
-                          "grid h-11 w-11 shrink-0 place-items-center rounded-full border",
-                          tone.iconWrap,
-                        )}
+                    <div className="timeline-time">{item.time || "--:--"}</div>
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        display: "grid",
+                        placeItems: "center",
+                        border: `1px solid ${tone.color}`,
+                        background: "rgba(0,0,0,0.3)",
+                        color: tone.color,
+                        borderRadius: 12,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="timeline-body">
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                          marginBottom: 4,
+                        }}
                       >
-                        <Icon className="h-4.5 w-4.5" />
-                      </span>
-
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-semibold text-white">
-                            {item.title}
-                          </p>
-                          <span
-                            className={cn(
-                              "rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.18em]",
-                              tone.badge,
-                            )}
-                          >
-                            {item.badgeLabel}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-sm leading-6 text-zinc-500">
-                          {item.description}
-                        </p>
-                        <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-zinc-500">
-                          {item.sourceLabel}
-                        </p>
+                        <span
+                          className="timeline-title"
+                          style={{
+                            textDecoration: item.completed ? "line-through" : "none",
+                            marginBottom: 0,
+                          }}
+                        >
+                          {item.title}
+                        </span>
+                        <span
+                          className="badge badge-sm"
+                          style={{
+                            color: tone.color,
+                            borderColor: tone.color,
+                            background: "rgba(0,0,0,0.3)",
+                          }}
+                        >
+                          {item.badgeLabel}
+                        </span>
+                      </div>
+                      <div
+                        className="timeline-sub"
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {item.description}
+                      </div>
+                      <div
+                        className="praxis-label"
+                        style={{ fontSize: 9, marginTop: 4, color: "var(--fg-4)" }}
+                      >
+                        {item.sourceLabel}
                       </div>
                     </div>
-
-                    <div className="shrink-0">
+                    <div style={{ justifySelf: "end", alignSelf: "center" }}>
                       {item.completed ? (
-                        <CheckCircle2 className="h-5 w-5 text-emerald-300" />
+                        <CheckCircle2 className="h-5 w-5" style={{ color: "var(--ok)" }} />
                       ) : (
-                        <ArrowRight className="h-4 w-4 text-zinc-500" />
+                        <ArrowRight className="h-4 w-4" style={{ color: "var(--fg-3)" }} />
                       )}
                     </div>
                   </Link>
@@ -455,42 +634,100 @@ export default function AgendaPage() {
               })}
             </div>
           ) : (
-            <div className="rounded-[24px] border border-dashed border-zinc-800 px-5 py-12 text-center">
-              <Clock3 className="mx-auto h-6 w-6 text-zinc-500" />
-              <p className="mt-4 text-lg font-semibold text-zinc-100">
+            <div
+              style={{
+                padding: 40,
+                textAlign: "center",
+                border: "1px dashed var(--line)",
+                borderRadius: 12,
+              }}
+            >
+              <Clock3
+                className="h-5 w-5"
+                style={{ color: "var(--fg-3)", margin: "0 auto" }}
+              />
+              <div
+                className="rx-display"
+                style={{
+                  fontSize: 15,
+                  fontWeight: 600,
+                  color: "var(--fg)",
+                  marginTop: 10,
+                  letterSpacing: "-0.01em",
+                }}
+              >
                 Nenhum bloco para esse dia
-              </p>
-              <p className="mt-2 text-sm leading-6 text-zinc-500">
-                A semana continua acessível no topo. Se quiser, abra tarefas
-                para montar um novo ciclo para esta data.
-              </p>
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--fg-3)",
+                  marginTop: 6,
+                  maxWidth: 320,
+                  marginInline: "auto",
+                  lineHeight: 1.5,
+                }}
+              >
+                Abra o centro de tarefas para montar um novo ciclo para esta
+                data.
+              </div>
             </div>
           )}
 
-          <div className="grid gap-3 border-t border-zinc-800 pt-5 md:grid-cols-3">
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+              gap: 8,
+              marginTop: 16,
+              paddingTop: 14,
+              borderTop: "1px solid var(--line)",
+            }}
+          >
             <Link
               href="/tasks"
-              className="inline-flex items-center justify-center gap-2 rounded-[18px] border border-zinc-800 bg-[rgba(18,18,20,0.96)] px-4 py-3 text-sm text-white transition hover:border-zinc-700"
+              className="rx-btn-ghost"
+              style={{
+                padding: "10px 12px",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 8,
+                textDecoration: "none",
+              }}
             >
-              Centro diário
-              <ArrowRight className="h-4 w-4" />
+              Centro diário <ArrowRight className="h-3.5 w-3.5" />
             </Link>
             <Link
               href="/modules/workout"
-              className="inline-flex items-center justify-center gap-2 rounded-[18px] border border-zinc-800 bg-[rgba(18,18,20,0.96)] px-4 py-3 text-sm text-white transition hover:border-zinc-700"
+              className="rx-btn-ghost"
+              style={{
+                padding: "10px 12px",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 8,
+                textDecoration: "none",
+              }}
             >
-              Treino do dia
-              <ArrowRight className="h-4 w-4" />
+              Treino do dia <ArrowRight className="h-3.5 w-3.5" />
             </Link>
             <Link
               href="/dashboard"
-              className="inline-flex items-center justify-center gap-2 rounded-[18px] border border-zinc-800 bg-[rgba(18,18,20,0.96)] px-4 py-3 text-sm text-white transition hover:border-zinc-700"
+              className="rx-btn-ghost"
+              style={{
+                padding: "10px 12px",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 8,
+                textDecoration: "none",
+              }}
             >
-              Painel
-              <Sparkles className="h-4 w-4 text-[var(--accent)]" />
+              Painel <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
-        </GlassPanel>
+        </RxPanel>
       </div>
     </div>
   );

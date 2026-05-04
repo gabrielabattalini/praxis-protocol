@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
-import { PageIntro } from "@/components/ui/page-intro";
 import { ProgressCurveChart } from "@/components/ui/progress-curve-chart";
 import type {
   SavedWorkoutProgram,
@@ -1213,45 +1212,36 @@ export default function WorkoutModulePage() {
 
   return (
     <main className="mx-auto max-w-7xl space-y-10 px-4 pb-32 pt-4">
-      <header className="flex flex-col justify-between gap-6 border-l-2 border-[var(--accent)] pl-6 md:flex-row md:items-end">
-        <div>
-          <p className="mb-1 font-label text-[0.6875rem] uppercase tracking-[0.3em] text-[var(--accent)]">
-            Status do sistema: ativo
-          </p>
-          <h1 className="font-headline text-4xl font-bold uppercase tracking-tighter md:text-5xl">
-            Módulo de <span className="text-[var(--accent)]">treino</span>
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-500">
-            Registre séries por exercício, acompanhe as cargas feitas e consulte
-            o histórico completo do treino sem sair do fluxo principal.
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex items-center gap-4">
-            <span className="font-label text-[0.65rem] uppercase tracking-widest text-zinc-500">
-              Nível atual
-            </span>
-            <span className="font-headline text-2xl font-bold text-zinc-300">
-              {user?.level || 1}
-            </span>
+      <div className="mod-hero">
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div className="mod-icon" style={{ width: 56, height: 56, borderRadius: 14, fontSize: 24 }}>🏋️</div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div className="praxis-label" style={{ color: "var(--accent)", marginBottom: 4 }}>▸ MÓDULO · TREINO</div>
+            <div className="praxis-title" style={{ fontSize: 26 }}>
+              Registro de séries
+            </div>
+            <div style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 4 }}>
+              Anote cargas, acompanhe progressão e consulte histórico completo do treino.
+            </div>
           </div>
-          <div className="relative h-1.5 w-64 bg-black/50">
-            <div
-              className="absolute inset-y-0 left-0 bg-[linear-gradient(90deg,var(--accent)_0%,#f97316_100%)] shadow-[0_0_12px_rgba(251,146,60,0.3)] transition-all"
-              style={{
-                width: `${Math.min(
-                  100,
-                  ((user?.xp || 0) / Math.max(1, user?.xpToNextLevel || 1000)) *
-                    100,
-                )}%`,
-              }}
-            />
-            <div className="absolute -top-6 right-0 font-label text-[0.6rem] text-zinc-400">
-              {user?.xp || 0}/{user?.xpToNextLevel || 1000} XP
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <div style={{ textAlign: "right", borderLeft: "1px solid rgba(39,39,42,0.6)", paddingLeft: 16, minWidth: 220 }}>
+              <div className="praxis-label" style={{ fontSize: 9 }}>NÍVEL · {user?.level || 1}</div>
+              <div className="progress-track" style={{ marginTop: 6 }}>
+                <div
+                  className="progress-fill"
+                  style={{
+                    width: `${Math.min(100, ((user?.xp || 0) / Math.max(1, user?.xpToNextLevel || 1000)) * 100)}%`,
+                  }}
+                />
+              </div>
+              <div className="praxis-label" style={{ fontSize: 9, marginTop: 6 }}>
+                {user?.xp || 0}/{user?.xpToNextLevel || 1000} XP
+              </div>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
       <section className="mx-auto max-w-4xl border border-[rgba(251,146,60,0.18)] bg-[rgba(5,5,5,0.92)] p-5 shadow-[0_0_32px_rgba(251,146,60,0.08)] md:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">

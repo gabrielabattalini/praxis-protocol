@@ -17,7 +17,6 @@ import { StripeCheckoutButton } from "@/components/billing/stripe-checkout-butto
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { FinanceFuelPlanner } from "@/components/modules/finance-fuel-planner";
 import { GlassPanel } from "@/components/ui/glass-panel";
-import { PageIntro } from "@/components/ui/page-intro";
 import type {
   FinanceBudgetLine,
   FinanceLineFrequency,
@@ -1140,11 +1139,18 @@ export default function FinanceModulePage() {
 
   return (
     <div className="space-y-6">
-      <PageIntro
-        eyebrow="Módulo"
-        title="Finanças"
-        description="Foco mensal, com gastos pendentes separados da fatura do cartão de crédito e das saídas que já bateram nas receitas."
-      />
+      <div className="mod-hero">
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div className="mod-icon" style={{ width: 56, height: 56, borderRadius: 14, fontSize: 24 }}>💰</div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div className="praxis-label" style={{ color: "var(--accent)", marginBottom: 4 }}>▸ MÓDULO · FINANÇAS</div>
+            <div className="praxis-title" style={{ fontSize: 26 }}>Painel mensal</div>
+            <div style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 4 }}>
+              Receitas, fatura, gastos pendentes e sugestões de compra no mesmo lugar.
+            </div>
+          </div>
+        </div>
+      </div>
 
       <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
         <GlassPanel className="space-y-5 border-[rgba(251,146,60,0.14)] bg-[linear-gradient(180deg,rgba(14,14,17,0.98),rgba(8,8,10,0.94))] p-6 md:p-8">

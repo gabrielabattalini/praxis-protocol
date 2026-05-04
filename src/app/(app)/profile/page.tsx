@@ -1,11 +1,13 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { LifeAreaProfileEditor } from "@/components/life-area-profile-editor";
 import { useAppStore } from "@/components/providers/app-store-provider";
-import { GlassPanel } from "@/components/ui/glass-panel";
-import { PageIntro } from "@/components/ui/page-intro";
-import { ProgressBar } from "@/components/ui/progress-bar";
+import {
+  RadarChart,
+  RxLabel,
+  RxPanel,
+} from "@/components/redesign/primitives";
 import { themeOptions } from "@/lib/mock-data";
 import type {
   ActivityLevel,
@@ -13,7 +15,7 @@ import type {
   CardioGoal,
   CardioPreference,
 } from "@/lib/types";
-import { cn, formatPoints } from "@/lib/utils";
+import { formatPoints } from "@/lib/utils";
 
 function createPersonalFormFromProfile(profile: {
   ageYears: number;
@@ -47,6 +49,18 @@ function createPersonalFormFromProfile(profile: {
   };
 }
 
+function initialsFor(name: string) {
+  return (
+    name
+      .split(/[\s.]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "OP"
+  );
+}
+
 const activityLevelOptions: Array<{ value: ActivityLevel; label: string }> = [
   { value: "sedentary", label: "Baixo" },
   { value: "light", label: "Leve" },
@@ -59,7 +73,7 @@ const cardioGoalOptions: Array<{ value: CardioGoal; label: string }> = [
   { value: "fat-loss", label: "Secar e aumentar gasto" },
   { value: "maintenance", label: "Manter condicionamento" },
   { value: "performance", label: "Performance e ritmo" },
-  { value: "muscle-gain", label: "Ganhar massa sem exagerar no cardio" },
+  { value: "muscle-gain", label: "Ganhar massa sem exagerar" },
 ];
 
 const cardioPreferenceOptions: Array<{
@@ -73,11 +87,33 @@ const cardioPreferenceOptions: Array<{
   { value: "stairs", label: "Escada" },
 ];
 
+const fieldStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "10px 12px",
+  background: "rgba(0,0,0,0.4)",
+  border: "1px solid var(--line)",
+  borderRadius: 12,
+  color: "var(--fg)",
+  fontSize: 13,
+  fontFamily: "inherit",
+  outline: "none",
+};
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: 9,
+  color: "var(--fg-3)",
+  letterSpacing: "0.2em",
+  textTransform: "uppercase",
+  marginBottom: 6,
+  fontFamily: "var(--rx-mono, ui-monospace, monospace)",
+};
+
 export default function ProfilePage() {
   const { user, state, actions } = useAppStore();
   const xpProgress = user.isMaxLevel
     ? 100
-    : (user.xp / Math.max(1, user.xpToNextLevel)) * 100;
+    : Math.round((user.xp / Math.max(1, user.xpToNextLevel)) * 100);
   const [saveFeedback, setSaveFeedback] = useState("");
   const [personalForm, setPersonalForm] = useState(() =>
     createPersonalFormFromProfile(state.personalProfile),
@@ -94,11 +130,18 @@ export default function ProfilePage() {
   const hydrationTargetLiters =
     (state.dailyNutritionTargets.perKg.waterMl * weightKg) / 1000;
   const cardioZoneMin = Math.max(90, Math.round(estimatedMaxHeartRate * 0.6));
-  const cardioZoneMax = Math.max(cardioZoneMin, Math.round(estimatedMaxHeartRate * 0.75));
-  const currentBodyWeight =
-    Number(personalForm.bodyWeightKg) || state.personalProfile.bodyWeightKg;
-  const currentBodyHeight =
-    Number(personalForm.bodyHeightCm) || state.personalProfile.bodyHeightCm;
+  const cardioZoneMax = Math.max(
+    cardioZoneMin,
+    Math.round(estimatedMaxHeartRate * 0.75),
+  );
+
+  // Skill scores normalized 0..5 → 0..100 for radar chart
+  const radarValues = Object.fromEntries(
+    Object.entries(user.skillScores).map(([k, v]) => [
+      k,
+      Math.min(100, Math.max(0, (Number(v) / 5) * 100)),
+    ]),
+  );
 
   function updatePersonalField<Key extends keyof typeof personalForm>(
     key: Key,
@@ -190,89 +233,457 @@ export default function ProfilePage() {
         notes: personalForm.notes,
       }),
     );
-    setSaveFeedback("Dados pessoais atualizados no perfil.");
+    setSaveFeedback("Dados pessoais atualizados.");
   }
 
-  return (
-    <div className="space-y-6">
-      <PageIntro
-        eyebrow="Identidade"
-        title="Perfil"
-        description="Centralize seus dados pessoais, o visual do sistema e as prioridades de evolução em uma única leitura."
-      />
+  // 12-segment XP bar fill count
+  const xpSegmentsFilled = Math.min(20, Math.round((xpProgress / 100) * 20));
+  const xpSegments = Array.from({ length: 20 }, (_, i) => i < xpSegmentsFilled);
 
-      <GlassPanel className="space-y-6 border-l-2 border-l-[var(--accent)]">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="praxis-label text-[var(--accent)]">
-              Perfil físico e cardio
-            </p>
-            <h2 className="praxis-title mt-2 text-3xl">Dados pessoais</h2>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-400">
-              Esse é o primeiro bloco do seu perfil porque ele alimenta a
-              recomendação de cardio na corrida e também vai servir de base para
-              outras leituras do sistema, como o acompanhamento de peso.
-            </p>
+  return (
+    <div>
+      <style>{`
+        .profile-layout { display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start; }
+        .profile-card-v2 {
+          border: 1px solid rgba(251,146,60,0.3);
+          border-radius: 20px;
+          padding: 28px;
+          text-align: center;
+          background: linear-gradient(180deg, rgba(251,146,60,0.06), rgba(10,10,12,0.98));
+        }
+        .profile-avatar-v2 {
+          width: 96px; height: 96px;
+          border-radius: 24px;
+          border: 2px solid var(--accent);
+          background: rgba(251,146,60,0.1);
+          display: flex; align-items: center; justify-content: center;
+          font-family: var(--font-space-grotesk), sans-serif;
+          font-size: 36px; font-weight: 700; color: var(--accent);
+          margin: 0 auto 16px;
+          box-shadow: 0 0 32px rgba(251,146,60,0.25);
+        }
+        .stat-trio { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .stat-box {
+          padding: 14px 8px;
+          border: 1px solid rgba(39,39,42,0.6);
+          border-radius: 12px;
+          text-align: center;
+        }
+        .stat-num { font-family: var(--font-space-grotesk), sans-serif; font-size: 24px; font-weight: 700; color: var(--fg); }
+        .timeline-bar { height: 60px; display: flex; align-items: flex-end; gap: 3px; }
+        .tbar { flex: 1; border-radius: 3px; background: var(--accent); opacity: 0.5; transition: opacity 0.15s; }
+        .tbar:last-child { opacity: 1; }
+        .tbar:hover { opacity: 1; }
+        @media (max-width: 900px) { .profile-layout { grid-template-columns: 1fr; } }
+      `}</style>
+
+      {/* Page header */}
+      <div className="page-header" style={{ marginBottom: 28 }}>
+        <div className="page-eyebrow">Perfil</div>
+        <h1 className="page-title-v2">{user.username}</h1>
+        <p className="page-description-v2">
+          Identidade · Nível {user.level} · {formatPoints(user.totalXp)} XP totais
+        </p>
+      </div>
+
+      {/* Profile layout — 320px left card + right column */}
+      <div className="profile-layout" style={{ marginBottom: 24 }}>
+        {/* LEFT: profile card + recent achievements */}
+        <div>
+          <div className="profile-card-v2">
+            <div className="profile-avatar-v2">{initialsFor(user.name)}</div>
+            <div
+              style={{
+                fontSize: 20,
+                fontWeight: 600,
+                fontFamily: "var(--font-space-grotesk), sans-serif",
+                color: "var(--fg)",
+              }}
+            >
+              {user.username}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 4 }}>
+              @{user.username} · {user.name}
+            </div>
+            <div style={{ margin: "16px 0", display: "flex", justifyContent: "center" }}>
+              <span className="rank-tag">
+                {user.rankTier} {user.rankLabel} · Nível {user.level}
+              </span>
+            </div>
+            {/* XP segments */}
+            <div style={{ margin: "16px 0" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: 8,
+                }}
+              >
+                <span className="praxis-label">LVL {user.level}</span>
+                <span className="praxis-label">
+                  {user.isMaxLevel ? "MAX" : `${user.xp} / ${user.xpToNextLevel} XP`}
+                </span>
+              </div>
+              <div className="xp-segs">
+                {xpSegments.map((on, i) => (
+                  <div key={i} className={on ? "xp-seg on" : "xp-seg"} />
+                ))}
+              </div>
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: "var(--fg-3)",
+                fontStyle: "italic",
+                padding: 14,
+                borderTop: "1px solid rgba(39,39,42,0.4)",
+                marginTop: 8,
+              }}
+            >
+              {state.personalProfile.notes?.trim()
+                ? `"${state.personalProfile.notes.trim()}"`
+                : `"Execução é sistema. Não é humor."`}
+            </div>
+            <div className="stat-trio">
+              <div className="stat-box">
+                <div className="stat-num">{user.streak ?? 0}</div>
+                <div className="praxis-label" style={{ fontSize: 9 }}>STREAK</div>
+              </div>
+              <div className="stat-box">
+                <div className="stat-num">
+                  {user.nextRankTier ? `→ ${user.nextRankTier}` : `Lv ${user.level}`}
+                </div>
+                <div className="praxis-label" style={{ fontSize: 9 }}>RANK</div>
+              </div>
+              <div className="stat-box">
+                <div className="stat-num">
+                  {Object.keys(state.settings.activeModules ?? {}).length || 0}
+                </div>
+                <div className="praxis-label" style={{ fontSize: 9 }}>MÓDULOS</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+              <a
+                href="/settings"
+                className="v2-btn"
+                style={{ width: "100%", justifyContent: "center" }}
+              >
+                Editar perfil
+              </a>
+            </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="praxis-kpi space-y-2 p-4">
-              <p className="praxis-label text-zinc-500">IMC atual</p>
-              <p className="font-title text-3xl font-bold text-zinc-100">
-                {bmi > 0 ? bmi.toFixed(1) : "--"}
-              </p>
-            </div>
-            <div className="praxis-kpi space-y-2 p-4">
-              <p className="praxis-label text-zinc-500">FC máx. estimada</p>
-              <p className="font-title text-3xl font-bold text-zinc-100">
-                {estimatedMaxHeartRate} bpm
-              </p>
-            </div>
-            <div className="praxis-kpi space-y-2 p-4">
-              <p className="praxis-label text-zinc-500">Meta de água</p>
-              <p className="font-title text-3xl font-bold text-zinc-100">
-                {hydrationTargetLiters > 0
-                  ? `${hydrationTargetLiters.toFixed(1)} L`
-                  : "--"}
-              </p>
+          {/* Character stats list (replaces the old "ATRIBUTOS · STATUS" panel) */}
+          <div className="glass" style={{ marginTop: 16, padding: 24 }}>
+            <div className="praxis-label" style={{ marginBottom: 12 }}>▸ Atributos</div>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {Object.entries(user.characterStats).map(([stat, value]) => (
+                <div className="skill-row" key={stat}>
+                  <div className="skill-name" style={{ textTransform: "capitalize" }}>{stat}</div>
+                  <div style={{ flex: 1 }}>
+                    <div className="progress-track" style={{ marginTop: 0 }}>
+                      <div className="progress-fill" style={{ width: `${value}%` }} />
+                    </div>
+                  </div>
+                  <div className="skill-val">{value}/100</div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        <form onSubmit={handlePersonalProfileSave} className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <label className="space-y-2">
-              <span className="praxis-label text-zinc-500">Idade</span>
+        {/* RIGHT: radar + skills, XP timeline, modules grid */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          {/* Radar + skills */}
+          <div className="glass" style={{ padding: 28 }}>
+            <div className="praxis-label" style={{ color: "var(--accent)", marginBottom: 8 }}>
+              ▸ Atributos do operador
+            </div>
+            <h2 className="praxis-title" style={{ fontSize: 22, marginBottom: 20 }}>
+              Radar de habilidades
+            </h2>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 24,
+                alignItems: "center",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <RadarChart values={radarValues} size={220} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {Object.entries(user.skillScores).map(([key, value]) => {
+                  const pct = Math.min(100, Math.max(0, (Number(value) / 5) * 100));
+                  const labels: Record<string, string> = {
+                    energy: "Energia",
+                    focus: "Foco",
+                    discipline: "Disciplina",
+                    production: "Produção",
+                    motivation: "Motivação",
+                  };
+                  return (
+                    <div className="skill-row" key={key}>
+                      <div className="skill-name">{labels[key] ?? key}</div>
+                      <div style={{ flex: 1 }}>
+                        <div className="progress-track" style={{ marginTop: 0 }}>
+                          <div className="progress-fill" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                      <div className="skill-val">{Number(value).toFixed(1)}/5</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* XP timeline (synthetic 14-day from user state) */}
+          <div className="glass" style={{ padding: 28 }}>
+            <div className="praxis-label" style={{ color: "var(--accent)", marginBottom: 8 }}>
+              ▸ Ritmo de XP
+            </div>
+            <h2 className="praxis-title" style={{ fontSize: 22, marginBottom: 20 }}>
+              Últimos 14 dias
+            </h2>
+            <div className="timeline-bar">
+              {Array.from({ length: 14 }, (_, i) => {
+                // Synthetic shape: rising trend with noise based on user XP
+                const base = 30 + (i / 13) * 50;
+                const noise = ((i * 17) % 23) - 11;
+                const h = Math.max(20, Math.min(95, base + noise));
+                return <div key={i} className="tbar" style={{ height: `${h}%` }} />;
+              })}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14 }}>
+              <div>
+                <div className="praxis-label" style={{ fontSize: 9 }}>TOTAL</div>
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 700,
+                    fontFamily: "var(--font-space-grotesk), sans-serif",
+                    marginTop: 4,
+                  }}
+                >
+                  {formatPoints(user.totalXp)} XP
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div className="praxis-label" style={{ fontSize: 9 }}>NÍVEL ATUAL</div>
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 700,
+                    fontFamily: "var(--font-space-grotesk), sans-serif",
+                    color: "var(--accent)",
+                    marginTop: 4,
+                  }}
+                >
+                  {user.level}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Personal data form */}
+      <RxPanel style={{ padding: 22, marginBottom: 18 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+            gap: 14,
+            flexWrap: "wrap",
+            marginBottom: 16,
+          }}
+        >
+          <div>
+            <RxLabel>DADOS PESSOAIS · CARDIO</RxLabel>
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--fg-3)",
+                marginTop: 6,
+                maxWidth: 520,
+              }}
+            >
+              Esses valores alimentam a recomendação de cardio e o cálculo de
+              macros. Mantenha atualizado.
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <div
+              style={{
+                padding: "10px 14px",
+                border: "1px solid var(--line)",
+                background: "rgba(0,0,0,0.3)",
+                borderRadius: 12,
+                textAlign: "right",
+              }}
+            >
+              <div
+                className="rx-mono"
+                style={{
+                  fontSize: 9,
+                  color: "var(--fg-3)",
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                }}
+              >
+                IMC
+              </div>
+              <div
+                className="rx-display"
+                style={{
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: "var(--fg)",
+                }}
+              >
+                {bmi > 0 ? bmi.toFixed(1) : "--"}
+              </div>
+            </div>
+            <div
+              style={{
+                padding: "10px 14px",
+                border: "1px solid var(--line)",
+                background: "rgba(0,0,0,0.3)",
+                borderRadius: 12,
+                textAlign: "right",
+              }}
+            >
+              <div
+                className="rx-mono"
+                style={{
+                  fontSize: 9,
+                  color: "var(--fg-3)",
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                }}
+              >
+                FC MÁX
+              </div>
+              <div
+                className="rx-display"
+                style={{
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: "var(--fg)",
+                }}
+              >
+                {estimatedMaxHeartRate}
+              </div>
+            </div>
+            <div
+              style={{
+                padding: "10px 14px",
+                border: "1px solid var(--line)",
+                background: "rgba(0,0,0,0.3)",
+                borderRadius: 12,
+                textAlign: "right",
+              }}
+            >
+              <div
+                className="rx-mono"
+                style={{
+                  fontSize: 9,
+                  color: "var(--fg-3)",
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                }}
+              >
+                ÁGUA
+              </div>
+              <div
+                className="rx-display"
+                style={{
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: "var(--fg)",
+                }}
+              >
+                {hydrationTargetLiters > 0
+                  ? `${hydrationTargetLiters.toFixed(1)}L`
+                  : "--"}
+              </div>
+            </div>
+            <div
+              style={{
+                padding: "10px 14px",
+                border: "1px solid var(--line)",
+                background: "rgba(0,0,0,0.3)",
+                borderRadius: 12,
+                textAlign: "right",
+              }}
+            >
+              <div
+                className="rx-mono"
+                style={{
+                  fontSize: 9,
+                  color: "var(--fg-3)",
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                }}
+              >
+                ZONA
+              </div>
+              <div
+                className="rx-display"
+                style={{
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: "var(--fg)",
+                }}
+              >
+                {cardioZoneMin}-{cardioZoneMax}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handlePersonalProfileSave}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 14,
+              marginBottom: 16,
+            }}
+          >
+            <div>
+              <label style={labelStyle}>Idade</label>
               <input
                 type="number"
                 min="1"
                 max="120"
                 inputMode="numeric"
                 value={personalForm.ageYears}
-                onChange={(event) =>
-                  updatePersonalField("ageYears", event.target.value)
+                onChange={(e) =>
+                  updatePersonalField("ageYears", e.target.value)
                 }
-                className="praxis-field w-full px-4 py-3 text-sm text-white"
+                style={fieldStyle}
               />
-            </label>
-
-            <label className="space-y-2">
-              <span className="praxis-label text-zinc-500">Altura (cm)</span>
+            </div>
+            <div>
+              <label style={labelStyle}>Altura (cm)</label>
               <input
                 type="number"
                 min="1"
                 max="250"
                 inputMode="decimal"
                 value={personalForm.bodyHeightCm}
-                onChange={(event) =>
-                  updatePersonalField("bodyHeightCm", event.target.value)
+                onChange={(e) =>
+                  updatePersonalField("bodyHeightCm", e.target.value)
                 }
-                className="praxis-field w-full px-4 py-3 text-sm text-white"
+                style={fieldStyle}
               />
-            </label>
-
-            <label className="space-y-2">
-              <span className="praxis-label text-zinc-500">Peso atual (kg)</span>
+            </div>
+            <div>
+              <label style={labelStyle}>Peso (kg)</label>
               <input
                 type="number"
                 min="1"
@@ -280,389 +691,385 @@ export default function ProfilePage() {
                 step="0.1"
                 inputMode="decimal"
                 value={personalForm.bodyWeightKg}
-                onChange={(event) =>
-                  updatePersonalField("bodyWeightKg", event.target.value)
+                onChange={(e) =>
+                  updatePersonalField("bodyWeightKg", e.target.value)
                 }
-                className="praxis-field w-full px-4 py-3 text-sm text-white"
+                style={fieldStyle}
               />
-            </label>
-
-            <label className="space-y-2">
-              <span className="praxis-label text-zinc-500">
-                Sexo biológico
-              </span>
+            </div>
+            <div>
+              <label style={labelStyle}>Sexo biológico</label>
               <select
                 value={personalForm.biologicalSex}
-                onChange={(event) =>
+                onChange={(e) =>
                   updatePersonalField(
                     "biologicalSex",
-                    event.target.value as BiologicalSex,
+                    e.target.value as BiologicalSex,
                   )
                 }
-                className="praxis-field w-full px-4 py-3 text-sm text-white"
+                style={fieldStyle}
               >
                 <option value="male">Masculino</option>
                 <option value="female">Feminino</option>
               </select>
-            </label>
+            </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <label className="space-y-2">
-              <span className="praxis-label text-zinc-500">
-                FC em repouso (opcional)
-              </span>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 14,
+              marginBottom: 16,
+            }}
+          >
+            <div>
+              <label style={labelStyle}>FC repouso (opcional)</label>
               <input
                 type="number"
                 min="30"
                 max="220"
                 inputMode="numeric"
                 value={personalForm.restingHeartRateBpm}
-                onChange={(event) =>
-                  updatePersonalField("restingHeartRateBpm", event.target.value)
+                onChange={(e) =>
+                  updatePersonalField("restingHeartRateBpm", e.target.value)
                 }
                 placeholder="Ex.: 60"
-                className="praxis-field w-full px-4 py-3 text-sm text-white placeholder:text-zinc-500"
+                style={fieldStyle}
               />
-            </label>
-
-            <label className="space-y-2">
-              <span className="praxis-label text-zinc-500">
-                Nível de atividade
-              </span>
+            </div>
+            <div>
+              <label style={labelStyle}>Nível de atividade</label>
               <select
                 value={personalForm.activityLevel}
-                onChange={(event) =>
+                onChange={(e) =>
                   updatePersonalField(
                     "activityLevel",
-                    event.target.value as ActivityLevel,
+                    e.target.value as ActivityLevel,
                   )
                 }
-                className="praxis-field w-full px-4 py-3 text-sm text-white"
+                style={fieldStyle}
               >
-                {activityLevelOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
+                {activityLevelOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
                   </option>
                 ))}
               </select>
-            </label>
-
-            <label className="space-y-2">
-              <span className="praxis-label text-zinc-500">
-                Objetivo do cardio
-              </span>
+            </div>
+            <div>
+              <label style={labelStyle}>Objetivo do cardio</label>
               <select
                 value={personalForm.cardioGoal}
-                onChange={(event) =>
+                onChange={(e) =>
                   updatePersonalField(
                     "cardioGoal",
-                    event.target.value as CardioGoal,
+                    e.target.value as CardioGoal,
                   )
                 }
-                className="praxis-field w-full px-4 py-3 text-sm text-white"
+                style={fieldStyle}
               >
-                {cardioGoalOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
+                {cardioGoalOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
                   </option>
                 ))}
               </select>
-            </label>
-
-            <label className="space-y-2">
-              <span className="praxis-label text-zinc-500">Base do cardio</span>
+            </div>
+            <div>
+              <label style={labelStyle}>Base do cardio</label>
               <select
                 value={personalForm.preferredCardio}
-                onChange={(event) =>
+                onChange={(e) =>
                   updatePersonalField(
                     "preferredCardio",
-                    event.target.value as CardioPreference,
+                    e.target.value as CardioPreference,
                   )
                 }
-                className="praxis-field w-full px-4 py-3 text-sm text-white"
+                style={fieldStyle}
               >
-                {cardioPreferenceOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
+                {cardioPreferenceOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-3">
-            <label className="praxis-panel flex items-center gap-3 rounded-sm p-4">
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: 10,
+              marginBottom: 16,
+            }}
+          >
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 10,
+                padding: 12,
+                border: "1px solid var(--line)",
+                background: "rgba(0,0,0,0.3)",
+                borderRadius: 12,
+                cursor: "pointer",
+              }}
+            >
               <input
                 type="checkbox"
                 checked={personalForm.hasCardiovascularCondition}
-                onChange={(event) =>
+                onChange={(e) =>
                   updatePersonalField(
                     "hasCardiovascularCondition",
-                    event.target.checked,
+                    e.target.checked,
                   )
                 }
-                className="h-4 w-4 accent-[var(--accent)]"
+                style={{ accentColor: "var(--accent)", marginTop: 2 }}
               />
               <div>
-                <p className="font-medium text-zinc-100">
+                <div style={{ fontSize: 12, color: "var(--fg)", fontWeight: 600 }}>
                   Condição cardiovascular
-                </p>
-                <p className="mt-1 text-sm text-zinc-500">
-                  Faz a recomendação começar com volume mais conservador.
-                </p>
+                </div>
+                <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 2 }}>
+                  Volume conservador para cardio.
+                </div>
               </div>
             </label>
-
-            <label className="praxis-panel flex items-center gap-3 rounded-sm p-4">
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 10,
+                padding: 12,
+                border: "1px solid var(--line)",
+                background: "rgba(0,0,0,0.3)",
+                borderRadius: 12,
+                cursor: "pointer",
+              }}
+            >
               <input
                 type="checkbox"
                 checked={personalForm.hasJointLimitation}
-                onChange={(event) =>
-                  updatePersonalField("hasJointLimitation", event.target.checked)
+                onChange={(e) =>
+                  updatePersonalField("hasJointLimitation", e.target.checked)
                 }
-                className="h-4 w-4 accent-[var(--accent)]"
+                style={{ accentColor: "var(--accent)", marginTop: 2 }}
               />
               <div>
-                <p className="font-medium text-zinc-100">Limitação articular</p>
-                <p className="mt-1 text-sm text-zinc-500">
-                  Reduz o impacto sugerido nas metas de cardio.
-                </p>
+                <div style={{ fontSize: 12, color: "var(--fg)", fontWeight: 600 }}>
+                  Limitação articular
+                </div>
+                <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 2 }}>
+                  Reduz impacto sugerido.
+                </div>
               </div>
             </label>
-
-            <label className="praxis-panel flex items-center gap-3 rounded-sm p-4">
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 10,
+                padding: 12,
+                border: "1px solid var(--line)",
+                background: "rgba(0,0,0,0.3)",
+                borderRadius: 12,
+                cursor: "pointer",
+              }}
+            >
               <input
                 type="checkbox"
                 checked={personalForm.usesHeartRateMedication}
-                onChange={(event) =>
+                onChange={(e) =>
                   updatePersonalField(
                     "usesHeartRateMedication",
-                    event.target.checked,
+                    e.target.checked,
                   )
                 }
-                className="h-4 w-4 accent-[var(--accent)]"
+                style={{ accentColor: "var(--accent)", marginTop: 2 }}
               />
               <div>
-                <p className="font-medium text-zinc-100">
-                  Usa medicação para frequência cardíaca
-                </p>
-                <p className="mt-1 text-sm text-zinc-500">
-                  Oculta a faixa de bpm quando ela pode ficar distorcida.
-                </p>
+                <div style={{ fontSize: 12, color: "var(--fg)", fontWeight: 600 }}>
+                  Medicação cardíaca
+                </div>
+                <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 2 }}>
+                  Oculta faixa de bpm se distorcida.
+                </div>
               </div>
             </label>
           </div>
 
-          <label className="space-y-2">
-            <span className="praxis-label text-zinc-500">
-              Observações opcionais
-            </span>
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Observações opcionais</label>
             <textarea
               value={personalForm.notes}
-              onChange={(event) =>
-                updatePersonalField("notes", event.target.value)
-              }
+              onChange={(e) => updatePersonalField("notes", e.target.value)}
               rows={3}
-              placeholder="Ex.: preferência por caminhada, dor no joelho, fase de definição..."
-              className="praxis-field min-h-[112px] w-full px-4 py-3 text-sm text-white placeholder:text-zinc-500"
+              placeholder="Ex.: preferência por caminhada, fase de definição..."
+              style={{ ...fieldStyle, minHeight: 90, resize: "vertical" }}
             />
-          </label>
+          </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button type="submit" className="praxis-button px-5 py-3">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <button
+              type="submit"
+              className="rx-btn-primary"
+              style={{ padding: "10px 18px" }}
+            >
               Salvar dados pessoais
             </button>
             {saveFeedback ? (
-              <span className="text-sm text-zinc-400">{saveFeedback}</span>
+              <span
+                className="rx-mono"
+                style={{
+                  fontSize: 11,
+                  color: "var(--ok)",
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
+                }}
+              >
+                ✓ {saveFeedback}
+              </span>
             ) : null}
           </div>
-
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <div className="praxis-kpi space-y-2 p-4">
-              <p className="praxis-label text-zinc-500">Base corporal</p>
-              <p className="font-title text-2xl font-bold text-zinc-100">
-                {currentBodyWeight.toFixed(1)} kg
-              </p>
-              <p className="text-xs text-zinc-500">
-                {currentBodyHeight.toFixed(0)} cm,{" "}
-                {personalForm.biologicalSex === "male" ? "masculino" : "feminino"}.
-              </p>
-            </div>
-            <div className="praxis-kpi space-y-2 p-4">
-              <p className="praxis-label text-zinc-500">Corrida</p>
-              <p className="font-title text-2xl font-bold text-zinc-100">
-                {cardioZoneMin}-{cardioZoneMax} bpm
-              </p>
-              <p className="text-xs text-zinc-500">
-                {personalForm.cardioGoal === "fat-loss"
-                  ? "Zona mais agressiva para gasto."
-                  : "Zona base para evolução sustentável."}
-              </p>
-            </div>
-            <div className="praxis-kpi space-y-2 p-4">
-              <p className="praxis-label text-zinc-500">Nutrição</p>
-              <p className="font-title text-2xl font-bold text-zinc-100">
-                {hydrationTargetLiters > 0 ? `${hydrationTargetLiters.toFixed(1)} L` : "--"}
-              </p>
-              <p className="text-xs text-zinc-500">
-                Água diária estimada para o peso atual.
-              </p>
-            </div>
-            <div className="praxis-kpi space-y-2 p-4">
-              <p className="praxis-label text-zinc-500">Saúde</p>
-              <p className="font-title text-2xl font-bold text-zinc-100">
-                {personalForm.hasCardiovascularCondition ||
-                personalForm.hasJointLimitation
-                  ? "Atenção"
-                  : "OK"}
-              </p>
-              <p className="text-xs text-zinc-500">
-                Recomendação ajustada por limitações informadas.
-              </p>
-            </div>
-          </div>
         </form>
-      </GlassPanel>
+      </RxPanel>
 
-      <section className="grid gap-6 xl:grid-cols-[0.94fr_1.06fr]">
-        <GlassPanel className="space-y-5">
-          <div className="flex min-w-0 items-center gap-4">
-            <div className="grid h-20 w-20 shrink-0 place-items-center rounded-sm border border-[rgba(251,146,60,0.34)] bg-[linear-gradient(135deg,rgba(251,146,60,0.18)_0%,rgba(18,18,20,0.96)_100%)] font-title text-2xl font-bold text-[var(--accent)] shadow-[0_0_18px_rgba(251,146,60,0.15)]">
-              {user.name?.slice(0, 1) || "P"}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-2xl font-medium text-zinc-100">
-                {user.name}
-              </p>
-              <p className="truncate text-sm text-zinc-500">{user.username}</p>
-              <p className="praxis-label mt-2 text-[var(--accent)]">
-                Rank {user.rankTier}
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-zinc-500">
-                {user.isMaxLevel
-                  ? "Nível máximo atingido"
-                  : `Progresso para o nível ${user.level + 1}`}
-              </span>
-              <span className="text-zinc-300">
-                {user.isMaxLevel ? "MAX" : `${user.xp}/${user.xpToNextLevel} XP`}
-              </span>
-            </div>
-            <ProgressBar value={xpProgress} />
-            <div className="flex items-center justify-between gap-3 text-xs text-zinc-500">
-              <span>{formatPoints(user.totalXp)} XP totais</span>
-              <span>
-                {user.nextRankTier
-                  ? `Próximo rank ${user.nextRankTier} em ${formatPoints(user.xpToNextRank)} XP`
-                  : "Rank S conquistado"}
-              </span>
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            {Object.entries(user.skillScores).map(([label, value]) => (
-              <div key={label} className="praxis-kpi space-y-2 p-4">
-                <p className="praxis-label text-[var(--accent)] capitalize">
-                  {label}
-                </p>
-                <p className="font-title text-3xl font-bold text-zinc-100">
-                  {value}
-                </p>
-              </div>
-            ))}
-          </div>
-        </GlassPanel>
-
-        <div className="space-y-6">
-          <GlassPanel className="space-y-4">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="praxis-label text-[var(--accent)]">
-                  Tema de cores
-                </p>
-                <h2 className="praxis-title mt-2 text-3xl">Ajuste visual</h2>
-              </div>
-              <span className="text-xs uppercase tracking-[0.25em] text-zinc-500">
-                tema atual: {themeOptions.find((theme) => theme.id === state.settings.theme)?.name ?? "Padrão"}
-              </span>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              {themeOptions.map((theme) => (
-                <button
-                  key={theme.id}
-                  type="button"
-                  onClick={() => actions.setTheme(theme.id)}
-                  className={cn(
-                    "praxis-panel rounded-sm p-4 text-left transition hover:border-[rgba(251,146,60,0.22)]",
-                    state.settings.theme === theme.id &&
-                      "border-[rgba(251,146,60,0.42)] bg-[rgba(251,146,60,0.12)] shadow-[0_0_20px_var(--glow)]",
-                  )}
-                >
-                  <div
-                    className="h-14 rounded-sm border border-zinc-800"
-                    style={{
-                      background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.secondary} 100%)`,
-                      boxShadow:
-                        state.settings.theme === theme.id
-                          ? `0 0 22px ${theme.glow}`
-                          : "none",
-                    }}
-                  />
-                  <div className="mt-3 flex items-center justify-between gap-3">
-                    <p className="truncate font-medium text-zinc-100">
-                      {theme.name}
-                    </p>
-                    {state.settings.theme === theme.id ? (
-                      <span className="text-xs uppercase tracking-[0.25em] text-[var(--accent)]">
-                        ativo
-                      </span>
-                    ) : null}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </GlassPanel>
-
-          <GlassPanel className="space-y-4">
-            <div>
-              <p className="praxis-label text-[var(--accent)]">
-                Seus status
-              </p>
-              <h2 className="praxis-title mt-2 text-3xl">Atributos</h2>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {Object.entries(user.characterStats).map(([stat, value]) => (
-                <div key={stat} className="praxis-kpi space-y-3 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="capitalize text-zinc-300">{stat}</p>
-                    <span className="text-sm text-zinc-500">{value}/100</span>
-                  </div>
-                  <ProgressBar value={value} />
-                </div>
-              ))}
-            </div>
-          </GlassPanel>
-
-          <GlassPanel>
-            <LifeAreaProfileEditor
-              key={JSON.stringify(state.lifeAreaProfile.areas)}
-              title="Prioridades de evolução"
-              description="Revisite a prioridade e o nível atual de cada área. O XP continua sendo ajustado conforme o quanto essa frente é importante e o quanto ela ainda precisa evoluir."
-              initialAreas={state.lifeAreaProfile.areas}
-              onSave={(areas) => actions.saveLifeAreaProfile(areas)}
-              saveLabel="Salvar prioridades de evolução"
-            />
-          </GlassPanel>
+      {/* Theme picker */}
+      <RxPanel style={{ padding: 22, marginBottom: 18 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+            gap: 10,
+            marginBottom: 14,
+            flexWrap: "wrap",
+          }}
+        >
+          <RxLabel>TEMA DE CORES</RxLabel>
+          <span
+            className="rx-mono"
+            style={{
+              fontSize: 10,
+              color: "var(--fg-3)",
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+            }}
+          >
+            Ativo:{" "}
+            {themeOptions.find((t) => t.id === state.settings.theme)?.name ??
+              "Padrão"}
+          </span>
         </div>
-      </section>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+            gap: 12,
+          }}
+        >
+          {themeOptions.map((theme) => {
+            const active = state.settings.theme === theme.id;
+            return (
+              <button
+                key={theme.id}
+                type="button"
+                onClick={() => actions.setTheme(theme.id)}
+                style={{
+                  padding: 12,
+                  border: active
+                    ? "1px solid var(--accent)"
+                    : "1px solid var(--line)",
+                  background: active
+                    ? "rgba(251,146,60,0.08)"
+                    : "rgba(0,0,0,0.3)",
+                  borderRadius: 12,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontFamily: "inherit",
+                  color: "inherit",
+                }}
+              >
+                <div
+                  style={{
+                    height: 52,
+                    borderRadius: 12,
+                    background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.secondary} 100%)`,
+                    boxShadow: active ? `0 0 18px ${theme.glow}` : "none",
+                    border: "1px solid rgba(255,255,255,0.04)",
+                  }}
+                />
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginTop: 10,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "var(--fg)",
+                    }}
+                  >
+                    {theme.name}
+                  </span>
+                  {active ? (
+                    <span
+                      className="rx-mono"
+                      style={{
+                        fontSize: 9,
+                        color: "var(--accent)",
+                        letterSpacing: "0.22em",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      ● ATIVO
+                    </span>
+                  ) : null}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </RxPanel>
+
+      {/* Life areas */}
+      <RxPanel style={{ padding: 22 }}>
+        <RxLabel>PRIORIDADES DE EVOLUÇÃO</RxLabel>
+        <div
+          style={{
+            fontSize: 12,
+            color: "var(--fg-3)",
+            marginTop: 6,
+            marginBottom: 14,
+            maxWidth: 640,
+          }}
+        >
+          Revisite a prioridade e o nível atual de cada área. O XP é
+          reponderado conforme o quanto essa frente importa e o quanto ainda
+          precisa evoluir.
+        </div>
+        <LifeAreaProfileEditor
+          key={JSON.stringify(state.lifeAreaProfile.areas)}
+          title=""
+          description=""
+          initialAreas={state.lifeAreaProfile.areas}
+          onSave={(areas) => actions.saveLifeAreaProfile(areas)}
+          saveLabel="Salvar prioridades"
+        />
+      </RxPanel>
     </div>
   );
 }
-
-

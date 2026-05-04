@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
-import { PageIntro } from "@/components/ui/page-intro";
 import type { Weekday, WorkControlEntry, WorkControlStatus } from "@/lib/types";
 import { isTaskCompletedForDate } from "@/lib/utils";
 import {
@@ -419,21 +418,28 @@ export default function WorkModulePage() {
 
   return (
     <div className="space-y-6">
-      <PageIntro
-        eyebrow="Controle vivo"
-        title="Trabalho"
-        description="Uma planilha operacional dentro do sistema: mais clara, editável e com foco real em prazo, cliente, andamento e urgência."
-        actions={
-          <button
-            type="button"
-            className="praxis-button px-4 py-3"
-            onClick={() => setShowNewRow((current) => !current)}
-          >
-            <Plus className="h-4 w-4" />
-            {showNewRow ? "Fechar nova linha" : "Adicionar nova linha"}
-          </button>
-        }
-      />
+      <div className="mod-hero">
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div className="mod-icon" style={{ width: 56, height: 56, borderRadius: 14, fontSize: 24 }}>💼</div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div className="praxis-label" style={{ color: "var(--accent)", marginBottom: 4 }}>▸ MÓDULO · TRABALHO</div>
+            <div className="praxis-title" style={{ fontSize: 26 }}>Controle vivo</div>
+            <div style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 4 }}>
+              Planilha operacional editável: prazo, cliente, andamento e urgência.
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <button
+              type="button"
+              className="v2-btn v2-btn-primary"
+              onClick={() => setShowNewRow((current) => !current)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {showNewRow ? "Fechar" : "Nova linha"}
+            </button>
+          </div>
+        </div>
+      </div>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <GlassPanel className="praxis-panel-active">

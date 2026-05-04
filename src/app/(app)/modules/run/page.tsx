@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Clock3, Plus, TimerReset, Trash2 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
-import { PageIntro } from "@/components/ui/page-intro";
 import { ProgressCurveChart } from "@/components/ui/progress-curve-chart";
 import { formatMinutes, getStartOfWeek, sortEntriesByDate } from "@/lib/module-page-utils";
 import type { PersistedState, Weekday } from "@/lib/types";
@@ -358,11 +357,26 @@ export default function RunModulePage() {
 
   return (
     <main className="mx-auto max-w-7xl space-y-8 px-4 pb-24 pt-4">
-      <PageIntro
-        eyebrow="Módulo"
-        title="Corrida"
-        description="Receba uma recomendação semanal de cardio com base no seu perfil e transforme isso em metas simples para a semana."
-      />
+      <div className="mod-hero">
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div className="mod-icon" style={{ width: 56, height: 56, borderRadius: 14, fontSize: 24 }}>🏃</div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div className="praxis-label" style={{ color: "var(--accent)", marginBottom: 4 }}>▸ MÓDULO · CORRIDA</div>
+            <div className="praxis-title" style={{ fontSize: 26 }}>Cardio guiado pelo perfil</div>
+            <div style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 4 }}>
+              Idade, peso, altura e contexto de saúde viram um ponto de partida em minutos, sessões e km.
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+            <div style={{ textAlign: "right", borderLeft: "1px solid rgba(39,39,42,0.6)", paddingLeft: 16 }}>
+              <div className="praxis-label" style={{ fontSize: 9 }}>SEMANA</div>
+              <div style={{ fontSize: 18, fontWeight: 600, fontFamily: "var(--font-space-grotesk), sans-serif", marginTop: 2 }}>
+                {recommendationMinutes} min
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <GlassPanel className="space-y-5 border-l-2 border-l-[var(--accent)]">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">

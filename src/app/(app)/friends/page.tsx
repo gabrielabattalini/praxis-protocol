@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { UserPlus, Users } from "lucide-react";
+import { Plus, Swords } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
-import { GlassPanel } from "@/components/ui/glass-panel";
-import { PageIntro } from "@/components/ui/page-intro";
+import { Avatar, RankChip, RxChip } from "@/components/redesign/primitives";
+import { rankingSeed } from "@/lib/mock-data";
 import type { FriendTab } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { formatPoints } from "@/lib/utils";
 
 const tabs: Array<{ id: FriendTab; label: string }> = [
   { id: "all", label: "Todos" },
@@ -14,87 +14,178 @@ const tabs: Array<{ id: FriendTab; label: string }> = [
   { id: "requests", label: "Solicitações" },
 ];
 
+function initialsFor(name: string) {
+  return (
+    name
+      .split(/[\s.]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "OP"
+  );
+}
+
 export default function FriendsPage() {
   const { user } = useAppStore();
   const [tab, setTab] = useState<FriendTab>("all");
 
+  // Use top-ranking operators as suggested connections until real social layer lands
+  const operators = rankingSeed.slice(0, 9).map((entry, index) => ({
+    ...entry,
+    streakDays: 44 - index * 3,
+    online: index % 3 !== 2,
+  }));
+
+  const visible = tab === "online" ? operators.filter((op) => op.online) : operators;
+  const onlineCount = operators.filter((op) => op.online).length;
+
   return (
-    <div className="space-y-6">
-      <PageIntro
-        eyebrow="Social"
-        title="Amigos"
-        description="Estrutura pronta para rede social, solicitações e presença online. A tela já segue o padrão visual do Praxis."
-      />
-
-      <section className="grid gap-4 md:grid-cols-3">
-        <GlassPanel className="praxis-kpi space-y-2">
-          <p className="praxis-label text-[var(--accent)]">Usuário base</p>
-          <p className="break-all text-2xl font-medium text-zinc-100">{user.username}</p>
-          <p className="text-sm leading-6 text-zinc-500">Identificador para convites.</p>
-        </GlassPanel>
-        <GlassPanel className="praxis-kpi space-y-2">
-          <p className="praxis-label text-[var(--accent)]">Status</p>
-          <p className="font-title text-4xl font-bold text-zinc-100">0</p>
-          <p className="text-sm leading-6 text-zinc-500">Amigos conectados no momento.</p>
-        </GlassPanel>
-        <GlassPanel className="praxis-kpi space-y-2">
-          <p className="praxis-label text-[var(--accent)]">Solicitações</p>
-          <p className="font-title text-4xl font-bold text-zinc-100">0</p>
-          <p className="text-sm leading-6 text-zinc-500">Pendente de integração.</p>
-        </GlassPanel>
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
-        <GlassPanel className="space-y-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-sm border border-[rgba(251,146,60,0.28)] bg-[rgba(251,146,60,0.12)] text-[var(--accent)]">
-              <UserPlus className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="praxis-label text-[var(--accent)]">Adicionar amigo</p>
-              <h2 className="praxis-title mt-1 text-3xl">Convites futuros</h2>
-            </div>
-          </div>
-          <p className="text-sm leading-6 text-zinc-500">
-            Compartilhe seu nome de usuário para conexões e arenas privadas. Quando a
-            camada social chegar, este bloco vira busca e convite real.
+    <div>
+      {/* Page header */}
+      <div
+        className="page-header"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          gap: 16,
+          flexWrap: "wrap",
+          marginBottom: 28,
+        }}
+      >
+        <div>
+          <div className="page-eyebrow">Rede ativa</div>
+          <h1 className="page-title-v2">Operadores</h1>
+          <p className="page-description-v2">
+            {operators.length} conexões sugeridas · {onlineCount} online · você é{" "}
+            <span style={{ color: "var(--accent)" }}>{user.username}</span>
           </p>
-        </GlassPanel>
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button type="button" className="v2-btn v2-btn-primary">
+            <Plus className="h-3.5 w-3.5" /> Convidar
+          </button>
+          <button type="button" className="v2-btn v2-btn-ghost">
+            Pedidos · 0
+          </button>
+        </div>
+      </div>
 
-        <GlassPanel className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="praxis-label text-[var(--accent)]">Rede</p>
-              <h2 className="praxis-title mt-1 text-3xl">Lista social</h2>
-            </div>
-            <Users className="h-6 w-6 text-[var(--accent)]" />
+      {/* Tab chips */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+        {tabs.map((item) => (
+          <RxChip
+            key={item.id}
+            as="button"
+            active={tab === item.id}
+            onClick={() => setTab(item.id)}
+          >
+            {item.label.toUpperCase()}
+          </RxChip>
+        ))}
+      </div>
+
+      {tab === "requests" ? (
+        <div className="glass" style={{ padding: 40, textAlign: "center" }}>
+          <div className="praxis-label">NENHUMA SOLICITAÇÃO</div>
+          <div style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 8 }}>
+            Quando houver pedidos de amizade, eles aparecerão aqui.
           </div>
-
-          <div className="flex flex-wrap gap-2">
-            {tabs.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setTab(item.id)}
-                className={cn(
-                  "praxis-button-ghost px-4 py-2 text-[0.68rem]",
-                  tab === item.id && "border-[rgba(251,146,60,0.34)] text-[var(--accent)]",
-                )}
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            gap: 16,
+          }}
+        >
+          {visible.map((op) => (
+            <div key={op.id} className="item-card">
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  marginBottom: 16,
+                }}
               >
-                {item.label}
-              </button>
-            ))}
-          </div>
+                <div style={{ position: "relative" }}>
+                  <Avatar
+                    initials={initialsFor(op.name)}
+                    size={48}
+                    tier={op.rankTier}
+                    online={op.online}
+                  />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontFamily: "var(--font-space-grotesk), sans-serif",
+                      fontSize: 15,
+                      fontWeight: 600,
+                      color: "var(--fg)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      letterSpacing: "-0.01em",
+                    }}
+                  >
+                    {op.username}
+                  </div>
+                  <div style={{ marginTop: 6 }}>
+                    <RankChip tier={`${op.rankTier} ${op.rankLabel ?? ""}`.trim()} />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="v2-btn v2-btn-icon"
+                  aria-label="Duelar"
+                  title="Duelar"
+                >
+                  <Swords className="h-4 w-4" />
+                </button>
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 8,
+                }}
+              >
+                <div className="kpi" style={{ padding: 12 }}>
+                  <div className="praxis-label" style={{ fontSize: 9 }}>XP TOTAL</div>
+                  <div
+                    className="kpi-value"
+                    style={{ fontSize: 18, color: "var(--accent)", marginTop: 2 }}
+                  >
+                    {formatPoints(op.totalXp)}
+                  </div>
+                </div>
+                <div className="kpi" style={{ padding: 12 }}>
+                  <div className="praxis-label" style={{ fontSize: 9 }}>STREAK</div>
+                  <div
+                    className="kpi-value"
+                    style={{ fontSize: 18, marginTop: 2 }}
+                  >
+                    {op.streakDays}d
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-          <div className="praxis-panel rounded-sm border-dashed px-4 py-12 text-center">
-            <p className="text-lg font-medium text-zinc-100">Você ainda não tem amigos</p>
-            <p className="mt-3 text-sm leading-6 text-zinc-500">
-              A aba &quot;{tab}&quot; está pronta para receber resultados quando a camada
-              social real entrar.
-            </p>
+      {tab !== "requests" && visible.length === 0 ? (
+        <div className="glass" style={{ padding: 40, textAlign: "center", marginTop: 16 }}>
+          <div className="praxis-label">NENHUM OPERADOR ONLINE</div>
+          <div style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 8 }}>
+            Seus contatos aparecerão aqui quando estiverem ativos.
           </div>
-        </GlassPanel>
-      </section>
+        </div>
+      ) : null}
     </div>
   );
 }

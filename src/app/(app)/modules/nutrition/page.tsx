@@ -2198,8 +2198,30 @@ export default function NutritionModulePage() {
 
       */}
 
+      <div className="mod-hero">
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div className="mod-icon" style={{ width: 56, height: 56, borderRadius: 14, fontSize: 24 }}>🍽️</div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div className="praxis-label" style={{ color: "var(--accent)", marginBottom: 4 }}>▸ MÓDULO · NUTRIÇÃO</div>
+            <div className="praxis-title" style={{ fontSize: 26 }}>Registro da dieta</div>
+            <div style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 4 }}>
+              Biblioteca, metas e refeições no mesmo fluxo.
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+            <div style={{ textAlign: "right", borderLeft: "1px solid rgba(39,39,42,0.6)", paddingLeft: 16 }}>
+              <div className="praxis-label" style={{ fontSize: 9 }}>HOJE</div>
+              <div style={{ fontSize: 18, fontWeight: 600, fontFamily: "var(--font-space-grotesk), sans-serif", marginTop: 2 }}>
+                {consumedDietTotals.calories.toFixed(0)}/{caloriesTarget.toFixed(0)}
+                <span style={{ fontSize: 11, color: "var(--fg-3)", marginLeft: 4 }}>kcal</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <section className="space-y-4">
-        <div className="flex flex-col gap-4 border-l-2 border-tertiary-dim pl-5 pt-4 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-4 border-l-2 border-tertiary-dim pl-5 pt-4 md:flex-row md:items-end md:justify-between" style={{ display: "none" }}>
           <div className="space-y-1">
             <p className="font-label text-[0.6875rem] uppercase tracking-[0.3em] text-tertiary">
               Protocolo alimentar tático

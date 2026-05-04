@@ -1,41 +1,109 @@
 import Link from "next/link";
-import { ArrowLeft, CircleX } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { publicBillingPlan } from "@/lib/billing-config";
 
 export default function CheckoutCancelPage() {
   return (
-    <main className="min-h-screen bg-[#050505] px-4 py-12 text-zinc-100 md:px-6">
-      <div className="mx-auto max-w-3xl border border-zinc-800 bg-[linear-gradient(180deg,rgba(12,12,14,0.96),rgba(6,6,8,0.98))] p-6 md:p-8">
-        <div className="mx-auto grid h-16 w-16 place-items-center rounded-sm border border-zinc-700 bg-[#121214] text-zinc-300">
-          <CircleX className="h-8 w-8" />
-        </div>
-
-        <p className="mt-6 text-center font-mono text-[0.62rem] uppercase tracking-[0.28em] text-zinc-500">
-          Checkout interrompido
-        </p>
-        <h1 className="mt-4 text-center font-display text-4xl font-bold uppercase tracking-tight text-zinc-100 md:text-5xl">
-          Nenhuma cobrança foi concluída.
-        </h1>
-        <p className="mx-auto mt-4 max-w-2xl text-center text-base leading-8 text-zinc-400">
-          Você pode retomar a ativação do {publicBillingPlan.name} quando quiser.
-          O fluxo do Praxis continua disponível para explorar o sistema antes da
-          compra.
-        </p>
-
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link
-            href="/"
-            className="inline-flex h-12 items-center justify-center gap-3 border border-zinc-700 bg-[#121214] px-5 font-mono text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-zinc-100 transition hover:border-amber-400/60 hover:text-amber-200"
+    <main
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px 16px",
+        background: "var(--bg)",
+      }}
+    >
+      <div style={{ maxWidth: 540, width: "100%" }}>
+        <div
+          className="glass"
+          style={{
+            textAlign: "center",
+            padding: "48px 40px",
+          }}
+        >
+          {/* Cancel icon tile */}
+          <div
+            style={{
+              width: 80,
+              height: 80,
+              borderRadius: 20,
+              border: "2px solid rgba(113,113,122,0.5)",
+              background: "rgba(39,39,42,0.4)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 24px",
+              fontSize: 36,
+              color: "var(--fg-3)",
+              fontWeight: 700,
+            }}
           >
-            <ArrowLeft className="h-4 w-4" />
-            Voltar ao site
-          </Link>
-          <Link
-            href="/auth/register"
-            className="inline-flex h-12 items-center justify-center gap-3 border border-amber-400 bg-amber-400 px-5 font-mono text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#090909] shadow-[0_0_18px_rgba(251,146,60,0.32)] transition hover:bg-[#ffb16c] hover:shadow-[0_0_26px_rgba(251,146,60,0.42)]"
+            ✕
+          </div>
+
+          <div
+            className="praxis-label"
+            style={{ color: "var(--fg-3)", marginBottom: 12 }}
           >
-            Criar minha identidade
-          </Link>
+            ▸ CHECKOUT INTERROMPIDO
+          </div>
+          <h1
+            className="praxis-title"
+            style={{ fontSize: 36, marginBottom: 16 }}
+          >
+            Nenhuma cobrança concluída.
+          </h1>
+          <p
+            style={{
+              fontSize: 14,
+              color: "var(--fg-3)",
+              maxWidth: 380,
+              margin: "0 auto 24px",
+              lineHeight: 1.6,
+            }}
+          >
+            Você pode retomar a ativação do {publicBillingPlan.name} quando
+            quiser. O fluxo do Praxis continua disponível para explorar o
+            sistema antes da compra.
+          </p>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
+            <Link
+              href="/auth/register"
+              className="v2-btn v2-btn-primary"
+              style={{
+                width: "100%",
+                padding: 14,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              Criar minha identidade
+            </Link>
+            <Link
+              href="/"
+              className="v2-btn"
+              style={{
+                width: "100%",
+                padding: 14,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              <ArrowLeft className="h-4 w-4" /> Voltar ao site
+            </Link>
+          </div>
         </div>
       </div>
     </main>
