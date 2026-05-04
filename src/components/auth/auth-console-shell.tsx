@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 
 type AuthConsoleShellProps = {
@@ -11,6 +10,9 @@ type AuthConsoleShellProps = {
   children: React.ReactNode;
 };
 
+// v2.0 auth shell — split layout (left manifesto, right form) matching the
+// design bundle's auth/login.html. The right column wraps the children
+// (Clerk SignIn/SignUp), preserving full auth functionality.
 export function AuthConsoleShell({
   badge,
   title,
@@ -21,90 +23,244 @@ export function AuthConsoleShell({
   children,
 }: AuthConsoleShellProps) {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#050505] text-zinc-100 selection:bg-amber-400/30 selection:text-[#050505]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(251,146,60,0.12),transparent_28%),radial-gradient(circle_at_84%_12%,rgba(251,146,60,0.08),transparent_18%),linear-gradient(180deg,#050505_0%,#09090b_46%,#030303_100%)]" />
-      <div className="pointer-events-none absolute inset-0 praxis-tech-grid opacity-[0.08]" />
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "var(--bg)",
+        color: "var(--fg)",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      <style>{`
+        .auth-wrap {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          min-height: 100vh;
+          width: 100%;
+        }
+        .auth-left {
+          padding: 48px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          border-right: 1px solid rgba(39,39,42,0.6);
+          position: relative;
+          overflow: hidden;
+        }
+        .auth-left::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background-image:
+            linear-gradient(rgba(251,146,60,0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(251,146,60,0.04) 1px, transparent 1px);
+          background-size: 48px 48px;
+          pointer-events: none;
+        }
+        .auth-right {
+          padding: 48px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+        }
+        .auth-form-v2 {
+          width: 100%;
+          max-width: 420px;
+        }
+        .auth-logo {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          text-decoration: none;
+        }
+        .auth-logo .logo-word-v2 {
+          font-family: var(--font-space-grotesk), sans-serif;
+          font-size: 22px;
+          font-weight: 700;
+          color: #f4f4f5;
+          letter-spacing: -0.02em;
+        }
+        .auth-logo .logo-word-v2 span {
+          color: var(--accent);
+        }
+        @media (max-width: 768px) {
+          .auth-wrap { grid-template-columns: 1fr; }
+          .auth-left { display: none; }
+        }
+      `}</style>
 
-      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1440px] items-center px-4 py-8 md:px-6 lg:px-10">
-        <section className="grid w-full overflow-hidden border border-zinc-800 bg-[rgba(6,6,8,0.9)] lg:grid-cols-[minmax(0,0.92fr)_minmax(360px,0.88fr)]">
-          <div className="grid-bg hidden border-r border-zinc-800 px-8 py-10 lg:flex lg:flex-col lg:justify-between">
-            <div className="flex items-center gap-3">
-              <Image
-                src="/logo.png"
-                alt="Praxis Protocol"
-                width={28}
-                height={28}
-                className="h-7 w-auto"
-              />
-              <span className="praxis-label text-zinc-500">Praxis Protocol</span>
-            </div>
-
-            <div className="max-w-xl">
-              <p className="font-mono text-[0.64rem] uppercase tracking-[0.28em] text-[var(--accent)]">
-                {badge || "Operador - Gold III"}
-              </p>
-              <h1 className="mt-4 font-display text-4xl font-semibold leading-[0.98] tracking-[-0.03em] text-zinc-100 md:text-5xl">
-                Disciplina nao e humor.
-                <br />
-                E sistema.
-              </h1>
-              <p className="mt-6 max-w-lg text-base leading-8 text-zinc-400">
-                {description ||
-                  "Entre no Praxis para operar tarefas, agenda, treino, dieta e progresso no mesmo nucleo."}
-              </p>
-              <p className="mt-8 font-mono text-[0.56rem] uppercase tracking-[0.24em] text-zinc-600">
-                {"// manifesto.txt - secao 02"}
-              </p>
-            </div>
-
-            <div className="flex items-center justify-between gap-3 border-t border-zinc-800 pt-5">
-              <span className="font-mono text-[0.56rem] uppercase tracking-[0.24em] text-zinc-600">
-                Praxis/Auth/V2
-              </span>
-              <span className="font-mono text-[0.56rem] uppercase tracking-[0.24em] text-zinc-600">
-                * Sys online
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-center px-6 py-10 md:px-8 lg:px-10">
-            <div className="w-full max-w-[380px]">
-              <div className="mb-8 text-center lg:hidden">
-                <Image
-                  src="/logo.png"
-                  alt="Praxis Protocol"
-                  width={36}
-                  height={36}
-                  className="mx-auto h-9 w-auto"
+      <div className="auth-wrap">
+        {/* Left manifesto panel */}
+        <div className="auth-left">
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <Link href="/" className="auth-logo">
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                <path
+                  d="M16 2 L28 9 L28 23 L16 30 L4 23 L4 9 Z"
+                  stroke="#fb923c"
+                  strokeWidth="1.2"
+                  fill="none"
+                  opacity="0.4"
                 />
-              </div>
+                <path
+                  d="M10 8 h7 a5 5 0 0 1 0 10 h-7 M10 8 v16"
+                  stroke="#fb923c"
+                  strokeWidth="2.2"
+                  fill="none"
+                  strokeLinecap="square"
+                />
+                <rect x="15" y="4" width="2" height="2.5" fill="#fb923c" />
+                <rect x="15" y="25.5" width="2" height="2.5" fill="#fb923c" />
+              </svg>
+              <span className="logo-word-v2">
+                praxis<span>.</span>
+              </span>
+            </Link>
+          </div>
 
-              <p className="praxis-label mb-3 text-[var(--accent)]">Acesso - Operador</p>
-              <h2 className="praxis-title text-3xl md:text-4xl">
-                {title || "Entrar no protocolo"}
-              </h2>
-
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <div
+              className="praxis-label"
+              style={{ color: "var(--accent)", marginBottom: 16 }}
+            >
+              ▸ {badge || "Operador · Gold III"}
+            </div>
+            <blockquote
+              style={{
+                fontFamily: "var(--font-space-grotesk), sans-serif",
+                fontSize: 32,
+                fontWeight: 600,
+                letterSpacing: "-0.02em",
+                lineHeight: 1.2,
+                margin: 0,
+                color: "#f4f4f5",
+              }}
+            >
               {description ? (
-                <p className="mt-4 text-sm leading-7 text-zinc-500 lg:hidden">
-                  {description}
-                </p>
-              ) : null}
-
-              <div className="mt-8">{children}</div>
-
-              <div className="mt-8 border-t border-zinc-800 pt-6 text-center">
-                <p className="text-sm text-zinc-500">{alternatePrompt}</p>
-                <Link
-                  href={alternateHref}
-                  className="mt-4 inline-flex h-11 items-center justify-center border border-zinc-700 bg-[#101012] px-5 font-mono text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-zinc-200 transition hover:border-amber-400/35 hover:bg-amber-400/10 hover:text-amber-200"
-                >
-                  {alternateLabel}
-                </Link>
-              </div>
+                description
+              ) : (
+                <>
+                  &ldquo;Disciplina não é humor.
+                  <br />É sistema.&rdquo;
+                </>
+              )}
+            </blockquote>
+            <div
+              className="praxis-label"
+              style={{ marginTop: 24, color: "#52525b" }}
+            >
+              // MANIFESTO.TXT · SEÇÃO 02
             </div>
           </div>
-        </section>
-      </main>
+
+          <div
+            style={{
+              position: "relative",
+              zIndex: 1,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span className="praxis-label" style={{ color: "#52525b" }}>
+              PRAXIS/AUTH/V2
+            </span>
+            <span
+              style={{ display: "flex", alignItems: "center", gap: 8 }}
+            >
+              <div className="status-dot" />
+              <span className="praxis-label" style={{ color: "#52525b" }}>
+                SYS ONLINE
+              </span>
+            </span>
+          </div>
+        </div>
+
+        {/* Right form panel */}
+        <div className="auth-right">
+          <div className="auth-form-v2">
+            {/* Mobile logo */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                marginBottom: 32,
+              }}
+              className="lg:hidden"
+            >
+              <svg width="36" height="36" viewBox="0 0 32 32" fill="none">
+                <path
+                  d="M16 2 L28 9 L28 23 L16 30 L4 23 L4 9 Z"
+                  stroke="#fb923c"
+                  strokeWidth="1.2"
+                  fill="none"
+                  opacity="0.4"
+                />
+                <path
+                  d="M10 8 h7 a5 5 0 0 1 0 10 h-7 M10 8 v16"
+                  stroke="#fb923c"
+                  strokeWidth="2.2"
+                  fill="none"
+                  strokeLinecap="square"
+                />
+              </svg>
+            </div>
+
+            <div
+              className="praxis-label"
+              style={{ color: "var(--accent)", marginBottom: 12 }}
+            >
+              ACESSO · OPERADOR
+            </div>
+            <h1
+              className="praxis-title"
+              style={{ fontSize: 32, marginBottom: 24 }}
+            >
+              {title || "Entrar no protocolo"}
+            </h1>
+
+            {description ? (
+              <p
+                className="lg:hidden"
+                style={{
+                  fontSize: 13,
+                  color: "var(--fg-3)",
+                  marginBottom: 16,
+                  lineHeight: 1.6,
+                }}
+              >
+                {description}
+              </p>
+            ) : null}
+
+            <div style={{ marginTop: 24 }}>{children}</div>
+
+            <div
+              style={{
+                marginTop: 32,
+                paddingTop: 24,
+                borderTop: "1px solid rgba(39,39,42,0.6)",
+                textAlign: "center",
+              }}
+            >
+              <p
+                style={{ fontSize: 13, color: "var(--fg-3)", marginBottom: 12 }}
+              >
+                {alternatePrompt}
+              </p>
+              <Link
+                href={alternateHref}
+                className="v2-btn"
+                style={{ paddingLeft: 20, paddingRight: 20 }}
+              >
+                {alternateLabel}
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
