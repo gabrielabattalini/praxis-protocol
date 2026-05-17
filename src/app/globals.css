@@ -38,6 +38,7 @@
   --ok: #4ade80;
   --warn: #facc15;
   --danger: #f87171;
+  --mobile-bottom-nav-space: 0px;
 
   /* Motion scale */
   --motion-fast: 120ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -101,6 +102,8 @@
   --font-sans: var(--font-inter);
   --font-title: var(--font-space-grotesk);
   --font-display: var(--font-space-grotesk);
+  --font-headline: var(--font-space-grotesk);
+  --font-label: var(--font-mono);
   --font-editorial-serif: var(--font-instrument-serif);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   
@@ -916,7 +919,7 @@ button {
    ═══════════════════════════════════════════════════════════ */
 
 /* Sidebar */
-.shell { display: grid; grid-template-columns: var(--sidebar-w, 256px) 1fr; min-height: 100vh; }
+.shell { display: grid; grid-template-columns: 1fr; min-height: 100vh; }
 .sidebar {
   position: sticky; top: 0; height: 100vh; overflow-y: auto;
   border-right: 1px solid rgba(39, 39, 42, 0.8);
@@ -926,6 +929,22 @@ button {
   scrollbar-width: none;
 }
 .sidebar::-webkit-scrollbar { display: none; }
+.desktop-sidebar { display: none; }
+.mobile-bottom-nav { display: none; }
+
+@media (min-width: 1024px) {
+  .shell { grid-template-columns: var(--sidebar-w, 256px) 1fr; }
+  .desktop-sidebar { display: flex; }
+}
+
+@media (max-width: 1023px) {
+  :root {
+    --mobile-bottom-nav-space: calc(96px + env(safe-area-inset-bottom));
+  }
+
+  .mobile-bottom-nav { display: grid; }
+}
+
 .sidebar-logo {
   padding: 20px 18px; border-bottom: 1px solid rgba(39, 39, 42, 0.6);
   display: flex; align-items: center; gap: 10px; text-decoration: none;
@@ -983,6 +1002,7 @@ button {
 .topbar-breadcrumb {
   font-family: var(--font-mono), monospace;
   font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: #71717a;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .topbar-breadcrumb .current { color: #a1a1aa; }
 .search-box { position: relative; }
@@ -996,6 +1016,12 @@ button {
 .search-box input:focus { width: 240px; border-color: rgba(251, 146, 60, 0.3); box-shadow: 0 0 0 1px rgba(251, 146, 60, 0.12); outline: none; }
 .search-box input::placeholder { color: #52525b; }
 .search-box .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #52525b; pointer-events: none; }
+
+@media (max-width: 480px) {
+  .topbar-shell { padding: 0 18px; gap: 10px; }
+  .topbar-breadcrumb { max-width: 150px; font-size: 9px; letter-spacing: 0.16em; }
+  .topbar-shell > div:last-child .user-avatar-pill { display: none; }
+}
 
 /* Page content header */
 .page-eyebrow {
