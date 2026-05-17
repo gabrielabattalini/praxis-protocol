@@ -329,21 +329,45 @@ function ExecutionButton({
   kind?: "primary" | "secondary" | "ghost";
   playSound?: () => void;
 }) {
-  const className = [
-    "inline-flex h-12 items-center justify-center gap-3 border px-5 font-mono text-[0.72rem] font-semibold uppercase tracking-[0.22em] transition duration-200",
+  const baseStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    padding: "14px 22px",
+    fontFamily: "var(--font-mono), 'JetBrains Mono', monospace",
+    fontSize: 12,
+    fontWeight: 700,
+    letterSpacing: "0.18em",
+    textTransform: "uppercase",
+    cursor: "pointer",
+    textDecoration: "none",
+    borderRadius: 999,
+    transition: "all 0.15s ease",
+  };
+  const kindStyle: React.CSSProperties =
     kind === "primary"
-      ?
-       "border-amber-400 bg-amber-400 text-[#090909] shadow-[0_0_18px_rgba(251,146,60,0.32)] hover:bg-[#ffb16c] hover:shadow-[0_0_26px_rgba(251,146,60,0.42)]"
-      : "",
-    kind === "secondary"
-      ?
-       "border-zinc-700 bg-[#121214] text-zinc-100 hover:border-amber-400/60 hover:text-amber-200"
-      : "",
-    kind === "ghost"
-      ?
-       "border-zinc-800 bg-transparent text-zinc-400 hover:border-zinc-600 hover:text-zinc-100"
-      : "",
-  ].join(" ");
+      ? {
+          background:
+            "linear-gradient(180deg, var(--accent-bright), var(--accent))",
+          color: "#1a0a04",
+          border: "1px solid var(--accent)",
+          boxShadow:
+            "0 0 24px rgba(251,146,60,0.35), inset 0 1px 0 rgba(255,255,255,0.4)",
+        }
+      : kind === "secondary"
+        ? {
+            background: "rgba(0,0,0,0.4)",
+            color: "var(--fg-2)",
+            border: "1px solid var(--line)",
+          }
+        : {
+            background: "transparent",
+            color: "var(--fg-3)",
+            border: "1px solid var(--line-soft)",
+          };
+
+  const className = "praxis-landing-cta";
 
   function handleClick() {
     playSound?.();
@@ -352,14 +376,24 @@ function ExecutionButton({
 
   if (href) {
     return (
-      <Link href={href} onClick={handleClick} className={className}>
+      <Link
+        href={href}
+        onClick={handleClick}
+        className={className}
+        style={{ ...baseStyle, ...kindStyle }}
+      >
         {children}
       </Link>
     );
   }
 
   return (
-    <button type="button" onClick={handleClick} className={className}>
+    <button
+      type="button"
+      onClick={handleClick}
+      className={className}
+      style={{ ...baseStyle, ...kindStyle }}
+    >
       {children}
     </button>
   );
@@ -375,14 +409,46 @@ function IdentityBlock({
   copy: string;
 }) {
   return (
-    <div className="border-l-2 border-amber-400 pl-5">
-      <p className="font-mono text-[0.62rem] uppercase tracking-[0.28em] text-zinc-500">
+    <div className="pl-5" style={{ borderLeft: "2px solid var(--accent)" }}>
+      <p
+        className="font-mono"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 10,
+          fontSize: 11,
+          letterSpacing: "0.28em",
+          fontWeight: 700,
+          color: "var(--accent)",
+          textTransform: "uppercase",
+        }}
+      >
+        <span aria-hidden>▸</span>
         {protocol}
       </p>
-      <h1 className="mt-4 font-display text-4xl font-bold uppercase leading-[0.9] tracking-tight text-zinc-100 md:text-6xl">
+      <h1
+        className="mt-4"
+        style={{
+          fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+          fontSize: "clamp(38px, 6vw, 72px)",
+          fontWeight: 600,
+          letterSpacing: "-0.035em",
+          lineHeight: 0.98,
+          color: "var(--fg)",
+          margin: "16px 0 0",
+        }}
+      >
         {title}
       </h1>
-      <p className="mt-6 max-w-2xl text-base leading-8 text-zinc-400 md:text-lg">
+      <p
+        className="mt-6 max-w-2xl"
+        style={{
+          fontSize: 18,
+          lineHeight: 1.55,
+          color: "var(--fg-3)",
+          marginTop: 24,
+        }}
+      >
         {copy}
       </p>
     </div>
