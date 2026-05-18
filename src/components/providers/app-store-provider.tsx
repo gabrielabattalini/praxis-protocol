@@ -13,6 +13,13 @@ import {
   useUserClient,
 } from "@/components/providers/auth-client-provider";
 import {
+  coerceAccountEntitlement,
+  defaultAccountEntitlement,
+  isFounderEmail,
+  localDevelopmentEntitlement,
+  type AccountEntitlement,
+} from "@/lib/access-entitlements";
+import {
   createDefaultGuidedOnboardingProfile,
   buildUserProfile,
   createDefaultLifeAreaProfile,
@@ -89,6 +96,7 @@ type AppStoreValue = {
   hydrated: boolean;
   state: PersistedState;
   user: ReturnType<typeof buildUserProfile>;
+  entitlement: AccountEntitlement;
   actions: {
     toggleTask: (taskId: string) => void;
     addTask: (task: {
@@ -163,6 +171,10 @@ type AppStoreValue = {
         Omit<PersistedState["personalProfile"], "completedAt">
       >,
     ) => void;
+    updateAccountProfile: (payload: {
+      name?: string;
+      username?: string;
+    }) => void;
     setTheme: (theme: ThemeId) => void;
     toggleSetting: (key: "sound" | "vibration" | "darkMode" | "notifications") => void;
     toggleModuleVisibility: (moduleId: ModuleId) => void;
@@ -433,7 +445,7 @@ type AppStoreValue = {
 };
 
 type Action =
-  | { type: "hydrate"; payload: PersistedState }
+  | { type: "hydrate"; payload: PersistedState; allowSeed?: boolean }
   | { type: "sync-session"; session: PersistedState["session"] }
   | { type: "toggle-task"; taskId: string }
   | { type: "sync-daily-task-completions" }
@@ -501,6 +513,13 @@ type Action =
       payload: Partial<
         Omit<PersistedState["personalProfile"], "completedAt">
       >;
+    }
+  | {
+      type: "update-account-profile";
+      payload: {
+        name?: string;
+        username?: string;
+      };
     }
   | { type: "set-theme"; theme: ThemeId }
   | {
@@ -975,8 +994,12 @@ function normalizeWorkControlEntries(
 function reducer(state: PersistedState, action: Action): PersistedState {
   switch (action.type) {
     case "hydrate": {
-      const hydratedState = parseStateValue(action.payload);
-      return syncShoppingFinanceState(hydratedState ?? emptyPersistedState);
+      const allowSeed = action.allowSeed ?? true;
+      const hydratedState = parseStateValue(action.payload, allowSeed);
+      return syncShoppingFinanceState(
+        hydratedState ?? emptyPersistedState,
+        allowSeed,
+      );
     }
     case "sync-session":
       return {
@@ -1214,6 +1237,18 @@ function reducer(state: PersistedState, action: Action): PersistedState {
           restingHeartRateBpm,
           notes: notes ? notes : undefined,
           completedAt: state.personalProfile.completedAt ?? new Date().toISOString(),
+        },
+      };
+    }
+    case "update-account-profile": {
+      const name = action.payload.name?.trim();
+      const username = action.payload.username?.trim();
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          name: name || state.session.name,
+          username: username || state.session.username,
         },
       };
     }
@@ -3091,6 +3126,7 @@ function normalizeShoppingSnapshot(
 function normalizeShoppingModuleState(
   state: Partial<ShoppingModuleStoredState> | undefined,
   scope: ShoppingModuleScope,
+  allowSeed = true,
 ): ShoppingModuleStoredState {
   const hasExplicitEmptyState =
     Boolean(state) &&
@@ -3103,6 +3139,42 @@ function normalizeShoppingModuleState(
 
   if (!state || hasExplicitEmptyState) {
     return createEmptyShoppingModuleState();
+  }
+
+  // Brand-new / non-founder accounts must never receive the demo seed.
+  // Keep whatever items the user actually added; just don't inject seeds.
+  if (!allowSeed) {
+    const existingOnly = Array.isArray(state?.items)
+      ? state.items.map((item, index) =>
+          normalizeShoppingTrackedItem(item, scope, index),
+        )
+      : [];
+    const existingIds = new Set(existingOnly.map((item) => item.id));
+    return {
+      items: existingOnly,
+      selectedItemId:
+        state?.selectedItemId && existingIds.has(state.selectedItemId)
+          ? state.selectedItemId
+          : existingOnly[0]?.id,
+      snapshots: Object.entries(state?.snapshots ?? {}).reduce<
+        ShoppingModuleStoredState["snapshots"]
+      >((next, [itemId, snapshot]) => {
+        if (!existingIds.has(itemId)) return next;
+        const normalized = normalizeShoppingSnapshot(snapshot);
+        if (normalized) next[itemId] = normalized;
+        return next;
+      }, {}),
+      removedSeedItemIds: Array.isArray(state?.removedSeedItemIds)
+        ? state.removedSeedItemIds
+            .map((id) => id?.trim())
+            .filter((id): id is string => Boolean(id))
+        : [],
+      removedSeedNames: Array.isArray(state?.removedSeedNames)
+        ? state.removedSeedNames
+            .map((name) => normalizeShoppingSeedName(name))
+            .filter(Boolean)
+        : [],
+    };
   }
 
   const removedSeedItemIds = Array.isArray(state?.removedSeedItemIds)
@@ -3237,12 +3309,20 @@ function getShoppingMonthlyTotal(moduleState: ShoppingModuleStoredState) {
   );
 }
 
-function syncShoppingFinanceState(state: PersistedState): PersistedState {
+function syncShoppingFinanceState(
+  state: PersistedState,
+  allowSeed = true,
+): PersistedState {
   const nextShoppingModules = {
-    market: normalizeShoppingModuleState(state.shoppingModules?.market, "market"),
+    market: normalizeShoppingModuleState(
+      state.shoppingModules?.market,
+      "market",
+      allowSeed,
+    ),
     supplements: normalizeShoppingModuleState(
       state.shoppingModules?.supplements,
       "supplements",
+      allowSeed,
     ),
   };
 
@@ -4069,7 +4149,10 @@ const emptyPersistedState: PersistedState = {
   },
 };
 
-function parseStateValue(rawValue: unknown): PersistedState | null {
+function parseStateValue(
+  rawValue: unknown,
+  allowSeed = true,
+): PersistedState | null {
   try {
     const parsed = sanitizePersistedValue(rawValue) as Partial<PersistedState> & {
       aiHistory?: unknown;
@@ -4132,10 +4215,12 @@ function parseStateValue(rawValue: unknown): PersistedState | null {
       market: normalizeShoppingModuleState(
         parsedState.shoppingModules?.market,
         "market",
+        allowSeed,
       ),
       supplements: normalizeShoppingModuleState(
         parsedState.shoppingModules?.supplements,
         "supplements",
+        allowSeed,
       ),
     };
     const lifeAreaProfile = normalizeLifeAreaProfile(parsedState.lifeAreaProfile);
@@ -4351,6 +4436,35 @@ function getEnvelopeTimestamp(envelope: ParsedStateEnvelope | null | undefined) 
   return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
+function getEnvelopeDataScore(envelope: ParsedStateEnvelope | null | undefined) {
+  const state = envelope?.state;
+
+  if (!state) return 0;
+
+  const shoppingItems =
+    (state.shoppingModules?.market?.items?.length ?? 0) +
+    (state.shoppingModules?.supplements?.items?.length ?? 0);
+
+  return (
+    state.tasks.length +
+    state.financeLessons.length +
+    state.workoutPlan.length +
+    state.workoutLoadEntries.length +
+    state.workoutDayCompletions.length +
+    state.mealPlan.length +
+    state.foodDatabase.length +
+    state.weightEntries.length +
+    state.waterEntries.length +
+    state.dietPlans.length +
+    state.workoutPrograms.length +
+    state.reminders.length +
+    state.householdSupplies.length +
+    state.workControlEntries.length +
+    state.financeBudget.lines.length +
+    shoppingItems
+  );
+}
+
 function isEnvelopeCompatibleWithUser(
   envelope: ParsedStateEnvelope | null | undefined,
   userId: string | null | undefined,
@@ -4384,7 +4498,29 @@ function resolveHydrationEnvelope(
       : serverEnvelope;
   }
 
-  return serverEnvelope ?? localEnvelope ?? legacyEnvelope ?? null;
+  if (localEnvelope) {
+    return localEnvelope;
+  }
+
+  if (serverEnvelope && legacyEnvelope) {
+    const serverTimestamp = getEnvelopeTimestamp(serverEnvelope);
+    const legacyTimestamp = getEnvelopeTimestamp(legacyEnvelope);
+
+    if (legacyTimestamp && legacyTimestamp > serverTimestamp) {
+      return legacyEnvelope;
+    }
+
+    if (
+      !legacyTimestamp &&
+      getEnvelopeDataScore(legacyEnvelope) > getEnvelopeDataScore(serverEnvelope)
+    ) {
+      return legacyEnvelope;
+    }
+
+    return serverEnvelope;
+  }
+
+  return serverEnvelope ?? legacyEnvelope ?? null;
 }
 
 function findLegacyPersistedState(
@@ -4437,6 +4573,11 @@ export function AppStoreProvider({
   const { user: clerkUser } = useUserClient();
   const [state, dispatch] = useReducer(reducer, emptyPersistedState);
   const [hydrated, setHydrated] = useState(false);
+  const [entitlement, setEntitlement] = useState<AccountEntitlement>(
+    isLocalAuthBypassEnabled
+      ? localDevelopmentEntitlement
+      : defaultAccountEntitlement,
+  );
   const effectiveAuthLoaded = isLocalAuthBypassEnabled ? true : authLoaded;
   const activeStorageKey = userId
     ? getScopedStorageKey(userId)
@@ -4471,8 +4612,6 @@ export function AppStoreProvider({
           ? findLegacyPersistedState(activeStorageKey, userId, currentEmail)
           : null;
 
-      legacyKeysToClearRef.current = legacyPayload?.keysToClear ?? [];
-
       let serverEnvelope: ParsedStateEnvelope | null = null;
 
       if (userId) {
@@ -4504,13 +4643,24 @@ export function AppStoreProvider({
 
       if (cancelled) return;
 
+      legacyKeysToClearRef.current =
+        resolvedEnvelope === legacyPayload?.envelope
+          ? legacyPayload?.keysToClear ?? []
+          : [];
+
       lastServerSnapshotRef.current = serverEnvelope
         ? JSON.stringify(serverEnvelope.state)
         : "";
 
+      // Demo seed (market/supplements) only for the local-review bypass
+      // or the founder account. Brand-new real accounts stay clean.
+      const allowSeed =
+        isLocalAuthBypassEnabled || isFounderEmail(currentEmail);
+
       dispatch({
         type: "hydrate",
         payload: resolvedEnvelope?.state ?? emptyPersistedState,
+        allowSeed,
       });
 
       remoteSyncReadyRef.current = Boolean(userId) && !isLocalAuthBypassEnabled;
@@ -4622,6 +4772,51 @@ export function AppStoreProvider({
   ]);
 
   useEffect(() => {
+    if (!effectiveAuthLoaded) return;
+
+    if (isLocalAuthBypassEnabled) {
+      setEntitlement(localDevelopmentEntitlement);
+      return;
+    }
+
+    if (!userId) {
+      setEntitlement(defaultAccountEntitlement);
+      return;
+    }
+
+    let cancelled = false;
+
+    const syncEntitlement = async () => {
+      try {
+        const response = await fetch("/api/account-entitlement", {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+
+        if (!response.ok) {
+          throw new Error("Falha ao carregar o acesso da conta.");
+        }
+
+        const payload = coerceAccountEntitlement(await response.json());
+
+        if (!cancelled) {
+          setEntitlement(payload);
+        }
+      } catch {
+        if (!cancelled) {
+          setEntitlement(defaultAccountEntitlement);
+        }
+      }
+    };
+
+    void syncEntitlement();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentEmail, effectiveAuthLoaded, userId]);
+
+  useEffect(() => {
     if (!hydrated) return;
 
     let timeoutId: number | null = null;
@@ -4657,6 +4852,7 @@ export function AppStoreProvider({
     hydrated,
     state,
     user: buildUserProfile(state),
+    entitlement,
     actions: {
       toggleTask(taskId) {
         dispatch({ type: "toggle-task", taskId });
@@ -4712,6 +4908,9 @@ export function AppStoreProvider({
       },
       updatePersonalProfile(payload) {
         dispatch({ type: "update-personal-profile", payload });
+      },
+      updateAccountProfile(payload) {
+        dispatch({ type: "update-account-profile", payload });
       },
       setTheme(theme) {
         dispatch({ type: "set-theme", theme });

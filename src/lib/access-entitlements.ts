@@ -34,6 +34,19 @@ export const FOUNDER_ACCESS_EMAILS: readonly string[] = [
   "gabrielabattalini@gmail.com",
 ];
 
+/**
+ * True only for the built-in founder/admin email(s). Used to decide who
+ * gets the pre-seeded demo data (market, supplements, etc.). Brand-new
+ * real accounts must start completely clean, so they return false here.
+ */
+export function isFounderEmail(email: string | null | undefined): boolean {
+  const normalized = normalizeEntitlementEmail(email);
+  if (!normalized) return false;
+  return FOUNDER_ACCESS_EMAILS.some(
+    (founder) => normalizeEntitlementEmail(founder) === normalized,
+  );
+}
+
 export function parseLifetimeAccessEmails(rawValue: string | null | undefined) {
   return new Set(
     [...FOUNDER_ACCESS_EMAILS, ...(rawValue ?? "").split(/[\s,;]+/)]

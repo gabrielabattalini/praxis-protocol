@@ -61,16 +61,19 @@ type SleepLogDraft = {
 };
 
 function createDefaultSleepPlan(): SleepWeeklyPlan {
+  // New accounts start with NO sleep definition — every day disabled,
+  // no bedtime/wake times, no recommended hours. The user defines it.
+  const emptyDay = { enabled: false, bedtime: "", wakeTime: "" };
   return {
-    recommendedHours: "08:00",
+    recommendedHours: "",
     days: {
-      monday: { enabled: true, bedtime: "23:00", wakeTime: "07:00" },
-      tuesday: { enabled: true, bedtime: "23:00", wakeTime: "07:00" },
-      wednesday: { enabled: true, bedtime: "23:00", wakeTime: "07:00" },
-      thursday: { enabled: true, bedtime: "23:00", wakeTime: "07:00" },
-      friday: { enabled: true, bedtime: "23:15", wakeTime: "07:15" },
-      saturday: { enabled: true, bedtime: "23:30", wakeTime: "08:00" },
-      sunday: { enabled: true, bedtime: "23:00", wakeTime: "07:00" },
+      monday: { ...emptyDay },
+      tuesday: { ...emptyDay },
+      wednesday: { ...emptyDay },
+      thursday: { ...emptyDay },
+      friday: { ...emptyDay },
+      saturday: { ...emptyDay },
+      sunday: { ...emptyDay },
     },
   };
 }
