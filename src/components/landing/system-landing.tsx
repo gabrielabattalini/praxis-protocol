@@ -1472,6 +1472,15 @@ export function SystemLanding() {
                 </p>
               </div>
             </button>
+
+            <ExecutionButton
+              href="/auth/login"
+              playSound={handleButtonClick}
+              kind="primary"
+            >
+              Entrar
+              <ArrowRight className="h-4 w-4" />
+            </ExecutionButton>
           </div>
         </header>
 
