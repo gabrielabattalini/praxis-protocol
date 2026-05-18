@@ -8,7 +8,6 @@ import {
   RxLabel,
   RxPanel,
 } from "@/components/redesign/primitives";
-import { themeOptions } from "@/lib/mock-data";
 import type {
   ActivityLevel,
   BiologicalSex,
@@ -941,108 +940,6 @@ export default function ProfilePage() {
             ) : null}
           </div>
         </form>
-      </RxPanel>
-
-      {/* Theme picker */}
-      <RxPanel style={{ padding: 22, marginBottom: 18 }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-end",
-            gap: 10,
-            marginBottom: 14,
-            flexWrap: "wrap",
-          }}
-        >
-          <RxLabel>TEMA DE CORES</RxLabel>
-          <span
-            className="rx-mono"
-            style={{
-              fontSize: 10,
-              color: "var(--fg-3)",
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-            }}
-          >
-            Ativo:{" "}
-            {themeOptions.find((t) => t.id === state.settings.theme)?.name ??
-              "Padrão"}
-          </span>
-        </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-            gap: 12,
-          }}
-        >
-          {themeOptions.map((theme) => {
-            const active = state.settings.theme === theme.id;
-            return (
-              <button
-                key={theme.id}
-                type="button"
-                onClick={() => actions.setTheme(theme.id)}
-                style={{
-                  padding: 12,
-                  border: active
-                    ? "1px solid var(--accent)"
-                    : "1px solid var(--line)",
-                  background: active
-                    ? "rgba(251,146,60,0.08)"
-                    : "rgba(0,0,0,0.3)",
-                  borderRadius: 12,
-                  cursor: "pointer",
-                  textAlign: "left",
-                  fontFamily: "inherit",
-                  color: "inherit",
-                }}
-              >
-                <div
-                  style={{
-                    height: 52,
-                    borderRadius: 12,
-                    background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.secondary} 100%)`,
-                    boxShadow: active ? `0 0 18px ${theme.glow}` : "none",
-                    border: "1px solid rgba(255,255,255,0.04)",
-                  }}
-                />
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginTop: 10,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: "var(--fg)",
-                    }}
-                  >
-                    {theme.name}
-                  </span>
-                  {active ? (
-                    <span
-                      className="rx-mono"
-                      style={{
-                        fontSize: 9,
-                        color: "var(--accent)",
-                        letterSpacing: "0.22em",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      ● ATIVO
-                    </span>
-                  ) : null}
-                </div>
-              </button>
-            );
-          })}
-        </div>
       </RxPanel>
 
       {/* Life areas */}

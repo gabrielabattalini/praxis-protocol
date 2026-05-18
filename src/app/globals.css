@@ -939,10 +939,23 @@ button {
 
 @media (max-width: 1023px) {
   :root {
-    --mobile-bottom-nav-space: calc(96px + env(safe-area-inset-bottom));
+    /* Generous clearance so page CTAs are never hidden behind the
+       fixed bottom nav (nav is ~72px; extra buffer for tall buttons). */
+    --mobile-bottom-nav-space: calc(120px + env(safe-area-inset-bottom));
   }
 
-  .mobile-bottom-nav { display: grid; }
+  .mobile-bottom-nav {
+    display: grid;
+    /* Lock the nav height so it can't exceed the reserved space. */
+    max-height: calc(72px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Any page-level sticky/fixed bottom bar must clear the mobile nav. */
+@media (max-width: 1023px) {
+  .clear-bottom-nav {
+    margin-bottom: var(--mobile-bottom-nav-space);
+  }
 }
 
 .sidebar-logo {

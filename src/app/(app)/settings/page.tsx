@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { usePushNotifications } from "@/components/providers/notifications-provider";
 import { useAppStore } from "@/components/providers/app-store-provider";
+import { useClerkClient, useUserClient } from "@/components/providers/auth-client-provider";
 import { StripeCheckoutButton } from "@/components/billing/stripe-checkout-button";
 import { RxLabel, RxPanel } from "@/components/redesign/primitives";
 import { moduleCatalog, themeOptions } from "@/lib/mock-data";
@@ -18,23 +19,17 @@ import { cn } from "@/lib/utils";
 
 type SettingsTab =
   | "account"
-  | "appearance"
   | "themes"
   | "notifications"
-  | "privacy"
-  | "sync"
-  | "subscription"
-  | "data";
+  | "modules"
+  | "subscription";
 
 const settingsTabs: Array<{ id: SettingsTab; label: string }> = [
   { id: "account", label: "Conta" },
-  { id: "appearance", label: "Aparência" },
   { id: "themes", label: "Temas" },
   { id: "notifications", label: "Notificações" },
-  { id: "privacy", label: "Privacidade" },
-  { id: "sync", label: "Sincronização" },
+  { id: "modules", label: "Módulos" },
   { id: "subscription", label: "Assinatura" },
-  { id: "data", label: "Dados" },
 ];
 
 const toggles: Array<{
@@ -116,7 +111,9 @@ function TabContent({
 }: {
   tab: SettingsTab;
 }) {
-  const { state, actions } = useAppStore();
+  const { state, actions, entitlement } = useAppStore();
+  const { user: clerkUser } = useUserClient();
+  const clerk = useClerkClient();
   const {
     supported,
     enabled,
@@ -135,6 +132,282 @@ function TabContent({
     syncNow,
     sendTestNotification,
   } = usePushNotifications();
+  const [accountNotice, setAccountNotice] = useState("");
+  const accountEmail = state.session.email || clerkUser?.primaryEmailAddress?.emailAddress || "";
+  const accountUsername =
+    state.session.username || accountEmail.split("@")[0]?.trim() || "operador";
+  const accountNameSource = state.session.name || clerkUser?.fullName || "";
+  const [accountNameDraft, setAccountNameDraft] = useState({
+    source: accountNameSource,
+    value: accountNameSource,
+  });
+  const accountName =
+    accountNameDraft.source === accountNameSource
+      ? accountNameDraft.value
+      : accountNameSource;
+
+  function setAccountName(value: string) {
+    setAccountNameDraft({
+      source: accountNameSource,
+      value,
+    });
+  }
+
+  async function handleAccountSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextName = accountName.trim() || "Operador Praxis";
+    const [firstName = nextName, ...lastNameParts] = nextName.split(/\s+/);
+
+    try {
+      if (clerkUser?.update) {
+        await clerkUser.update({
+          firstName,
+          lastName: lastNameParts.join(" ") || undefined,
+        });
+      }
+
+      actions.updateAccountProfile({
+        name: nextName,
+        username: accountUsername,
+      });
+      setAccountNotice("Dados da conta atualizados.");
+    } catch {
+      actions.updateAccountProfile({
+        name: nextName,
+        username: accountUsername,
+      });
+      setAccountNotice("Nome salvo localmente. O portal de login não respondeu agora.");
+    }
+  }
+
+  function openAccountPortal() {
+    if (clerk.openUserProfile) {
+      clerk.openUserProfile();
+      return;
+    }
+    setAccountNotice("Gerenciar e-mail e senha fica disponível quando o login real estiver ativo.");
+  }
+
+  if (tab === "account") {
+    return (
+      <div>
+        <RxLabel>CONTA DO OPERADOR</RxLabel>
+        <div
+          className="rx-display"
+          style={{
+            fontSize: 24,
+            fontWeight: 600,
+            marginTop: 8,
+            marginBottom: 8,
+            color: "var(--fg)",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          Dados de acesso
+        </div>
+        <div
+          style={{
+            fontSize: 13,
+            color: "var(--fg-3)",
+            marginBottom: 20,
+            maxWidth: 620,
+            lineHeight: 1.6,
+          }}
+        >
+          Edite seu nome no Praxis e use o portal da conta para alterar e-mail ou senha com segurança.
+        </div>
+
+        <form onSubmit={handleAccountSave}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: 12,
+            }}
+          >
+            <label className="rx-panel" style={{ padding: 16 }}>
+              <span
+                className="rx-mono"
+                style={{
+                  display: "block",
+                  fontSize: 9,
+                  color: "var(--fg-3)",
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  marginBottom: 10,
+                }}
+              >
+                Nome
+              </span>
+              <input
+                value={accountName}
+                onChange={(event) => setAccountName(event.target.value)}
+                placeholder="Seu nome"
+                style={{
+                  width: "100%",
+                  height: 44,
+                  border: "1px solid var(--line)",
+                  background: "rgba(0,0,0,0.35)",
+                  color: "var(--fg)",
+                  padding: "0 12px",
+                  borderRadius: 12,
+                  fontSize: 15,
+                  outline: "none",
+                }}
+              />
+            </label>
+
+            <div className="rx-panel" style={{ padding: 16 }}>
+              <div
+                className="rx-mono"
+                style={{
+                  fontSize: 9,
+                  color: "var(--fg-3)",
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  marginBottom: 10,
+                }}
+              >
+                E-mail
+              </div>
+              <div style={{ fontSize: 15, color: "var(--fg)", wordBreak: "break-word" }}>
+                {accountEmail || "Nenhum e-mail vinculado"}
+              </div>
+              <div className="rx-mono" style={{ marginTop: 8, fontSize: 10, color: "var(--fg-4)" }}>
+                Alteração feita no portal seguro da conta.
+              </div>
+            </div>
+
+            <div className="rx-panel" style={{ padding: 16 }}>
+              <div
+                className="rx-mono"
+                style={{
+                  fontSize: 9,
+                  color: "var(--fg-3)",
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  marginBottom: 10,
+                }}
+              >
+                Senha
+              </div>
+              <div style={{ fontSize: 18, color: "var(--fg)" }}>••••••••</div>
+              <div className="rx-mono" style={{ marginTop: 8, fontSize: 10, color: "var(--fg-4)" }}>
+                Alterar ou recuperar pelo provedor de login.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16 }}>
+            <button type="submit" className="rx-btn-primary">
+              Salvar nome
+            </button>
+            <button type="button" onClick={openAccountPortal} className="rx-btn-ghost">
+              Gerenciar e-mail e senha
+            </button>
+          </div>
+        </form>
+
+        <div style={{ marginTop: 28 }}>
+          <RxLabel>SOM E VIBRAÇÃO</RxLabel>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: 12,
+              marginTop: 12,
+            }}
+          >
+            {toggles.map((toggle) => {
+              const Icon = toggleIcons[toggle.key];
+              const active = state.settings[toggle.key];
+              return (
+                <button
+                  key={toggle.key}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => actions.toggleSetting(toggle.key)}
+                  className={active ? "rx-panel-hot" : "rx-panel"}
+                  style={{
+                    padding: 16,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    display: "grid",
+                    gridTemplateColumns: "auto 1fr auto",
+                    gap: 12,
+                    alignItems: "center",
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      height: 40,
+                      width: 40,
+                      border: `1px solid ${active ? "var(--accent)" : "var(--line)"}`,
+                      background: active ? "rgba(251,146,60,0.08)" : "rgba(0,0,0,0.3)",
+                      color: active ? "var(--accent)" : "var(--fg-3)",
+                      borderRadius: 12,
+                    }}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--fg)" }}>
+                      {toggle.title}
+                    </div>
+                    <div
+                      className="rx-mono"
+                      style={{
+                        fontSize: 10,
+                        color: "var(--fg-3)",
+                        marginTop: 4,
+                        letterSpacing: "0.08em",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {toggle.description}
+                    </div>
+                  </div>
+                  <span
+                    className="rx-mono"
+                    style={{
+                      fontSize: 10,
+                      padding: "6px 10px",
+                      border: `1px solid ${active ? "var(--accent)" : "var(--line)"}`,
+                      color: active ? "var(--accent)" : "var(--fg-3)",
+                      letterSpacing: "0.18em",
+                      textTransform: "uppercase",
+                      borderRadius: 12,
+                    }}
+                  >
+                    {active ? "ATIVO" : "INATIVO"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {accountNotice ? (
+          <div
+            style={{
+              marginTop: 16,
+              padding: "10px 14px",
+              border: "1px solid rgba(251,146,60,0.3)",
+              background: "rgba(251,146,60,0.08)",
+              color: "var(--accent)",
+              fontSize: 12,
+              borderRadius: 12,
+            }}
+          >
+            {accountNotice}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   if (tab === "themes") {
     return (
@@ -222,126 +495,6 @@ function TabContent({
               </button>
             );
           })}
-        </div>
-      </div>
-    );
-  }
-
-  if (tab === "appearance") {
-    return (
-      <div>
-        <RxLabel>PREFERÊNCIAS DE INTERFACE</RxLabel>
-        <div
-          className="rx-display"
-          style={{
-            fontSize: 24,
-            fontWeight: 600,
-            marginTop: 8,
-            marginBottom: 20,
-            color: "var(--fg)",
-            letterSpacing: "-0.02em",
-          }}
-        >
-          Som e vibração
-        </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-            gap: 12,
-          }}
-        >
-          {toggles.map((toggle) => {
-            const Icon = toggleIcons[toggle.key];
-            const active = state.settings[toggle.key];
-            return (
-              <button
-                key={toggle.key}
-                type="button"
-                aria-pressed={active}
-                onClick={() => actions.toggleSetting(toggle.key)}
-                className={active ? "rx-panel-hot" : "rx-panel"}
-                style={{
-                  padding: 16,
-                  cursor: "pointer",
-                  textAlign: "left",
-                  display: "grid",
-                  gridTemplateColumns: "auto 1fr auto",
-                  gap: 12,
-                  alignItems: "center",
-                }}
-              >
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    height: 40,
-                    width: 40,
-                    border: `1px solid ${active ? "var(--accent)" : "var(--line)"}`,
-                    background: active ? "rgba(251,146,60,0.08)" : "rgba(0,0,0,0.3)",
-                    color: active ? "var(--accent)" : "var(--fg-3)",
-                    borderRadius: 12,
-                  }}
-                >
-                  <Icon className="h-4 w-4" />
-                </span>
-                <div style={{ minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 600,
-                      color: "var(--fg)",
-                    }}
-                  >
-                    {toggle.title}
-                  </div>
-                  <div
-                    className="rx-mono"
-                    style={{
-                      fontSize: 10,
-                      color: "var(--fg-3)",
-                      marginTop: 4,
-                      letterSpacing: "0.08em",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {toggle.description}
-                  </div>
-                </div>
-                <span
-                  className="rx-mono"
-                  style={{
-                    fontSize: 10,
-                    padding: "6px 10px",
-                    border: `1px solid ${active ? "var(--accent)" : "var(--line)"}`,
-                    color: active ? "var(--accent)" : "var(--fg-3)",
-                    letterSpacing: "0.18em",
-                    textTransform: "uppercase",
-                    borderRadius: 12,
-                  }}
-                >
-                  {active ? "ATIVO" : "INATIVO"}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div style={{ marginTop: 32 }}>
-          <RxLabel>DENSIDADE</RxLabel>
-          <div
-            className="rx-mono"
-            style={{
-              fontSize: 11,
-              color: "var(--fg-3)",
-              marginTop: 6,
-              letterSpacing: "0.08em",
-              maxWidth: 460,
-            }}
-          >
-            Confortável · padrão do Praxis Protocol.
-          </div>
         </div>
       </div>
     );
@@ -548,7 +701,7 @@ function TabContent({
     );
   }
 
-  if (tab === "privacy") {
+  if (tab === "modules") {
     return (
       <div>
         <RxLabel>MÓDULOS VISÍVEIS</RxLabel>
@@ -681,6 +834,22 @@ function TabContent({
         >
           Libere os 13 módulos, arena ilimitada e sincronização em nuvem.
         </div>
+        {entitlement.hasFullAccess ? (
+          <div
+            style={{
+              border: "1px solid rgba(52,211,153,0.24)",
+              background: "rgba(16,185,129,0.08)",
+              color: "#bbf7d0",
+              padding: "12px 14px",
+              borderRadius: 12,
+              fontSize: 13,
+              marginBottom: 16,
+              lineHeight: 1.5,
+            }}
+          >
+            {entitlement.label} ativo. {entitlement.reason}
+          </div>
+        ) : null}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {[
             "Notificações sincronizadas no PC e no celular",
@@ -716,54 +885,41 @@ function TabContent({
           ))}
         </div>
         <div style={{ marginTop: 18 }}>
-          <StripeCheckoutButton
-            source="settings-module"
-            className="rx-btn-primary"
-            noteClassName="text-zinc-500"
-            errorClassName="text-amber-200"
-          >
-            Ver planos e liberar acesso
-          </StripeCheckoutButton>
+          {entitlement.hasFullAccess ? (
+            <div
+              style={{
+                border: "1px solid rgba(52,211,153,0.28)",
+                background: "rgba(16,185,129,0.1)",
+                color: "#bbf7d0",
+                padding: "12px 14px",
+                borderRadius: 12,
+                fontSize: 13,
+                fontWeight: 700,
+              }}
+            >
+              Acesso completo liberado para esta conta.
+            </div>
+          ) : (
+            <StripeCheckoutButton
+              source="settings-module"
+              className="rx-btn-primary"
+              noteClassName="text-zinc-500"
+              errorClassName="text-amber-200"
+            >
+              Ver planos e liberar acesso
+            </StripeCheckoutButton>
+          )}
         </div>
       </div>
     );
   }
 
-  // Default placeholder for tabs not yet wired (account, sync, data)
-  return (
-    <RxPanel style={{ padding: 32, textAlign: "center" }}>
-      <RxLabel>EM BREVE</RxLabel>
-      <div
-        className="rx-display"
-        style={{
-          fontSize: 18,
-          fontWeight: 600,
-          marginTop: 10,
-          color: "var(--fg)",
-        }}
-      >
-        Esta seção está pronta para receber conteúdo.
-      </div>
-      <div
-        style={{
-          fontSize: 12,
-          color: "var(--fg-3)",
-          marginTop: 6,
-          maxWidth: 420,
-          marginLeft: "auto",
-          marginRight: "auto",
-        }}
-      >
-        Use uma das abas à esquerda — Temas, Aparência, Notificações,
-        Privacidade ou Assinatura.
-      </div>
-    </RxPanel>
-  );
+  return null;
 }
 
 export default function SettingsPage() {
   const { state } = useAppStore();
-  const [tab, setTab] = useState<SettingsTab>("themes");
+  const [tab, setTab] = useState<SettingsTab>("account");
 
   const activeModulesCount = moduleCatalog.filter(
     (module) => state.settings.activeModules[module.id],
@@ -810,8 +966,8 @@ export default function SettingsPage() {
         <div className="page-eyebrow">Configurações</div>
         <h1 className="page-title-v2">Preferências</h1>
         <p className="page-description-v2">
-          Tema <span style={{ color: "var(--accent)" }}>{activeTheme.name}</span>{" "}
-          · {activeModulesCount} módulos visíveis
+          Conta, tema <span style={{ color: "var(--accent)" }}>{activeTheme.name}</span>{" "}
+          e {activeModulesCount} módulos visíveis
         </p>
       </div>
 
