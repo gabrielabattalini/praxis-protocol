@@ -168,22 +168,22 @@ const characterOptions: CharacterOption[] = [
 const roomOptions: RoomOption[] = [
   {
     id: "neon-suite",
-    name: "Quarto Neon",
-    detail: "Base visual para rotina, foco e evolução diária",
+    name: "Roxo",
+    detail: "",
     gradient: "from-violet-500/30 via-indigo-500/18 to-slate-950",
     accent: "bg-violet-400/90",
   },
   {
     id: "minimal-core",
-    name: "Core Minimal",
-    detail: "Leitura limpa, ambiente calmo e tático",
+    name: "Azul",
+    detail: "",
     gradient: "from-cyan-500/24 via-slate-700/22 to-slate-950",
     accent: "bg-cyan-300/90",
   },
   {
     id: "warm-station",
-    name: "Warm Station",
-    detail: "Luz quente, progresso visível e atmosfera viva",
+    name: "Âmbar",
+    detail: "",
     gradient: "from-amber-500/30 via-orange-500/18 to-slate-950",
     accent: "bg-amber-300/90",
   },
@@ -638,10 +638,10 @@ export function GuidedAccountOnboarding({
                       <House className="h-9 w-9" />
                     </div>
                     <h2 className="mt-8 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-                      Escolha sua base
+                      Escolha sua cor de fundo
                     </h2>
                     <p className="mt-3 text-sm leading-6 text-slate-400 sm:text-base">
-                      O primeiro quarto dá contexto visual ao progresso da conta.
+                      Tom de fundo da conta. Pode trocar depois.
                     </p>
                   </div>
 
@@ -685,10 +685,9 @@ export function GuidedAccountOnboarding({
                               </span>
                             ) : null}
                           </div>
-                          <div className="px-5 py-5">
-                            <p className="text-2xl font-semibold text-white">{room.name}</p>
-                            <p className="mt-2 text-sm leading-6 text-slate-400">
-                              {room.detail}
+                          <div className="px-5 py-5 text-center">
+                            <p className="text-2xl font-semibold text-white">
+                              {room.name}
                             </p>
                           </div>
                         </button>
