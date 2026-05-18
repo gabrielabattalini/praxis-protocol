@@ -12,6 +12,9 @@ const isPublicRoute = createRouteMatcher([
   "/api/notifications/public-key",
   // Stripe webhook is verified by signature, must not require a session.
   "/api/billing/webhook",
+  // Telegram calls this with no Clerk session; protected by a secret
+  // token header that Telegram echoes on every request.
+  "/api/telegram/webhook",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

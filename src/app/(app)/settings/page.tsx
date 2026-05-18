@@ -13,6 +13,7 @@ import { usePushNotifications } from "@/components/providers/notifications-provi
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { useClerkClient, useUserClient } from "@/components/providers/auth-client-provider";
 import { StripeCheckoutButton } from "@/components/billing/stripe-checkout-button";
+import { TelegramCard } from "@/components/settings/telegram-card";
 import { RxLabel, RxPanel } from "@/components/redesign/primitives";
 import { moduleCatalog, themeOptions } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
@@ -697,6 +698,8 @@ function TabContent({
             {lastError}
           </div>
         ) : null}
+
+        <TelegramCard />
       </div>
     );
   }

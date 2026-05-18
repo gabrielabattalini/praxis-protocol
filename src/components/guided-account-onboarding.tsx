@@ -267,7 +267,7 @@ export function GuidedAccountOnboarding({
   const [selectedModules, setSelectedModules] = useState<ModuleId[]>(
     initialSelectedModules.length ? initialSelectedModules : defaultStarterModules,
   );
-  const [whatsappNumber, setWhatsappNumber] = useState(initialWhatsappNumber ?? "");
+  const [whatsappNumber] = useState(initialWhatsappNumber ?? "");
   const [whatsappSkipped, setWhatsappSkipped] = useState(false);
   const [selectedCharacterId, setSelectedCharacterId] = useState(
     initialCharacterId ?? characterOptions[1].id,
@@ -288,7 +288,35 @@ export function GuidedAccountOnboarding({
         .map((module) => module.name),
     [selectedModules],
   );
-  const stepLabels = ["Módulos", "WhatsApp", "Operador", "Base", "Resumo"];
+  const [telegramOpened, setTelegramOpened] = useState(false);
+  const [telegramBusy, setTelegramBusy] = useState(false);
+  const [telegramError, setTelegramError] = useState("");
+  const stepLabels = ["Módulos", "Telegram", "Operador", "Base", "Resumo"];
+
+  async function connectTelegram() {
+    setTelegramBusy(true);
+    setTelegramError("");
+    try {
+      const res = await fetch("/api/telegram/link", { method: "POST" });
+      const data = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !data.url) {
+        setTelegramError(
+          data.error ||
+            "Não foi possível gerar o link agora. Você pode conectar depois em Configurações.",
+        );
+        return;
+      }
+      window.open(data.url, "_blank", "noopener,noreferrer");
+      setTelegramOpened(true);
+      setWhatsappSkipped(false);
+    } catch {
+      setTelegramError(
+        "Falha de rede. Você pode conectar depois em Configurações.",
+      );
+    } finally {
+      setTelegramBusy(false);
+    }
+  }
 
   function toggleModule(moduleId: ModuleId) {
     setSelectedModules((current) =>
@@ -482,44 +510,41 @@ export function GuidedAccountOnboarding({
               {step === 1 ? (
                 <>
                   <div className="text-center">
-                    <div className="mx-auto grid h-20 w-20 place-items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 shadow-[0_0_35px_rgba(16,185,129,0.18)]">
+                    <div className="mx-auto grid h-20 w-20 place-items-center rounded-full border border-sky-500/30 bg-sky-500/10 text-sky-300 shadow-[0_0_35px_rgba(56,189,248,0.18)]">
                       <MessageCircle className="h-9 w-9" />
                     </div>
                     <h2 className="mt-8 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-                      Ative lembretes no WhatsApp
+                      Lembretes no Telegram
                     </h2>
                     <p className="mt-3 text-sm leading-6 text-slate-400 sm:text-base">
-                      Receba check-ins, hábitos e eventos no canal que você já usa.
+                      Conecte seu Telegram para receber tarefas, hábitos e
+                      eventos em qualquer dispositivo.
                     </p>
                   </div>
 
                   <div className="grid gap-4 lg:grid-cols-[1fr_0.95fr]">
                     <div className="rounded-[24px] border border-slate-800 bg-slate-900/70 p-5">
-                      <label className="block text-sm font-medium text-slate-300">
-                        Número de WhatsApp
-                      </label>
-                      <div className="mt-3 flex gap-3">
-                        <div className="flex h-14 items-center rounded-2xl border border-slate-700 bg-slate-900 px-5 text-slate-400">
-                          BR +55
-                        </div>
-                        <input
-                          value={whatsappNumber}
-                          onChange={(event) => {
-                            setWhatsappSkipped(false);
-                            setWhatsappNumber(event.target.value.replace(/[^\d]/g, ""));
-                          }}
-                          inputMode="numeric"
-                          placeholder="11999999999"
-                          className="h-14 flex-1 rounded-2xl border border-slate-700 bg-slate-950 px-5 text-white outline-none transition placeholder:text-slate-500 focus:border-violet-400"
-                        />
-                      </div>
-                      <p className="mt-3 text-sm leading-6 text-slate-500">
-                        Você pode ativar depois em Configurações sem perder o fluxo.
+                      <p className="text-sm font-medium text-slate-300">
+                        Como funciona
                       </p>
+                      <ol className="mt-3 space-y-2 text-sm leading-6 text-slate-400">
+                        <li>1. Toque em “Conectar Telegram”.</li>
+                        <li>2. No Telegram, toque em INICIAR no bot.</li>
+                        <li>3. Pronto — vinculado à sua conta.</li>
+                      </ol>
+                      <p className="mt-3 text-sm leading-6 text-slate-500">
+                        Você pode conectar ou trocar depois em Configurações →
+                        Notificações.
+                      </p>
+                      {telegramError ? (
+                        <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-5 text-amber-300">
+                          {telegramError}
+                        </p>
+                      ) : null}
                     </div>
 
                     <div className="rounded-[24px] border border-slate-800 bg-slate-900/70 p-5">
-                      <p className="praxis-label text-[var(--accent)]">Prévia</p>
+                      <p className="praxis-label text-[var(--accent)]">Você recebe</p>
                       <div className="mt-4 space-y-3">
                         {[
                           "Check-in diário",
@@ -531,7 +556,7 @@ export function GuidedAccountOnboarding({
                             key={item}
                             className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3"
                           >
-                            <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+                            <CheckCircle2 className="h-4 w-4 text-sky-300" />
                             <span className="text-sm text-slate-200">{item}</span>
                           </div>
                         ))}
@@ -539,19 +564,32 @@ export function GuidedAccountOnboarding({
                     </div>
                   </div>
 
+                  <button
+                    type="button"
+                    onClick={() => void connectTelegram()}
+                    disabled={telegramBusy}
+                    className="mt-1 inline-flex h-12 items-center justify-center gap-2 self-start rounded-2xl border border-sky-400/40 bg-sky-500/15 px-6 text-sm font-medium text-sky-200 transition hover:bg-sky-500/25 disabled:opacity-50"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    {telegramOpened
+                      ? "Reabrir Telegram"
+                      : telegramBusy
+                        ? "Gerando link…"
+                        : "Conectar Telegram"}
+                  </button>
+
                   <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
                     <SecondaryButton
                       label="Configurar depois"
                       onClick={() => {
                         setWhatsappSkipped(true);
-                        setWhatsappNumber("");
                         goToNextStep();
                       }}
                     />
                     <PrimaryButton
                       label="Continuar"
                       onClick={() => {
-                        setWhatsappSkipped(!whatsappNumber.trim());
+                        setWhatsappSkipped(!telegramOpened);
                         goToNextStep();
                       }}
                     />
@@ -722,7 +760,7 @@ export function GuidedAccountOnboarding({
                       `${selectedModules.length} módulos selecionados`,
                       `Operador: ${selectedCharacter.name}`,
                       `Base: ${selectedRoom.name}`,
-                      `WhatsApp ${whatsappNumber.trim() ? "configurado" : "para depois"}`,
+                      `Telegram ${telegramOpened ? "conectando" : "para depois"}`,
                     ].map((item) => (
                       <div
                         key={item}

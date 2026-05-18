@@ -7,6 +7,7 @@ import type {
   NotificationScheduleItem,
   NotificationSyncPayload,
 } from "@/lib/notification-schedule";
+import { sendTelegramToUser } from "@/lib/telegram-center.server";
 
 const dataDir = path.join(process.cwd(), ".data");
 const vapidPath = path.join(dataDir, "notifications-vapid.json");
@@ -375,8 +376,9 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
   });
 
   for (const [userId, schedule] of Object.entries(store.schedules)) {
+    // No early-skip when there are no web-push subscriptions: a user may
+    // have ONLY Telegram linked and must still receive scheduled alerts.
     const subscriptions = store.subscriptions[userId] ?? [];
-    if (!subscriptions.length) continue;
 
     summary.usersChecked += 1;
     const zonedNow = getZonedNow(schedule.timezone || "America/Sao_Paulo", referenceDate);
@@ -414,6 +416,20 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
             validSubscriptions.push(subscription);
           }
         }
+      }
+
+      // Fan out the same due item to Telegram. Failures here must
+      // never block web push or the de-dupe bookkeeping below.
+      try {
+        const tg = await sendTelegramToUser(
+          userId,
+          `🔔 ${item.title}\n${item.body}`,
+        );
+        if (tg.ok && !tg.skipped) {
+          summary.notificationsSent += 1;
+        }
+      } catch {
+        /* swallow — Telegram is a best-effort secondary channel */
       }
 
       dispatchLog.push({
