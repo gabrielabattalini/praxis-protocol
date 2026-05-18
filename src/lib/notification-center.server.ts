@@ -192,8 +192,8 @@ function buildWebPushPayload(item: NotificationScheduleItem) {
 }
 
 function getConfiguredVapidKeys() {
-  ensureDataDir();
-
+  // Env keys first — must work WITHOUT touching the filesystem, because
+  // Vercel's serverless fs is read-only and ensureDataDir() would throw.
   const envPublic = process.env.WEB_PUSH_VAPID_PUBLIC_KEY;
   const envPrivate = process.env.WEB_PUSH_VAPID_PRIVATE_KEY;
 
@@ -203,6 +203,9 @@ function getConfiguredVapidKeys() {
       privateKey: envPrivate,
     };
   }
+
+  // File fallback (local dev only) — now safe to touch the data dir.
+  ensureDataDir();
 
   const existing = readJsonFile<{ publicKey: string; privateKey: string } | null>(
     vapidPath,
