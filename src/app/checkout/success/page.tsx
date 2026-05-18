@@ -1,8 +1,78 @@
 import Link from "next/link";
-import { ChevronRight, ShieldCheck } from "lucide-react";
+import { ChevronRight, ShieldCheck, TriangleAlert } from "lucide-react";
 import { publicBillingPlan } from "@/lib/billing-config";
+import { getStripeServer } from "@/lib/stripe.server";
 
-export default function CheckoutSuccessPage() {
+export const dynamic = "force-dynamic";
+
+type VerifiedSession = {
+  paid: boolean;
+  email: string;
+  amountLabel: string;
+  reference: string;
+};
+
+async function verifyStripeSession(
+  sessionId: string | undefined,
+): Promise<VerifiedSession | null> {
+  if (!sessionId || !process.env.STRIPE_SECRET_KEY) return null;
+
+  try {
+    const stripe = getStripeServer();
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    const paid =
+      session.payment_status === "paid" ||
+      session.payment_status === "no_payment_required" ||
+      session.status === "complete";
+
+    const email =
+      session.customer_details?.email ||
+      (typeof session.customer_email === "string"
+        ? session.customer_email
+        : "") ||
+      "";
+
+    const amountLabel =
+      typeof session.amount_total === "number"
+        ? new Intl.NumberFormat("pt-BR", {
+            style: "currency",
+            currency: (session.currency || "brl").toUpperCase(),
+          }).format(session.amount_total / 100)
+        : publicBillingPlan.priceLabel;
+
+    return {
+      paid,
+      email,
+      amountLabel,
+      reference: session.id.slice(-12).toUpperCase(),
+    };
+  } catch (error) {
+    console.error("[checkout/success] session verify failed:", error);
+    return null;
+  }
+}
+
+export default async function CheckoutSuccessPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ session_id?: string }>;
+}) {
+  const params = await searchParams;
+  const verified = await verifyStripeSession(params.session_id);
+
+  const isPaid = verified?.paid === true;
+  const paidEmail = verified?.email ?? "";
+  const registerHref = paidEmail
+    ? `/auth/register?email=${encodeURIComponent(paidEmail)}`
+    : "/auth/register";
+  const loginHref = paidEmail
+    ? `/auth/login?email=${encodeURIComponent(paidEmail)}`
+    : "/auth/login";
+
+  const accentColor = isPaid ? "var(--ok)" : "var(--warn)";
+  const accentRgb = isPaid ? "74,222,128" : "250,204,21";
+
   return (
     <main
       style={{
@@ -18,58 +88,80 @@ export default function CheckoutSuccessPage() {
         <div
           className="glass"
           style={{
-            borderColor: "rgba(74,222,128,0.3)",
-            background:
-              "linear-gradient(180deg, rgba(74,222,128,0.06), rgba(10,10,12,0.98))",
+            borderColor: `rgba(${accentRgb},0.3)`,
+            background: `linear-gradient(180deg, rgba(${accentRgb},0.06), rgba(10,10,12,0.98))`,
             textAlign: "center",
             padding: "48px 40px",
           }}
         >
-          {/* Big OK icon tile */}
+          {/* Status icon tile */}
           <div
             style={{
               width: 80,
               height: 80,
               borderRadius: 20,
-              border: "2px solid var(--ok)",
-              background: "rgba(74,222,128,0.12)",
+              border: `2px solid ${accentColor}`,
+              background: `rgba(${accentRgb},0.12)`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               margin: "0 auto 24px",
               fontSize: 36,
-              color: "var(--ok)",
-              boxShadow: "0 0 32px rgba(74,222,128,0.2)",
+              color: accentColor,
+              boxShadow: `0 0 32px rgba(${accentRgb},0.2)`,
               fontWeight: 700,
             }}
           >
-            ✓
+            {isPaid ? (
+              "✓"
+            ) : (
+              <TriangleAlert style={{ width: 34, height: 34 }} />
+            )}
           </div>
 
           <div
             className="praxis-label"
-            style={{ color: "var(--ok)", marginBottom: 12 }}
+            style={{ color: accentColor, marginBottom: 12 }}
           >
-            ▸ TRANSAÇÃO CONFIRMADA
+            {isPaid
+              ? "▸ TRANSAÇÃO CONFIRMADA"
+              : "▸ AGUARDANDO CONFIRMAÇÃO"}
           </div>
-          <h1
-            className="praxis-title"
-            style={{ fontSize: 36, marginBottom: 16 }}
-          >
-            Protocolo ativo.
+          <h1 className="praxis-title" style={{ fontSize: 36, marginBottom: 16 }}>
+            {isPaid ? "Protocolo ativo." : "Pagamento em verificação"}
           </h1>
           <p
             style={{
               fontSize: 14,
               color: "var(--fg-3)",
-              maxWidth: 380,
+              maxWidth: 400,
               margin: "0 auto 24px",
               lineHeight: 1.6,
             }}
           >
-            O pagamento do {publicBillingPlan.name} foi processado pelo Stripe.
-            Agora você pode criar sua identidade no Praxis ou entrar com a conta
-            existente.
+            {isPaid ? (
+              <>
+                Pagamento do {publicBillingPlan.name} confirmado pelo Stripe.
+                {paidEmail ? (
+                  <>
+                    {" "}
+                    Crie sua identidade com{" "}
+                    <strong style={{ color: "var(--fg)" }}>{paidEmail}</strong>{" "}
+                    — o acesso completo é liberado automaticamente para esse
+                    e-mail.
+                  </>
+                ) : (
+                  " Crie sua identidade para liberar o acesso completo."
+                )}
+              </>
+            ) : (
+              <>
+                Ainda não confirmamos este pagamento. Se você concluiu a
+                compra, aguarde alguns segundos e atualize a página. O acesso é
+                liberado automaticamente assim que o Stripe confirmar — use o
+                mesmo e-mail do pagamento ao criar a conta.
+              </>
+            )}
           </p>
 
           <div
@@ -102,15 +194,17 @@ export default function CheckoutSuccessPage() {
                   style={{
                     fontSize: 14,
                     fontWeight: 600,
-                    color: "var(--ok)",
+                    color: accentColor,
                     marginTop: 4,
                   }}
                 >
-                  {publicBillingPlan.priceLabel}
+                  {verified?.amountLabel ?? publicBillingPlan.priceLabel}
                 </div>
               </div>
               <div>
-                <div className="praxis-label" style={{ fontSize: 9 }}>SEGURANÇA</div>
+                <div className="praxis-label" style={{ fontSize: 9 }}>
+                  SEGURANÇA
+                </div>
                 <div
                   style={{
                     fontSize: 13,
@@ -130,30 +224,30 @@ export default function CheckoutSuccessPage() {
                 </div>
               </div>
               <div>
-                <div className="praxis-label" style={{ fontSize: 9 }}>FLUXO</div>
+                <div className="praxis-label" style={{ fontSize: 9 }}>
+                  {verified?.reference ? "REF" : "STATUS"}
+                </div>
                 <div
                   style={{
                     fontSize: 13,
                     fontWeight: 600,
                     color: "var(--fg)",
                     marginTop: 4,
+                    fontFamily:
+                      "var(--font-mono), ui-monospace, monospace",
                   }}
                 >
-                  Praxis interno
+                  {verified?.reference ?? (isPaid ? "Confirmado" : "Pendente")}
                 </div>
               </div>
             </div>
           </div>
 
           <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-            }}
+            style={{ display: "flex", flexDirection: "column", gap: 10 }}
           >
             <Link
-              href="/auth/register"
+              href={registerHref}
               className="v2-btn v2-btn-primary"
               style={{
                 width: "100%",
@@ -167,7 +261,7 @@ export default function CheckoutSuccessPage() {
               Criar minha identidade <ChevronRight className="h-4 w-4" />
             </Link>
             <Link
-              href="/auth/login"
+              href={loginHref}
               className="v2-btn"
               style={{
                 width: "100%",
@@ -177,7 +271,7 @@ export default function CheckoutSuccessPage() {
                 justifyContent: "center",
               }}
             >
-              Entrar no terminal
+              Já tenho conta · entrar
             </Link>
           </div>
         </div>
