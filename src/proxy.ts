@@ -6,6 +6,12 @@ const isPublicRoute = createRouteMatcher([
   "/auth/login(.*)",
   "/auth/register(.*)",
   "/clerk-sync-keyless(.*)",
+  "/checkout/(.*)",
+  // VAPID public key is non-sensitive by design and the browser may
+  // fetch it before the Clerk session is ready — keep it open.
+  "/api/notifications/public-key",
+  // Stripe webhook is verified by signature, must not require a session.
+  "/api/billing/webhook",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
