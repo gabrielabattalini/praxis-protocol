@@ -295,28 +295,56 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <BodyMetricsOnboarding
               initialHeightCm={state.personalProfile.bodyHeightCm}
               initialWeightKg={state.personalProfile.bodyWeightKg}
-              onSave={({ heightCm, weightKg }) => {
+              initialProfile={{
+                ageYears: state.personalProfile.ageYears,
+                biologicalSex: state.personalProfile.biologicalSex,
+                restingHeartRateBpm:
+                  state.personalProfile.restingHeartRateBpm,
+                activityLevel: state.personalProfile.activityLevel,
+                cardioGoal: state.personalProfile.cardioGoal,
+                preferredCardio: state.personalProfile.preferredCardio,
+                hasCardiovascularCondition:
+                  state.personalProfile.hasCardiovascularCondition,
+                hasJointLimitation:
+                  state.personalProfile.hasJointLimitation,
+                usesHeartRateMedication:
+                  state.personalProfile.usesHeartRateMedication,
+                notes: state.personalProfile.notes,
+              }}
+              onSave={(payload) => {
+                const {
+                  heightCm,
+                  weightKg,
+                  ageYears,
+                  biologicalSex,
+                  restingHeartRateBpm,
+                  activityLevel,
+                  cardioGoal,
+                  preferredCardio,
+                  hasCardiovascularCondition,
+                  hasJointLimitation,
+                  usesHeartRateMedication,
+                  notes,
+                } = payload;
                 actions.updatePersonalProfile({
-                  ageYears: state.personalProfile.ageYears,
+                  ageYears,
                   bodyHeightCm: heightCm,
                   bodyWeightKg: weightKg,
-                  biologicalSex: state.personalProfile.biologicalSex,
-                  restingHeartRateBpm: state.personalProfile.restingHeartRateBpm,
-                  activityLevel: state.personalProfile.activityLevel,
-                  cardioGoal: state.personalProfile.cardioGoal,
-                  preferredCardio: state.personalProfile.preferredCardio,
-                  hasCardiovascularCondition:
-                    state.personalProfile.hasCardiovascularCondition,
-                  hasJointLimitation: state.personalProfile.hasJointLimitation,
-                  usesHeartRateMedication:
-                    state.personalProfile.usesHeartRateMedication,
-                  notes: state.personalProfile.notes,
+                  biologicalSex,
+                  restingHeartRateBpm,
+                  activityLevel,
+                  cardioGoal,
+                  preferredCardio,
+                  hasCardiovascularCondition,
+                  hasJointLimitation,
+                  usesHeartRateMedication,
+                  notes,
                 });
                 actions.updateNutritionTargets({
                   bodyWeightKg: weightKg,
                   bodyHeightCm: heightCm,
-                  ageYears: state.dailyNutritionTargets.ageYears,
-                  biologicalSex: state.dailyNutritionTargets.biologicalSex,
+                  ageYears,
+                  biologicalSex,
                   waterMlPerKg: state.dailyNutritionTargets.perKg.waterMl,
                   proteinPerKg: state.dailyNutritionTargets.perKg.protein,
                   carbsPerKg: state.dailyNutritionTargets.perKg.carbs,
@@ -368,7 +396,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Shell grid */}
       <div className="shell" style={{ ["--sidebar-w" as string]: "256px" } as React.CSSProperties}>
         {/* Sidebar — desktop only */}
-        <aside className="sidebar hidden lg:flex">
+        <aside className="sidebar desktop-sidebar">
           <Link
             href="/dashboard"
             className="sidebar-logo"
@@ -626,13 +654,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           {/* Page content */}
-          <main className="page-content" style={{ flex: 1, padding: 32, maxWidth: 1400, width: "100%" }}>
+          <main
+            className="page-content"
+            style={{
+              flex: 1,
+              padding: "32px 32px calc(32px + var(--mobile-bottom-nav-space))",
+              width: "100%",
+            }}
+          >
             {children}
           </main>
 
           {/* Mobile bottom nav — preserved with current handlers */}
           <nav
-            className="lg:hidden"
+            className="mobile-bottom-nav"
             style={{
               position: "fixed",
               insetInline: 0,
@@ -641,8 +676,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               borderTop: "1px solid rgba(39,39,42,0.6)",
               background: "rgba(5,5,7,0.92)",
               backdropFilter: "blur(12px)",
-              padding: "8px 8px 12px",
-              display: "grid",
+              padding: "8px 8px calc(12px + env(safe-area-inset-bottom))",
               gridTemplateColumns: "repeat(5, 1fr)",
               gap: 4,
             }}

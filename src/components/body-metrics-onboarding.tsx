@@ -14,6 +14,12 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import type {
+  ActivityLevel,
+  BiologicalSex,
+  CardioGoal,
+  CardioPreference,
+} from "@/lib/types";
 
 const bmiBands = [
   { label: "Abaixo", min: 14, max: 18.5 },
@@ -40,11 +46,75 @@ const radarLabels = [
   "Bem-estar",
 ] as const;
 
+export type BodyMetricsPayload = {
+  heightCm: number;
+  weightKg: number;
+  ageYears: number;
+  biologicalSex: BiologicalSex;
+  restingHeartRateBpm?: number;
+  activityLevel: ActivityLevel;
+  cardioGoal: CardioGoal;
+  preferredCardio: CardioPreference;
+  hasCardiovascularCondition: boolean;
+  hasJointLimitation: boolean;
+  usesHeartRateMedication: boolean;
+  notes: string;
+};
+
 type BodyMetricsOnboardingProps = {
   initialHeightCm: number;
   initialWeightKg: number;
-  onSave: (payload: { heightCm: number; weightKg: number }) => void;
+  initialProfile?: Partial<
+    Omit<BodyMetricsPayload, "heightCm" | "weightKg">
+  >;
+  onSave: (payload: BodyMetricsPayload) => void;
   onSkip: () => void;
+};
+
+const activityLevelChoices: Array<{ value: ActivityLevel; label: string }> = [
+  { value: "sedentary", label: "Baixo" },
+  { value: "light", label: "Leve" },
+  { value: "moderate", label: "Moderado" },
+  { value: "high", label: "Alto" },
+];
+
+const cardioGoalChoices: Array<{ value: CardioGoal; label: string }> = [
+  { value: "health", label: "Saúde e consistência" },
+  { value: "fat-loss", label: "Secar e aumentar gasto" },
+  { value: "maintenance", label: "Manter condicionamento" },
+  { value: "performance", label: "Performance e ritmo" },
+  { value: "muscle-gain", label: "Ganhar massa sem exagerar" },
+];
+
+const cardioPreferenceChoices: Array<{
+  value: CardioPreference;
+  label: string;
+}> = [
+  { value: "running", label: "Corrida" },
+  { value: "walking", label: "Caminhada" },
+  { value: "bike", label: "Bike" },
+  { value: "elliptical", label: "Elíptico" },
+  { value: "stairs", label: "Escada" },
+];
+
+const onbFieldStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "10px 12px",
+  background: "#0c0c0f",
+  border: "1px solid rgba(255,255,255,0.12)",
+  color: "#f4f4f5",
+  fontSize: 14,
+  outline: "none",
+};
+
+const onbLabelStyle: React.CSSProperties = {
+  display: "block",
+  fontFamily: "var(--font-mono), monospace",
+  fontSize: 11,
+  letterSpacing: "0.22em",
+  textTransform: "uppercase",
+  color: "#71717a",
+  marginBottom: 8,
 };
 
 type SetupPhase = "metrics" | "analysis" | "transformation";
@@ -258,6 +328,7 @@ function MetricStatCard({
 export function BodyMetricsOnboarding({
   initialHeightCm,
   initialWeightKg,
+  initialProfile,
   onSave,
   onSkip,
 }: BodyMetricsOnboardingProps) {
@@ -268,10 +339,58 @@ export function BodyMetricsOnboarding({
   const [weightKg, setWeightKg] = useState(() =>
     Number(clamp(initialWeightKg || 70, 40, 150).toFixed(1)),
   );
-  const [pendingMetrics, setPendingMetrics] = useState<{
-    heightCm: number;
-    weightKg: number;
-  } | null>(null);
+  const [ageYears, setAgeYears] = useState<string>(() =>
+    initialProfile?.ageYears && initialProfile.ageYears > 1
+      ? String(initialProfile.ageYears)
+      : "",
+  );
+  const [biologicalSex, setBiologicalSex] = useState<BiologicalSex>(
+    initialProfile?.biologicalSex ?? "female",
+  );
+  const [restingHeartRateBpm, setRestingHeartRateBpm] = useState<string>(() =>
+    initialProfile?.restingHeartRateBpm
+      ? String(initialProfile.restingHeartRateBpm)
+      : "",
+  );
+  const [activityLevel, setActivityLevel] = useState<ActivityLevel>(
+    initialProfile?.activityLevel ?? "moderate",
+  );
+  const [cardioGoal, setCardioGoal] = useState<CardioGoal>(
+    initialProfile?.cardioGoal ?? "health",
+  );
+  const [preferredCardio, setPreferredCardio] = useState<CardioPreference>(
+    initialProfile?.preferredCardio ?? "running",
+  );
+  const [hasCardiovascularCondition, setHasCardiovascularCondition] =
+    useState<boolean>(initialProfile?.hasCardiovascularCondition ?? false);
+  const [hasJointLimitation, setHasJointLimitation] = useState<boolean>(
+    initialProfile?.hasJointLimitation ?? false,
+  );
+  const [usesHeartRateMedication, setUsesHeartRateMedication] =
+    useState<boolean>(initialProfile?.usesHeartRateMedication ?? false);
+  const [notes, setNotes] = useState<string>(initialProfile?.notes ?? "");
+
+  const buildPayload = (): BodyMetricsPayload => ({
+    heightCm,
+    weightKg,
+    ageYears: Math.max(1, Math.round(Number(ageYears) || 0)) || 25,
+    biologicalSex,
+    restingHeartRateBpm:
+      Number(restingHeartRateBpm) > 0
+        ? Number(restingHeartRateBpm)
+        : undefined,
+    activityLevel,
+    cardioGoal,
+    preferredCardio,
+    hasCardiovascularCondition,
+    hasJointLimitation,
+    usesHeartRateMedication,
+    notes,
+  });
+
+  const [pendingMetrics, setPendingMetrics] = useState<BodyMetricsPayload | null>(
+    null,
+  );
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [selectedHorizon, setSelectedHorizon] =
     useState<(typeof transformationHorizons)[number]>(30);
@@ -553,7 +672,7 @@ export function BodyMetricsOnboarding({
         <div className="flex flex-col items-center gap-4 pt-2">
           <button
             type="button"
-            onClick={() => onSave(pendingMetrics ?? { heightCm, weightKg })}
+            onClick={() => onSave(pendingMetrics ?? buildPayload())}
             className="w-full border border-[color:var(--accent)]/35 bg-[color:var(--accent)] px-6 py-4 font-mono text-[0.72rem] uppercase tracking-[0.28em] text-black transition hover:brightness-110 [box-shadow:0_0_26px_color-mix(in_srgb,var(--accent)_35%,transparent)]"
           >
             Quero essa transformação
@@ -677,6 +796,173 @@ export function BodyMetricsOnboarding({
           </div>
         </section>
 
+        <section className="border border-white/8 bg-[#0c0c0f] p-4 sm:p-5">
+          <div className="mb-4 flex items-center gap-2 font-mono text-[0.7rem] uppercase tracking-[0.28em] text-[color:var(--accent)]">
+            <Activity className="h-3.5 w-3.5" />
+            Perfil pessoal
+          </div>
+          <p className="mb-5 text-sm text-zinc-500">
+            Esses dados calibram cardio (Corrida), macros e leituras de saúde.
+            Você pode ajustar tudo depois no Perfil.
+          </p>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 14,
+              marginBottom: 14,
+            }}
+          >
+            <div>
+              <label style={onbLabelStyle}>Idade</label>
+              <input
+                type="number"
+                min={1}
+                max={120}
+                inputMode="numeric"
+                value={ageYears}
+                onChange={(e) => setAgeYears(e.target.value)}
+                placeholder="Ex.: 28"
+                style={onbFieldStyle}
+              />
+            </div>
+            <div>
+              <label style={onbLabelStyle}>Sexo biológico</label>
+              <select
+                value={biologicalSex}
+                onChange={(e) =>
+                  setBiologicalSex(e.target.value as BiologicalSex)
+                }
+                style={onbFieldStyle}
+              >
+                <option value="female">Feminino</option>
+                <option value="male">Masculino</option>
+              </select>
+            </div>
+            <div>
+              <label style={onbLabelStyle}>FC repouso (opcional)</label>
+              <input
+                type="number"
+                min={30}
+                max={220}
+                inputMode="numeric"
+                value={restingHeartRateBpm}
+                onChange={(e) => setRestingHeartRateBpm(e.target.value)}
+                placeholder="Ex.: 60"
+                style={onbFieldStyle}
+              />
+            </div>
+            <div>
+              <label style={onbLabelStyle}>Nível de atividade</label>
+              <select
+                value={activityLevel}
+                onChange={(e) =>
+                  setActivityLevel(e.target.value as ActivityLevel)
+                }
+                style={onbFieldStyle}
+              >
+                {activityLevelChoices.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={onbLabelStyle}>Objetivo do cardio</label>
+              <select
+                value={cardioGoal}
+                onChange={(e) => setCardioGoal(e.target.value as CardioGoal)}
+                style={onbFieldStyle}
+              >
+                {cardioGoalChoices.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={onbLabelStyle}>Base do cardio</label>
+              <select
+                value={preferredCardio}
+                onChange={(e) =>
+                  setPreferredCardio(e.target.value as CardioPreference)
+                }
+                style={onbFieldStyle}
+              >
+                {cardioPreferenceChoices.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: 10,
+              marginBottom: 14,
+            }}
+          >
+            {[
+              {
+                checked: hasCardiovascularCondition,
+                set: setHasCardiovascularCondition,
+                label: "Condição cardiovascular",
+              },
+              {
+                checked: hasJointLimitation,
+                set: setHasJointLimitation,
+                label: "Limitação articular",
+              },
+              {
+                checked: usesHeartRateMedication,
+                set: setUsesHeartRateMedication,
+                label: "Medicação cardíaca",
+              },
+            ].map((row) => (
+              <label
+                key={row.label}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: 12,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "#0c0c0f",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  color: "#d4d4d8",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={row.checked}
+                  onChange={(e) => row.set(e.target.checked)}
+                  style={{ accentColor: "var(--accent)" }}
+                />
+                {row.label}
+              </label>
+            ))}
+          </div>
+
+          <div>
+            <label style={onbLabelStyle}>Observações (opcional)</label>
+            <textarea
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Ex.: preferência por caminhada, fase de definição..."
+              style={{ ...onbFieldStyle, minHeight: 64, resize: "vertical" }}
+            />
+          </div>
+        </section>
+
         <section className="border border-[color:var(--accent)]/25 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent)_10%,transparent),rgba(12,12,15,0.94))] p-4 sm:p-5">
           <div className="flex flex-col gap-4 border-b border-[color:var(--accent)]/15 pb-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-2">
@@ -766,7 +1052,7 @@ export function BodyMetricsOnboarding({
         <button
           type="button"
           onClick={() => {
-            setPendingMetrics({ heightCm, weightKg });
+            setPendingMetrics(buildPayload());
             setAnalysisProgress(0);
             setPhase("analysis");
           }}
