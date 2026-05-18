@@ -24,7 +24,7 @@ export async function GET() {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   }
 
-  const state = getAccountState(userId);
+  const state = await getAccountState(userId);
 
   if (!state) {
     return NextResponse.json({ error: "Estado não encontrado." }, { status: 404 });
@@ -45,7 +45,7 @@ export async function PUT(request: Request) {
       await readJsonWithLimit<unknown>(request, ACCOUNT_STATE_MAX_BYTES),
     );
 
-    const saved = saveAccountState(userId, {
+    const saved = await saveAccountState(userId, {
       version: Number(body.version ?? 1),
       updatedAt: body.updatedAt,
       state: body.state,
