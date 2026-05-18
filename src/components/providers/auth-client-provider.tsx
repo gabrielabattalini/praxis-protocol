@@ -21,6 +21,7 @@ type UserSnapshot = {
 
 type ClerkSnapshot = {
   signOut: (options?: { redirectUrl?: string }) => Promise<void>;
+  openUserProfile?: () => void;
 };
 
 type AuthClientContextValue = {
@@ -67,12 +68,14 @@ function AuthClientBridge({ children }: { children: React.ReactNode }) {
       },
       clerk: {
         signOut: clerk.signOut,
+        openUserProfile: clerk.openUserProfile,
       },
     }),
     [
       auth.isLoaded,
       auth.isSignedIn,
       auth.userId,
+      clerk.openUserProfile,
       clerk.signOut,
       user.user,
     ],
