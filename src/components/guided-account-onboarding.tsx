@@ -144,22 +144,22 @@ const defaultStarterModules: ModuleId[] = [
 const characterOptions: CharacterOption[] = [
   {
     id: "nova",
-    name: "Nova",
-    role: "Ágil, focada e orientada por rotina",
+    name: "Roxo",
+    role: "",
     gradient: "from-violet-600/30 via-fuchsia-500/18 to-slate-950",
     iconBg: "from-violet-500/30 to-fuchsia-500/18",
   },
   {
     id: "atlas",
-    name: "Atlas",
-    role: "Estrutura, execução e progressão constante",
+    name: "Âmbar",
+    role: "",
     gradient: "from-amber-500/30 via-orange-500/18 to-slate-950",
     iconBg: "from-amber-500/30 to-orange-500/18",
   },
   {
     id: "echo",
-    name: "Echo",
-    role: "Clareza mental, consistência e presença",
+    name: "Azul",
+    role: "",
     gradient: "from-sky-500/30 via-cyan-500/18 to-slate-950",
     iconBg: "from-sky-500/30 to-cyan-500/18",
   },
@@ -566,10 +566,10 @@ export function GuidedAccountOnboarding({
                       <UserRound className="h-9 w-9" />
                     </div>
                     <h2 className="mt-8 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-                      Escolha seu operador
+                      Escolha sua cor
                     </h2>
                     <p className="mt-3 text-sm leading-6 text-slate-400 sm:text-base">
-                      Ele define o tom visual da conta e pode ser trocado depois.
+                      Cor de destaque da conta. Pode trocar depois.
                     </p>
                   </div>
 
@@ -614,10 +614,9 @@ export function GuidedAccountOnboarding({
                               </span>
                             ) : null}
                           </div>
-                          <div className="px-5 py-5">
-                            <p className="text-2xl font-semibold text-white">{option.name}</p>
-                            <p className="mt-2 text-sm leading-6 text-slate-400">
-                              {option.role}
+                          <div className="px-5 py-5 text-center">
+                            <p className="text-2xl font-semibold text-white">
+                              {option.name}
                             </p>
                           </div>
                         </button>
