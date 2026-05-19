@@ -93,7 +93,7 @@ export const themeOptions: ThemeOption[] = [
 export const moduleCatalog: ModuleConfig[] = [
   {
     id: "run",
-    name: "Corrida",
+    name: "Cardio",
     route: "/modules/run",
     description: "Metas semanais, registro manual e pace calculado",
     detail: "km / pace",

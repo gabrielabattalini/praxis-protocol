@@ -96,7 +96,7 @@ function normalizePath(path: string) {
 }
 
 function routeBreadcrumb(pathname: string) {
-  if (pathname.startsWith("/modules/run")) return "Corrida";
+  if (pathname.startsWith("/modules/run")) return "Cardio";
   if (pathname.startsWith("/modules/workout")) return "Treino";
   if (pathname.startsWith("/modules/work")) return "Trabalho";
   if (pathname.startsWith("/modules/nutrition")) return "Nutrição";

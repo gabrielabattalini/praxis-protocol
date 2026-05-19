@@ -1,13 +1,15 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Clock3, Plus, TimerReset, Trash2 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { ProgressCurveChart } from "@/components/ui/progress-curve-chart";
 import { formatMinutes, getStartOfWeek, sortEntriesByDate } from "@/lib/module-page-utils";
 import type { PersistedState, Weekday } from "@/lib/types";
+
+type CardioType = "walking" | "running" | "bike" | "elliptical" | "stairs";
 
 type RunEntry = {
   id: string;
@@ -18,8 +20,14 @@ type RunEntry = {
   durationSeconds: number;
 };
 
+type DailyTarget = {
+  km: number;
+  time: string;
+  type: CardioType;
+};
+
 type RunState = {
-  dailyTargets: Record<Weekday, number>;
+  dailyTargets: Record<Weekday, DailyTarget>;
   entries: RunEntry[];
 };
 
@@ -40,16 +48,79 @@ const weekdayItems: Array<{ id: Weekday; label: string }> = [
   { id: "sunday", label: "Domingo" },
 ];
 
+const cardioTypeItems: Array<{ id: CardioType; label: string }> = [
+  { id: "running", label: "Corrida" },
+  { id: "walking", label: "Caminhada" },
+  { id: "bike", label: "Bike" },
+  { id: "elliptical", label: "Elíptico" },
+  { id: "stairs", label: "Escada" },
+];
+
+const CARDIO_TYPES: CardioType[] = cardioTypeItems.map((item) => item.id);
+
 const runStorageKey = "praxis-protocol:run-module-v2";
 
-function createEmptyTargets() {
+function createEmptyTargets(defaultType: CardioType = "running") {
   return weekdayItems.reduce(
     (accumulator, item) => {
-      accumulator[item.id] = 0;
+      accumulator[item.id] = { km: 0, time: "", type: defaultType };
       return accumulator;
     },
-    {} as Record<Weekday, number>,
+    {} as Record<Weekday, DailyTarget>,
   );
+}
+
+function coerceCardioType(value: unknown, fallback: CardioType): CardioType {
+  return CARDIO_TYPES.includes(value as CardioType)
+    ? (value as CardioType)
+    : fallback;
+}
+
+function normalizeTimeValue(value: unknown) {
+  if (typeof value !== "string") return "";
+  const match = value.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return "";
+  const hours = Math.min(23, Number(match[1]));
+  return `${String(hours).padStart(2, "0")}:${match[2]}`;
+}
+
+function isValidTime(value: string) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+/**
+ * Migrates the old shape (dailyTargets: Record<Weekday, number>) to the
+ * new one (km + time + type per weekday) without losing existing km.
+ */
+function normalizeRunState(raw: unknown, defaultType: CardioType): RunState {
+  const base: RunState = { dailyTargets: createEmptyTargets(defaultType), entries: [] };
+  if (!raw || typeof raw !== "object") return base;
+
+  const value = raw as Partial<RunState> & {
+    dailyTargets?: Record<string, unknown>;
+  };
+
+  const dailyTargets = createEmptyTargets(defaultType);
+  for (const item of weekdayItems) {
+    const stored = value.dailyTargets?.[item.id];
+    if (typeof stored === "number") {
+      dailyTargets[item.id] = {
+        km: Math.max(0, stored),
+        time: "",
+        type: defaultType,
+      };
+    } else if (stored && typeof stored === "object") {
+      const entry = stored as Partial<DailyTarget>;
+      dailyTargets[item.id] = {
+        km: Math.max(0, Number(entry.km) || 0),
+        time: normalizeTimeValue(entry.time),
+        type: coerceCardioType(entry.type, defaultType),
+      };
+    }
+  }
+
+  const entries = Array.isArray(value.entries) ? (value.entries as RunEntry[]) : [];
+  return { dailyTargets, entries };
 }
 
 function parseDecimal(value: string) {
@@ -175,10 +246,14 @@ function recommendedDays(count: number): Weekday[] {
 }
 
 export default function RunModulePage() {
-  const { state: appState } = useAppStore();
+  const { state: appState, actions } = useAppStore();
   const profile = appState.personalProfile;
+  const defaultCardioType = coerceCardioType(profile.preferredCardio, "running");
   const [hydrated, setHydrated] = useState(false);
-  const [state, setState] = useState<RunState>({ dailyTargets: createEmptyTargets(), entries: [] });
+  const [state, setState] = useState<RunState>(() => ({
+    dailyTargets: createEmptyTargets(),
+    entries: [],
+  }));
   const [form, setForm] = useState<RunFormState>({
     date: localDateKey(),
     distanceKm: "",
@@ -187,12 +262,23 @@ export default function RunModulePage() {
   });
   const [feedback, setFeedback] = useState("");
 
+  const defaultTypeRef = useRef(defaultCardioType);
+  defaultTypeRef.current = defaultCardioType;
+  const targetsRef = useRef(state.dailyTargets);
+  targetsRef.current = state.dailyTargets;
+  const tasksRef = useRef(appState.tasks);
+  tasksRef.current = appState.tasks;
+  const actionsRef = useRef(actions);
+  actionsRef.current = actions;
+
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       try {
         const stored = window.localStorage.getItem(runStorageKey);
         if (stored) {
-          setState(JSON.parse(stored) as RunState);
+          setState(
+            normalizeRunState(JSON.parse(stored), defaultTypeRef.current),
+          );
         }
       } catch {}
       setHydrated(true);
@@ -205,6 +291,78 @@ export default function RunModulePage() {
     if (!hydrated) return;
     window.localStorage.setItem(runStorageKey, JSON.stringify(state));
   }, [hydrated, state]);
+
+  // Auto-sync the daily cardio plan into real account tasks so each
+  // day with km + horário shows up in the agenda AND fires a
+  // notification (web push / Telegram). Mirrors the sleep-module
+  // reconcile pattern: upsert by stable sourceKey, drop stale keys.
+  const syncCardioTasks = useCallback(() => {
+    const act = actionsRef.current;
+    const tasks = tasksRef.current;
+    const targets = targetsRef.current;
+
+    const generated = tasks.filter(
+      (task) =>
+        task.moduleId === "run" &&
+        task.sourceKey?.startsWith("cardio-target-"),
+    );
+
+    const bySource = new Map<string, (typeof generated)[number]>();
+    const duplicateIds: string[] = [];
+    for (const task of generated) {
+      if (!task.sourceKey) continue;
+      if (bySource.has(task.sourceKey)) {
+        duplicateIds.push(task.id);
+        continue;
+      }
+      bySource.set(task.sourceKey, task);
+    }
+    duplicateIds.forEach((id) => act.removeTask(id));
+
+    const activeKeys = new Set<string>();
+    weekdayItems.forEach((item) => {
+      const target = targets[item.id];
+      const km = target?.km ?? 0;
+      const time = (target?.time ?? "").trim();
+      if (km <= 0 || !isValidTime(time)) {
+        return;
+      }
+
+      const typeLabel = cardioPreferenceLabel(target.type);
+      const key = `cardio-target-${item.id}`;
+      const payload = {
+        title: `Cardio · ${km} km`,
+        description: `Meta de ${typeLabel.toLowerCase()} (${km} km) na ${item.label.toLowerCase()}.`,
+        category: "fitness" as const,
+        moduleId: "run" as const,
+        scheduledTime: time,
+        difficulty: "medium" as const,
+        recurrence: { kind: "weekly-fixed" as const, weekday: item.id },
+      };
+
+      const existing = bySource.get(key);
+      if (existing) {
+        act.updateTask({ taskId: existing.id, patch: payload });
+      } else {
+        act.addTask({ ...payload, sourceKey: key });
+      }
+      activeKeys.add(key);
+    });
+
+    bySource.forEach((task) => {
+      if (task.sourceKey && !activeKeys.has(task.sourceKey)) {
+        act.removeTask(task.id);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const timer = window.setTimeout(() => {
+      syncCardioTasks();
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [hydrated, state.dailyTargets, syncCardioTasks]);
 
   const weekStart = useMemo(() => getStartOfWeek(new Date()), []);
   const weekEnd = useMemo(() => {
@@ -224,7 +382,13 @@ export default function RunModulePage() {
   );
 
   const dailyDistanceMap = useMemo(() => {
-    const map = createEmptyTargets();
+    const map = weekdayItems.reduce(
+      (accumulator, item) => {
+        accumulator[item.id] = 0;
+        return accumulator;
+      },
+      {} as Record<Weekday, number>,
+    );
     for (const entry of weekEntries) {
       map[entry.weekday] = Number((map[entry.weekday] + entry.distanceKm).toFixed(2));
     }
@@ -233,7 +397,14 @@ export default function RunModulePage() {
 
   const weeklyDistance = weekEntries.reduce((sum, entry) => sum + entry.distanceKm, 0);
   const weeklyDuration = weekEntries.reduce((sum, entry) => sum + entry.durationSeconds, 0);
-  const weeklyTarget = weekdayItems.reduce((sum, item) => sum + (state.dailyTargets[item.id] ?? 0), 0);
+  const weeklyTarget = weekdayItems.reduce(
+    (sum, item) => sum + (state.dailyTargets[item.id]?.km ?? 0),
+    0,
+  );
+  const scheduledDays = weekdayItems.filter((item) => {
+    const target = state.dailyTargets[item.id];
+    return (target?.km ?? 0) > 0 && isValidTime((target?.time ?? "").trim());
+  }).length;
   const averageSpeedKmH =
     weeklyDuration > 0
       ? weeklyDistance / (weeklyDuration / 3600)
@@ -319,13 +490,28 @@ export default function RunModulePage() {
       ...current,
       dailyTargets: weekdayItems.reduce(
         (accumulator, item) => {
-          accumulator[item.id] = days.includes(item.id) ? perDay : 0;
+          const previous = current.dailyTargets[item.id];
+          accumulator[item.id] = {
+            km: days.includes(item.id) ? perDay : 0,
+            time: previous?.time ?? "",
+            type: previous?.type ?? defaultCardioType,
+          };
           return accumulator;
         },
-        createEmptyTargets(),
+        createEmptyTargets(defaultCardioType),
       ),
     }));
-    setFeedback("Sugestão aplicada na semana.");
+    setFeedback("Sugestão aplicada. Defina o horário de cada dia para gerar as tarefas.");
+  }
+
+  function updateTarget(weekday: Weekday, patch: Partial<DailyTarget>) {
+    setState((current) => ({
+      ...current,
+      dailyTargets: {
+        ...current.dailyTargets,
+        [weekday]: { ...current.dailyTargets[weekday], ...patch },
+      },
+    }));
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -361,7 +547,7 @@ export default function RunModulePage() {
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div className="mod-icon" style={{ width: 56, height: 56, borderRadius: 14, fontSize: 24 }}>🏃</div>
           <div style={{ flex: 1, minWidth: 200 }}>
-            <div className="praxis-label" style={{ color: "var(--accent)", marginBottom: 4 }}>▸ MÓDULO · CORRIDA</div>
+            <div className="praxis-label" style={{ color: "var(--accent)", marginBottom: 4 }}>▸ MÓDULO · CARDIO</div>
             <div className="praxis-title" style={{ fontSize: 26 }}>Cardio guiado pelo perfil</div>
             <div style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 4 }}>
               Idade, peso, altura e contexto de saúde viram um ponto de partida em minutos, sessões e km.
@@ -423,7 +609,7 @@ export default function RunModulePage() {
             <p className="mt-3 text-sm leading-6 text-zinc-300">
               {profile.hasJointLimitation
                 ? "A limitação articular reduz o impacto sugerido nas sessões."
-                : "Sem limitação articular informada, corrida e caminhada seguem como base principal."}
+                : "Sem limitação articular informada, cardio de impacto e caminhada seguem como base principal."}
             </p>
             <p className="mt-3 text-sm leading-6 text-zinc-300">
               {profile.usesHeartRateMedication
@@ -463,7 +649,7 @@ export default function RunModulePage() {
           <ProgressCurveChart
             points={weeklyEvolution}
             valueFormatter={(value) => `${value.toFixed(1)} km`}
-            emptyLabel="Registre algumas corridas para aparecer a curva semanal."
+            emptyLabel="Registre alguns treinos de cardio para aparecer a curva semanal."
           />
         </GlassPanel>
 
@@ -471,7 +657,7 @@ export default function RunModulePage() {
           <div>
             <p className="praxis-label text-[var(--accent)]">Leitura real</p>
             <h2 className="mt-1 font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100">
-              Progresso da corrida
+              Progresso do cardio
             </h2>
           </div>
 
@@ -486,7 +672,7 @@ export default function RunModulePage() {
               </p>
             </div>
             <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
-              <p className="praxis-label text-zinc-500">Dias com corrida</p>
+              <p className="praxis-label text-zinc-500">Dias com treino</p>
               <p className="mt-2 font-title text-3xl font-bold text-zinc-100">
                 {activeWeekdays}x
               </p>
@@ -514,7 +700,7 @@ export default function RunModulePage() {
               </p>
               <p className="mt-2 text-sm text-zinc-500">
                 {latestEntry
-                  ? `Última corrida em ${formatRunDate(latestEntry.date)}`
+                  ? `Último treino em ${formatRunDate(latestEntry.date)}`
                   : "Histórico aguardando o primeiro registro"}
               </p>
             </div>
@@ -527,7 +713,7 @@ export default function RunModulePage() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="praxis-label text-[var(--accent)]">Registro</p>
-              <h2 className="mt-1 font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100">Lançar corrida</h2>
+              <h2 className="mt-1 font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100">Lançar cardio</h2>
             </div>
             <button type="button" onClick={() => setForm({ date: localDateKey(), distanceKm: "", minutes: "", seconds: "" })} className="inline-flex items-center gap-2 border border-zinc-800 bg-black/50 px-4 py-2 font-headline text-xs font-bold uppercase tracking-[0.25em] text-zinc-100 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"><TimerReset className="h-4 w-4" />Limpar</button>
           </div>
@@ -540,7 +726,7 @@ export default function RunModulePage() {
               <input type="number" min="0" max="59" value={form.seconds} onChange={(event) => setForm((current) => ({ ...current, seconds: event.target.value }))} placeholder="Segundos" className="praxis-field px-4 py-3 text-sm text-white placeholder:text-zinc-500" />
             </div>
             <div className="flex flex-wrap gap-3">
-              <button type="submit" className="praxis-button px-5 py-3"><Plus className="h-4 w-4" />Registrar corrida</button>
+              <button type="submit" className="praxis-button px-5 py-3"><Plus className="h-4 w-4" />Registrar treino</button>
               <div className="flex items-center gap-2 border border-zinc-800 bg-black/50 px-4 py-3 text-xs text-zinc-400"><Clock3 className="h-4 w-4 text-[var(--accent)]" />Ritmo calculado automaticamente</div>
             </div>
           </form>
@@ -550,18 +736,87 @@ export default function RunModulePage() {
           <div>
             <p className="praxis-label text-[var(--accent)]">Planejamento</p>
             <h2 className="mt-1 font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100">Meta por dia</h2>
+            <p className="mt-2 text-sm leading-6 text-zinc-400">
+              Defina km, horário e tipo de cardio. Cada dia com km e horário
+              vira automaticamente uma tarefa na sua agenda e um lembrete
+              (push / Telegram).
+            </p>
+            <p className="mt-2 text-xs uppercase tracking-[0.2em] text-[var(--accent)]">
+              {scheduledDays > 0
+                ? `${scheduledDays} ${scheduledDays === 1 ? "dia gerando tarefa" : "dias gerando tarefa"} na agenda`
+                : "Preencha km + horário para gerar tarefas"}
+            </p>
           </div>
           <div className="space-y-3">
-            {weekdayItems.map((item) => (
-              <div key={item.id} className="grid gap-3 border border-zinc-800 bg-black/40 p-4 md:grid-cols-[1fr_128px_128px] md:items-center">
-                <div>
-                  <p className="font-headline text-lg font-bold text-zinc-100">{item.label}</p>
-                  <p className="mt-1 text-xs text-zinc-500">{dailyDistanceMap[item.id].toFixed(1)} km feitos</p>
+            {weekdayItems.map((item) => {
+              const target = state.dailyTargets[item.id];
+              const remaining = Math.max(
+                0,
+                (target?.km ?? 0) - dailyDistanceMap[item.id],
+              );
+              const willSchedule =
+                (target?.km ?? 0) > 0 && isValidTime((target?.time ?? "").trim());
+              return (
+                <div
+                  key={item.id}
+                  className="grid gap-3 border border-zinc-800 bg-black/40 p-4 md:grid-cols-[1fr_104px_120px_132px] md:items-center"
+                  style={{
+                    borderColor: willSchedule
+                      ? "rgba(251,146,60,0.28)"
+                      : undefined,
+                  }}
+                >
+                  <div>
+                    <p className="font-headline text-lg font-bold text-zinc-100">{item.label}</p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {dailyDistanceMap[item.id].toFixed(1)} km feitos ·{" "}
+                      {remaining.toFixed(1)} km faltam
+                    </p>
+                    <p className="mt-1 text-[0.68rem] uppercase tracking-[0.2em] text-zinc-600">
+                      {willSchedule
+                        ? `Tarefa ${target.time} • ${cardioPreferenceLabel(target.type)}`
+                        : "Sem tarefa (falta km ou horário)"}
+                    </p>
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={target?.km ?? 0}
+                    onChange={(event) =>
+                      updateTarget(item.id, {
+                        km: Math.max(0, Number(event.target.value) || 0),
+                      })
+                    }
+                    placeholder="km"
+                    className="praxis-field px-3 py-3 text-sm text-white"
+                  />
+                  <input
+                    type="time"
+                    value={target?.time ?? ""}
+                    onChange={(event) =>
+                      updateTarget(item.id, { time: event.target.value })
+                    }
+                    className="praxis-field px-3 py-3 text-sm text-white"
+                  />
+                  <select
+                    value={target?.type ?? defaultCardioType}
+                    onChange={(event) =>
+                      updateTarget(item.id, {
+                        type: event.target.value as CardioType,
+                      })
+                    }
+                    className="praxis-field px-3 py-3 text-sm text-white"
+                  >
+                    {cardioTypeItems.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <input type="number" min="0" step="0.1" value={state.dailyTargets[item.id] ?? 0} onChange={(event) => setState((current) => ({ ...current, dailyTargets: { ...current.dailyTargets, [item.id]: Number(event.target.value) || 0 } }))} className="praxis-field px-4 py-3 text-sm text-white" />
-                <span className="text-right text-sm text-zinc-500">{Math.max(0, (state.dailyTargets[item.id] ?? 0) - dailyDistanceMap[item.id]).toFixed(1)} km faltam</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </GlassPanel>
       </div>
@@ -581,11 +836,11 @@ export default function RunModulePage() {
                 <p className="font-headline text-lg font-bold text-zinc-100">{entry.distanceKm.toFixed(2)} km</p>
                 <p className="text-sm text-zinc-500">{formatRunDate(entry.date)} • {formatMinutes(Math.round(entry.durationSeconds / 60))} • {formatPace(entry.durationSeconds, entry.distanceKm)}</p>
               </div>
-              <button type="button" onClick={() => setState((current) => ({ ...current, entries: current.entries.filter((item) => item.id !== entry.id) }))} className="inline-flex items-center gap-2 border border-[rgba(239,68,68,0.28)] bg-[rgba(239,68,68,0.08)] px-4 py-2 font-headline text-xs font-bold uppercase tracking-[0.25em] text-red-300 transition hover:border-[rgba(239,68,68,0.45)] hover:text-red-200"><Trash2 className="h-4 w-4" />Excluir</button>
+              <button type="button" onClick={() => setState((current) => ({ ...current, entries: current.entries.filter((other) => other.id !== entry.id) }))} className="inline-flex items-center gap-2 border border-[rgba(239,68,68,0.28)] bg-[rgba(239,68,68,0.08)] px-4 py-2 font-headline text-xs font-bold uppercase tracking-[0.25em] text-red-300 transition hover:border-[rgba(239,68,68,0.45)] hover:text-red-200"><Trash2 className="h-4 w-4" />Excluir</button>
             </article>
           )) : (
             <div className="border border-dashed border-zinc-800 bg-black/30 px-6 py-10 text-center text-sm text-zinc-400">
-              Lance a primeira corrida para começar o histórico da semana.
+              Lance o primeiro treino para começar o histórico da semana.
             </div>
           )}
         </div>
@@ -593,5 +848,3 @@ export default function RunModulePage() {
     </main>
   );
 }
-
-
