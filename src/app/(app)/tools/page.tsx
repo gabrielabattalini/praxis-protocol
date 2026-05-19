@@ -7,13 +7,15 @@ import {
   Clock3,
   Pause,
   Play,
+  Plus,
   RotateCcw,
   SkipForward,
+  Sparkles,
   TimerReset,
   Waves,
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
-import { RxPageHeader } from "@/components/redesign/primitives";
+import { MiniStat, RxPBar } from "@/components/redesign/primitives";
 
 type ToolAppId = "focus-timer" | "white-noise" | "breathing-reset";
 type TimerMode = "focus" | "break";
@@ -37,12 +39,6 @@ type NoiseState = { presetId: string; volume: number; playing: boolean };
 type BreathPreset = { id: string; label: string; desc: string; inhale: number; hold: number; exhale: number; reset: number };
 type BreathState = { presetId: string; phase: BreathPhase; remaining: number; running: boolean; cycles: number; minutes: number };
 
-const themes: Record<ToolAppId, { accent: string; panel: string; chip: string; glow: string }> = {
-  "focus-timer": { accent: "#00e38a", panel: "radial-gradient(circle at top, rgba(0,227,138,0.08), transparent 58%), #141416", chip: "rgba(0,227,138,0.16)", glow: "0 0 22px rgba(0,227,138,0.18)" },
-  "white-noise": { accent: "#72d7ff", panel: "radial-gradient(circle at top, rgba(114,215,255,0.08), transparent 58%), #141416", chip: "rgba(114,215,255,0.16)", glow: "0 0 22px rgba(114,215,255,0.18)" },
-  "breathing-reset": { accent: "#c084fc", panel: "radial-gradient(circle at top, rgba(192,132,252,0.09), transparent 58%), #141416", chip: "rgba(192,132,252,0.16)", glow: "0 0 22px rgba(192,132,252,0.18)" },
-};
-
 const focusPresets: FocusPreset[] = [
   { id: "classic", label: "Clássico 25/5", focus: 25, pause: 5, desc: "Ideal para vencer a fricção inicial." },
   { id: "deep", label: "Profundo 50/10", focus: 50, pause: 10, desc: "Bom para blocos longos de execução." },
@@ -59,10 +55,18 @@ const breathPresets: BreathPreset[] = [
   { id: "restore", label: "Restore 4-4-8", desc: "Mais profundo para sair de tensão acumulada.", inhale: 4, hold: 4, exhale: 8, reset: 0 },
 ];
 const apps = [
-  { id: "focus-timer" as const, title: "Focus Timer", status: "LIVE", desc: "Otimize seus blocos de trabalho.", icon: TimerReset },
-  { id: "white-noise" as const, title: "Ruído branco", status: "LIVE", desc: "Camadas sonoras para entrar em foco.", icon: Waves },
-  { id: "breathing-reset" as const, title: "Reset respiratório", status: "LIVE", desc: "Protocolo guiado para voltar ao eixo.", icon: RotateCcw },
+  { id: "focus-timer" as const, title: "Focus Timer", status: "ATIVO", desc: "Otimize seus blocos de trabalho.", icon: TimerReset },
+  { id: "white-noise" as const, title: "Ruído branco", status: "ATIVO", desc: "Camadas sonoras para entrar em foco.", icon: Waves },
+  { id: "breathing-reset" as const, title: "Reset respiratório", status: "ATIVO", desc: "Protocolo guiado para voltar ao eixo.", icon: RotateCcw },
 ] as const;
+
+// Future tools render as elegant ghost slots so the grid stays balanced
+// and the system reads as extensible. Add real tools to `apps` above.
+const upcomingTools = [
+  { title: "Diário rápido", desc: "Captura de notas e foco do dia." },
+  { title: "Cronômetro reverso", desc: "Contagem regressiva para deadlines." },
+] as const;
+
 const breathCopy: Record<BreathPhase, { label: string; hint: string }> = {
   inhale: { label: "Inspirar", hint: "Puxe o ar com ritmo e presença." },
   hold: { label: "Segurar", hint: "Mantenha o corpo estável por alguns segundos." },
@@ -126,6 +130,89 @@ const restoreFocus = (userId: string, day: string): FocusState => {
     : { ...next, mode: "focus" as TimerMode, remaining: next.focus * 60, running: false, startedAt: undefined };
 };
 
+/* ── Shared design-system style fragments ─────────────────────── */
+
+const microLabel: React.CSSProperties = {
+  fontFamily: "var(--font-mono), monospace",
+  fontSize: 10,
+  letterSpacing: "0.22em",
+  textTransform: "uppercase",
+  color: "var(--fg-3)",
+};
+
+const heroBtnPrimary: React.CSSProperties = {
+  height: 52,
+  minWidth: 220,
+  fontSize: 13,
+  letterSpacing: "0.08em",
+};
+
+const heroBtnGhost: React.CSSProperties = {
+  height: 46,
+  fontSize: 12,
+};
+
+function PresetRow({
+  active,
+  label,
+  desc,
+  trailing,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  desc: string;
+  trailing?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        width: "100%",
+        textAlign: "left",
+        padding: "14px 16px",
+        borderRadius: 14,
+        cursor: "pointer",
+        fontFamily: "inherit",
+        transition: "border-color 120ms ease, background 120ms ease",
+        border: `1px solid ${active ? "rgba(251,146,60,0.45)" : "var(--line)"}`,
+        background: active ? "rgba(251,146,60,0.08)" : "rgba(0,0,0,0.3)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <p
+            className="rx-display"
+            style={{ fontSize: 15, fontWeight: 600, color: active ? "var(--accent)" : "var(--fg)", letterSpacing: "-0.01em" }}
+          >
+            {label}
+          </p>
+          <p style={{ marginTop: 4, fontSize: 12, lineHeight: 1.5, color: "var(--fg-3)" }}>{desc}</p>
+        </div>
+        {trailing ? (
+          <span className="rx-mono" style={{ fontSize: 12, fontWeight: 600, color: active ? "var(--accent)" : "var(--fg-3)", whiteSpace: "nowrap" }}>
+            {trailing}
+          </span>
+        ) : null}
+      </div>
+    </button>
+  );
+}
+
+function SidePanel({ Icon, label, children }: { Icon: typeof Clock3; label: string; children: React.ReactNode }) {
+  return (
+    <section className="rx-panel" style={{ padding: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <Icon className="h-4 w-4" style={{ color: "var(--accent)" }} />
+        <p style={microLabel}>{label}</p>
+      </div>
+      <div style={{ marginTop: 16 }}>{children}</div>
+    </section>
+  );
+}
+
 export default function ToolsPage() {
   const { state } = useAppStore();
   const [activeAppId, setActiveAppId] = useState<ToolAppId>("focus-timer");
@@ -141,7 +228,6 @@ export default function ToolsPage() {
 
   const userId = state.session.userId || state.session.email || "guest";
   const day = todayKey();
-  const theme = themes[activeAppId];
   const focus = useMemo(() => refreshFocusDay(focusState, day), [day, focusState]);
   const focusActivePreset = focus.presetId === "custom" ? null : focusPreset(focus.presetId);
   const focusPhaseMinutes = focus.mode === "focus" ? focus.focus : focus.pause;
@@ -356,39 +442,64 @@ export default function ToolsPage() {
     setToast("Fase respiratória ajustada.");
   };
 
+  const activeApp = apps.find((a) => a.id === activeAppId) ?? apps[0];
+
   const main = () => {
     if (activeAppId === "white-noise") {
       return (
         <>
-          <section className="rounded-2xl border border-zinc-800/70 px-6 py-6 sm:px-8 sm:py-8" style={{ background: themes["white-noise"].panel }}>
-            <div className="flex items-center justify-between gap-4">
-              <p className="font-mono text-[0.56rem] uppercase tracking-[0.24em] text-zinc-600">Paisagem sonora ativa</p>
-              <div className="rounded-2xl border border-zinc-800/70 bg-[#101012] px-3 py-2"><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Estado</p><p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: themes["white-noise"].accent }}>{noiseState.playing ? "Tocando" : "Pronto"}</p></div>
+          <section className="rx-panel-hot" style={{ padding: "28px 24px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+              <p style={microLabel}>Paisagem sonora ativa</p>
+              <span className="rx-mono" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--accent)" }}>
+                {noiseState.playing ? "Tocando" : "Pronto"}
+              </span>
             </div>
-            <div className="mt-8 text-center">
-              <p className="font-display text-5xl font-bold uppercase tracking-tight sm:text-6xl" style={{ color: themes["white-noise"].accent }}>{sound.label}</p>
-              <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-zinc-400">{sound.desc}</p>
-              <div className="mt-8 flex min-h-[7rem] items-end justify-center gap-3">{Array.from({ length: 12 }, (_, i) => <span key={i} className="w-2 rounded-full transition-all duration-700" style={{ height: noiseState.playing ? `${22 + ((i * 17) % 44)}px` : "18px", backgroundColor: themes["white-noise"].accent, opacity: noiseState.playing ? 0.35 + ((i % 5) * 0.12) : 0.16, boxShadow: noiseState.playing ? `0 0 18px ${themes["white-noise"].accent}33` : "none" }} />)}</div>
-              <div className="mt-8 flex w-full max-w-[30rem] flex-col items-center gap-3 sm:flex-row sm:justify-center">
-                <button type="button" onClick={() => void toggleNoise()} className="inline-flex h-14 min-w-[14rem] items-center justify-center gap-2 rounded-xl px-6 font-semibold text-[#051015] transition hover:brightness-105" style={{ backgroundColor: themes["white-noise"].accent, boxShadow: themes["white-noise"].glow }}>{noiseState.playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}{noiseState.playing ? "Pausar camada" : "Iniciar camada"}</button>
+            <div style={{ marginTop: 24, textAlign: "center" }}>
+              <p className="rx-display" style={{ fontSize: "clamp(2.4rem, 6vw, 3.4rem)", fontWeight: 700, letterSpacing: "-0.02em", color: "var(--accent)" }}>
+                {sound.label}
+              </p>
+              <p style={{ margin: "14px auto 0", maxWidth: 460, fontSize: 14, lineHeight: 1.7, color: "var(--fg-3)" }}>{sound.desc}</p>
+              <div style={{ marginTop: 28, display: "flex", minHeight: 96, alignItems: "flex-end", justifyContent: "center", gap: 8 }}>
+                {Array.from({ length: 14 }, (_, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      width: 6,
+                      borderRadius: 999,
+                      transition: "all 700ms ease",
+                      height: noiseState.playing ? `${20 + ((i * 17) % 52)}px` : "14px",
+                      background: "var(--accent)",
+                      opacity: noiseState.playing ? 0.4 + ((i % 5) * 0.1) : 0.16,
+                      boxShadow: noiseState.playing ? "0 0 16px var(--accent-glow)" : "none",
+                    }}
+                  />
+                ))}
               </div>
-              <div className="mt-4 grid w-full max-w-[30rem] gap-3 sm:grid-cols-2">
-                <button type="button" onClick={silenceNoise} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-zinc-800/70 bg-[#202023] px-4 text-sm font-semibold text-zinc-100 transition hover:border-zinc-700"><RotateCcw className="h-4 w-4" />Silenciar</button>
-                <div className="inline-flex h-12 items-center justify-center rounded-2xl border border-zinc-800/70 bg-[#171719] px-4 text-sm font-semibold text-zinc-100">Volume {noiseState.volume}%</div>
+              <div style={{ marginTop: 28, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                <button type="button" onClick={() => void toggleNoise()} className="rx-btn-primary" style={heroBtnPrimary}>
+                  {noiseState.playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  {noiseState.playing ? "Pausar camada" : "Iniciar camada"}
+                </button>
+                <button type="button" onClick={silenceNoise} className="rx-btn-ghost" style={{ ...heroBtnGhost, minWidth: 220 }}>
+                  <RotateCcw className="h-4 w-4" />
+                  Silenciar
+                </button>
               </div>
             </div>
           </section>
-          <section className="grid gap-4 rounded-2xl border border-zinc-800/70 bg-[linear-gradient(180deg,#141416,#101012)] px-6 py-5 sm:grid-cols-[minmax(0,1fr)_120px]">
-            <div className="space-y-3">
-              <p className="font-display text-3xl font-bold uppercase tracking-tight text-zinc-100 sm:text-4xl">Sustente o ambiente certo</p>
-              <p className="max-w-2xl text-sm leading-7 text-zinc-400">O objetivo aqui é reduzir ruído mental, não distrair com música. Você liga, escolhe a textura e deixa o ambiente trabalhar por você.</p>
-              <div className="grid gap-3 pt-1 sm:grid-cols-3">
-                <div><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Preset</p><p className="mt-2 text-lg font-semibold text-zinc-100">{sound.label}</p></div>
-                <div><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Volume</p><p className="mt-2 text-2xl font-semibold text-zinc-100">{noiseState.volume}%</p></div>
-                <div><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Camada</p><p className="mt-2 text-lg font-semibold text-zinc-100">{noiseState.playing ? "Ativa" : "Pronta"}</p></div>
-              </div>
+          <section className="rx-panel" style={{ padding: 22 }}>
+            <p className="rx-display" style={{ fontSize: 20, fontWeight: 700, color: "var(--fg)", letterSpacing: "-0.01em" }}>
+              Sustente o ambiente certo
+            </p>
+            <p style={{ marginTop: 8, maxWidth: 560, fontSize: 13, lineHeight: 1.7, color: "var(--fg-3)" }}>
+              O objetivo aqui é reduzir ruído mental, não distrair com música. Você liga, escolhe a textura e deixa o ambiente trabalhar por você.
+            </p>
+            <div style={{ marginTop: 16, display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))" }}>
+              <MiniStat label="Preset" value={sound.label} />
+              <MiniStat label="Volume" value={`${noiseState.volume}%`} />
+              <MiniStat label="Camada" value={noiseState.playing ? "Ativa" : "Pronta"} />
             </div>
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-zinc-800/70 bg-[#111113] px-4 py-5 text-center"><p className="font-display text-4xl font-bold tracking-tight" style={{ color: themes["white-noise"].accent }}>3x</p><p className="mt-2 font-mono text-[0.52rem] uppercase tracking-[0.2em] text-zinc-600">Perfis de som</p></div>
           </section>
         </>
       );
@@ -396,71 +507,121 @@ export default function ToolsPage() {
     if (activeAppId === "breathing-reset") {
       return (
         <>
-          <section className="rounded-2xl border border-zinc-800/70 px-6 py-6 sm:px-8 sm:py-8" style={{ background: themes["breathing-reset"].panel }}>
-            <div className="flex items-center justify-between gap-4">
-              <p className="font-mono text-[0.56rem] uppercase tracking-[0.24em] text-zinc-600">Reset respiratório</p>
-              <div className="rounded-2xl border border-zinc-800/70 bg-[#101012] px-3 py-2"><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Estado</p><p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: themes["breathing-reset"].accent }}>{breathState.running ? "Guiando" : "Pronto"}</p></div>
+          <section className="rx-panel-hot" style={{ padding: "28px 24px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+              <p style={microLabel}>Reset respiratório</p>
+              <span className="rx-mono" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--accent)" }}>
+                {breathState.running ? "Guiando" : "Pronto"}
+              </span>
             </div>
-            <div className="mt-8 flex flex-col items-center text-center">
-              <div className="relative grid h-52 w-52 place-items-center rounded-full border border-zinc-800 transition-transform duration-700 sm:h-60 sm:w-60" style={{ transform: `scale(${orbScale})`, boxShadow: `0 0 0 14px ${themes["breathing-reset"].chip}, 0 0 42px rgba(192,132,252,0.16)`, background: "radial-gradient(circle at center, rgba(192,132,252,0.18), rgba(14,14,16,0.96) 68%)" }}>
-                <div className="space-y-2"><p className="font-display text-3xl font-bold uppercase tracking-tight sm:text-4xl" style={{ color: themes["breathing-reset"].accent }}>{activePhase?.label ?? "Inspirar"}</p><p className="text-5xl font-semibold text-zinc-100 sm:text-6xl">{String(breathState.remaining).padStart(2, "0")}</p></div>
+            <div style={{ marginTop: 24, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+              <div
+                style={{
+                  position: "relative",
+                  display: "grid",
+                  placeItems: "center",
+                  height: 224,
+                  width: 224,
+                  borderRadius: 999,
+                  border: "1px solid var(--line)",
+                  transition: "transform 700ms ease",
+                  transform: `scale(${orbScale})`,
+                  boxShadow: "0 0 0 14px rgba(251,146,60,0.08), 0 0 48px var(--accent-glow)",
+                  background: "radial-gradient(circle at center, rgba(251,146,60,0.16), rgba(10,10,12,0.96) 68%)",
+                }}
+              >
+                <div>
+                  <p className="rx-display" style={{ fontSize: "clamp(1.8rem, 5vw, 2.4rem)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "-0.01em", color: "var(--accent)" }}>
+                    {activePhase?.label ?? "Inspirar"}
+                  </p>
+                  <p className="rx-display" style={{ fontSize: 52, fontWeight: 600, color: "var(--fg)" }}>
+                    {String(breathState.remaining).padStart(2, "0")}
+                  </p>
+                </div>
               </div>
-              <p className="mt-8 max-w-xl text-sm leading-7 text-zinc-400">{activePhase?.hint ?? "Puxe o ar com ritmo e presença."}</p>
-              <div className="mt-8 flex w-full max-w-[30rem] flex-col items-center gap-3 sm:flex-row sm:justify-center">
-                <button type="button" onClick={toggleBreath} className="inline-flex h-14 min-w-[14rem] items-center justify-center gap-2 rounded-xl px-6 font-semibold text-[#15081d] transition hover:brightness-105" style={{ backgroundColor: themes["breathing-reset"].accent, boxShadow: themes["breathing-reset"].glow }}>{breathState.running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}{breathState.running ? "Pausar guia" : "Iniciar protocolo"}</button>
-              </div>
-              <div className="mt-4 grid w-full max-w-[30rem] gap-3 sm:grid-cols-2">
-                <button type="button" onClick={resetBreath} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-zinc-800/70 bg-[#202023] px-4 text-sm font-semibold text-zinc-100 transition hover:border-zinc-700"><RotateCcw className="h-4 w-4" />Reiniciar</button>
-                <button type="button" onClick={skipBreath} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-zinc-800/70 bg-[#171719] px-4 text-sm font-semibold text-zinc-100 transition hover:border-zinc-700"><SkipForward className="h-4 w-4" />Próxima fase</button>
+              <p style={{ marginTop: 28, maxWidth: 440, fontSize: 14, lineHeight: 1.7, color: "var(--fg-3)" }}>
+                {activePhase?.hint ?? "Puxe o ar com ritmo e presença."}
+              </p>
+              <div style={{ marginTop: 24, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                <button type="button" onClick={toggleBreath} className="rx-btn-primary" style={heroBtnPrimary}>
+                  {breathState.running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  {breathState.running ? "Pausar guia" : "Iniciar protocolo"}
+                </button>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button type="button" onClick={resetBreath} className="rx-btn-ghost" style={heroBtnGhost}>
+                    <RotateCcw className="h-4 w-4" />
+                    Reiniciar
+                  </button>
+                  <button type="button" onClick={skipBreath} className="rx-btn-ghost" style={heroBtnGhost}>
+                    <SkipForward className="h-4 w-4" />
+                    Próxima fase
+                  </button>
+                </div>
               </div>
             </div>
           </section>
-          <section className="grid gap-4 rounded-2xl border border-zinc-800/70 bg-[linear-gradient(180deg,#141416,#101012)] px-6 py-5 sm:grid-cols-[minmax(0,1fr)_120px]">
-            <div className="space-y-3">
-              <p className="font-display text-3xl font-bold uppercase tracking-tight text-zinc-100 sm:text-4xl">Volte ao eixo sem drama</p>
-              <p className="max-w-2xl text-sm leading-7 text-zinc-400">Quando o cérebro acelera demais, o objetivo não é performar. É baixar o ruído fisiológico e retomar com mais clareza.</p>
-              <div className="grid gap-3 pt-1 sm:grid-cols-3">
-                <div><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Ciclos</p><p className="mt-2 text-2xl font-semibold text-zinc-100">{breathState.cycles}</p></div>
-                <div><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Min guiados</p><p className="mt-2 text-2xl font-semibold text-zinc-100">{breathState.minutes}</p></div>
-                <div><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Protocolo</p><p className="mt-2 text-lg font-semibold text-zinc-100">{breath.label}</p></div>
-              </div>
+          <section className="rx-panel" style={{ padding: 22 }}>
+            <p className="rx-display" style={{ fontSize: 20, fontWeight: 700, color: "var(--fg)", letterSpacing: "-0.01em" }}>
+              Volte ao eixo sem drama
+            </p>
+            <p style={{ marginTop: 8, maxWidth: 560, fontSize: 13, lineHeight: 1.7, color: "var(--fg-3)" }}>
+              Quando o cérebro acelera demais, o objetivo não é performar. É baixar o ruído fisiológico e retomar com mais clareza.
+            </p>
+            <div style={{ marginTop: 16, display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))" }}>
+              <MiniStat label="Ciclos" value={String(breathState.cycles)} />
+              <MiniStat label="Min guiados" value={String(breathState.minutes)} />
+              <MiniStat label="Por ciclo" value={`${cycleSeconds}s`} />
             </div>
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-zinc-800/70 bg-[#111113] px-4 py-5 text-center"><p className="font-display text-4xl font-bold tracking-tight" style={{ color: themes["breathing-reset"].accent }}>{cycleSeconds}s</p><p className="mt-2 font-mono text-[0.52rem] uppercase tracking-[0.2em] text-zinc-600">por ciclo</p></div>
           </section>
         </>
       );
     }
     return (
       <>
-        <section className="rounded-2xl border border-zinc-800/70 px-6 py-6 sm:px-8 sm:py-8" style={{ background: themes["focus-timer"].panel }}>
-          <div className="flex items-center justify-between gap-4">
-            <p className="font-mono text-[0.56rem] uppercase tracking-[0.24em] text-zinc-600">{focus.mode === "focus" ? "Bloco de foco do dia" : "Bloco de pausa"}</p>
-            <div className="rounded-2xl border border-zinc-800/70 bg-[#101012] px-3 py-2"><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Estado</p><p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: themes["focus-timer"].accent }}>{focus.running ? (focus.mode === "focus" ? "Em foco" : "Em pausa") : "Pronto"}</p></div>
+        <section className="rx-panel-hot" style={{ padding: "28px 24px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+            <p style={microLabel}>{focus.mode === "focus" ? "Bloco de foco do dia" : "Bloco de pausa"}</p>
+            <span className="rx-mono" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--accent)" }}>
+              {focus.running ? (focus.mode === "focus" ? "Em foco" : "Em pausa") : "Pronto"}
+            </span>
           </div>
-          <div className="mt-8 flex flex-col items-center text-center">
-            <div className="font-display text-[5rem] font-bold leading-none tracking-tight sm:text-[7rem]" style={{ color: themes["focus-timer"].accent }}>{fmt(focus.remaining)}</div>
-            <div className="mt-7 h-[3px] w-full max-w-[17rem] overflow-hidden rounded-full bg-white/12"><div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, Math.max(0, focusProgress * 100))}%`, backgroundColor: themes["focus-timer"].accent, boxShadow: "0 0 18px rgba(0,227,138,0.38)" }} /></div>
-            <div className="mt-8 flex w-full max-w-[30rem] flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <button type="button" onClick={toggleFocus} className="inline-flex h-14 min-w-[14rem] items-center justify-center gap-2 rounded-xl px-6 font-semibold text-[#07110c] transition hover:brightness-105" style={{ backgroundColor: themes["focus-timer"].accent, boxShadow: themes["focus-timer"].glow }}>{focus.running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}{focus.running ? "Pausar" : focus.mode === "focus" ? "Iniciar foco" : "Iniciar pausa"}</button>
+          <div style={{ marginTop: 20, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+            <div className="rx-display" style={{ fontSize: "clamp(4rem, 13vw, 7rem)", fontWeight: 700, lineHeight: 1, letterSpacing: "-0.03em", color: "var(--accent)", textShadow: "0 0 32px var(--accent-glow)" }}>
+              {fmt(focus.remaining)}
             </div>
-            <div className="mt-4 grid w-full max-w-[30rem] gap-3 sm:grid-cols-2">
-              <button type="button" onClick={resetFocus} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-zinc-800/70 bg-[#202023] px-4 text-sm font-semibold text-zinc-100 transition hover:border-zinc-700"><RotateCcw className="h-4 w-4" />Reiniciar</button>
-              <button type="button" onClick={skipFocus} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-zinc-800/70 bg-[#171719] px-4 text-sm font-semibold text-zinc-100 transition hover:border-zinc-700"><SkipForward className="h-4 w-4" />{focus.mode === "focus" ? "Nova pausa" : "Novo foco"}</button>
+            <div style={{ marginTop: 24, width: "100%", maxWidth: 280 }}>
+              <RxPBar value={Math.min(100, Math.max(0, focusProgress * 100))} />
+            </div>
+            <div style={{ marginTop: 24, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+              <button type="button" onClick={toggleFocus} className="rx-btn-primary" style={heroBtnPrimary}>
+                {focus.running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                {focus.running ? "Pausar" : focus.mode === "focus" ? "Iniciar foco" : "Iniciar pausa"}
+              </button>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button type="button" onClick={resetFocus} className="rx-btn-ghost" style={heroBtnGhost}>
+                  <RotateCcw className="h-4 w-4" />
+                  Reiniciar
+                </button>
+                <button type="button" onClick={skipFocus} className="rx-btn-ghost" style={heroBtnGhost}>
+                  <SkipForward className="h-4 w-4" />
+                  {focus.mode === "focus" ? "Nova pausa" : "Novo foco"}
+                </button>
+              </div>
             </div>
           </div>
-          {toast ? <div className="mt-6 rounded-xl border px-4 py-3 text-sm text-zinc-100" style={{ borderColor: "rgba(0,227,138,0.24)", backgroundColor: "rgba(0,227,138,0.08)" }}>{toast}</div> : null}
         </section>
-        <section className="grid gap-4 rounded-2xl border border-zinc-800/70 bg-[linear-gradient(180deg,#141416,#101012)] px-6 py-5 sm:grid-cols-[minmax(0,1fr)_120px]">
-          <div className="space-y-3">
-            <p className="font-display text-3xl font-bold uppercase tracking-tight text-zinc-100 sm:text-4xl">Potencialize sua execução</p>
-            <p className="max-w-2xl text-sm leading-7 text-zinc-400">Cada ciclo concluído reforça ritmo, reduz atrito na retomada e mantém o dia em protocolo.</p>
-            <div className="grid gap-3 pt-1 sm:grid-cols-3">
-              <div><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Sessões hoje</p><p className="mt-2 text-2xl font-semibold text-zinc-100">{focus.sessions}</p></div>
-              <div><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Min focados</p><p className="mt-2 text-2xl font-semibold text-zinc-100">{focus.minutes}</p></div>
-              <div><p className="font-mono text-[0.5rem] uppercase tracking-[0.18em] text-zinc-600">Preset ativo</p><p className="mt-2 text-lg font-semibold text-zinc-100">{focus.presetId === "custom" ? "Custom" : focusActivePreset?.label ?? "Custom"}</p></div>
-            </div>
+        <section className="rx-panel" style={{ padding: 22 }}>
+          <p className="rx-display" style={{ fontSize: 20, fontWeight: 700, color: "var(--fg)", letterSpacing: "-0.01em" }}>
+            Potencialize sua execução
+          </p>
+          <p style={{ marginTop: 8, maxWidth: 560, fontSize: 13, lineHeight: 1.7, color: "var(--fg-3)" }}>
+            Cada ciclo concluído reforça ritmo, reduz atrito na retomada e mantém o dia em protocolo.
+          </p>
+          <div style={{ marginTop: 16, display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))" }}>
+            <MiniStat label="Sessões hoje" value={String(focus.sessions)} />
+            <MiniStat label="Min focados" value={String(focus.minutes)} />
+            <MiniStat label="XP por ritmo" value={`+${focusXp}`} />
           </div>
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-zinc-800/70 bg-[#111113] px-4 py-5 text-center"><p className="font-display text-4xl font-bold tracking-tight" style={{ color: themes["focus-timer"].accent }}>+{focusXp}</p><p className="mt-2 font-mono text-[0.52rem] uppercase tracking-[0.2em] text-zinc-600">XP por ritmo</p></div>
         </section>
       </>
     );
@@ -470,230 +631,326 @@ export default function ToolsPage() {
     if (activeAppId === "white-noise") {
       return (
         <>
-          <section className="rounded-2xl border border-zinc-800/70 bg-[#141416] p-5">
-            <div className="flex items-center gap-3">
-              <Clock3 className="h-4 w-4" style={{ color: themes["white-noise"].accent }} />
-              <p className="font-mono text-[0.56rem] uppercase tracking-[0.22em] text-zinc-600">Configuração rápida</p>
+          <SidePanel Icon={Clock3} label="Configuração rápida">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <span style={microLabel}>Volume</span>
+              <span className="rx-display" style={{ fontSize: 16, fontWeight: 600, color: "var(--fg)" }}>{noiseState.volume}%</span>
             </div>
-            <div className="mt-4">
-              <div className="flex items-center justify-between gap-3"><span className="font-mono text-[0.52rem] uppercase tracking-[0.18em] text-zinc-600">Volume</span><span className="text-sm font-semibold text-zinc-100">{noiseState.volume}%</span></div>
-              <input type="range" min={0} max={100} value={noiseState.volume} onChange={(event) => setNoiseState((current) => ({ ...current, volume: Number(event.target.value) }))} className="mt-3 w-full" style={{ accentColor: themes["white-noise"].accent }} />
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={noiseState.volume}
+              onChange={(event) => setNoiseState((current) => ({ ...current, volume: Number(event.target.value) }))}
+              style={{ marginTop: 14, width: "100%", accentColor: "var(--accent)" }}
+            />
+          </SidePanel>
+          <SidePanel Icon={Waves} label="Perfis sonoros">
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {noisePresets.map((preset) => (
+                <PresetRow
+                  key={preset.id}
+                  active={noiseState.presetId === preset.id}
+                  label={preset.label}
+                  desc={preset.desc}
+                  onClick={() => setNoiseState((current) => ({ ...current, presetId: preset.id }))}
+                />
+              ))}
             </div>
-          </section>
-          <section className="rounded-2xl border border-zinc-800/70 bg-[#141416] p-5">
-            <div className="flex items-center gap-3">
-              <Waves className="h-4 w-4" style={{ color: themes["white-noise"].accent }} />
-              <p className="font-mono text-[0.56rem] uppercase tracking-[0.22em] text-zinc-600">Perfis sonoros</p>
-            </div>
-            <div className="mt-4 space-y-3">
-              {noisePresets.map((preset) => {
-                const active = noiseState.presetId === preset.id;
-                return (
-                  <button key={preset.id} type="button" onClick={() => setNoiseState((current) => ({ ...current, presetId: preset.id }))} className={["w-full rounded-xl border px-4 py-4 text-left transition", active ? "border-[rgba(114,215,255,0.26)] bg-[rgba(114,215,255,0.08)]" : "border-zinc-800 bg-[#0f0f11] hover:border-zinc-700"].join(" ")}>
-                    <p className="text-base font-semibold text-zinc-100">{preset.label}</p>
-                    <p className="mt-1 font-mono text-[0.5rem] uppercase tracking-[0.16em] text-zinc-600">{preset.desc}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+          </SidePanel>
         </>
       );
     }
     if (activeAppId === "breathing-reset") {
       return (
         <>
-          <section className="rounded-2xl border border-zinc-800/70 bg-[#141416] p-5">
-            <div className="flex items-center gap-3">
-              <Clock3 className="h-4 w-4" style={{ color: themes["breathing-reset"].accent }} />
-              <p className="font-mono text-[0.56rem] uppercase tracking-[0.22em] text-zinc-600">Protocolo ativo</p>
-            </div>
-            <div className="mt-4 space-y-3">
-              {phases.map((phase) => (
-                <div key={phase.phase} className={["rounded-xl border px-4 py-3", phase.phase === breathState.phase ? "border-[rgba(192,132,252,0.26)] bg-[rgba(192,132,252,0.08)]" : "border-zinc-800 bg-[#0f0f11]"].join(" ")}>
-                  <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold text-zinc-100">{phase.label}</p><span className="text-sm font-semibold text-zinc-400">{phase.duration}s</span></div>
-                  <p className="mt-1 text-xs leading-6 text-zinc-500">{phase.hint}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-          <section className="rounded-2xl border border-zinc-800/70 bg-[#141416] p-5">
-            <div className="flex items-center gap-3">
-              <RotateCcw className="h-4 w-4" style={{ color: themes["breathing-reset"].accent }} />
-              <p className="font-mono text-[0.56rem] uppercase tracking-[0.22em] text-zinc-600">Presets respiratórios</p>
-            </div>
-            <div className="mt-4 space-y-3">
-              {breathPresets.map((preset) => {
-                const active = breathState.presetId === preset.id;
+          <SidePanel Icon={Clock3} label="Protocolo ativo">
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {phases.map((phase) => {
+                const isActive = phase.phase === breathState.phase;
                 return (
-                  <button key={preset.id} type="button" onClick={() => setBreathPreset(preset.id)} className={["w-full rounded-xl border px-4 py-4 text-left transition", active ? "border-[rgba(192,132,252,0.26)] bg-[rgba(192,132,252,0.08)]" : "border-zinc-800 bg-[#0f0f11] hover:border-zinc-700"].join(" ")}>
-                    <div className="flex items-start justify-between gap-3"><div><p className="text-base font-semibold text-zinc-100">{preset.label}</p><p className="mt-1 font-mono text-[0.5rem] uppercase tracking-[0.16em] text-zinc-600">{preset.desc}</p></div><span className="text-sm font-semibold text-zinc-400">{preset.inhale}/{preset.hold}/{preset.exhale}</span></div>
-                  </button>
+                  <div
+                    key={phase.phase}
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: 14,
+                      border: `1px solid ${isActive ? "rgba(251,146,60,0.45)" : "var(--line)"}`,
+                      background: isActive ? "rgba(251,146,60,0.08)" : "rgba(0,0,0,0.3)",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                      <p className="rx-display" style={{ fontSize: 14, fontWeight: 600, color: isActive ? "var(--accent)" : "var(--fg)" }}>{phase.label}</p>
+                      <span className="rx-mono" style={{ fontSize: 13, fontWeight: 600, color: "var(--fg-3)" }}>{phase.duration}s</span>
+                    </div>
+                    <p style={{ marginTop: 4, fontSize: 12, lineHeight: 1.5, color: "var(--fg-3)" }}>{phase.hint}</p>
+                  </div>
                 );
               })}
             </div>
-          </section>
+          </SidePanel>
+          <SidePanel Icon={RotateCcw} label="Presets respiratórios">
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {breathPresets.map((preset) => (
+                <PresetRow
+                  key={preset.id}
+                  active={breathState.presetId === preset.id}
+                  label={preset.label}
+                  desc={preset.desc}
+                  trailing={`${preset.inhale}/${preset.hold}/${preset.exhale}`}
+                  onClick={() => setBreathPreset(preset.id)}
+                />
+              ))}
+            </div>
+          </SidePanel>
         </>
       );
     }
     return (
       <>
-        <section className="rounded-2xl border border-zinc-800/70 bg-[#141416] p-5">
-          <div className="flex items-center gap-3">
-            <Clock3 className="h-4 w-4" style={{ color: themes["focus-timer"].accent }} />
-            <p className="font-mono text-[0.56rem] uppercase tracking-[0.22em] text-zinc-600">Configuração rápida</p>
+        <SidePanel Icon={Clock3} label="Configuração rápida">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <label style={{ display: "block" }}>
+              <span style={microLabel}>Foco (min)</span>
+              <input
+                type="number"
+                min={1}
+                value={focus.focus}
+                onChange={(event) => setFocusMinutes(event.target.value)}
+                className="rx-display"
+                style={{ marginTop: 8, height: 58, width: "100%", borderRadius: 14, border: "1px solid var(--line)", background: "rgba(0,0,0,0.3)", padding: "0 16px", fontSize: 24, fontWeight: 600, color: "var(--fg)", outline: "none" }}
+              />
+            </label>
+            <label style={{ display: "block" }}>
+              <span style={microLabel}>Pausa (min)</span>
+              <input
+                type="number"
+                min={1}
+                value={focus.pause}
+                onChange={(event) => setPauseMinutes(event.target.value)}
+                className="rx-display"
+                style={{ marginTop: 8, height: 58, width: "100%", borderRadius: 14, border: "1px solid var(--line)", background: "rgba(0,0,0,0.3)", padding: "0 16px", fontSize: 24, fontWeight: 600, color: "var(--fg)", outline: "none" }}
+              />
+            </label>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <label className="space-y-2"><span className="font-mono text-[0.52rem] uppercase tracking-[0.18em] text-zinc-600">Foco (min)</span><input type="number" min={1} value={focus.focus} onChange={(event) => setFocusMinutes(event.target.value)} className="h-16 w-full rounded-2xl border border-zinc-800/70 bg-[#0d0d0f] px-4 text-2xl font-semibold text-zinc-100 outline-none transition focus:border-[rgba(0,227,138,0.45)]" /></label>
-            <label className="space-y-2"><span className="font-mono text-[0.52rem] uppercase tracking-[0.18em] text-zinc-600">Pausa (min)</span><input type="number" min={1} value={focus.pause} onChange={(event) => setPauseMinutes(event.target.value)} className="h-16 w-full rounded-2xl border border-zinc-800/70 bg-[#0d0d0f] px-4 text-2xl font-semibold text-zinc-100 outline-none transition focus:border-[rgba(0,227,138,0.45)]" /></label>
+        </SidePanel>
+        <SidePanel Icon={TimerReset} label="Presets de sessão">
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {focusPresets.map((preset) => (
+              <PresetRow
+                key={preset.id}
+                active={focus.presetId === preset.id}
+                label={preset.label}
+                desc={preset.desc}
+                trailing={`${preset.focus}/${preset.pause}`}
+                onClick={() => setFocusPreset(preset.id)}
+              />
+            ))}
           </div>
-        </section>
-        <section className="rounded-2xl border border-zinc-800/70 bg-[#141416] p-5">
-          <div className="flex items-center gap-3">
-            <TimerReset className="h-4 w-4" style={{ color: themes["focus-timer"].accent }} />
-            <p className="font-mono text-[0.56rem] uppercase tracking-[0.22em] text-zinc-600">Presets de sessão</p>
-          </div>
-          <div className="mt-4 space-y-3">
-            {focusPresets.map((preset) => {
-              const active = focus.presetId === preset.id;
-              return (
-                <button key={preset.id} type="button" onClick={() => setFocusPreset(preset.id)} className={["w-full rounded-xl border px-4 py-4 text-left transition", active ? "border-[rgba(0,227,138,0.26)] bg-[rgba(0,227,138,0.08)]" : "border-zinc-800 bg-[#0f0f11] hover:border-zinc-700"].join(" ")}>
-                  <div className="flex items-start justify-between gap-3"><div><p className="text-base font-semibold text-zinc-100">{preset.label}</p><p className="mt-1 font-mono text-[0.5rem] uppercase tracking-[0.16em] text-zinc-600">{preset.desc}</p></div><span className="text-sm font-semibold text-zinc-400">{preset.focus}/{preset.pause}</span></div>
-                </button>
-              );
-            })}
-          </div>
-        </section>
+        </SidePanel>
       </>
     );
   };
 
   return (
-    <div>
-      <RxPageHeader
-        title="Ferramentas"
-        subtitle={
-          <>
-            Apps internos · Foco, ruído e respiração ·{" "}
-            <span style={{ color: theme.accent }}>
-              {apps.find((a) => a.id === activeAppId)?.title}
-            </span>
-          </>
-        }
-        actions={
-          <>
-            <Link
-              href="/tasks"
-              className="rx-btn-primary"
-              style={{ padding: "8px 14px", display: "inline-flex", alignItems: "center", gap: 8 }}
-            >
-              Tarefas <ArrowRight className="h-3 w-3" />
+    <div className="space-y-5">
+      <section className="glass glass-hot overflow-hidden" style={{ padding: 0 }}>
+        <div
+          className="flex flex-col gap-6 px-6 py-6 md:flex-row md:items-end md:justify-between lg:px-8"
+          style={{
+            background:
+              "radial-gradient(circle at 12% 0%, rgba(251,146,60,0.14), transparent 42%)",
+          }}
+        >
+          <div>
+            <div className="page-eyebrow">PRAXIS / UTILITÁRIOS</div>
+            <h1 className="page-title-v2">Utilitários</h1>
+            <p className="page-description-v2">
+              Ferramentas rápidas para foco, ambiente e retomada. Ativo agora:{" "}
+              <span style={{ color: "var(--accent)", fontWeight: 700 }}>
+                {activeApp.title}
+              </span>
+              .
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/tasks" className="rx-btn-primary">
+              Abrir tarefas <ArrowRight className="h-3 w-3" />
             </Link>
-            <Link
-              href="/agenda"
-              className="rx-btn-ghost"
-              style={{ padding: "8px 14px" }}
-            >
+            <Link href="/agenda" className="rx-btn-ghost">
               Agenda
             </Link>
-          </>
-        }
-      />
-      <section className="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)_320px]">
-        <aside className="space-y-3">
-          <p
-            className="rx-mono"
-            style={{
-              fontSize: 9,
-              color: "var(--fg-3)",
-              letterSpacing: "0.24em",
-              textTransform: "uppercase",
-            }}
-          >
-            ▸ FERRAMENTAS
-          </p>
-          <div className="space-y-3">
-            {apps.map((app) => {
-              const active = app.id === activeAppId;
-              const Icon = app.icon;
-              const appTheme = themes[app.id];
-              return (
-                <button
-                  key={app.id}
-                  type="button"
-                  onClick={() => setActiveAppId(app.id)}
-                  className={active ? "rx-panel-hot" : "rx-panel"}
+          </div>
+        </div>
+      </section>
+
+      <section
+        style={{
+          display: "grid",
+          gap: 16,
+          gridTemplateColumns: "repeat(auto-fill, minmax(248px, 1fr))",
+        }}
+      >
+        {apps.map((app) => {
+          const active = app.id === activeAppId;
+          const Icon = app.icon;
+          return (
+            <button
+              key={app.id}
+              type="button"
+              onClick={() => setActiveAppId(app.id)}
+              className={active ? "rx-panel-hot" : "rx-panel"}
+              style={{
+                minHeight: 168,
+                padding: 22,
+                textAlign: "left",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                color: "inherit",
+                display: "flex",
+                flexDirection: "column",
+                transition: "transform 140ms ease, border-color 140ms ease",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                <span
                   style={{
-                    width: "100%",
-                    padding: 14,
-                    textAlign: "left",
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                    color: "inherit",
-                    opacity: active ? 1 : 0.75,
-                    borderLeft: active ? `3px solid ${appTheme.accent}` : undefined,
+                    display: "grid",
+                    height: 44,
+                    width: 44,
+                    flexShrink: 0,
+                    placeItems: "center",
+                    borderRadius: 14,
+                    border: `1px solid ${active ? "var(--accent)" : "var(--line)"}`,
+                    background: active ? "rgba(251,146,60,0.10)" : "rgba(0,0,0,0.3)",
+                    color: active ? "var(--accent)" : "var(--fg-3)",
                   }}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <span
-                      className="grid h-9 w-9 shrink-0 place-items-center"
-                      style={{
-                        border: "1px solid var(--line)",
-                        background: "rgba(0,0,0,0.3)",
-                        borderRadius: 12,
-                        color: active ? appTheme.accent : "var(--fg-3)",
-                      }}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span
-                      className="rx-mono"
-                      style={{
-                        fontSize: 9,
-                        padding: "3px 6px",
-                        letterSpacing: "0.18em",
-                        textTransform: "uppercase",
-                        border: `1px solid ${active ? appTheme.accent : "var(--line)"}`,
-                        background: active ? appTheme.chip : "transparent",
-                        color: active ? appTheme.accent : "var(--fg-4)",
-                        borderRadius: 12,
-                      }}
-                    >
-                      {app.status}
-                    </span>
-                  </div>
-                  <div className="mt-3">
-                    <p style={{ fontSize: 13, fontWeight: 600, color: "var(--fg)" }}>
-                      {app.title}
-                    </p>
-                    <p style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 4, lineHeight: 1.5 }}>
-                      {app.desc}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
+                  <Icon className="h-5 w-5" />
+                </span>
+                <span
+                  className="rx-mono"
+                  style={{
+                    fontSize: 9,
+                    padding: "4px 9px",
+                    borderRadius: 999,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    border: `1px solid ${active ? "var(--accent)" : "var(--line)"}`,
+                    background: active ? "rgba(251,146,60,0.10)" : "transparent",
+                    color: active ? "var(--accent)" : "var(--fg-4)",
+                  }}
+                >
+                  {app.status}
+                </span>
+              </div>
+              <div style={{ marginTop: "auto", paddingTop: 22 }}>
+                <p className="rx-display" style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.01em", color: active ? "var(--accent)" : "var(--fg)" }}>
+                  {app.title}
+                </p>
+                <p style={{ marginTop: 6, fontSize: 13, lineHeight: 1.5, color: "var(--fg-3)" }}>
+                  {app.desc}
+                </p>
+              </div>
+            </button>
+          );
+        })}
+
+        {upcomingTools.map((tool) => (
+          <div
+            key={tool.title}
+            aria-disabled
+            style={{
+              minHeight: 168,
+              padding: 22,
+              borderRadius: 20,
+              display: "flex",
+              flexDirection: "column",
+              border: "1px dashed var(--line-bright)",
+              background: "rgba(0,0,0,0.18)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+              <span
+                style={{
+                  display: "grid",
+                  height: 44,
+                  width: 44,
+                  flexShrink: 0,
+                  placeItems: "center",
+                  borderRadius: 14,
+                  border: "1px dashed var(--line-bright)",
+                  background: "transparent",
+                  color: "var(--fg-4)",
+                }}
+              >
+                <Plus className="h-5 w-5" />
+              </span>
+              <span
+                className="rx-mono"
+                style={{
+                  fontSize: 9,
+                  padding: "4px 9px",
+                  borderRadius: 999,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  border: "1px solid var(--line)",
+                  color: "var(--fg-4)",
+                }}
+              >
+                EM BREVE
+              </span>
+            </div>
+            <div style={{ marginTop: "auto", paddingTop: 22 }}>
+              <p className="rx-display" style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.01em", color: "var(--fg-3)" }}>
+                {tool.title}
+              </p>
+              <p style={{ marginTop: 6, fontSize: 13, lineHeight: 1.5, color: "var(--fg-4)" }}>
+                {tool.desc}
+              </p>
+            </div>
           </div>
-        </aside>
-        <div className="space-y-4">{main()}</div>
-        <aside className="space-y-4">{side()}</aside>
+        ))}
       </section>
+
+      <section
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "12px 16px",
+          borderRadius: 14,
+          border: "1px solid var(--line)",
+          background: "rgba(0,0,0,0.22)",
+        }}
+      >
+        <Sparkles className="h-3.5 w-3.5" style={{ color: "var(--accent)", flexShrink: 0 }} />
+        <p style={{ fontSize: 12, lineHeight: 1.5, color: "var(--fg-3)" }}>
+          Novas ferramentas entram aqui conforme o protocolo evolui — o painel
+          se ajusta automaticamente.
+        </p>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>{main()}</div>
+        <aside style={{ display: "flex", flexDirection: "column", gap: 16 }}>{side()}</aside>
+      </section>
+
       {toast ? (
         <div
           className="rx-mono"
           style={{
             position: "fixed",
-            bottom: 96,
+            bottom: "calc(96px + var(--mobile-bottom-nav-space, 0px))",
             right: 16,
             zIndex: 40,
             padding: "10px 14px",
-            border: `1px solid ${theme.accent}`,
+            border: "1px solid var(--accent)",
             background: "rgba(20,20,24,0.96)",
             color: "var(--fg)",
             fontSize: 11,
             letterSpacing: "0.12em",
             borderRadius: 12,
-            boxShadow: `0 0 20px ${theme.accent}40`,
+            boxShadow: "0 0 20px var(--accent-glow)",
           }}
         >
           {toast}
