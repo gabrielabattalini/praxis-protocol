@@ -4,7 +4,6 @@ import { useState } from "react";
 import {
   BellRing,
   RefreshCw,
-  Send,
   ShieldCheck,
   Smartphone,
   Volume2,
@@ -130,7 +129,6 @@ function TabContent({
     activatePush,
     togglePush,
     syncNow,
-    sendTestNotification,
   } = usePushNotifications();
   const [accountNotice, setAccountNotice] = useState("");
   const accountEmail = state.session.email || clerkUser?.primaryEmailAddress?.emailAddress || "";
@@ -632,24 +630,6 @@ function TabContent({
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Sincronizar agenda
-          </button>
-          <button
-            type="button"
-            onClick={() => void sendTestNotification()}
-            disabled={!supported || permission !== "granted"}
-            className="rx-btn-ghost"
-            style={{
-              padding: "8px 14px",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              opacity: supported && permission === "granted" ? 1 : 0.5,
-              cursor:
-                supported && permission === "granted" ? "pointer" : "not-allowed",
-            }}
-          >
-            <Send className="h-3.5 w-3.5" />
-            Enviar teste
           </button>
         </div>
 

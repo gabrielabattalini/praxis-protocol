@@ -79,14 +79,22 @@ export function TelegramCard() {
     setNotice("");
     try {
       const res = await fetch("/api/telegram/test", { method: "POST" });
-      const data = (await res.json()) as { error?: string };
+      const data = (await res
+        .json()
+        .catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        setError(data.error || "Falha ao enviar o teste.");
+        setError(
+          `${data.error || "Falha ao enviar o teste."} (HTTP ${res.status})`,
+        );
         return;
       }
       setNotice("Mensagem de teste enviada — confira seu Telegram.");
-    } catch {
-      setError("Falha de rede ao enviar o teste.");
+    } catch (err) {
+      setError(
+        `Falha de rede ao enviar o teste${
+          err instanceof Error ? `: ${err.message}` : ""
+        }.`,
+      );
     } finally {
       setBusy(null);
     }
