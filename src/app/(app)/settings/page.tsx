@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { usePushNotifications } from "@/components/providers/notifications-provider";
 import { useAppStore } from "@/components/providers/app-store-provider";
-import { useClerkClient, useUserClient } from "@/components/providers/auth-client-provider";
+import { useUserClient } from "@/components/providers/auth-client-provider";
 import { StripeCheckoutButton } from "@/components/billing/stripe-checkout-button";
 import { TelegramCard } from "@/components/settings/telegram-card";
 import { RxLabel, RxPanel } from "@/components/redesign/primitives";
@@ -114,7 +114,6 @@ function TabContent({
 }) {
   const { state, actions, entitlement } = useAppStore();
   const { user: clerkUser } = useUserClient();
-  const clerk = useClerkClient();
   const {
     supported,
     enabled,
@@ -181,14 +180,6 @@ function TabContent({
     }
   }
 
-  function openAccountPortal() {
-    if (clerk.openUserProfile) {
-      clerk.openUserProfile();
-      return;
-    }
-    setAccountNotice("Gerenciar e-mail e senha fica disponível quando o login real estiver ativo.");
-  }
-
   if (tab === "account") {
     return (
       <div>
@@ -215,7 +206,7 @@ function TabContent({
             lineHeight: 1.6,
           }}
         >
-          Edite seu nome no Praxis e use o portal da conta para alterar e-mail ou senha com segurança.
+          Edite seu nome no Praxis. O e-mail é vinculado à sua conta Google e não pode ser alterado por aqui.
         </div>
 
         <form onSubmit={handleAccountSave}>
@@ -275,26 +266,7 @@ function TabContent({
                 {accountEmail || "Nenhum e-mail vinculado"}
               </div>
               <div className="rx-mono" style={{ marginTop: 8, fontSize: 10, color: "var(--fg-4)" }}>
-                Alteração feita no portal seguro da conta.
-              </div>
-            </div>
-
-            <div className="rx-panel" style={{ padding: 16 }}>
-              <div
-                className="rx-mono"
-                style={{
-                  fontSize: 9,
-                  color: "var(--fg-3)",
-                  letterSpacing: "0.2em",
-                  textTransform: "uppercase",
-                  marginBottom: 10,
-                }}
-              >
-                Senha
-              </div>
-              <div style={{ fontSize: 18, color: "var(--fg)" }}>••••••••</div>
-              <div className="rx-mono" style={{ marginTop: 8, fontSize: 10, color: "var(--fg-4)" }}>
-                Alterar ou recuperar pelo provedor de login.
+                Vinculado à sua conta Google.
               </div>
             </div>
           </div>
@@ -302,9 +274,6 @@ function TabContent({
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16 }}>
             <button type="submit" className="rx-btn-primary">
               Salvar nome
-            </button>
-            <button type="button" onClick={openAccountPortal} className="rx-btn-ghost">
-              Gerenciar e-mail e senha
             </button>
           </div>
         </form>
