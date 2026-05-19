@@ -44,6 +44,9 @@ type ShoppingItemDraft = {
   brand: string;
   quantity: string;
   dailyDose: string;
+  /** Substance-anchored daily dose (e.g. "1000" of "mg"). */
+  dailyDoseAmount: string;
+  dailyDoseUnit: string;
   mealBlockIds: string[];
   scheduleLabel: string;
   categoryLabel: string;
@@ -113,6 +116,8 @@ function defaultDraft(): ShoppingItemDraft {
     brand: "",
     quantity: "",
     dailyDose: "",
+    dailyDoseAmount: "",
+    dailyDoseUnit: "mg",
     mealBlockIds: [],
     scheduleLabel: "",
     categoryLabel: "",
@@ -278,6 +283,12 @@ export function ShoppingModulePage({
     useState<ShoppingSortOption>("monthly-cost-desc");
   const [filterOption, setFilterOption] =
     useState<ShoppingFilterOption>("all");
+  const [summaryCardsExpanded, setSummaryCardsExpanded] = useState(
+    () => scope !== "supplements",
+  );
+  const [purchaseSummaryExpanded, setPurchaseSummaryExpanded] = useState(
+    () => scope !== "supplements",
+  );
   const mealBlocks = useMemo(
     () =>
       [...state.mealPlan].sort((left, right) =>
@@ -516,6 +527,9 @@ export function ShoppingModulePage({
       brand: item.brand,
       quantity: item.quantity,
       dailyDose: item.dailyDose.toString(),
+      dailyDoseAmount:
+        item.dailyDoseAmount !== undefined ? String(item.dailyDoseAmount) : "",
+      dailyDoseUnit: item.dailyDoseUnit ?? "mg",
       mealBlockIds: item.mealBlockIds ?? [],
       scheduleLabel: item.scheduleLabel ?? "",
       categoryLabel: item.categoryLabel ?? "",
@@ -550,6 +564,16 @@ export function ShoppingModulePage({
       scheduleLabel: draft.scheduleLabel.trim() || undefined,
       categoryLabel: draft.categoryLabel.trim() || undefined,
       dailyDose,
+      dailyDoseAmount: (() => {
+        const parsed = Number(String(draft.dailyDoseAmount).replace(",", "."));
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+      })(),
+      dailyDoseUnit: (() => {
+        const valid = ["mg", "g", "mcg", "ml", "serving"];
+        return valid.includes(draft.dailyDoseUnit)
+          ? (draft.dailyDoseUnit as ShoppingTrackedItem["dailyDoseUnit"])
+          : undefined;
+      })(),
       monthlyUnits: getMonthlyUnitsFromDose(draft.quantity.trim(), dailyDose, currentEditingItem?.monthlyUnits ?? 1),
       includeInFinance: currentEditingItem?.includeInFinance ?? true,
       purchaseMode,
@@ -622,6 +646,12 @@ export function ShoppingModulePage({
 
     try {
       const searchParams = new URLSearchParams({ scope, name: item.name, brand: item.brand, quantity: item.quantity, limit: "18" });
+      if (item.dailyDoseAmount && item.dailyDoseAmount > 0) {
+        searchParams.set("dailyDoseAmount", String(item.dailyDoseAmount));
+      }
+      if (item.dailyDoseUnit) {
+        searchParams.set("dailyDoseUnit", item.dailyDoseUnit);
+      }
       const response = await fetch(`/api/shopping-search?${searchParams.toString()}`, { cache: "no-store" });
       const payload = (await response.json()) as ShoppingSearchResponse & { error?: string };
       if (!response.ok) throw new Error(payload.error || "Nao foi possivel buscar ofertas.");
@@ -696,12 +726,39 @@ export function ShoppingModulePage({
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <SheetStat label="Itens" value={String(storedState.items.length)} help={emptyLabel} />
-        <SheetStat label="Ativos" value={String(storedState.items.filter((item) => item.includeInFinance).length)} help="Entram no custo mensal" />
-        <SheetStat label="Custo mensal" value={formatCurrency(estimatedMonthlyTotal)} help="Soma da lista ativa" accent />
-        <SheetStat label="Custo semanal" value={formatCurrency(estimatedWeeklyTotal)} help="Media do mes dividida por 4" />
-      </div>
+      {scope === "supplements" ? (
+        <GlassPanel className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="praxis-label text-[var(--accent)]">Resumo</p>
+              <h2 className="praxis-title text-2xl">Indicadores do módulo</h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSummaryCardsExpanded((current) => !current)}
+              className="praxis-button-ghost inline-flex items-center gap-2 px-4 py-3"
+            >
+              {summaryCardsExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              {summaryCardsExpanded ? "Ocultar resumo" : "Expandir resumo"}
+            </button>
+          </div>
+          {summaryCardsExpanded ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <SheetStat label="Itens" value={String(storedState.items.length)} help={emptyLabel} />
+              <SheetStat label="Ativos" value={String(storedState.items.filter((item) => item.includeInFinance).length)} help="Entram no custo mensal" />
+              <SheetStat label="Custo mensal" value={formatCurrency(estimatedMonthlyTotal)} help="Soma da lista ativa" accent />
+              <SheetStat label="Custo semanal" value={formatCurrency(estimatedWeeklyTotal)} help="Media do mes dividida por 4" />
+            </div>
+          ) : null}
+        </GlassPanel>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <SheetStat label="Itens" value={String(storedState.items.length)} help={emptyLabel} />
+          <SheetStat label="Ativos" value={String(storedState.items.filter((item) => item.includeInFinance).length)} help="Entram no custo mensal" />
+          <SheetStat label="Custo mensal" value={formatCurrency(estimatedMonthlyTotal)} help="Soma da lista ativa" accent />
+          <SheetStat label="Custo semanal" value={formatCurrency(estimatedWeeklyTotal)} help="Media do mes dividida por 4" />
+        </div>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
@@ -1118,12 +1175,22 @@ export function ShoppingModulePage({
           </GlassPanel>
 
           <GlassPanel className="space-y-4">
-            <div>
-              <p className="praxis-label text-[var(--accent)]">Lista de compra</p>
-              <h2 className="praxis-title text-2xl">Resumo semanal e mensal</h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="praxis-label text-[var(--accent)]">Lista de compra</p>
+                <h2 className="praxis-title text-2xl">Resumo semanal e mensal</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPurchaseSummaryExpanded((current) => !current)}
+                className="praxis-button-ghost inline-flex items-center gap-2 px-4 py-3"
+              >
+                {purchaseSummaryExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                {purchaseSummaryExpanded ? "Ocultar resumo" : "Expandir resumo"}
+              </button>
             </div>
 
-            {purchaseList.length ? (
+            {purchaseSummaryExpanded && purchaseList.length ? (
               <div className="overflow-hidden rounded-sm border border-white/10">
                 <div className="grid grid-cols-[minmax(180px,1.8fr)_minmax(90px,0.8fr)_minmax(90px,0.8fr)_minmax(110px,0.9fr)_minmax(110px,0.9fr)] gap-3 border-b border-white/10 bg-[#0d0d0f] px-4 py-3 text-[11px] uppercase tracking-[0.22em] text-zinc-500">
                   <span>Item</span><span>Uso/mes</span><span>Compra</span><span>Semanal</span><span>Mensal</span>
@@ -1143,11 +1210,11 @@ export function ShoppingModulePage({
                   </div>
                 ))}
               </div>
-            ) : (
+            ) : purchaseSummaryExpanded ? (
               <div className="rounded-sm border border-dashed border-white/10 p-5 text-sm leading-6 text-zinc-500">
                 Busque e selecione uma oferta para cada item. O resumo de compra aparece aqui.
               </div>
-            )}
+            ) : null}
           </GlassPanel>
         </div>
         <div className="space-y-6">
@@ -1298,6 +1365,52 @@ export function ShoppingModulePage({
                 <p className="text-xs leading-5 text-zinc-500">{dailyHint}</p>
               </label>
 
+              <label className="block space-y-2">
+                <span className="praxis-label text-[var(--accent)]">
+                  Dose alvo do dia (substância)
+                </span>
+                <div className="flex gap-2">
+                  <input
+                    value={draft.dailyDoseAmount}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        dailyDoseAmount: event.target.value,
+                      }))
+                    }
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Ex.: 1000"
+                    className={`${fieldClassName} flex-1`}
+                  />
+                  <select
+                    value={draft.dailyDoseUnit}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        dailyDoseUnit: event.target.value,
+                      }))
+                    }
+                    className={`${fieldClassName} w-28`}
+                  >
+                    <option value="mg">mg</option>
+                    <option value="g">g</option>
+                    <option value="mcg">mcg</option>
+                    <option value="ml">ml</option>
+                    <option value="serving">por porção</option>
+                  </select>
+                </div>
+                <p className="text-xs leading-5 text-zinc-500">
+                  Ex.: <span className="text-zinc-300">1000&nbsp;mg de
+                  Vitamina&nbsp;C</span> por dia. Com isso o sistema lê a dose
+                  por cápsula direto do título do produto e calcula o
+                  <span className="text-[var(--accent)]"> custo real por
+                  dia</span> — não cai mais na pegadinha de &quot;1000&nbsp;mg em
+                  4&nbsp;cápsulas&quot;.
+                </p>
+              </label>
+
               <div className="flex flex-wrap gap-3">
                 <button type="submit" className="praxis-button inline-flex items-center gap-2 px-4 py-3">
                   <Plus className="h-4 w-4" />
@@ -1408,9 +1521,38 @@ function ResultCard({ result, isPreferred, onChoose }: { result: ShoppingSearchR
               {result.comparablePrice && result.comparablePriceLabel
                 ? ` • ${formatCurrency(result.comparablePrice)} / ${result.comparablePriceLabel}`
                 : ""}
+              {result.unitStrengthAmount && result.unitStrengthUnit
+                ? ` • ${result.unitStrengthAmount}${result.unitStrengthUnit}/cáp`
+                : ""}
             </p>
           </div>
         </div>
+
+        {result.dailyCost !== undefined && result.doseConfidence === "confirmed" ? (
+          <div className="rounded-sm border border-[var(--accent)]/30 bg-[rgba(251,146,60,0.08)] px-4 py-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="praxis-label text-[var(--accent)]">Custo real / dia</p>
+              <p className="text-xs text-zinc-400">
+                {result.unitsPerDay
+                  ? `${result.unitsPerDay} ${result.unitsPerDay === 1 ? "cáp" : "cáps"}/dia`
+                  : ""}
+                {result.unitsPerDay && result.daysSupply ? " · " : ""}
+                {result.daysSupply
+                  ? `dura ${result.daysSupply} ${result.daysSupply === 1 ? "dia" : "dias"}`
+                  : ""}
+              </p>
+            </div>
+            <p className="mt-1 text-2xl font-bold text-[var(--accent)]">
+              {formatCurrency(result.dailyCost)}
+            </p>
+          </div>
+        ) : result.doseConfidence === "unconfirmed" && (result.dailyCost === undefined) && (result.unitStrengthAmount === undefined) ? (
+          <div className="rounded-sm border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs leading-5 text-amber-200">
+            ⚠ Dose por cápsula não confirmada no título. Verifique a embalagem
+            antes de comparar — esse é o ponto onde &quot;1000&nbsp;mg&quot; pode na
+            verdade vir em 2 ou 4 cápsulas.
+          </div>
+        ) : null}
 
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="space-y-1 rounded-sm border border-white/10 bg-[#111113] px-3 py-3">

@@ -388,6 +388,7 @@ function buildSeedResult(row: ShoppingSeedRow): ShoppingSearchResult | null {
     quantityLabel,
     comparablePriceLabel: comparable.comparablePriceLabel,
     comparablePrice: comparable.comparablePrice,
+    doseConfidence: "unconfirmed",
     badges: linkReview?.status === "suspeito" ? ["Planilha", "Validar link"] : ["Planilha"],
   };
 }

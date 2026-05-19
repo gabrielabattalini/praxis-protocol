@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { searchShoppingOffers } from "@/lib/shopping-search.server";
-import type { ShoppingModuleScope } from "@/lib/shopping-search";
+import type { DoseUnit, ShoppingModuleScope } from "@/lib/shopping-search";
 
 export const dynamic = "force-dynamic";
+
+const VALID_DOSE_UNITS: DoseUnit[] = ["mg", "g", "mcg", "ml", "serving"];
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -13,6 +15,16 @@ export async function GET(request: Request) {
   const brand = String(searchParams.get("brand") || "").trim();
   const quantity = String(searchParams.get("quantity") || "").trim();
   const limit = Number(searchParams.get("limit")) || 18;
+
+  const doseAmountRaw = searchParams.get("dailyDoseAmount");
+  const doseUnitRaw = searchParams.get("dailyDoseUnit");
+  const dailyDoseAmount = doseAmountRaw
+    ? Number(String(doseAmountRaw).replace(",", "."))
+    : undefined;
+  const dailyDoseUnit =
+    doseUnitRaw && VALID_DOSE_UNITS.includes(doseUnitRaw as DoseUnit)
+      ? (doseUnitRaw as DoseUnit)
+      : undefined;
 
   if (name.length < 2) {
     return NextResponse.json(
@@ -30,6 +42,9 @@ export async function GET(request: Request) {
         name,
         brand,
         quantity,
+        dailyDoseAmount:
+          dailyDoseAmount && dailyDoseAmount > 0 ? dailyDoseAmount : undefined,
+        dailyDoseUnit,
       },
       limit,
     );

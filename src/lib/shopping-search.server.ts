@@ -6,6 +6,7 @@ import { fetchRenderedHtml } from "@/lib/shopping-browser-fetch.server";
 import { shouldUseBrowserFallback } from "@/lib/shopping-browser-fallback";
 import {
   buildShoppingQueryLabel,
+  type DoseUnit,
   type ShoppingModuleScope,
   type ShoppingSearchResponse,
   type ShoppingSearchResult,
@@ -16,6 +17,18 @@ type SearchInput = {
   name: string;
   brand?: string;
   quantity?: string;
+  /** Substance daily dose the user wants (e.g. 1000 of mg).
+   *  When provided, the scorer computes per-day cost and rank by it. */
+  dailyDoseAmount?: number;
+  dailyDoseUnit?: DoseUnit;
+};
+
+/** Per-unit active substance extracted from a product title — the
+ *  missing piece that turns "60 caps de 500 mg" into a fair comparison. */
+type UnitStrength = {
+  totalUnits: number;
+  unitAmount: number; // amount of substance per unit
+  unitUnit: "mg" | "g" | "ml"; // unit of unitAmount
 };
 
 type SearchSourceDefinition = {
@@ -304,6 +317,130 @@ function getMeaningfulTokens(value: string) {
     (token) => !genericSearchTokens.has(token),
   );
   return tokens.length ? tokens : tokenizeSearchText(value);
+}
+
+function parseDecimalToken(value: string) {
+  return Number(value.replace(",", "."));
+}
+
+/** Convert mg/g/mcg/ml to a common base for comparison. */
+function toBaseAmount(
+  amount: number,
+  unit: DoseUnit,
+): { value: number; base: "mg" | "ml" } | null {
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  if (unit === "mg") return { value: amount, base: "mg" };
+  if (unit === "g") return { value: amount * 1000, base: "mg" };
+  if (unit === "mcg") return { value: amount / 1000, base: "mg" };
+  if (unit === "ml") return { value: amount, base: "ml" };
+  return null;
+}
+
+const STRENGTH_COUNT_WORD =
+  "(?:capsulas|capsula|caps|cap|comprimidos|comprimido|tabletes|tablete|unidades|unidade|un|und|saches|sache|envelopes|envelope|doses|dose)";
+
+/** Extracts per-unit active substance from a product title.
+ *  This is the missing piece — without it the engine compares
+ *  "R$ per capsule" with no clue about how strong each capsule is. */
+function extractUnitStrength(title: string): UnitStrength | null {
+  const normalized = normalizeQuantityText(title);
+  if (!normalized) return null;
+
+  // Pattern A — explicit "N (units) (de)? X mg/g/ml"
+  const explicit = normalized.match(
+    new RegExp(
+      `(\\d+(?:\\.\\d+)?)\\s*${STRENGTH_COUNT_WORD}\\s*(?:de\\s*)?(\\d+(?:\\.\\d+)?)\\s*(mg|g|ml)\\b`,
+    ),
+  );
+  if (explicit) {
+    const totalUnits = parseDecimalToken(explicit[1]);
+    const unitAmount = parseDecimalToken(explicit[2]);
+    const unitUnit = explicit[3] as "mg" | "g" | "ml";
+    if (totalUnits > 0 && unitAmount > 0) {
+      return { totalUnits, unitAmount, unitUnit };
+    }
+  }
+
+  // Pattern B — reversed "X mg/g/ml ... N units" (no "de"). Common on
+  // marketplace titles. Guarded by plausibility checks so we don't
+  // mistake a "300 g" powder weight for "300 g per cap".
+  const reversed = normalized.match(
+    new RegExp(
+      `(\\d+(?:\\.\\d+)?)\\s*(mg|g|ml)\\b[\\s\\S]{0,40}?(\\d+(?:\\.\\d+)?)\\s*${STRENGTH_COUNT_WORD}`,
+    ),
+  );
+  if (reversed) {
+    const unitAmount = parseDecimalToken(reversed[1]);
+    const unitUnit = reversed[2] as "mg" | "g" | "ml";
+    const totalUnits = parseDecimalToken(reversed[3]);
+    const validCount = totalUnits >= 10 && totalUnits <= 720;
+    const plausiblePerUnit =
+      (unitUnit === "mg" && unitAmount > 0 && unitAmount <= 2000) ||
+      (unitUnit === "g" && unitAmount > 0 && unitAmount <= 5) ||
+      (unitUnit === "ml" && unitAmount > 0 && unitAmount <= 50);
+    if (validCount && plausiblePerUnit) {
+      return { totalUnits, unitAmount, unitUnit };
+    }
+  }
+
+  return null;
+}
+
+/** Substance-anchored economics: at the user's target daily dose, how
+ *  many units/day are needed, how long the pack lasts, and the real
+ *  daily cost — the only fair comparison across different cap sizes. */
+function computeDoseEconomics(
+  totalPrice: number,
+  offeredQuantity: ParsedQuantity | null,
+  unitStrength: UnitStrength | null,
+  dailyDoseAmount: number | undefined,
+  dailyDoseUnit: DoseUnit | undefined,
+): {
+  unitsPerDay?: number;
+  daysSupply?: number;
+  dailyCost: number;
+} | null {
+  if (!dailyDoseAmount || !dailyDoseUnit || dailyDoseAmount <= 0) return null;
+  if (dailyDoseUnit === "serving") return null;
+  const dailyBase = toBaseAmount(dailyDoseAmount, dailyDoseUnit);
+  if (!dailyBase) return null;
+
+  // Preferred: per-cap strength × cap count.
+  if (unitStrength) {
+    const perUnitBase = toBaseAmount(unitStrength.unitAmount, unitStrength.unitUnit);
+    if (perUnitBase && perUnitBase.base === dailyBase.base) {
+      const totalActive = unitStrength.totalUnits * perUnitBase.value;
+      if (totalActive > 0) {
+        const unitsPerDay = Math.max(
+          1,
+          Math.ceil(dailyBase.value / perUnitBase.value),
+        );
+        const costPerUnit = totalPrice / unitStrength.totalUnits;
+        const dailyCost = Number((costPerUnit * unitsPerDay).toFixed(2));
+        const daysSupply = Math.floor(unitStrength.totalUnits / unitsPerDay);
+        return { unitsPerDay, daysSupply, dailyCost };
+      }
+    }
+  }
+
+  // Fallback: bulk mass/volume product (e.g. "300 g" creatine powder).
+  if (offeredQuantity && offeredQuantity.canonicalUnit !== "unit") {
+    const totalBaseValue =
+      offeredQuantity.canonicalUnit === "g"
+        ? offeredQuantity.canonicalValue * 1000
+        : offeredQuantity.canonicalValue;
+    const totalBaseUnit: "mg" | "ml" =
+      offeredQuantity.canonicalUnit === "g" ? "mg" : "ml";
+    if (totalBaseUnit !== dailyBase.base) return null;
+    if (totalBaseValue <= 0) return null;
+    const dailyCost = Number(
+      ((totalPrice / totalBaseValue) * dailyBase.value).toFixed(2),
+    );
+    const daysSupply = Math.floor(totalBaseValue / dailyBase.value);
+    return { daysSupply, dailyCost };
+  }
+
+  return null;
 }
 
 function getComparablePrice(
@@ -1142,6 +1279,45 @@ function scoreOffer(
   );
   const comparablePrice = getComparablePrice(totalPrice, offeredQuantity);
 
+  const unitStrength = extractUnitStrength(offer.title);
+  const economics = computeDoseEconomics(
+    totalPrice,
+    offeredQuantity,
+    unitStrength,
+    input.dailyDoseAmount,
+    input.dailyDoseUnit,
+  );
+
+  // Substance-aware confidence: only "confirmed" when we either pinned
+  // unit strength from the title OR are reading a clean bulk product.
+  const userWantsDose = Boolean(input.dailyDoseAmount && input.dailyDoseUnit);
+  const doseConfidence: "confirmed" | "unconfirmed" =
+    economics ? "confirmed" : "unconfirmed";
+
+  if (userWantsDose) {
+    if (doseConfidence === "confirmed") {
+      matchScore += 10;
+      if (economics?.dailyCost !== undefined) {
+        badges.push(
+          `R$ ${economics.dailyCost.toFixed(2).replace(".", ",")}/dia`,
+        );
+      }
+      if (economics?.daysSupply && economics.daysSupply > 0) {
+        badges.push(
+          `Dura ${economics.daysSupply} ${economics.daysSupply === 1 ? "dia" : "dias"}`,
+        );
+      }
+      if (unitStrength && economics?.unitsPerDay) {
+        const strengthLabel = `${unitStrength.unitAmount}${unitStrength.unitUnit}/${unitStrength.totalUnits} un`;
+        badges.push(strengthLabel);
+      }
+    } else {
+      // Don't mislead — flag it. Penalize lightly so confirmed items rank above.
+      matchScore -= 8;
+      badges.push("Dose por cápsula não confirmada");
+    }
+  }
+
   return {
     id: `${offer.sourceId}-${Buffer.from(offer.url).toString("base64url").slice(0, 18)}`,
     scope: "market",
@@ -1163,6 +1339,13 @@ function scoreOffer(
     quantityLabel: offeredQuantity?.label,
     comparablePriceLabel: comparablePrice?.comparablePriceLabel,
     comparablePrice: comparablePrice?.comparablePrice,
+    unitStrengthAmount: unitStrength?.unitAmount,
+    unitStrengthUnit: unitStrength?.unitUnit,
+    totalUnits: unitStrength?.totalUnits,
+    unitsPerDay: economics?.unitsPerDay,
+    dailyCost: economics?.dailyCost,
+    daysSupply: economics?.daysSupply,
+    doseConfidence,
     badges,
   };
 }
@@ -1187,6 +1370,20 @@ async function searchSource(
 function sortResults(left: ShoppingSearchResult, right: ShoppingSearchResult) {
   const scoreDiff = right.matchScore - left.matchScore;
   if (scoreDiff !== 0) return scoreDiff;
+
+  // Substance-anchored cost wins when both sides confirmed it — that's
+  // the actual answer to "qual é o melhor custo-benefício".
+  if (
+    typeof left.dailyCost === "number" &&
+    typeof right.dailyCost === "number"
+  ) {
+    const dailyDiff = left.dailyCost - right.dailyCost;
+    if (dailyDiff !== 0) return dailyDiff;
+  } else if (typeof left.dailyCost === "number") {
+    return -1;
+  } else if (typeof right.dailyCost === "number") {
+    return 1;
+  }
 
   if (left.freeShipping !== right.freeShipping) {
     return left.freeShipping ? -1 : 1;

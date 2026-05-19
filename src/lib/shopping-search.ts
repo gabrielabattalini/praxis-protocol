@@ -4,6 +4,12 @@ export type ShoppingPurchaseMode = "online" | "presential";
 
 export type ShoppingSearchSourceStatus = "idle" | "ok" | "blocked" | "error";
 
+/** Unit of an active-substance daily dose. "serving" is a generic
+ *  per-portion unit used by the market scope (e.g. 1 sachê/dia). */
+export type DoseUnit = "mg" | "g" | "mcg" | "ml" | "serving";
+
+export type DoseConfidence = "confirmed" | "unconfirmed";
+
 export interface ShoppingTrackedItem {
   id: string;
   name: string;
@@ -12,7 +18,13 @@ export interface ShoppingTrackedItem {
   mealBlockIds?: string[];
   scheduleLabel?: string;
   categoryLabel?: string;
+  /** Legacy "doses por dia" count (kept for back-compat).
+   *  New flow uses dailyDoseAmount + dailyDoseUnit for substance-anchored cost. */
   dailyDose: number;
+  /** Substance/serving amount the user wants per day (e.g. 1000 of mg). */
+  dailyDoseAmount?: number;
+  /** Unit of dailyDoseAmount (e.g. "mg"). */
+  dailyDoseUnit?: DoseUnit;
   monthlyUnits: number;
   includeInFinance: boolean;
   purchaseMode: ShoppingPurchaseMode;
@@ -53,6 +65,26 @@ export interface ShoppingSearchResult {
   quantityLabel?: string;
   comparablePriceLabel?: string;
   comparablePrice?: number;
+  /** Active substance per unit (capsule/tablet/serving), normalized.
+   *  Only present when the parser extracted it from the title with
+   *  confidence (e.g. "60 caps de 500 mg"). */
+  unitStrengthAmount?: number;
+  /** Unit of unitStrengthAmount, e.g. "mg" or "g". */
+  unitStrengthUnit?: DoseUnit;
+  /** Total number of units (capsules/comprimidos/sachês) in the package. */
+  totalUnits?: number;
+  /** When the search input carries a substance daily dose AND the
+   *  result has a confirmed unit strength, the engine computes how many
+   *  units per day the user actually needs to take. */
+  unitsPerDay?: number;
+  /** Reais per day at the user's target daily dose. THIS is the real
+   *  cost-benefit number — replaces "R$ per capsule" comparisons. */
+  dailyCost?: number;
+  /** How many days the package lasts at the configured daily dose. */
+  daysSupply?: number;
+  /** How sure we are about per-unit strength: "confirmed" only when
+   *  the title clearly stated both unit count and per-unit strength. */
+  doseConfidence: DoseConfidence;
   badges: string[];
 }
 
