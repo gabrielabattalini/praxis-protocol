@@ -1227,86 +1227,163 @@ export function ShoppingModulePage({
               </div>
             </div>
 
-            <form className="space-y-4" onSubmit={saveItem}>
-              <label className="block space-y-2">
-                <span className="praxis-label text-[var(--accent)]">Nome do produto</span>
-                <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder={examples[0] ?? "Ex.: detergente"} className={fieldClassName} />
-              </label>
-
-              {scope === "market" ? (
-                <div className="space-y-3">
-                  <span className="praxis-label text-[var(--accent)]">Local da compra</span>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <button
-                      type="button"
-                      onClick={() => setDraft((current) => ({ ...current, purchaseMode: "online", localStoreName: "", manualUnitPrice: "" }))}
-                      className={cn("rounded-sm border px-4 py-3 text-left transition", draft.purchaseMode === "online" ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100" : "border-white/10 bg-[#0a0a0b] text-zinc-400")}
-                    >
-                      <p className="font-medium">Online</p>
-                      <p className="mt-1 text-sm text-zinc-500">Busca ofertas e compara o custo nas lojas.</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDraft((current) => ({ ...current, purchaseMode: "presential" }))}
-                      className={cn("rounded-sm border px-4 py-3 text-left transition", draft.purchaseMode === "presential" ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100" : "border-white/10 bg-[#0a0a0b] text-zinc-400")}
-                    >
-                      <p className="font-medium">Presencial</p>
-                      <p className="mt-1 text-sm text-zinc-500">Informe o local e o preco que voce encontrou pessoalmente.</p>
-                    </button>
-                  </div>
+            <form className="space-y-7" onSubmit={saveItem}>
+              {/* SECTION 1 — Identidade do produto */}
+              <section className="space-y-4">
+                <div className="praxis-label flex items-center gap-2 border-b border-white/5 pb-2 text-zinc-400">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+                  Identidade do produto
                 </div>
-              ) : null}
-
-              <div className="grid gap-4 md:grid-cols-2">
                 <label className="block space-y-2">
-                  <span className="praxis-label text-[var(--accent)]">Marca</span>
-                  <input value={draft.brand} onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))} placeholder={examples[1] ?? "Ex.: Growth"} className={fieldClassName} />
+                  <span className="praxis-label text-[var(--accent)]">Nome do produto</span>
+                  <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder={examples[0] ?? "Ex.: detergente"} className={fieldClassName} />
                 </label>
-                <label className="block space-y-2">
-                  <span className="praxis-label text-[var(--accent)]">Quantidade</span>
-                  <input value={draft.quantity} onChange={(event) => setDraft((current) => ({ ...current, quantity: event.target.value }))} placeholder={examples[2] ?? "Ex.: 900 g"} className={fieldClassName} />
-                </label>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="block space-y-2">
-                  <span className="praxis-label text-[var(--accent)]">Categoria</span>
-                  <input value={draft.categoryLabel} onChange={(event) => setDraft((current) => ({ ...current, categoryLabel: event.target.value }))} placeholder={scope === "supplements" ? "Ex.: massa muscular, sono, saude" : "Ex.: carnes, higiene, limpeza"} className={fieldClassName} />
-                </label>
-                <label className="block space-y-2">
-                  <span className="praxis-label text-[var(--accent)]">{scope === "supplements" ? "Hora de usar" : "Link de referencia"}</span>
-                  <input value={scope === "supplements" ? draft.scheduleLabel : draft.referenceUrl} onChange={(event) => setDraft((current) => ({ ...current, [scope === "supplements" ? "scheduleLabel" : "referenceUrl"]: event.target.value }))} placeholder={scope === "supplements" ? "Ex.: 2 - Cafe da manha" : "https://..."} className={fieldClassName} />
-                </label>
-              </div>
-
-              {scope === "market" && draft.purchaseMode === "presential" ? (
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="block space-y-2">
-                    <span className="praxis-label text-[var(--accent)]">Local presencial</span>
-                    <input value={draft.localStoreName} onChange={(event) => setDraft((current) => ({ ...current, localStoreName: event.target.value }))} placeholder="Ex.: Acougue do bairro" className={fieldClassName} />
+                    <span className="praxis-label text-[var(--accent)]">Marca</span>
+                    <input value={draft.brand} onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))} placeholder={examples[1] ?? "Ex.: Growth"} className={fieldClassName} />
                   </label>
                   <label className="block space-y-2">
-                    <span className="praxis-label text-[var(--accent)]">Preco encontrado</span>
-                    <input value={draft.manualUnitPrice} onChange={(event) => setDraft((current) => ({ ...current, manualUnitPrice: event.target.value }))} type="number" min="0.01" step="0.01" placeholder="Ex.: 39.90" className={fieldClassName} />
+                    <span className="praxis-label text-[var(--accent)]">Quantidade</span>
+                    <input value={draft.quantity} onChange={(event) => setDraft((current) => ({ ...current, quantity: event.target.value }))} placeholder={examples[2] ?? "Ex.: 900 g"} className={fieldClassName} />
                   </label>
                 </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="block space-y-2">
+                    <span className="praxis-label text-[var(--accent)]">Categoria</span>
+                    <input value={draft.categoryLabel} onChange={(event) => setDraft((current) => ({ ...current, categoryLabel: event.target.value }))} placeholder={scope === "supplements" ? "Ex.: massa muscular, sono, saúde" : "Ex.: carnes, higiene, limpeza"} className={fieldClassName} />
+                  </label>
+                  <label className="block space-y-2">
+                    <span className="praxis-label text-[var(--accent)]">Link de referência</span>
+                    <input value={draft.referenceUrl} onChange={(event) => setDraft((current) => ({ ...current, referenceUrl: event.target.value }))} placeholder="https://..." className={fieldClassName} />
+                  </label>
+                </div>
+              </section>
+
+              {/* SECTION 2 — Dose & rotina */}
+              <section className="space-y-4">
+                <div className="praxis-label flex items-center gap-2 border-b border-white/5 pb-2 text-zinc-400">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+                  Dose &amp; rotina
+                </div>
+                {scope === "supplements" ? (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="block space-y-2">
+                      <span className="praxis-label text-[var(--accent)]">{dailyLabel}</span>
+                      <input value={draft.dailyDose} onChange={(event) => setDraft((current) => ({ ...current, dailyDose: event.target.value }))} type="number" min="0.01" step="0.01" placeholder="Ex.: 2 (cáps/dia)" className={fieldClassName} />
+                      <p className="text-xs leading-5 text-zinc-500">{dailyHint}</p>
+                    </label>
+                    <label className="block space-y-2">
+                      <span className="praxis-label text-[var(--accent)]">Hora de usar</span>
+                      <input value={draft.scheduleLabel} onChange={(event) => setDraft((current) => ({ ...current, scheduleLabel: event.target.value }))} placeholder="Ex.: Café da manhã" className={fieldClassName} />
+                    </label>
+                  </div>
+                ) : (
+                  <label className="block space-y-2">
+                    <span className="praxis-label text-[var(--accent)]">{dailyLabel}</span>
+                    <input value={draft.dailyDose} onChange={(event) => setDraft((current) => ({ ...current, dailyDose: event.target.value }))} type="number" min="0.01" step="0.01" placeholder="Use a mesma unidade da quantidade. Ex.: 30" className={fieldClassName} />
+                    <p className="text-xs leading-5 text-zinc-500">{dailyHint}</p>
+                  </label>
+                )}
+                <label className="block space-y-2">
+                  <span className="praxis-label text-[var(--accent)]">Dose alvo do dia (substância)</span>
+                  <div className="flex gap-2">
+                    <input
+                      value={draft.dailyDoseAmount}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          dailyDoseAmount: event.target.value,
+                        }))
+                      }
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Ex.: 1000"
+                      className={`${fieldClassName} flex-1`}
+                    />
+                    <select
+                      value={draft.dailyDoseUnit}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          dailyDoseUnit: event.target.value,
+                        }))
+                      }
+                      className={`${fieldClassName} w-28`}
+                    >
+                      <option value="mg">mg</option>
+                      <option value="g">g</option>
+                      <option value="mcg">mcg</option>
+                      <option value="ml">ml</option>
+                      <option value="serving">por porção</option>
+                    </select>
+                  </div>
+                  <p className="text-xs leading-5 text-zinc-500">
+                    Ex.: <span className="text-zinc-300">1000&nbsp;mg de Vitamina&nbsp;C</span> por dia. Com isso o sistema lê a dose por cápsula direto do título do produto e calcula o <span className="text-[var(--accent)]">custo real por dia</span> — não cai mais na pegadinha de &quot;1000&nbsp;mg em 4&nbsp;cápsulas&quot;.
+                  </p>
+                </label>
+              </section>
+
+              {/* SECTION 3 — Compra (market only) */}
+              {scope === "market" ? (
+                <section className="space-y-4">
+                  <div className="praxis-label flex items-center gap-2 border-b border-white/5 pb-2 text-zinc-400">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+                    Compra
+                  </div>
+                  <div className="space-y-3">
+                    <span className="praxis-label text-[var(--accent)]">Local da compra</span>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => setDraft((current) => ({ ...current, purchaseMode: "online", localStoreName: "", manualUnitPrice: "" }))}
+                        className={cn("rounded-sm border px-4 py-3 text-left transition", draft.purchaseMode === "online" ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100" : "border-white/10 bg-[#0a0a0b] text-zinc-400")}
+                      >
+                        <p className="font-medium">Online</p>
+                        <p className="mt-1 text-sm text-zinc-500">Busca ofertas e compara o custo nas lojas.</p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDraft((current) => ({ ...current, purchaseMode: "presential" }))}
+                        className={cn("rounded-sm border px-4 py-3 text-left transition", draft.purchaseMode === "presential" ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100" : "border-white/10 bg-[#0a0a0b] text-zinc-400")}
+                      >
+                        <p className="font-medium">Presencial</p>
+                        <p className="mt-1 text-sm text-zinc-500">Informe o local e o preço que você encontrou pessoalmente.</p>
+                      </button>
+                    </div>
+                  </div>
+                  {draft.purchaseMode === "presential" ? (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <label className="block space-y-2">
+                        <span className="praxis-label text-[var(--accent)]">Local presencial</span>
+                        <input value={draft.localStoreName} onChange={(event) => setDraft((current) => ({ ...current, localStoreName: event.target.value }))} placeholder="Ex.: Açougue do bairro" className={fieldClassName} />
+                      </label>
+                      <label className="block space-y-2">
+                        <span className="praxis-label text-[var(--accent)]">Preço encontrado</span>
+                        <input value={draft.manualUnitPrice} onChange={(event) => setDraft((current) => ({ ...current, manualUnitPrice: event.target.value }))} type="number" min="0.01" step="0.01" placeholder="Ex.: 39.90" className={fieldClassName} />
+                      </label>
+                    </div>
+                  ) : null}
+                </section>
               ) : null}
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                  <p className="praxis-label text-[var(--accent)]">Usar nas refeições</p>
-                    <p className="mt-1 text-sm text-zinc-500">
-                      Selecione em quais refeicoes esse item entra na sua dieta.
-                    </p>
-                  </div>
-                  <span className="praxis-label border border-white/10 px-3 py-2 text-zinc-400">
+              {/* SECTION 4 — Refeições vinculadas */}
+              <section className="space-y-3">
+                <div className="praxis-label flex items-center justify-between gap-2 border-b border-white/5 pb-2 text-zinc-400">
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+                    Refeições vinculadas
+                  </span>
+                  <span className="rounded-sm border border-white/10 px-2 py-1 text-zinc-400">
                     {draft.mealBlockIds.length
-                      ? `${draft.mealBlockIds.length} refeição${draft.mealBlockIds.length > 1 ? "es" : ""}`
-                      : "Nenhuma refeição"}
+                      ? `${draft.mealBlockIds.length} ${draft.mealBlockIds.length > 1 ? "refeições" : "refeição"}`
+                      : "Nenhuma"}
                   </span>
                 </div>
-
+                <p className="text-sm leading-6 text-zinc-500">
+                  Selecione em quais refeições esse item entra na sua dieta.
+                </p>
                 {mealBlocks.length ? (
                   <div className="grid gap-3 sm:grid-cols-2">
                     {mealBlocks.map((block) => {
@@ -1334,7 +1411,7 @@ export function ShoppingModulePage({
                             <div className="min-w-0">
                               <p className="truncate font-medium">{block.title}</p>
                               <p className="mt-1 text-sm text-zinc-500">
-                                {block.time || "Horario livre"}
+                                {block.time || "Horário livre"}
                               </p>
                             </div>
                             <span
@@ -1354,64 +1431,13 @@ export function ShoppingModulePage({
                   </div>
                 ) : (
                   <div className="rounded-sm border border-dashed border-white/10 p-4 text-sm leading-6 text-zinc-500">
-                      Crie primeiro suas refeições na dieta para vincular itens de mercado e suplementos.
+                    Crie primeiro suas refeições na dieta para vincular itens de mercado e suplementos.
                   </div>
                 )}
-              </div>
+              </section>
 
-              <label className="block space-y-2">
-                <span className="praxis-label text-[var(--accent)]">{dailyLabel}</span>
-                <input value={draft.dailyDose} onChange={(event) => setDraft((current) => ({ ...current, dailyDose: event.target.value }))} type="number" min="0.01" step="0.01" placeholder="Use a mesma unidade da quantidade. Ex.: 30" className={fieldClassName} />
-                <p className="text-xs leading-5 text-zinc-500">{dailyHint}</p>
-              </label>
-
-              <label className="block space-y-2">
-                <span className="praxis-label text-[var(--accent)]">
-                  Dose alvo do dia (substância)
-                </span>
-                <div className="flex gap-2">
-                  <input
-                    value={draft.dailyDoseAmount}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        dailyDoseAmount: event.target.value,
-                      }))
-                    }
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="Ex.: 1000"
-                    className={`${fieldClassName} flex-1`}
-                  />
-                  <select
-                    value={draft.dailyDoseUnit}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        dailyDoseUnit: event.target.value,
-                      }))
-                    }
-                    className={`${fieldClassName} w-28`}
-                  >
-                    <option value="mg">mg</option>
-                    <option value="g">g</option>
-                    <option value="mcg">mcg</option>
-                    <option value="ml">ml</option>
-                    <option value="serving">por porção</option>
-                  </select>
-                </div>
-                <p className="text-xs leading-5 text-zinc-500">
-                  Ex.: <span className="text-zinc-300">1000&nbsp;mg de
-                  Vitamina&nbsp;C</span> por dia. Com isso o sistema lê a dose
-                  por cápsula direto do título do produto e calcula o
-                  <span className="text-[var(--accent)]"> custo real por
-                  dia</span> — não cai mais na pegadinha de &quot;1000&nbsp;mg em
-                  4&nbsp;cápsulas&quot;.
-                </p>
-              </label>
-
-              <div className="flex flex-wrap gap-3">
+              {/* Submit */}
+              <div className="flex flex-wrap gap-3 border-t border-white/10 pt-4">
                 <button type="submit" className="praxis-button inline-flex items-center gap-2 px-4 py-3">
                   <Plus className="h-4 w-4" />
                   {editingItemId ? "Salvar item" : "Adicionar item"}
@@ -1419,7 +1445,7 @@ export function ShoppingModulePage({
                 {editingItemId ? (
                   <button type="button" onClick={resetDraft} className="praxis-button-ghost inline-flex items-center gap-2 px-4 py-3">
                     <Trash2 className="h-4 w-4" />
-                    Cancelar edicao
+                    Cancelar edição
                   </button>
                 ) : null}
               </div>
@@ -1502,87 +1528,172 @@ export function ShoppingModulePage({
 }
 
 function ResultCard({ result, isPreferred, onChoose }: { result: ShoppingSearchResult; isPreferred?: boolean; onChoose?: () => void; }) {
-  return (
-    <div className="rounded-sm border border-white/10 bg-[#0a0a0b] p-4">
-      <div className="space-y-4">
-        <div className="min-w-0 space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="praxis-label whitespace-nowrap border border-white/10 px-3 py-1 text-zinc-400">{result.sourceName}</span>
-            {isPreferred ? <span className="praxis-label whitespace-nowrap border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-emerald-200">Usada no calculo</span> : null}
-            {result.badges.slice(0, 2).map((badge) => (
-              <span key={badge} className="praxis-label whitespace-nowrap border border-[var(--accent)]/20 bg-[rgba(251,146,60,0.08)] px-3 py-1 text-[var(--accent)]">{badge}</span>
-            ))}
-          </div>
-          <div>
-            <p className="line-clamp-2 text-sm font-medium leading-6 text-zinc-100">{result.title}</p>
-            <p className="mt-1 text-xs text-zinc-500">
-              Precisao {Math.round(result.matchScore)}
-              {result.quantityLabel ? ` • ${result.quantityLabel}` : ""}
-              {result.comparablePrice && result.comparablePriceLabel
-                ? ` • ${formatCurrency(result.comparablePrice)} / ${result.comparablePriceLabel}`
-                : ""}
-              {result.unitStrengthAmount && result.unitStrengthUnit
-                ? ` • ${result.unitStrengthAmount}${result.unitStrengthUnit}/cáp`
-                : ""}
-            </p>
-          </div>
-        </div>
+  const hasDailyCost =
+    result.dailyCost !== undefined && result.doseConfidence === "confirmed";
+  const showUnconfirmedWarning =
+    result.doseConfidence === "unconfirmed" &&
+    result.dailyCost === undefined &&
+    result.unitStrengthAmount === undefined &&
+    result.badges.some((badge) => /não confirmada/i.test(badge));
 
-        {result.dailyCost !== undefined && result.doseConfidence === "confirmed" ? (
-          <div className="rounded-sm border border-[var(--accent)]/30 bg-[rgba(251,146,60,0.08)] px-4 py-3">
-            <div className="flex items-baseline justify-between gap-3">
+  // Suppress badges already visible in the headline / warning panels.
+  const visibleBadges = result.badges.filter((badge) => {
+    if (hasDailyCost) {
+      if (/^R\$\s.+\/dia$/.test(badge)) return false;
+      if (/^Dura \d+/.test(badge)) return false;
+      if (/^\d+(?:\.\d+)?(mg|g|ml|mcg)\/\d+\s*un$/i.test(badge)) return false;
+    }
+    if (showUnconfirmedWarning && /não confirmada/i.test(badge)) return false;
+    return true;
+  });
+
+  return (
+    <div className="overflow-hidden rounded-sm border border-white/10 bg-[#0a0a0b]">
+      {/* Title + metadata */}
+      <div className="border-b border-white/5 px-4 pb-3 pt-4">
+        <div className="flex items-start justify-between gap-3">
+          <p className="line-clamp-2 flex-1 text-base font-semibold leading-snug text-zinc-100">
+            {result.title}
+          </p>
+          {isPreferred ? (
+            <span className="praxis-label shrink-0 whitespace-nowrap rounded-sm border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-emerald-200">
+              Em uso
+            </span>
+          ) : null}
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+          <span className="font-medium text-zinc-300">{result.sourceName}</span>
+          <span className="text-zinc-700">·</span>
+          <span>Precisão {Math.round(result.matchScore)}</span>
+          {result.quantityLabel ? (
+            <>
+              <span className="text-zinc-700">·</span>
+              <span>{result.quantityLabel}</span>
+            </>
+          ) : null}
+          {result.unitStrengthAmount && result.unitStrengthUnit ? (
+            <>
+              <span className="text-zinc-700">·</span>
+              <span className="font-medium text-[var(--accent)]">
+                {result.unitStrengthAmount}
+                {result.unitStrengthUnit}/cáp
+              </span>
+            </>
+          ) : null}
+        </div>
+      </div>
+
+      {/* HEADLINE: substance-anchored cost OR unconfirmed warning */}
+      {hasDailyCost ? (
+        <div
+          className="border-b border-[var(--accent)]/15 px-4 py-4"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(251,146,60,0.16), rgba(251,146,60,0.04))",
+          }}
+        >
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
               <p className="praxis-label text-[var(--accent)]">Custo real / dia</p>
-              <p className="text-xs text-zinc-400">
-                {result.unitsPerDay
-                  ? `${result.unitsPerDay} ${result.unitsPerDay === 1 ? "cáp" : "cáps"}/dia`
-                  : ""}
-                {result.unitsPerDay && result.daysSupply ? " · " : ""}
-                {result.daysSupply
-                  ? `dura ${result.daysSupply} ${result.daysSupply === 1 ? "dia" : "dias"}`
-                  : ""}
+              <p className="mt-1 font-title text-3xl font-bold leading-none text-[var(--accent)]">
+                {formatCurrency(result.dailyCost!)}
               </p>
             </div>
-            <p className="mt-1 text-2xl font-bold text-[var(--accent)]">
-              {formatCurrency(result.dailyCost)}
-            </p>
-          </div>
-        ) : result.doseConfidence === "unconfirmed" && (result.dailyCost === undefined) && (result.unitStrengthAmount === undefined) ? (
-          <div className="rounded-sm border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs leading-5 text-amber-200">
-            ⚠ Dose por cápsula não confirmada no título. Verifique a embalagem
-            antes de comparar — esse é o ponto onde &quot;1000&nbsp;mg&quot; pode na
-            verdade vir em 2 ou 4 cápsulas.
-          </div>
-        ) : null}
-
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="space-y-1 rounded-sm border border-white/10 bg-[#111113] px-3 py-3">
-            <p className="praxis-label text-zinc-500">Preco</p>
-            <p className="text-sm font-semibold text-zinc-100">{formatCurrency(result.price)}</p>
-          </div>
-          <div className="space-y-1 rounded-sm border border-white/10 bg-[#111113] px-3 py-3">
-            <p className="praxis-label text-zinc-500">Frete</p>
-            <p className="text-sm font-semibold text-zinc-100">
-              {result.freeShipping ? "Gratis" : result.shippingPrice !== undefined ? formatCurrency(result.shippingPrice) : "--"}
-            </p>
-          </div>
-          <div className="space-y-1 rounded-sm border border-white/10 bg-[#111113] px-3 py-3">
-            <p className="praxis-label text-zinc-500">Total</p>
-            <p className="text-sm font-semibold text-[var(--accent)]">{formatCurrency(result.totalPrice)}</p>
+            <div className="text-right text-xs text-zinc-300">
+              {result.unitsPerDay ? (
+                <p className="font-semibold text-zinc-100">
+                  {result.unitsPerDay}{" "}
+                  {result.unitsPerDay === 1 ? "cáp" : "cáps"}/dia
+                </p>
+              ) : null}
+              {result.daysSupply ? (
+                <p className="mt-0.5 text-zinc-500">
+                  Dura {result.daysSupply}{" "}
+                  {result.daysSupply === 1 ? "dia" : "dias"}
+                </p>
+              ) : null}
+            </div>
           </div>
         </div>
+      ) : showUnconfirmedWarning ? (
+        <div className="border-b border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs leading-5 text-amber-200">
+          ⚠ Dose por cápsula não confirmada no título. Verifique a embalagem —
+          esse é o ponto onde &quot;1000&nbsp;mg&quot; pode na verdade vir em 2
+          ou 4 cápsulas.
+        </div>
+      ) : null}
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+      {/* Price breakdown — secondary row */}
+      <div className="grid grid-cols-3 divide-x divide-white/5 border-b border-white/5 text-center">
+        <div className="px-3 py-2.5">
+          <p className="praxis-label text-zinc-500">Preço</p>
+          <p className="mt-1 text-sm font-semibold text-zinc-100">
+            {formatCurrency(result.price)}
+          </p>
+        </div>
+        <div className="px-3 py-2.5">
+          <p className="praxis-label text-zinc-500">Frete</p>
+          <p className="mt-1 text-sm font-semibold text-zinc-100">
+            {result.freeShipping
+              ? "Grátis"
+              : result.shippingPrice !== undefined
+                ? formatCurrency(result.shippingPrice)
+                : "—"}
+          </p>
+        </div>
+        <div className="px-3 py-2.5">
+          <p className="praxis-label text-zinc-500">Total</p>
+          <p
+            className={cn(
+              "mt-1 text-sm font-semibold",
+              hasDailyCost ? "text-zinc-100" : "text-[var(--accent)]",
+            )}
+          >
+            {formatCurrency(result.totalPrice)}
+          </p>
+        </div>
+      </div>
+
+      {/* Badges (compact, after the data) */}
+      {visibleBadges.length ? (
+        <div className="flex flex-wrap gap-1.5 border-b border-white/5 px-4 py-2.5">
+          {visibleBadges.slice(0, 4).map((badge) => (
+            <span
+              key={badge}
+              className="praxis-label whitespace-nowrap rounded-sm border border-[var(--accent)]/20 bg-[rgba(251,146,60,0.08)] px-2 py-1 text-[10px] text-[var(--accent)]"
+            >
+              {badge}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {/* Actions */}
+      <div className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:flex-wrap">
         {onChoose ? (
-          <button type="button" onClick={onChoose} className={cn("inline-flex w-full items-center justify-center gap-2 rounded-sm border px-4 py-3 text-sm font-medium transition sm:w-auto whitespace-nowrap", isPreferred ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200" : "border-[var(--accent)]/20 bg-[rgba(251,146,60,0.08)] text-[var(--accent)]") }>
+          <button
+            type="button"
+            onClick={onChoose}
+            className={cn(
+              "inline-flex w-full items-center justify-center gap-2 rounded-sm border px-4 py-2.5 text-sm font-medium transition sm:w-auto whitespace-nowrap",
+              isPreferred
+                ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                : "border-[var(--accent)]/20 bg-[rgba(251,146,60,0.08)] text-[var(--accent)]",
+            )}
+          >
             <Check className="h-4 w-4" />
-            {isPreferred ? "Oferta selecionada" : "Usar no calculo mensal"}
+            {isPreferred ? "Oferta selecionada" : "Usar no cálculo mensal"}
           </button>
         ) : null}
-        <a href={result.url} target="_blank" rel="noreferrer" className="praxis-button inline-flex w-full items-center justify-center gap-2 px-4 py-3 sm:w-auto whitespace-nowrap">
+        <a
+          href={result.url}
+          target="_blank"
+          rel="noreferrer"
+          className="praxis-button inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 sm:w-auto whitespace-nowrap"
+        >
           <ExternalLink className="h-4 w-4" />
           Abrir oferta
         </a>
-        </div>
       </div>
     </div>
   );
