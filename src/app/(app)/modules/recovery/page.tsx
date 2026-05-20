@@ -875,8 +875,10 @@ function WorkoutCreator({
   }, [initialPresetId]);
 
   const [title, setTitle] = useState(initial.title);
-  const [focus, setFocus] = useState(initial.focus);
-  const [summary, setSummary] = useState(initial.summary);
+  // Foco/Descrição are inherited silently from a chosen preset (kept
+  // for later editing on the day card) — no form field for them here.
+  const [focus] = useState(initial.focus);
+  const [summary] = useState(initial.summary);
   const [exercises, setExercises] = useState<Omit<RecoveryExercise, "id">[]>(
     initial.exercises,
   );
@@ -960,37 +962,15 @@ function WorkoutCreator({
       </div>
 
       {/* Identity */}
-      <div className="space-y-3">
-        <label className="block space-y-1">
-          <span className="praxis-label text-zinc-500">Título</span>
-          <input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Ex.: Mobilidade matinal"
-            className={fieldClassName}
-          />
-        </label>
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="block space-y-1">
-            <span className="praxis-label text-zinc-500">Foco</span>
-            <input
-              value={focus}
-              onChange={(event) => setFocus(event.target.value)}
-              placeholder="Ex.: quadril, ombros, coluna"
-              className={fieldClassName}
-            />
-          </label>
-          <label className="block space-y-1">
-            <span className="praxis-label text-zinc-500">Descrição</span>
-            <input
-              value={summary}
-              onChange={(event) => setSummary(event.target.value)}
-              placeholder="Resumo curto (opcional)"
-              className={fieldClassName}
-            />
-          </label>
-        </div>
-      </div>
+      <label className="block space-y-1">
+        <span className="praxis-label text-zinc-500">Título</span>
+        <input
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          placeholder="Ex.: Mobilidade matinal"
+          className={fieldClassName}
+        />
+      </label>
 
       {/* Weekday multi-select */}
       <div className="space-y-2">
