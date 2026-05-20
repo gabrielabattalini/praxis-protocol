@@ -151,6 +151,20 @@ export default function RecoveryModulePage() {
   const isCompletedToday = (dayId: string) =>
     completions.some((c) => c.dayId === dayId && c.dateKey === todayKey);
 
+  /* ── Creator state — single centralized form that fans the same
+        workout out to one or more weekdays at once. */
+  const [creatorOpen, setCreatorOpen] = useState(false);
+  const [creatorInitialPreset, setCreatorInitialPreset] = useState<string | null>(null);
+
+  function openCreator(presetId: string | null = null) {
+    setCreatorInitialPreset(presetId);
+    setCreatorOpen(true);
+  }
+  function closeCreator() {
+    setCreatorOpen(false);
+    setCreatorInitialPreset(null);
+  }
+
   /* ── Mutations (all go through replaceRecoveryPlan) ──────────── */
   function setPlan(next: RecoveryDayPlan[]) {
     actions.replaceRecoveryPlan(next);
@@ -159,57 +173,30 @@ export default function RecoveryModulePage() {
     actions.replaceRecoveryDayCompletions(next);
   }
 
-  function addDayForWeekday(weekday: Weekday) {
-    if (dayByWeekday[weekday]) return;
-    const newDay: RecoveryDayPlan = {
+  function handleCreateWorkout(params: {
+    title: string;
+    focus: string;
+    summary: string;
+    exercises: Omit<RecoveryExercise, "id">[];
+    weekdays: Weekday[];
+  }) {
+    if (params.weekdays.length === 0) return;
+    // For every selected weekday, build an independent RecoveryDayPlan
+    // (separate ids so each can be tweaked individually later).
+    const newDays: RecoveryDayPlan[] = params.weekdays.map((weekday) => ({
       id: makeId("rday"),
       weekday,
-      title: `${weekdayLongLabel(weekday)} de mobilidade`,
-      focus: "",
-      summary: "",
+      title: params.title || `${weekdayLongLabel(weekday)} de mobilidade`,
+      focus: params.focus,
+      summary: params.summary,
       isRestDay: false,
-      exercises: [],
+      exercises: params.exercises.map((ex) => ({ ...ex, id: makeId("rex") })),
       notes: "",
-    };
-    setPlan([...plan, newDay]);
-  }
-
-  function applyPreset(weekday: Weekday, presetId: string) {
-    const preset = dayPresets.find((p) => p.id === presetId);
-    if (!preset) return;
-    const exercises = preset.exercises.map<RecoveryExercise>((ex) => ({
-      ...ex,
-      id: makeId("rex"),
     }));
-    const existing = dayByWeekday[weekday];
-    if (existing) {
-      setPlan(
-        plan.map((d) =>
-          d.id === existing.id
-            ? {
-                ...d,
-                title: preset.title,
-                focus: preset.focus,
-                summary: preset.summary,
-                isRestDay: false,
-                exercises,
-              }
-            : d,
-        ),
-      );
-    } else {
-      const day: RecoveryDayPlan = {
-        id: makeId("rday"),
-        weekday,
-        title: preset.title,
-        focus: preset.focus,
-        summary: preset.summary,
-        isRestDay: false,
-        exercises,
-        notes: "",
-      };
-      setPlan([...plan, day]);
-    }
+    // Replace any existing plan for the chosen weekdays.
+    const untouched = plan.filter((d) => !params.weekdays.includes(d.weekday));
+    setPlan([...untouched, ...newDays]);
+    closeCreator();
   }
 
   function updateDay(dayId: string, patch: Partial<RecoveryDayPlan>) {
@@ -400,9 +387,37 @@ export default function RecoveryModulePage() {
         </GlassPanel>
       ) : null}
 
-      {/* Week grid: a card per weekday */}
-      <div>
-        <p className="praxis-label mb-3 text-[var(--accent)]">Semana</p>
+      {/* Week section: centralized creator + grid of weekday cards */}
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="praxis-label text-[var(--accent)]">Plano semanal</p>
+            <p className="mt-1 text-sm leading-6 text-zinc-400">
+              Crie um treino uma vez e aplique a um ou mais dias.
+            </p>
+          </div>
+          {!creatorOpen ? (
+            <button
+              type="button"
+              onClick={() => openCreator(null)}
+              className="praxis-button inline-flex items-center gap-2 px-4 py-3"
+            >
+              <Plus className="h-4 w-4" />
+              Criar treino
+            </button>
+          ) : null}
+        </div>
+
+        {creatorOpen ? (
+          <WorkoutCreator
+            key={creatorInitialPreset ?? "blank"}
+            initialPresetId={creatorInitialPreset}
+            existingDays={plan}
+            onCancel={closeCreator}
+            onCreate={handleCreateWorkout}
+          />
+        ) : null}
+
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {weekdayOrder.map((wd) => {
             const day = dayByWeekday[wd];
@@ -414,8 +429,6 @@ export default function RecoveryModulePage() {
                 day={day}
                 isToday={isToday}
                 completedToday={day ? isCompletedToday(day.id) : false}
-                onAdd={() => addDayForWeekday(wd)}
-                onApplyPreset={(presetId) => applyPreset(wd, presetId)}
                 onUpdate={(patch) => day && updateDay(day.id, patch)}
                 onRemove={() => day && removeDay(day.id)}
                 onAddExercise={(ex) => day && addExercise(day.id, ex)}
@@ -440,8 +453,8 @@ export default function RecoveryModulePage() {
           </div>
         </div>
         <p className="text-sm text-zinc-400">
-          Use um modelo pronto e ajuste depois. Aplique a qualquer dia da semana —
-          se o dia já existir, ele será substituído.
+          Use um modelo pronto. Clicar abre o criador acima já pré-preenchido —
+          aí é só escolher os dias da semana onde aplicar.
         </p>
         <div className="grid gap-4 md:grid-cols-3">
           {dayPresets.map((preset) => (
@@ -457,26 +470,14 @@ export default function RecoveryModulePage() {
                 ))}
               </ul>
               <div className="mt-4">
-                <label className="block space-y-2">
-                  <span className="praxis-label text-zinc-500">Aplicar em…</span>
-                  <select
-                    defaultValue=""
-                    onChange={(event) => {
-                      const wd = event.target.value as Weekday | "";
-                      if (!wd) return;
-                      applyPreset(wd, preset.id);
-                      event.currentTarget.value = "";
-                    }}
-                    className={fieldClassName}
-                  >
-                    <option value="">Escolha um dia</option>
-                    {weekdayOrder.map((wd) => (
-                      <option key={wd} value={wd}>
-                        {weekdayLongLabel(wd)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <button
+                  type="button"
+                  onClick={() => openCreator(preset.id)}
+                  className="praxis-button-ghost inline-flex w-full items-center justify-center gap-2 px-3 py-2 text-sm"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Usar este modelo
+                </button>
               </div>
             </div>
           ))}
@@ -493,8 +494,6 @@ type DayCardProps = {
   day?: RecoveryDayPlan;
   isToday: boolean;
   completedToday: boolean;
-  onAdd: () => void;
-  onApplyPreset: (presetId: string) => void;
   onUpdate: (patch: Partial<RecoveryDayPlan>) => void;
   onRemove: () => void;
   onAddExercise: (exercise: Omit<RecoveryExercise, "id">) => void;
@@ -511,8 +510,6 @@ function DayCard({
   day,
   isToday,
   completedToday,
-  onAdd,
-  onApplyPreset,
   onUpdate,
   onRemove,
   onAddExercise,
@@ -531,7 +528,7 @@ function DayCard({
     return (
       <div
         className={
-          "rounded-sm border border-dashed border-white/10 bg-[#0a0a0b] p-4 transition hover:border-[var(--accent)]/40 " +
+          "rounded-sm border border-dashed border-white/10 bg-[#0a0a0b] p-4 transition " +
           (isToday ? "ring-1 ring-[var(--accent)]/30" : "")
         }
       >
@@ -545,36 +542,14 @@ function DayCard({
             </span>
           ) : null}
         </div>
-        <p className="mt-3 text-sm text-zinc-500">
+        <p className="mt-3 text-sm leading-6 text-zinc-500">
           Sem plano para este dia.
         </p>
-        <div className="mt-4 flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={onAdd}
-            className="praxis-button-ghost inline-flex items-center justify-center gap-2 px-3 py-2 text-sm"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Criar dia em branco
-          </button>
-          <select
-            defaultValue=""
-            onChange={(event) => {
-              const id = event.target.value;
-              if (!id) return;
-              onApplyPreset(id);
-              event.currentTarget.value = "";
-            }}
-            className={fieldClassName}
-          >
-            <option value="">Ou aplicar modelo…</option>
-            {dayPresets.map((preset) => (
-              <option key={preset.id} value={preset.id}>
-                {preset.title}
-              </option>
-            ))}
-          </select>
-        </div>
+        <p className="mt-2 text-xs leading-5 text-zinc-600">
+          Use o botão{" "}
+          <span className="font-medium text-[var(--accent)]">Criar treino</span>{" "}
+          acima e marque este dia da semana.
+        </p>
       </div>
     );
   }
@@ -858,6 +833,333 @@ function ExerciseRow({ exercise, onUpdate, onRemove }: ExerciseRowProps) {
         </div>
       ) : null}
     </div>
+  );
+}
+
+/* ── WorkoutCreator ───────────────────────────────────────────────
+   Centralized creator. Define the workout once (title, focus,
+   exercises) and check all the weekdays where it should be applied
+   in one shot. Replaces any existing plan for the chosen days. */
+
+type WorkoutCreatorProps = {
+  initialPresetId: string | null;
+  existingDays: RecoveryDayPlan[];
+  onCancel: () => void;
+  onCreate: (params: {
+    title: string;
+    focus: string;
+    summary: string;
+    exercises: Omit<RecoveryExercise, "id">[];
+    weekdays: Weekday[];
+  }) => void;
+};
+
+function WorkoutCreator({
+  initialPresetId,
+  existingDays,
+  onCancel,
+  onCreate,
+}: WorkoutCreatorProps) {
+  const initial = useMemo(() => {
+    const preset = initialPresetId
+      ? dayPresets.find((p) => p.id === initialPresetId)
+      : null;
+    return {
+      title: preset?.title ?? "",
+      focus: preset?.focus ?? "",
+      summary: preset?.summary ?? "",
+      exercises: preset
+        ? preset.exercises.map((ex) => ({ ...ex }))
+        : ([] as Omit<RecoveryExercise, "id">[]),
+    };
+  }, [initialPresetId]);
+
+  const [title, setTitle] = useState(initial.title);
+  const [focus, setFocus] = useState(initial.focus);
+  const [summary, setSummary] = useState(initial.summary);
+  const [exercises, setExercises] = useState<Omit<RecoveryExercise, "id">[]>(
+    initial.exercises,
+  );
+  const [selectedWeekdays, setSelectedWeekdays] = useState<Set<Weekday>>(
+    () => new Set(),
+  );
+  const [exDraft, setExDraft] = useState({
+    name: "",
+    bodyArea: "",
+    sets: "2",
+    durationOrReps: "",
+  });
+
+  function toggleWeekday(wd: Weekday) {
+    setSelectedWeekdays((prev) => {
+      const next = new Set(prev);
+      if (next.has(wd)) next.delete(wd);
+      else next.add(wd);
+      return next;
+    });
+  }
+
+  function addExerciseFromDraft(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = exDraft.name.trim();
+    const durationOrReps = exDraft.durationOrReps.trim();
+    if (!name || !durationOrReps) return;
+    setExercises((prev) => [
+      ...prev,
+      {
+        name,
+        bodyArea: exDraft.bodyArea.trim() || "Geral",
+        sets: Math.max(1, Number(exDraft.sets) || 1),
+        durationOrReps,
+      },
+    ]);
+    setExDraft({ name: "", bodyArea: "", sets: "2", durationOrReps: "" });
+  }
+
+  function removeExerciseAt(index: number) {
+    setExercises((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  const weekdaysToOverwrite = useMemo(
+    () =>
+      weekdayOrder.filter(
+        (wd) =>
+          selectedWeekdays.has(wd) &&
+          existingDays.some((d) => d.weekday === wd),
+      ),
+    [existingDays, selectedWeekdays],
+  );
+
+  const canSave = selectedWeekdays.size > 0 && exercises.length > 0;
+
+  function handleSave() {
+    if (!canSave) return;
+    onCreate({
+      title,
+      focus,
+      summary,
+      exercises,
+      weekdays: [...selectedWeekdays],
+    });
+  }
+
+  return (
+    <GlassPanel className="space-y-4 border-l-2 border-l-[var(--accent)]">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="praxis-label text-[var(--accent)]">Novo treino</p>
+          <h3 className="praxis-title text-xl">Defina o treino e os dias</h3>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="praxis-button-ghost inline-flex items-center gap-2 px-3 py-2 text-sm"
+        >
+          Cancelar
+        </button>
+      </div>
+
+      {/* Identity */}
+      <div className="space-y-3">
+        <label className="block space-y-1">
+          <span className="praxis-label text-zinc-500">Título</span>
+          <input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="Ex.: Mobilidade matinal"
+            className={fieldClassName}
+          />
+        </label>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="block space-y-1">
+            <span className="praxis-label text-zinc-500">Foco</span>
+            <input
+              value={focus}
+              onChange={(event) => setFocus(event.target.value)}
+              placeholder="Ex.: quadril, ombros, coluna"
+              className={fieldClassName}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="praxis-label text-zinc-500">Descrição</span>
+            <input
+              value={summary}
+              onChange={(event) => setSummary(event.target.value)}
+              placeholder="Resumo curto (opcional)"
+              className={fieldClassName}
+            />
+          </label>
+        </div>
+      </div>
+
+      {/* Weekday multi-select */}
+      <div className="space-y-2">
+        <p className="praxis-label text-zinc-500">
+          Aplicar nos dias da semana
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {weekdayOrder.map((wd) => {
+            const selected = selectedWeekdays.has(wd);
+            const hasExisting = existingDays.some((d) => d.weekday === wd);
+            return (
+              <button
+                key={wd}
+                type="button"
+                onClick={() => toggleWeekday(wd)}
+                className={
+                  "rounded-sm border px-3 py-2 text-sm transition " +
+                  (selected
+                    ? "border-[var(--accent)]/50 bg-[rgba(251,146,60,0.12)] text-[var(--accent)]"
+                    : "border-white/10 bg-[#0a0a0b] text-zinc-300 hover:border-white/30")
+                }
+              >
+                {weekdayLongLabel(wd)}
+                {hasExisting && !selected ? (
+                  <span className="ml-1 text-[10px] text-amber-300">
+                    • já tem plano
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+        {weekdaysToOverwrite.length > 0 ? (
+          <p className="text-xs leading-5 text-amber-300">
+            ⚠ Os dias já com plano serão substituídos:{" "}
+            {weekdaysToOverwrite.map(weekdayLongLabel).join(", ")}.
+          </p>
+        ) : null}
+      </div>
+
+      {/* Exercises */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Activity className="h-3.5 w-3.5 text-[var(--accent)]" />
+          <p className="praxis-label text-zinc-500">
+            Exercícios {exercises.length > 0 ? `(${exercises.length})` : ""}
+          </p>
+        </div>
+        {exercises.length > 0 ? (
+          <div className="space-y-1.5">
+            {exercises.map((ex, index) => (
+              <div
+                key={`${ex.name}-${index}`}
+                className="rounded-sm border border-white/5 bg-black/30 px-3 py-2"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-zinc-100">
+                      {ex.name}
+                    </p>
+                    <p className="mt-0.5 text-xs text-zinc-500">
+                      {ex.bodyArea} ·{" "}
+                      <span className="font-medium text-[var(--accent)]">
+                        {ex.sets}×
+                      </span>{" "}
+                      {ex.durationOrReps}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeExerciseAt(index)}
+                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm border border-white/10 text-zinc-500 transition hover:border-red-400/30 hover:text-red-300"
+                    aria-label="Remover exercício"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-sm border border-dashed border-white/10 px-3 py-2 text-xs text-zinc-500">
+            Adicione o primeiro exercício abaixo.
+          </p>
+        )}
+
+        {/* Add exercise form */}
+        <form
+          onSubmit={addExerciseFromDraft}
+          className="space-y-2 rounded-sm border border-white/10 bg-black/40 p-3"
+        >
+          <div className="grid gap-2 sm:grid-cols-[1.4fr_1fr]">
+            <input
+              value={exDraft.name}
+              onChange={(event) =>
+                setExDraft((current) => ({ ...current, name: event.target.value }))
+              }
+              placeholder="Exercício (ex.: Cat-cow)"
+              className={fieldClassName}
+            />
+            <input
+              value={exDraft.bodyArea}
+              onChange={(event) =>
+                setExDraft((current) => ({
+                  ...current,
+                  bodyArea: event.target.value,
+                }))
+              }
+              placeholder="Área (ex.: coluna)"
+              className={fieldClassName}
+            />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-[80px_1fr_auto]">
+            <input
+              value={exDraft.sets}
+              onChange={(event) =>
+                setExDraft((current) => ({ ...current, sets: event.target.value }))
+              }
+              type="number"
+              min="1"
+              max="20"
+              className={fieldClassName}
+              placeholder="Sets"
+            />
+            <input
+              value={exDraft.durationOrReps}
+              onChange={(event) =>
+                setExDraft((current) => ({
+                  ...current,
+                  durationOrReps: event.target.value,
+                }))
+              }
+              placeholder="Duração/reps (ex.: 30s cada lado)"
+              className={fieldClassName}
+            />
+            <button
+              type="submit"
+              className="praxis-button inline-flex items-center gap-2 px-3 py-2 text-sm whitespace-nowrap"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Save bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+        <p className="text-xs leading-5 text-zinc-500">
+          {selectedWeekdays.size === 0
+            ? "Escolha pelo menos um dia."
+            : exercises.length === 0
+              ? "Adicione pelo menos um exercício."
+              : `${selectedWeekdays.size} ${selectedWeekdays.size === 1 ? "dia" : "dias"} · ${exercises.length} ${exercises.length === 1 ? "exercício" : "exercícios"}`}
+        </p>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={!canSave}
+          className={
+            "praxis-button inline-flex items-center gap-2 px-4 py-2.5 " +
+            (canSave ? "" : "cursor-not-allowed opacity-50")
+          }
+        >
+          <CheckCircle2 className="h-4 w-4" />
+          Salvar treino
+        </button>
+      </div>
+    </GlassPanel>
   );
 }
 
