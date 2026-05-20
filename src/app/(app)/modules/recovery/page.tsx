@@ -32,16 +32,6 @@ const weekdayOrder: Weekday[] = [
   "sunday",
 ];
 
-const weekdayShortLabel: Record<Weekday, string> = {
-  monday: "Seg",
-  tuesday: "Ter",
-  wednesday: "Qua",
-  thursday: "Qui",
-  friday: "Sex",
-  saturday: "Sáb",
-  sunday: "Dom",
-};
-
 const weekdayFromJsIndex: Record<number, Weekday> = {
   0: "sunday",
   1: "monday",
@@ -534,7 +524,7 @@ function DayCard({
       >
         <div className="flex items-center justify-between gap-2">
           <p className="praxis-label text-zinc-400">
-            {weekdayShortLabel[weekday]} · {weekdayLongLabel(weekday)}
+            {weekdayLongLabel(weekday)}
           </p>
           {isToday ? (
             <span className="praxis-label rounded-sm border border-[var(--accent)]/30 bg-[rgba(251,146,60,0.08)] px-2 py-0.5 text-[var(--accent)]">
@@ -585,7 +575,7 @@ function DayCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="praxis-label text-[var(--accent)]">
-              {weekdayShortLabel[weekday]} · {weekdayLongLabel(weekday)}
+              {weekdayLongLabel(weekday)}
             </p>
             {isToday ? (
               <span className="praxis-label rounded-sm border border-[var(--accent)]/30 bg-[rgba(251,146,60,0.08)] px-2 py-0.5 text-[var(--accent)]">
