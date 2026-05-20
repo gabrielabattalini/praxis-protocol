@@ -1,12 +1,15 @@
 ﻿"use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import {
+  ArrowRight,
   Brain,
   CheckCircle2,
   NotebookPen,
   Plus,
   Sparkles,
+  TimerReset,
   Trash2,
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
@@ -219,6 +222,25 @@ export default function MindModulePage() {
           <div className="kpi-sub">Carga da mente</div>
         </div>
       </div>
+
+      {/* Atalho contextual para Utilitários — Focus Timer, Ruído branco
+          e Reset respiratório vivem fora do módulo Mente, mas servem
+          diretamente para foco e regulação. */}
+      <Link
+        href="/tools"
+        className="group flex items-center gap-4 rounded-sm border border-white/10 bg-[#0a0a0b] p-4 transition hover:border-[var(--accent)]/40 hover:bg-[rgba(251,146,60,0.06)]"
+      >
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-sm border border-[var(--accent)]/30 bg-[rgba(251,146,60,0.08)] text-[var(--accent)]">
+          <TimerReset className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="praxis-label text-[var(--accent)]">Ferramentas da mente</p>
+          <p className="mt-1 text-sm leading-6 text-zinc-200">
+            Focus Timer, Ruído branco e Reset respiratório — utilitários para apoiar foco e regulação.
+          </p>
+        </div>
+        <ArrowRight className="h-4 w-4 shrink-0 text-zinc-500 transition group-hover:translate-x-0.5 group-hover:text-[var(--accent)]" />
+      </Link>
 
       <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
         <GlassPanel className="space-y-4">
