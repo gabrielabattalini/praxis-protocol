@@ -584,6 +584,15 @@ export default function SleepModulePage() {
     );
   }, [actions, sleepPlan.days, state.tasks]);
 
+  // Hold the latest syncSleepTasks in a ref so the auto-sync effect
+  // does NOT re-fire when the callback's identity changes (which it does
+  // every time state.tasks changes — i.e. every time we just synced).
+  // Without this, sync → state.tasks update → useCallback recreates →
+  // effect re-runs → sync again → infinite loop (visible as the
+  // "Sincronizar com tarefas" button flashing between states).
+  const syncSleepTasksRef = useRef(syncSleepTasks);
+  syncSleepTasksRef.current = syncSleepTasks;
+
   useEffect(() => {
     if (!hasHydratedPlan) {
       return;
@@ -594,7 +603,7 @@ export default function SleepModulePage() {
     }
 
     autoSyncTimerRef.current = window.setTimeout(() => {
-      syncSleepTasks();
+      syncSleepTasksRef.current();
       autoSyncTimerRef.current = null;
     }, 450);
 
@@ -604,7 +613,7 @@ export default function SleepModulePage() {
         autoSyncTimerRef.current = null;
       }
     };
-  }, [hasHydratedPlan, sleepPlan, syncSleepTasks]);
+  }, [hasHydratedPlan, sleepPlan]);
 
   return (
     <div className="space-y-6">
