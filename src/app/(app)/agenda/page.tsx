@@ -1,34 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import {
   ArrowRight,
-  CalendarClock,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Clock3,
-  Dumbbell,
-  UtensilsCrossed,
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
-import {
-  RxLabel,
-  RxPBar,
-  RxPageHeader,
-  RxPanel,
-} from "@/components/redesign/primitives";
 import { buildWeekAgenda, type AgendaEvent } from "@/lib/agenda";
-import { formatPoints } from "@/lib/utils";
+import { formatDateKey } from "@/lib/utils";
 
-function formatFullDate(date: Date) {
-  return date.toLocaleDateString("pt-BR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-  });
-}
+const agendaSlots = [
+  "05:00",
+  "08:00",
+  "10:00",
+  "12:00",
+  "14:00",
+  "17:00",
+  "19:00",
+  "21:00",
+  "22:00",
+  "00:00",
+] as const;
 
 function formatWeekRange(days: { date: Date }[]) {
   if (!days.length) return "";
@@ -45,19 +40,28 @@ function formatWeekRange(days: { date: Date }[]) {
 function toneForKind(kind: AgendaEvent["kind"]) {
   if (kind === "meal") {
     return {
-      icon: UtensilsCrossed,
       color: "var(--ok)",
+      label: "Nutrição",
     };
   }
+
   if (kind === "workout") {
     return {
-      icon: Dumbbell,
       color: "var(--accent)",
+      label: "Treino",
     };
   }
+
+  if (kind === "recovery") {
+    return {
+      color: "var(--accent)",
+      label: "Recuperação",
+    };
+  }
+
   return {
-    icon: CalendarClock,
-    color: "var(--fg-3)",
+    color: "var(--ocean)",
+    label: "Tarefa",
   };
 }
 
@@ -67,10 +71,116 @@ function buildReferenceDate(base: Date, weekOffset: number) {
   return next;
 }
 
+function parseAgendaTimeMinutes(time?: string) {
+  if (!time) return null;
+  const match = time.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+
+  return hours * 60 + minutes;
+}
+
+function normalizeAgendaMinutes(time?: string) {
+  const minutes = parseAgendaTimeMinutes(time);
+  if (minutes === null) return null;
+
+  // A madrugada pertence ao fechamento do ciclo, então aparece no fim do dia.
+  return minutes < 5 * 60 ? minutes + 24 * 60 : minutes;
+}
+
+function slotForAgendaItem(item: AgendaEvent) {
+  const minutes = normalizeAgendaMinutes(item.time);
+  if (minutes === null) return null;
+
+  let activeSlot: (typeof agendaSlots)[number] = agendaSlots[0];
+  for (const slot of agendaSlots) {
+    const slotMinutes = normalizeAgendaMinutes(slot) ?? 0;
+    if (minutes >= slotMinutes) {
+      activeSlot = slot;
+    }
+  }
+
+  return activeSlot;
+}
+
+function isSameDate(left: Date, right: Date) {
+  return left.toDateString() === right.toDateString();
+}
+
+function AgendaEventLink({ item }: { item: AgendaEvent }) {
+  const tone = toneForKind(item.kind);
+
+  return (
+    <Link
+      href={item.route}
+      title={`${item.time ?? "Sem horário"} · ${item.title}`}
+      style={{
+        display: "block",
+        minWidth: 0,
+        padding: "5px 7px",
+        borderRadius: 6,
+        borderLeft: `3px solid ${tone.color}`,
+        background: item.completed ? "rgba(14,14,17,0.62)" : "rgba(20,20,24,0.86)",
+        color: "inherit",
+        textDecoration: "none",
+        opacity: item.completed ? 0.68 : 1,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 6,
+          minWidth: 0,
+        }}
+      >
+        <div
+          className="praxis-label"
+          style={{
+            color: tone.color,
+            fontSize: 8,
+            letterSpacing: "0.18em",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {item.sourceLabel || tone.label}
+        </div>
+        {item.completed ? (
+          <CheckCircle2
+            className="h-3.5 w-3.5"
+            style={{ color: "var(--ok)", flexShrink: 0 }}
+          />
+        ) : null}
+      </div>
+      <div
+        style={{
+          color: "#e4e4e7",
+          fontSize: 11,
+          fontWeight: 600,
+          marginTop: 2,
+          overflow: "hidden",
+          textDecoration: item.completed ? "line-through" : "none",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {item.title}
+      </div>
+    </Link>
+  );
+}
+
 export default function AgendaPage() {
   const { state } = useAppStore();
   const today = useMemo(() => new Date(), []);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [selectedDateKey, setSelectedDateKey] = useState(() => formatDateKey(today));
 
   const referenceDate = useMemo(
     () => buildReferenceDate(today, weekOffset),
@@ -82,652 +192,291 @@ export default function AgendaPage() {
     [state, referenceDate],
   );
 
-  const [selectedDateKey, setSelectedDateKey] = useState(weekAgenda[0]?.dateKey ?? "");
-
   const selectedDay =
     weekAgenda.find((day) => day.dateKey === selectedDateKey) ?? weekAgenda[0];
 
-  const selectedDayIndex = weekAgenda.findIndex(
-    (day) => day.dateKey === selectedDay?.dateKey,
+  const agendaRows = useMemo(
+    () =>
+      agendaSlots.map((slot) => ({
+        slot,
+        days: weekAgenda.map((day) => ({
+          dateKey: day.dateKey,
+          items: day.items.filter((item) => slotForAgendaItem(item) === slot),
+        })),
+      })),
+    [weekAgenda],
   );
 
-  const pendingItems = selectedDay?.items.filter((item) => !item.completed) ?? [];
-  const completedItems = selectedDay?.items.filter((item) => item.completed) ?? [];
-  const totalXp = pendingItems.reduce((sum, item) => sum + (item.xp ?? 0), 0);
-  const consistency =
-    selectedDay?.totalCount ? (selectedDay.completedCount / selectedDay.totalCount) * 100 : 0;
-  const featuredItem = pendingItems[0] ?? completedItems[0];
+  const unscheduledDays = useMemo(
+    () =>
+      weekAgenda.map((day) => ({
+        dateKey: day.dateKey,
+        items: day.items.filter((item) => !item.time),
+      })),
+    [weekAgenda],
+  );
 
-  const flowItems = [
-    ...pendingItems,
-    ...completedItems,
-  ].filter((item) => item.id !== featuredItem?.id);
+  const hasUnscheduled = unscheduledDays.some((day) => day.items.length > 0);
+  const weekTotal = weekAgenda.reduce((sum, day) => sum + day.totalCount, 0);
+  const weekCompleted = weekAgenda.reduce((sum, day) => sum + day.completedCount, 0);
+  const weekConsistency = weekTotal ? (weekCompleted / weekTotal) * 100 : 0;
+
+  function focusToday() {
+    setWeekOffset(0);
+    setSelectedDateKey(formatDateKey(today));
+  }
 
   return (
     <div>
-      <RxPageHeader
-        title="Agenda"
-        subtitle={
-          <>
-            Período · {formatWeekRange(weekAgenda)} ·{" "}
-            <span style={{ color: "var(--accent)" }}>
-              {selectedDayIndex >= 0 ? `dia ${selectedDayIndex + 1}/7` : "semana"}
-            </span>
-          </>
-        }
-        actions={
-          <>
-            <button
-              type="button"
-              onClick={() => setWeekOffset((c) => c - 1)}
-              className="rx-btn-ghost"
-              style={{ padding: 8 }}
-              aria-label="Semana anterior"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setWeekOffset((c) => c + 1)}
-              className="rx-btn-ghost"
-              style={{ padding: 8 }}
-              aria-label="Próxima semana"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-            <Link
-              href="/tasks"
-              className="rx-btn-primary"
-              style={{ padding: "8px 14px", display: "inline-flex", alignItems: "center", gap: 8 }}
-            >
-              Tarefas <ArrowRight className="h-3 w-3" />
-            </Link>
-          </>
-        }
-      />
+      <div style={{ marginBottom: 24 }}>
+        <div className="page-eyebrow">Agenda</div>
+        <h1 className="page-title-v2">Semana operacional</h1>
+        <p className="page-description-v2">
+          Visão da semana por horário, com as tarefas reais do sistema prontas
+          para abrir no módulo certo.
+        </p>
+      </div>
 
-      {/* Week strip */}
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+          alignItems: "center",
+          display: "flex",
+          flexWrap: "wrap",
           gap: 10,
           marginBottom: 18,
         }}
       >
-        {weekAgenda.map((day) => {
-          const selected = day.dateKey === selectedDay?.dateKey;
-          const completion =
-            day.totalCount > 0
-              ? Math.round((day.completedCount / day.totalCount) * 100)
-              : 0;
-          return (
-            <button
-              key={day.dateKey}
-              type="button"
-              onClick={() => setSelectedDateKey(day.dateKey)}
-              className={selected ? "rx-panel-hot" : "rx-panel"}
-              style={{
-                padding: 12,
-                textAlign: "center",
-                cursor: "pointer",
-                fontFamily: "inherit",
-                color: "inherit",
-                border: selected ? "1px solid var(--accent)" : undefined,
-              }}
-            >
-              <div
-                className="rx-mono"
-                style={{
-                  fontSize: 9,
-                  color: selected ? "var(--accent)" : "var(--fg-3)",
-                  letterSpacing: "0.22em",
-                  textTransform: "uppercase",
-                }}
-              >
-                {day.shortLabel}
-              </div>
-              <div
-                className="rx-display"
-                style={{
-                  fontSize: 22,
-                  fontWeight: 700,
-                  color: selected ? "var(--accent)" : "var(--fg)",
-                  marginTop: 6,
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                {day.date.getDate().toString().padStart(2, "0")}
-              </div>
-              <div
-                className="rx-mono"
-                style={{
-                  fontSize: 9,
-                  color: "var(--fg-4)",
-                  letterSpacing: "0.18em",
-                  marginTop: 6,
-                }}
-              >
-                {day.completedCount}/{day.totalCount}
-              </div>
-              <div style={{ marginTop: 6 }}>
-                <RxPBar value={completion} />
-              </div>
-            </button>
-          );
-        })}
+        <button
+          type="button"
+          onClick={() => setWeekOffset((current) => current - 1)}
+          className="v2-btn v2-btn-icon v2-btn-ghost"
+          aria-label="Semana anterior"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <span className="badge" style={{ padding: "8px 14px" }}>
+          {formatWeekRange(weekAgenda)}
+        </span>
+        <button
+          type="button"
+          onClick={() => setWeekOffset((current) => current + 1)}
+          className="v2-btn v2-btn-icon v2-btn-ghost"
+          aria-label="Próxima semana"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+        <button type="button" onClick={focusToday} className="v2-btn v2-btn-sm v2-btn-ok">
+          Hoje
+        </button>
+        <span className="badge badge-ok" style={{ marginLeft: "auto" }}>
+          {Math.round(weekConsistency)}% semana
+        </span>
+        <Link
+          href="/tasks"
+          className="v2-btn v2-btn-primary"
+          style={{ textDecoration: "none" }}
+        >
+          Abrir tarefas <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
       </div>
 
-      {/* Split */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(260px, 300px) 1fr",
-          gap: 16,
-        }}
-      >
-        {/* Sidebar */}
-        <div>
-          <RxPanel style={{ padding: 18, marginBottom: 14 }}>
-            <RxLabel>DIA SELECIONADO</RxLabel>
-            <div
-              className="rx-display"
-              style={{
-                fontSize: 22,
-                fontWeight: 700,
-                color: "var(--fg)",
-                marginTop: 8,
-                letterSpacing: "-0.02em",
-              }}
-            >
-              {selectedDay?.dayLabel ?? "Semana"}
-            </div>
-            <div
-              style={{
-                fontSize: 12,
-                color: "var(--fg-3)",
-                marginTop: 4,
-              }}
-            >
-              {selectedDay ? formatFullDate(selectedDay.date) : "Selecione um dia."}
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
-                gap: 8,
-                marginTop: 14,
-              }}
-            >
-              {[
-                {
-                  label: "PEND.",
-                  value: pendingItems.length.toString().padStart(2, "0"),
-                  color: "var(--fg)",
-                },
-                {
-                  label: "CONCL.",
-                  value: completedItems.length.toString().padStart(2, "0"),
-                  color: "var(--ok)",
-                },
-                {
-                  label: "XP",
-                  value: `+${formatPoints(totalXp)}`,
-                  color: "var(--accent)",
-                },
-              ].map((kpi) => (
-                <div
-                  key={kpi.label}
-                  style={{
-                    padding: 10,
-                    border: "1px solid var(--line)",
-                    background: "rgba(0,0,0,0.3)",
-                    borderRadius: 12,
-                  }}
-                >
-                  <div
-                    className="rx-mono"
-                    style={{
-                      fontSize: 9,
-                      color: "var(--fg-3)",
-                      letterSpacing: "0.18em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    {kpi.label}
-                  </div>
-                  <div
-                    className="rx-display"
-                    style={{
-                      fontSize: 18,
-                      fontWeight: 700,
-                      color: kpi.color,
-                      marginTop: 2,
-                      letterSpacing: "-0.02em",
-                    }}
-                  >
-                    {kpi.value}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ marginTop: 14 }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "baseline",
-                  marginBottom: 6,
-                }}
-              >
-                <span
-                  className="rx-mono"
-                  style={{
-                    fontSize: 10,
-                    color: "var(--fg-3)",
-                    letterSpacing: "0.18em",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Consistência
-                </span>
-                <span
-                  className="rx-mono"
-                  style={{
-                    fontSize: 11,
-                    color: "var(--ok)",
-                    fontWeight: 600,
-                  }}
-                >
-                  {Math.round(consistency)}%
-                </span>
-              </div>
-              <RxPBar value={consistency} />
-            </div>
-          </RxPanel>
-
-          <RxPanel style={{ padding: 14 }}>
-            <RxLabel>AÇÕES RÁPIDAS</RxLabel>
-            <div
-              style={{
-                display: "grid",
-                gap: 8,
-                marginTop: 10,
-              }}
-            >
-              <Link
-                href="/tasks"
-                className="rx-btn-ghost"
-                style={{
-                  padding: "10px 12px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  textDecoration: "none",
-                }}
-              >
-                <span>Registrar refeição</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-              <Link
-                href="/modules/nutrition"
-                className="rx-btn-ghost"
-                style={{
-                  padding: "10px 12px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  textDecoration: "none",
-                }}
-              >
-                <span>Registrar biometria</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          </RxPanel>
-        </div>
-
-        {/* Main flow */}
-        <RxPanel style={{ padding: 20 }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-end",
-              gap: 10,
-              marginBottom: 16,
-              paddingBottom: 14,
-              borderBottom: "1px solid var(--line)",
-              flexWrap: "wrap",
-            }}
-          >
-            <RxLabel>FLUXO OPERACIONAL DO DIA</RxLabel>
-            <span
-              className="rx-mono"
-              style={{
-                fontSize: 10,
-                color: "var(--fg-3)",
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-              }}
-            >
-              {selectedDay?.totalCount ?? 0} blocos
-            </span>
-          </div>
-
-          {featuredItem ? (
-            <Link
-              href={featuredItem.route}
-              className="rx-panel-hot"
-              style={{
-                display: "block",
-                padding: 18,
-                marginBottom: 14,
-                textDecoration: "none",
-                color: "inherit",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  marginBottom: 10,
-                }}
-              >
-                <span
-                  className="rx-mono"
-                  style={{
-                    fontSize: 10,
-                    color: "var(--accent)",
-                    letterSpacing: "0.22em",
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    padding: "3px 8px",
-                    border: "1px solid rgba(251,146,60,0.4)",
-                    background: "rgba(251,146,60,0.08)",
-                    borderRadius: 12,
-                  }}
-                >
-                  {featuredItem.time || "Sem horário"}
-                </span>
-                <span
-                  className="rx-mono"
-                  style={{
-                    fontSize: 10,
-                    color: "var(--fg-2)",
-                    letterSpacing: "0.18em",
-                    textTransform: "uppercase",
-                    padding: "3px 8px",
-                    border: "1px solid var(--line)",
-                    borderRadius: 12,
-                  }}
-                >
-                  {featuredItem.badgeLabel}
-                </span>
-              </div>
-              <div
-                className="rx-display"
-                style={{
-                  fontSize: 22,
-                  fontWeight: 700,
-                  color: "var(--fg)",
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                {featuredItem.title}
-              </div>
-              <div
-                style={{
-                  fontSize: 13,
-                  color: "var(--fg-3)",
-                  marginTop: 6,
-                  lineHeight: 1.5,
-                }}
-              >
-                {featuredItem.description}
-              </div>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-                  gap: 8,
-                  marginTop: 14,
-                }}
-              >
-                {[
-                  { label: "ORIGEM", value: featuredItem.sourceLabel },
-                  {
-                    label: "STATUS",
-                    value: featuredItem.completed ? "Concluído" : "Em execução",
-                  },
-                  { label: "TAG", value: featuredItem.badgeLabel },
-                ].map((kpi) => (
-                  <div
-                    key={kpi.label}
-                    style={{
-                      padding: 10,
-                      border: "1px solid var(--line)",
-                      background: "rgba(0,0,0,0.3)",
-                      borderRadius: 12,
-                    }}
-                  >
-                    <div
-                      className="rx-mono"
-                      style={{
-                        fontSize: 9,
-                        color: "var(--fg-3)",
-                        letterSpacing: "0.2em",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      {kpi.label}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: "var(--fg)",
-                        fontWeight: 600,
-                        marginTop: 4,
-                      }}
-                    >
-                      {kpi.value}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Link>
-          ) : null}
-
-          {selectedDay?.items.length ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {flowItems.map((item) => {
-                const tone = toneForKind(item.kind);
-                const Icon = tone.icon;
-                return (
-                  <Link
-                    key={item.id}
-                    href={item.route}
-                    className={`timeline-item${item.completed ? " completed" : ""}`}
-                    style={{
-                      textDecoration: "none",
-                      color: "inherit",
-                      borderLeft: `3px solid ${tone.color}`,
-                      opacity: item.completed ? 0.7 : 1,
-                    }}
-                  >
-                    <div className="timeline-time">{item.time || "--:--"}</div>
-                    <div
-                      style={{
-                        width: 36,
-                        height: 36,
-                        display: "grid",
-                        placeItems: "center",
-                        border: `1px solid ${tone.color}`,
-                        background: "rgba(0,0,0,0.3)",
-                        color: tone.color,
-                        borderRadius: 12,
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="timeline-body">
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 8,
-                          alignItems: "center",
-                          flexWrap: "wrap",
-                          marginBottom: 4,
-                        }}
-                      >
-                        <span
-                          className="timeline-title"
-                          style={{
-                            textDecoration: item.completed ? "line-through" : "none",
-                            marginBottom: 0,
-                          }}
-                        >
-                          {item.title}
-                        </span>
-                        <span
-                          className="badge badge-sm"
-                          style={{
-                            color: tone.color,
-                            borderColor: tone.color,
-                            background: "rgba(0,0,0,0.3)",
-                          }}
-                        >
-                          {item.badgeLabel}
-                        </span>
-                      </div>
-                      <div
-                        className="timeline-sub"
-                        style={{
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {item.description}
-                      </div>
-                      <div
-                        className="praxis-label"
-                        style={{ fontSize: 9, marginTop: 4, color: "var(--fg-4)" }}
-                      >
-                        {item.sourceLabel}
-                      </div>
-                    </div>
-                    <div style={{ justifySelf: "end", alignSelf: "center" }}>
-                      {item.completed ? (
-                        <CheckCircle2 className="h-5 w-5" style={{ color: "var(--ok)" }} />
-                      ) : (
-                        <ArrowRight className="h-4 w-4" style={{ color: "var(--fg-3)" }} />
-                      )}
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          ) : (
-            <div
-              style={{
-                padding: 40,
-                textAlign: "center",
-                border: "1px dashed var(--line)",
-                borderRadius: 12,
-              }}
-            >
-              <Clock3
-                className="h-5 w-5"
-                style={{ color: "var(--fg-3)", margin: "0 auto" }}
-              />
-              <div
-                className="rx-display"
-                style={{
-                  fontSize: 15,
-                  fontWeight: 600,
-                  color: "var(--fg)",
-                  marginTop: 10,
-                  letterSpacing: "-0.01em",
-                }}
-              >
-                Nenhum bloco para esse dia
-              </div>
-              <div
-                style={{
-                  fontSize: 12,
-                  color: "var(--fg-3)",
-                  marginTop: 6,
-                  maxWidth: 320,
-                  marginInline: "auto",
-                  lineHeight: 1.5,
-                }}
-              >
-                Abra o centro de tarefas para montar um novo ciclo para esta
-                data.
-              </div>
-            </div>
-          )}
-
+      <div className="glass" style={{ marginBottom: 24, overflow: "hidden", padding: 0 }}>
+        <div style={{ overflowX: "auto" }}>
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-              gap: 8,
-              marginTop: 16,
-              paddingTop: 14,
-              borderTop: "1px solid var(--line)",
+              gridTemplateColumns: "72px repeat(7, minmax(124px, 1fr))",
+              minWidth: 980,
             }}
           >
-            <Link
-              href="/tasks"
-              className="rx-btn-ghost"
+            <div
               style={{
-                padding: "10px 12px",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                gap: 8,
-                textDecoration: "none",
+                background: "rgba(0,0,0,0.28)",
+                borderBottom: "1px solid rgba(39,39,42,0.6)",
+                borderRight: "1px solid rgba(39,39,42,0.6)",
               }}
-            >
-              Centro diário <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-            <Link
-              href="/modules/workout"
-              className="rx-btn-ghost"
-              style={{
-                padding: "10px 12px",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                gap: 8,
-                textDecoration: "none",
-              }}
-            >
-              Treino do dia <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-            <Link
-              href="/dashboard"
-              className="rx-btn-ghost"
-              style={{
-                padding: "10px 12px",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                gap: 8,
-                textDecoration: "none",
-              }}
-            >
-              Painel <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+            />
+            {weekAgenda.map((day) => {
+              const selected = day.dateKey === selectedDay?.dateKey;
+              const isToday = isSameDate(day.date, today);
+
+              return (
+                <button
+                  data-agenda-day
+                  type="button"
+                  key={day.dateKey}
+                  onClick={() => setSelectedDateKey(day.dateKey)}
+                  style={{
+                    background: selected
+                      ? "rgba(74,222,128,0.1)"
+                      : isToday
+                        ? "rgba(74,222,128,0.05)"
+                        : "rgba(0,0,0,0.24)",
+                    border: "none",
+                    borderBottom: "1px solid rgba(39,39,42,0.6)",
+                    borderLeft: "1px solid rgba(39,39,42,0.45)",
+                    color: "inherit",
+                    cursor: "pointer",
+                    minHeight: 92,
+                    padding: "14px 10px",
+                    textAlign: "center",
+                  }}
+                >
+                  <div
+                    className="praxis-label"
+                    style={{
+                      color: selected || isToday ? "var(--ok)" : "#71717a",
+                      marginBottom: 6,
+                    }}
+                  >
+                    {day.shortLabel}
+                  </div>
+                  <div
+                    style={{
+                      color: selected || isToday ? "#d1fae5" : "#f4f4f5",
+                      fontFamily: "var(--font-space-grotesk), sans-serif",
+                      fontSize: 24,
+                      fontWeight: 700,
+                      letterSpacing: "-0.04em",
+                    }}
+                  >
+                    {day.date.getDate().toString().padStart(2, "0")}
+                  </div>
+                  <div
+                    style={{
+                      color: selected || isToday ? "var(--ok)" : "#71717a",
+                      fontSize: 11,
+                      marginTop: 6,
+                    }}
+                  >
+                    {day.totalCount} tarefas
+                  </div>
+                </button>
+              );
+            })}
+
+            {agendaRows.map((row) => (
+              <Fragment key={row.slot}>
+                <div
+                  style={{
+                    background: "rgba(0,0,0,0.2)",
+                    borderBottom: "1px solid rgba(39,39,42,0.35)",
+                    borderRight: "1px solid rgba(39,39,42,0.6)",
+                    color: "#52525b",
+                    fontFamily: "var(--font-mono), monospace",
+                    fontSize: 10,
+                    letterSpacing: "0.08em",
+                    minHeight: 72,
+                    padding: "10px 9px",
+                    textAlign: "right",
+                  }}
+                >
+                  {row.slot}
+                </div>
+                {row.days.map((day) => {
+                  const selected = day.dateKey === selectedDay?.dateKey;
+
+                  return (
+                    <div
+                      key={`${row.slot}-${day.dateKey}`}
+                      style={{
+                        background: selected ? "rgba(74,222,128,0.025)" : "transparent",
+                        borderBottom: "1px solid rgba(39,39,42,0.35)",
+                        borderLeft: "1px solid rgba(39,39,42,0.35)",
+                        minHeight: 72,
+                        padding: 5,
+                      }}
+                    >
+                      <div style={{ display: "grid", gap: 4 }}>
+                        {day.items.slice(0, 3).map((item) => (
+                          <AgendaEventLink key={item.id} item={item} />
+                        ))}
+                        {day.items.length > 3 ? (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDateKey(day.dateKey)}
+                            className="badge badge-sm"
+                            style={{
+                              borderRadius: 6,
+                              cursor: "pointer",
+                              justifyContent: "center",
+                              width: "100%",
+                            }}
+                          >
+                            +{day.items.length - 3}
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </Fragment>
+            ))}
+
+            {hasUnscheduled ? (
+              <>
+                <div
+                  style={{
+                    background: "rgba(0,0,0,0.2)",
+                    borderRight: "1px solid rgba(39,39,42,0.6)",
+                    color: "#52525b",
+                    fontFamily: "var(--font-mono), monospace",
+                    fontSize: 10,
+                    letterSpacing: "0.08em",
+                    minHeight: 72,
+                    padding: "10px 9px",
+                    textAlign: "right",
+                  }}
+                >
+                  Dia todo
+                </div>
+                {unscheduledDays.map((day) => {
+                  const selected = day.dateKey === selectedDay?.dateKey;
+
+                  return (
+                    <div
+                      key={`unscheduled-${day.dateKey}`}
+                      style={{
+                        background: selected ? "rgba(74,222,128,0.025)" : "transparent",
+                        borderLeft: "1px solid rgba(39,39,42,0.35)",
+                        minHeight: 72,
+                        padding: 5,
+                      }}
+                    >
+                      <div style={{ display: "grid", gap: 4 }}>
+                        {day.items.slice(0, 3).map((item) => (
+                          <AgendaEventLink key={item.id} item={item} />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            ) : null}
           </div>
-        </RxPanel>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 10,
+        }}
+      >
+        {[
+          { label: "Treino", color: "var(--accent)" },
+          { label: "Nutrição", color: "var(--ok)" },
+          { label: "Tarefa", color: "var(--ocean)" },
+        ].map((item) => (
+          <span
+            key={item.label}
+            className="badge"
+            style={{ borderColor: item.color, color: item.color }}
+          >
+            ▪ {item.label}
+          </span>
+        ))}
       </div>
     </div>
   );

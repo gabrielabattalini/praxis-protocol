@@ -55,6 +55,8 @@ import type {
   SavedWorkoutProgram,
   PersistedState,
   ModuleId,
+  RecoveryDayPlan,
+  SavedRecoveryProgram,
   Task,
   TaskCategory,
   TaskDifficulty,
@@ -383,6 +385,13 @@ type AppStoreValue = {
       scope: ShoppingModuleScope;
       nextState: ShoppingModuleStoredState;
     }) => void;
+    /** Bulk-replace the recovery (mobility) plan — used by the Recovery
+     *  module page which performs CRUD locally and dispatches the
+     *  resulting plan in one shot. */
+    replaceRecoveryPlan: (plan: RecoveryDayPlan[]) => void;
+    replaceRecoveryDayCompletions: (
+      completions: import("@/lib/types").RecoveryDayCompletion[],
+    ) => void;
     updateFinanceStartCash: (amount: number) => void;
     addFinanceCategory: (payload: {
       name: string;
@@ -605,6 +614,11 @@ type Action =
         scope: ShoppingModuleScope;
         nextState: ShoppingModuleStoredState;
       };
+    }
+  | { type: "replace-recovery-plan"; plan: RecoveryDayPlan[] }
+  | {
+      type: "replace-recovery-day-completions";
+      completions: import("@/lib/types").RecoveryDayCompletion[];
     }
   | { type: "set-workout"; mode: WorkoutMode }
   | {
@@ -1623,6 +1637,10 @@ function reducer(state: PersistedState, action: Action): PersistedState {
           ),
         },
       });
+    case "replace-recovery-plan":
+      return { ...state, recoveryPlan: action.plan };
+    case "replace-recovery-day-completions":
+      return { ...state, recoveryDayCompletions: action.completions };
     case "set-workout":
       return {
         ...state,
@@ -4140,6 +4158,10 @@ const emptyPersistedState: PersistedState = {
   activeDietPlanId: "",
   workoutPrograms: [],
   activeWorkoutProgramId: "",
+  recoveryPrograms: [],
+  activeRecoveryProgramId: "",
+  recoveryPlan: [],
+  recoveryDayCompletions: [],
   reminders: [],
   householdSupplies: [],
   workControlEntries: [],
@@ -5075,6 +5097,12 @@ export function AppStoreProvider({
       },
       replaceShoppingModuleState(payload) {
         dispatch({ type: "replace-shopping-module-state", payload });
+      },
+      replaceRecoveryPlan(plan) {
+        dispatch({ type: "replace-recovery-plan", plan });
+      },
+      replaceRecoveryDayCompletions(completions) {
+        dispatch({ type: "replace-recovery-day-completions", completions });
       },
       updateFinanceStartCash(amount) {
         dispatch({ type: "update-finance-start-cash", amount });

@@ -517,6 +517,49 @@ export interface SavedWorkoutProgram {
   workoutPlan: WorkoutDayPlan[];
 }
 
+/* ── Recovery (mobility, stretching, miofascial release) ────────
+   Mirrors the workout architecture but adapted for mobility:
+   no weight load — each exercise has a free "durationOrReps"
+   string ("30s cada lado", "10 reps lentas", "1 min hold").  */
+
+export interface RecoveryExercise {
+  id: string;
+  name: string;
+  bodyArea: string;
+  sets: number;
+  durationOrReps: string;
+  notes?: string;
+}
+
+export interface RecoveryDayPlan {
+  id: string;
+  weekday: Weekday;
+  title: string;
+  focus: string;
+  summary: string;
+  isRestDay: boolean;
+  exercises: RecoveryExercise[];
+  notes?: string;
+}
+
+export interface RecoveryDayCompletion {
+  id: string;
+  programId: string;
+  dayId: string;
+  dayTitle: string;
+  dateKey: string;
+  completedAt: string;
+}
+
+export interface SavedRecoveryProgram {
+  id: string;
+  name: string;
+  focus?: string;
+  notes?: string;
+  createdAt: string;
+  recoveryPlan: RecoveryDayPlan[];
+}
+
 export type ReminderEntityType =
   | "task"
   | "meal"
@@ -686,6 +729,10 @@ export interface PersistedState {
   activeDietPlanId: string;
   workoutPrograms: SavedWorkoutProgram[];
   activeWorkoutProgramId: string;
+  recoveryPrograms: SavedRecoveryProgram[];
+  activeRecoveryProgramId: string;
+  recoveryPlan: RecoveryDayPlan[];
+  recoveryDayCompletions: RecoveryDayCompletion[];
   reminders: ReminderItem[];
   householdSupplies: HouseholdSupplyItem[];
   workControlEntries: WorkControlEntry[];

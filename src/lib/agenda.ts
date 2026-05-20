@@ -8,7 +8,7 @@ import {
   weekdayLabel,
 } from "@/lib/utils";
 
-export type AgendaEventKind = "manual" | "meal" | "workout";
+export type AgendaEventKind = "manual" | "meal" | "workout" | "recovery";
 
 export type AgendaEvent = {
   id: string;
@@ -154,6 +154,32 @@ export function buildAgendaEvents(
       };
     });
 
+  const recoveryPlan = state.recoveryPlan ?? [];
+  const recoveryDayCompletions = state.recoveryDayCompletions ?? [];
+  const recoveryBlocks = recoveryPlan
+    .filter((day) => day.weekday === weekday && !day.isRestDay)
+    .map<AgendaEvent>((day) => {
+      const completed = recoveryDayCompletions.some(
+        (completion) => completion.dayId === day.id && completion.dateKey === dateKey,
+      );
+      const exerciseCount = day.exercises.length;
+      return {
+        id: `recovery-${day.id}-${dateKey}`,
+        kind: "recovery",
+        title: day.title,
+        description:
+          day.summary ||
+          (exerciseCount > 0
+            ? `${exerciseCount} exercício${exerciseCount > 1 ? "s" : ""}${day.focus ? ` · ${day.focus}` : ""}`
+            : day.focus || "Sessão de mobilidade"),
+        sourceLabel: "Recuperação",
+        badgeLabel: "Sincronizada",
+        time: undefined,
+        completed,
+        route: "/modules/recovery",
+      };
+    });
+
   const workoutBlocks = activeWorkoutPlan
     .filter((day) => day.weekday === weekday && !day.isRestDay)
     .map<AgendaEvent>((day) => {
@@ -184,7 +210,12 @@ export function buildAgendaEvents(
       };
     });
 
-  return [...manualTasks, ...mealBlocks, ...workoutBlocks].sort((left, right) => {
+  return [
+    ...manualTasks,
+    ...mealBlocks,
+    ...workoutBlocks,
+    ...recoveryBlocks,
+  ].sort((left, right) => {
     if (left.completed !== right.completed) {
       return left.completed ? 1 : -1;
     }
