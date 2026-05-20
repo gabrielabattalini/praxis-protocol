@@ -1,12 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import {
   CheckCircle2,
   House,
   Plus,
-  ShoppingBasket,
   Trash2,
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
@@ -390,59 +388,6 @@ export default function HomeModulePage() {
             </form>
           </GlassPanel>
 
-          <GlassPanel className="space-y-4">
-            <div className="flex items-center gap-3">
-              <ShoppingBasket className="h-6 w-6 text-[var(--accent)]" />
-              <div>
-                <p className="praxis-label text-[var(--accent)]">
-                  Compras da casa
-                </p>
-                <h2 className="praxis-title text-2xl">Módulo Mercado</h2>
-              </div>
-            </div>
-
-            <div className="space-y-4 rounded-sm border border-[rgba(251,146,60,0.16)] bg-[rgba(251,146,60,0.06)] p-5">
-              <p className="text-sm leading-6 text-zinc-300">
-                As compras da casa agora ficam separadas da rotina doméstica.
-                Use o módulo próprio para montar lista, buscar por nome, marca
-                e quantidade, e comparar ofertas com preferência por frete
-                grátis.
-              </p>
-
-              <div className="grid gap-3 md:grid-cols-3">
-                <div className="rounded-sm border border-white/10 bg-[#0a0a0b] p-4">
-                  <p className="praxis-label text-[var(--accent)]">
-                    Busca estruturada
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-zinc-400">
-                    Nome do produto, marca e quantidade.
-                  </p>
-                </div>
-                <div className="rounded-sm border border-white/10 bg-[#0a0a0b] p-4">
-                  <p className="praxis-label text-[var(--accent)]">Fontes</p>
-                  <p className="mt-2 text-sm leading-6 text-zinc-400">
-                    Amazon, Mercado Livre, Shopee e Magazine Luiza.
-                  </p>
-                </div>
-                <div className="rounded-sm border border-white/10 bg-[#0a0a0b] p-4">
-                  <p className="praxis-label text-[var(--accent)]">
-                    Prioridade
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-zinc-400">
-                    Menor total com precisão e frete grátis quando existir.
-                  </p>
-                </div>
-              </div>
-
-              <Link
-                href="/modules/market"
-                className="praxis-button inline-flex items-center gap-2 px-4 py-3"
-              >
-                <ShoppingBasket className="h-4 w-4" />
-                Abrir módulo Mercado
-              </Link>
-            </div>
-          </GlassPanel>
         </div>
 
         <div className="space-y-6">
