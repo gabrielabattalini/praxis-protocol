@@ -4,20 +4,25 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
+  BookOpen,
   Clock3,
+  Hourglass,
   Pause,
+  PenSquare,
   Play,
   Plus,
   RotateCcw,
+  Save,
   SkipForward,
   Sparkles,
   TimerReset,
+  Trash2,
   Waves,
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { MiniStat, RxPBar } from "@/components/redesign/primitives";
 
-type ToolAppId = "focus-timer" | "white-noise" | "breathing-reset";
+type ToolAppId = "focus-timer" | "white-noise" | "breathing-reset" | "quick-diary" | "countdown";
 type TimerMode = "focus" | "break";
 type BreathPhase = "inhale" | "hold" | "exhale" | "reset";
 
@@ -58,14 +63,13 @@ const apps = [
   { id: "focus-timer" as const, title: "Focus Timer", status: "ATIVO", desc: "Otimize seus blocos de trabalho.", icon: TimerReset },
   { id: "white-noise" as const, title: "Ruído branco", status: "ATIVO", desc: "Camadas sonoras para entrar em foco.", icon: Waves },
   { id: "breathing-reset" as const, title: "Reset respiratório", status: "ATIVO", desc: "Protocolo guiado para voltar ao eixo.", icon: RotateCcw },
+  { id: "quick-diary" as const, title: "Diário rápido", status: "ATIVO", desc: "Captura de notas e foco do dia.", icon: BookOpen },
+  { id: "countdown" as const, title: "Cronômetro reverso", status: "ATIVO", desc: "Contagem regressiva para deadlines.", icon: Hourglass },
 ] as const;
 
 // Future tools render as elegant ghost slots so the grid stays balanced
 // and the system reads as extensible. Add real tools to `apps` above.
-const upcomingTools = [
-  { title: "Diário rápido", desc: "Captura de notas e foco do dia." },
-  { title: "Cronômetro reverso", desc: "Contagem regressiva para deadlines." },
-] as const;
+const upcomingTools: readonly { title: string; desc: string }[] = [] as const;
 
 const breathCopy: Record<BreathPhase, { label: string; hint: string }> = {
   inhale: { label: "Inspirar", hint: "Puxe o ar com ritmo e presença." },
@@ -128,6 +132,122 @@ const restoreFocus = (userId: string, day: string): FocusState => {
   return next.mode === "focus"
     ? { ...next, mode: "break" as TimerMode, remaining: next.pause * 60, running: false, startedAt: undefined, sessions: next.sessions + 1, minutes: next.minutes + next.focus }
     : { ...next, mode: "focus" as TimerMode, remaining: next.focus * 60, running: false, startedAt: undefined };
+};
+
+/* ── Quick diary ────────────────────────────────────────────────── */
+
+type DiaryTag = "execucao" | "trava" | "insight" | "livre";
+type DiaryEntry = { id: string; createdAt: string; content: string; tag: DiaryTag };
+type QuickDiaryState = { entries: DiaryEntry[]; draft: string; activeTag: DiaryTag };
+
+const diaryTagPresets: { id: DiaryTag; label: string; desc: string }[] = [
+  { id: "execucao", label: "Execução", desc: "O que saiu do papel hoje." },
+  { id: "trava", label: "Trava", desc: "O que travou e precisa atenção." },
+  { id: "insight", label: "Insight", desc: "Aprendizado ou ideia para reaproveitar." },
+  { id: "livre", label: "Livre", desc: "Captura sem tag específica." },
+];
+const diaryTagLabel = (tag: DiaryTag) =>
+  diaryTagPresets.find((preset) => preset.id === tag)?.label ?? "Livre";
+
+const defaultDiary = (): QuickDiaryState => ({ entries: [], draft: "", activeTag: "execucao" });
+
+const normalizeDiary = (raw: unknown): QuickDiaryState => {
+  if (!raw || typeof raw !== "object") return defaultDiary();
+  const value = raw as Partial<QuickDiaryState>;
+  const entries = Array.isArray(value.entries) ? value.entries : [];
+  const safeEntries: DiaryEntry[] = entries
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const candidate = entry as Partial<DiaryEntry>;
+      const tag: DiaryTag =
+        candidate.tag === "trava" || candidate.tag === "insight" || candidate.tag === "livre"
+          ? candidate.tag
+          : "execucao";
+      return {
+        id: typeof candidate.id === "string" && candidate.id ? candidate.id : `diary-${Math.random().toString(36).slice(2, 10)}`,
+        createdAt:
+          typeof candidate.createdAt === "string" && candidate.createdAt
+            ? candidate.createdAt
+            : new Date().toISOString(),
+        content: typeof candidate.content === "string" ? candidate.content.trim() : "",
+        tag,
+      };
+    })
+    .filter((entry): entry is DiaryEntry => Boolean(entry && entry.content));
+  return {
+    entries: safeEntries,
+    draft: typeof value.draft === "string" ? value.draft : "",
+    activeTag:
+      value.activeTag === "trava" || value.activeTag === "insight" || value.activeTag === "livre"
+        ? value.activeTag
+        : "execucao",
+  };
+};
+
+/* ── Countdown ──────────────────────────────────────────────────── */
+
+type CountdownItem = { id: string; label: string; targetAt: string; createdAt: string };
+type CountdownState = { items: CountdownItem[]; draftLabel: string; draftTarget: string };
+
+const defaultCountdown = (): CountdownState => ({ items: [], draftLabel: "", draftTarget: "" });
+
+const normalizeCountdown = (raw: unknown): CountdownState => {
+  if (!raw || typeof raw !== "object") return defaultCountdown();
+  const value = raw as Partial<CountdownState>;
+  const items = Array.isArray(value.items) ? value.items : [];
+  const safeItems: CountdownItem[] = items
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const candidate = item as Partial<CountdownItem>;
+      if (typeof candidate.targetAt !== "string" || !candidate.targetAt) return null;
+      const targetDate = new Date(candidate.targetAt);
+      if (Number.isNaN(targetDate.getTime())) return null;
+      return {
+        id: typeof candidate.id === "string" && candidate.id ? candidate.id : `cd-${Math.random().toString(36).slice(2, 10)}`,
+        label:
+          typeof candidate.label === "string" && candidate.label.trim()
+            ? candidate.label.trim().slice(0, 80)
+            : "Deadline sem nome",
+        targetAt: targetDate.toISOString(),
+        createdAt:
+          typeof candidate.createdAt === "string" && candidate.createdAt
+            ? candidate.createdAt
+            : new Date().toISOString(),
+      };
+    })
+    .filter((item): item is CountdownItem => Boolean(item));
+  return {
+    items: safeItems,
+    draftLabel: typeof value.draftLabel === "string" ? value.draftLabel : "",
+    draftTarget: typeof value.draftTarget === "string" ? value.draftTarget : "",
+  };
+};
+
+// Returns a tuple of {days, hours, minutes, seconds, totalSeconds}.
+// totalSeconds is signed — negative when the deadline has passed.
+const splitDuration = (ms: number) => {
+  const total = Math.floor(ms / 1000);
+  const abs = Math.abs(total);
+  return {
+    days: Math.floor(abs / 86400),
+    hours: Math.floor((abs % 86400) / 3600),
+    minutes: Math.floor((abs % 3600) / 60),
+    seconds: abs % 60,
+    totalSeconds: total,
+  };
+};
+
+const formatCountdownClock = (ms: number) => {
+  const parts = splitDuration(ms);
+  const hh = String(parts.hours).padStart(2, "0");
+  const mm = String(parts.minutes).padStart(2, "0");
+  const ss = String(parts.seconds).padStart(2, "0");
+  return parts.days > 0 ? `${parts.days}d ${hh}:${mm}:${ss}` : `${hh}:${mm}:${ss}`;
+};
+
+const formatTargetForInput = (date: Date) => {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
 /* ── Shared design-system style fragments ─────────────────────── */
@@ -220,6 +340,13 @@ export default function ToolsPage() {
   const [focusState, setFocusState] = useState<FocusState>(() => defaultFocus());
   const [noiseState, setNoiseState] = useState<NoiseState>(() => defaultNoise());
   const [breathState, setBreathState] = useState<BreathState>(() => defaultBreath());
+  const [diaryState, setDiaryState] = useState<QuickDiaryState>(() => defaultDiary());
+  const [countdownState, setCountdownState] = useState<CountdownState>(() => defaultCountdown());
+  // Countdown clock ticks once per second via this counter, which forces
+  // a re-render so the displayed remaining time stays current. We only
+  // bother running the interval while the user is looking at the
+  // countdown tool — for the other tools it would be a wasted timer.
+  const [countdownTick, setCountdownTick] = useState(0);
   const ctxRef = useRef<AudioContext | null>(null);
   const bufferRef = useRef<AudioBuffer | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -264,6 +391,29 @@ export default function ToolsPage() {
 
   useEffect(() => { if (typeof window !== "undefined") window.localStorage.setItem(skey("white-noise", userId), JSON.stringify(noiseState)); }, [noiseState, userId]);
   useEffect(() => { if (typeof window !== "undefined") window.localStorage.setItem(skey("breathing-reset", userId), JSON.stringify(breathState)); }, [breathState, userId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const rawDiary = window.localStorage.getItem(skey("quick-diary", userId));
+    const rawCountdown = window.localStorage.getItem(skey("countdown", userId));
+    const frame = window.requestAnimationFrame(() => {
+      if (rawDiary) {
+        try { setDiaryState(normalizeDiary(JSON.parse(rawDiary))); } catch { setDiaryState(defaultDiary()); }
+      }
+      if (rawCountdown) {
+        try { setCountdownState(normalizeCountdown(JSON.parse(rawCountdown))); } catch { setCountdownState(defaultCountdown()); }
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [userId]);
+  useEffect(() => { if (typeof window !== "undefined") window.localStorage.setItem(skey("quick-diary", userId), JSON.stringify(diaryState)); }, [diaryState, userId]);
+  useEffect(() => { if (typeof window !== "undefined") window.localStorage.setItem(skey("countdown", userId), JSON.stringify(countdownState)); }, [countdownState, userId]);
+
+  useEffect(() => {
+    if (activeAppId !== "countdown") return;
+    const interval = window.setInterval(() => setCountdownTick((tick) => tick + 1), 1000);
+    return () => window.clearInterval(interval);
+  }, [activeAppId]);
 
   useEffect(() => {
     if (!focus.running) return;
@@ -442,7 +592,86 @@ export default function ToolsPage() {
     setToast("Fase respiratória ajustada.");
   };
 
+  const setDiaryDraft = (value: string) =>
+    setDiaryState((current) => ({ ...current, draft: value }));
+  const setDiaryTag = (tag: DiaryTag) =>
+    setDiaryState((current) => ({ ...current, activeTag: tag }));
+  const saveDiaryEntry = () => {
+    setDiaryState((current) => {
+      const trimmed = current.draft.trim();
+      if (!trimmed) return current;
+      const entry: DiaryEntry = {
+        id: `diary-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        createdAt: new Date().toISOString(),
+        content: trimmed,
+        tag: current.activeTag,
+      };
+      return { ...current, draft: "", entries: [entry, ...current.entries].slice(0, 200) };
+    });
+    setToast("Nota registrada no diário.");
+  };
+  const removeDiaryEntry = (id: string) => {
+    setDiaryState((current) => ({ ...current, entries: current.entries.filter((entry) => entry.id !== id) }));
+    setToast("Entrada removida do diário.");
+  };
+
+  const setCountdownDraftLabel = (value: string) =>
+    setCountdownState((current) => ({ ...current, draftLabel: value }));
+  const setCountdownDraftTarget = (value: string) =>
+    setCountdownState((current) => ({ ...current, draftTarget: value }));
+  const addCountdown = () => {
+    setCountdownState((current) => {
+      const trimmedLabel = current.draftLabel.trim();
+      if (!current.draftTarget) {
+        setToast("Escolha uma data e hora para o deadline.");
+        return current;
+      }
+      const target = new Date(current.draftTarget);
+      if (Number.isNaN(target.getTime())) {
+        setToast("Data inválida — confira o campo.");
+        return current;
+      }
+      const item: CountdownItem = {
+        id: `cd-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        label: trimmedLabel || "Deadline sem nome",
+        targetAt: target.toISOString(),
+        createdAt: new Date().toISOString(),
+      };
+      setToast("Deadline adicionado.");
+      // Sort by soonest-first so the top card is always the most urgent
+      // — independent of when the user added it to the list.
+      return {
+        items: [...current.items, item].sort(
+          (a, b) => new Date(a.targetAt).getTime() - new Date(b.targetAt).getTime(),
+        ),
+        draftLabel: "",
+        draftTarget: "",
+      };
+    });
+  };
+  const removeCountdown = (id: string) => {
+    setCountdownState((current) => ({ ...current, items: current.items.filter((item) => item.id !== id) }));
+    setToast("Deadline removido.");
+  };
+
   const activeApp = apps.find((a) => a.id === activeAppId) ?? apps[0];
+
+  // Derived: the soonest deadline drives the hero countdown card. `_tick`
+  // is here only to make this memo recompute every second while the
+  // countdown view is open — see the interval above.
+  const { primaryCountdown, primaryRemainingMs } = useMemo(() => {
+    void countdownTick;
+    const sorted = [...countdownState.items].sort(
+      (a, b) => new Date(a.targetAt).getTime() - new Date(b.targetAt).getTime(),
+    );
+    // Prefer the next still-future deadline. If everything is overdue,
+    // surface the most recently-passed one so the user can see it and
+    // dismiss it.
+    const upcoming = sorted.find((item) => new Date(item.targetAt).getTime() > Date.now());
+    const primary = upcoming ?? sorted[sorted.length - 1] ?? null;
+    const remaining = primary ? new Date(primary.targetAt).getTime() - Date.now() : 0;
+    return { primaryCountdown: primary, primaryRemainingMs: remaining };
+  }, [countdownState.items, countdownTick]);
 
   const main = () => {
     if (activeAppId === "white-noise") {
@@ -500,6 +729,242 @@ export default function ToolsPage() {
               <MiniStat label="Volume" value={`${noiseState.volume}%`} />
               <MiniStat label="Camada" value={noiseState.playing ? "Ativa" : "Pronta"} />
             </div>
+          </section>
+        </>
+      );
+    }
+    if (activeAppId === "quick-diary") {
+      const todayEntries = diaryState.entries.filter((entry) =>
+        entry.createdAt.startsWith(todayKey()),
+      );
+      return (
+        <>
+          <section className="rx-panel-hot" style={{ padding: "28px 24px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+              <p style={microLabel}>Diário rápido</p>
+              <span className="rx-mono" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--accent)" }}>
+                {todayEntries.length} hoje
+              </span>
+            </div>
+            <div style={{ marginTop: 18 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {diaryTagPresets.map((preset) => {
+                  const active = preset.id === diaryState.activeTag;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => setDiaryTag(preset.id)}
+                      className={active ? "rx-btn-primary" : "rx-btn-ghost"}
+                      style={{ height: 36, padding: "0 14px", fontSize: 12, letterSpacing: "0.06em" }}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <textarea
+                value={diaryState.draft}
+                onChange={(event) => setDiaryDraft(event.target.value)}
+                placeholder={`Captura como "${diaryTagLabel(diaryState.activeTag)}"... pode ser curto.`}
+                rows={4}
+                style={{
+                  marginTop: 14,
+                  width: "100%",
+                  resize: "vertical",
+                  minHeight: 96,
+                  borderRadius: 14,
+                  border: "1px solid var(--line)",
+                  background: "rgba(0,0,0,0.3)",
+                  padding: "12px 14px",
+                  fontFamily: "inherit",
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  color: "var(--fg)",
+                  outline: "none",
+                }}
+              />
+              <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+                <button
+                  type="button"
+                  onClick={saveDiaryEntry}
+                  className="rx-btn-primary"
+                  style={heroBtnPrimary}
+                  disabled={!diaryState.draft.trim()}
+                >
+                  <Save className="h-4 w-4" />
+                  Salvar entrada
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDiaryDraft("")}
+                  className="rx-btn-ghost"
+                  style={{ ...heroBtnGhost, minWidth: 180 }}
+                  disabled={!diaryState.draft}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Limpar rascunho
+                </button>
+              </div>
+            </div>
+          </section>
+          <section className="rx-panel" style={{ padding: 22 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <p className="rx-display" style={{ fontSize: 20, fontWeight: 700, color: "var(--fg)", letterSpacing: "-0.01em" }}>
+                Últimas capturas
+              </p>
+              <span className="rx-mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>
+                {diaryState.entries.length} no total
+              </span>
+            </div>
+            {diaryState.entries.length === 0 ? (
+              <p style={{ marginTop: 14, fontSize: 13, lineHeight: 1.7, color: "var(--fg-3)" }}>
+                Nada registrado ainda. Use o campo acima para capturar execuções, travas e insights do dia. Tudo fica salvo no seu navegador.
+              </p>
+            ) : (
+              <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+                {diaryState.entries.slice(0, 8).map((entry) => {
+                  const when = new Date(entry.createdAt);
+                  const stamp = `${String(when.getDate()).padStart(2, "0")}/${String(when.getMonth() + 1).padStart(2, "0")} ${String(when.getHours()).padStart(2, "0")}:${String(when.getMinutes()).padStart(2, "0")}`;
+                  return (
+                    <div
+                      key={entry.id}
+                      style={{
+                        padding: "12px 14px",
+                        borderRadius: 14,
+                        border: "1px solid var(--line)",
+                        background: "rgba(0,0,0,0.28)",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                        <span className="rx-mono" style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--accent)" }}>
+                          {diaryTagLabel(entry.tag)} · {stamp}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeDiaryEntry(entry.id)}
+                          className="rx-btn-ghost"
+                          style={{ height: 28, padding: "0 10px", fontSize: 11 }}
+                          aria-label="Remover entrada"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <p style={{ marginTop: 6, fontSize: 13, lineHeight: 1.6, color: "var(--fg)", whiteSpace: "pre-wrap" }}>
+                        {entry.content}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </>
+      );
+    }
+    if (activeAppId === "countdown") {
+      const isOverdue = primaryRemainingMs < 0;
+      return (
+        <>
+          <section className="rx-panel-hot" style={{ padding: "28px 24px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+              <p style={microLabel}>Cronômetro reverso</p>
+              <span className="rx-mono" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: isOverdue ? "#f87171" : "var(--accent)" }}>
+                {primaryCountdown ? (isOverdue ? "Vencido" : "Ativo") : "Sem deadline"}
+              </span>
+            </div>
+            <div style={{ marginTop: 20, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+              {primaryCountdown ? (
+                <>
+                  <p className="rx-display" style={{ fontSize: 14, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--fg-3)" }}>
+                    {primaryCountdown.label}
+                  </p>
+                  <div
+                    className="rx-display"
+                    style={{
+                      marginTop: 14,
+                      fontSize: "clamp(3.4rem, 11vw, 5.6rem)",
+                      fontWeight: 700,
+                      lineHeight: 1,
+                      letterSpacing: "-0.03em",
+                      color: isOverdue ? "#f87171" : "var(--accent)",
+                      textShadow: isOverdue ? "0 0 32px rgba(248,113,113,0.5)" : "0 0 32px var(--accent-glow)",
+                    }}
+                  >
+                    {formatCountdownClock(primaryRemainingMs)}
+                  </div>
+                  <p style={{ marginTop: 14, fontSize: 12, color: "var(--fg-3)" }}>
+                    Alvo: {new Date(primaryCountdown.targetAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                    {isOverdue ? " (vencido)" : ""}
+                  </p>
+                </>
+              ) : (
+                <p style={{ marginTop: 8, maxWidth: 440, fontSize: 14, lineHeight: 1.7, color: "var(--fg-3)" }}>
+                  Sem deadlines cadastrados. Use o painel ao lado para criar a primeira contagem regressiva — entrega de projeto, prova, evento, lançamento.
+                </p>
+              )}
+            </div>
+          </section>
+          <section className="rx-panel" style={{ padding: 22 }}>
+            <p className="rx-display" style={{ fontSize: 20, fontWeight: 700, color: "var(--fg)", letterSpacing: "-0.01em" }}>
+              Deadlines ativos
+            </p>
+            {countdownState.items.length === 0 ? (
+              <p style={{ marginTop: 10, fontSize: 13, lineHeight: 1.7, color: "var(--fg-3)" }}>
+                Nada na fila. Adicione um deadline no painel ao lado.
+              </p>
+            ) : (
+              <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+                {countdownState.items.map((item) => {
+                  const remaining = new Date(item.targetAt).getTime() - Date.now();
+                  const overdue = remaining < 0;
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        padding: "12px 14px",
+                        borderRadius: 14,
+                        border: `1px solid ${overdue ? "rgba(248,113,113,0.45)" : "var(--line)"}`,
+                        background: overdue ? "rgba(248,113,113,0.06)" : "rgba(0,0,0,0.28)",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                        <div style={{ minWidth: 0 }}>
+                          <p className="rx-display" style={{ fontSize: 14, fontWeight: 600, color: overdue ? "#f87171" : "var(--fg)" }}>
+                            {item.label}
+                          </p>
+                          <p style={{ marginTop: 4, fontSize: 11, color: "var(--fg-3)" }}>
+                            {new Date(item.targetAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                          </p>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span
+                            className="rx-mono"
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: overdue ? "#f87171" : "var(--accent)",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {overdue ? "-" : ""}{formatCountdownClock(remaining)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeCountdown(item.id)}
+                            className="rx-btn-ghost"
+                            style={{ height: 28, padding: "0 10px", fontSize: 11 }}
+                            aria-label="Remover deadline"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
         </>
       );
@@ -657,6 +1122,116 @@ export default function ToolsPage() {
                 />
               ))}
             </div>
+          </SidePanel>
+        </>
+      );
+    }
+    if (activeAppId === "quick-diary") {
+      const recentEntries = diaryState.entries.slice(0, 3);
+      return (
+        <>
+          <SidePanel Icon={PenSquare} label="Tipo de captura">
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {diaryTagPresets.map((preset) => (
+                <PresetRow
+                  key={preset.id}
+                  active={diaryState.activeTag === preset.id}
+                  label={preset.label}
+                  desc={preset.desc}
+                  onClick={() => setDiaryTag(preset.id)}
+                />
+              ))}
+            </div>
+          </SidePanel>
+          <SidePanel Icon={BookOpen} label="Resumo">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <MiniStat
+                label="Hoje"
+                value={String(
+                  diaryState.entries.filter((entry) => entry.createdAt.startsWith(todayKey())).length,
+                )}
+              />
+              <MiniStat label="Total" value={String(diaryState.entries.length)} />
+            </div>
+            {recentEntries.length > 0 ? (
+              <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+                <p style={microLabel}>Últimas 3</p>
+                {recentEntries.map((entry) => (
+                  <div
+                    key={entry.id}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid var(--line)",
+                      background: "rgba(0,0,0,0.24)",
+                    }}
+                  >
+                    <p className="rx-mono" style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--accent)" }}>
+                      {diaryTagLabel(entry.tag)}
+                    </p>
+                    <p style={{ marginTop: 4, fontSize: 12, lineHeight: 1.4, color: "var(--fg-3)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                      {entry.content}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </SidePanel>
+        </>
+      );
+    }
+    if (activeAppId === "countdown") {
+      const minTarget = formatTargetForInput(new Date(Date.now() + 60_000));
+      return (
+        <>
+          <SidePanel Icon={Hourglass} label="Novo deadline">
+            <label style={{ display: "block" }}>
+              <span style={microLabel}>Rótulo</span>
+              <input
+                type="text"
+                value={countdownState.draftLabel}
+                onChange={(event) => setCountdownDraftLabel(event.target.value)}
+                placeholder="Ex.: Entrega cliente X"
+                maxLength={80}
+                className="rx-display"
+                style={{ marginTop: 8, height: 48, width: "100%", borderRadius: 14, border: "1px solid var(--line)", background: "rgba(0,0,0,0.3)", padding: "0 14px", fontSize: 14, fontWeight: 500, color: "var(--fg)", outline: "none" }}
+              />
+            </label>
+            <label style={{ display: "block", marginTop: 14 }}>
+              <span style={microLabel}>Data e hora</span>
+              <input
+                type="datetime-local"
+                value={countdownState.draftTarget}
+                min={minTarget}
+                onChange={(event) => setCountdownDraftTarget(event.target.value)}
+                className="rx-display"
+                style={{ marginTop: 8, height: 48, width: "100%", borderRadius: 14, border: "1px solid var(--line)", background: "rgba(0,0,0,0.3)", padding: "0 14px", fontSize: 14, fontWeight: 500, color: "var(--fg)", outline: "none" }}
+              />
+            </label>
+            <button
+              type="button"
+              onClick={addCountdown}
+              className="rx-btn-primary"
+              style={{ marginTop: 16, height: 44, width: "100%", fontSize: 12, letterSpacing: "0.08em" }}
+              disabled={!countdownState.draftTarget}
+            >
+              <Plus className="h-4 w-4" />
+              Adicionar deadline
+            </button>
+          </SidePanel>
+          <SidePanel Icon={Clock3} label="Resumo">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <MiniStat label="Total" value={String(countdownState.items.length)} />
+              <MiniStat
+                label="Vencidos"
+                value={String(
+                  countdownState.items.filter((item) => new Date(item.targetAt).getTime() < Date.now()).length,
+                )}
+              />
+            </div>
+            <p style={{ marginTop: 14, fontSize: 12, lineHeight: 1.6, color: "var(--fg-3)" }}>
+              O cronômetro destaca o próximo deadline ainda em aberto. Vencidos viram chamados em vermelho — bom pra ver o que ficou para trás.
+            </p>
           </SidePanel>
         </>
       );
