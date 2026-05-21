@@ -1303,3 +1303,105 @@ select.praxis-field {
 .score-ring { position: relative; }
 .score-ring svg { display: block; }
 .score-ring-label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+
+/* ─────────────────────────────────────────────────────────────────
+   MOBILE RESPONSIVE SWEEP — shared-class overrides for small viewports
+   These fix the global pain points reported on small phones:
+   - oversized hero titles (36px → unreadable on 360px screens)
+   - chunky panel padding (28px sides ate ~16% of the viewport width)
+   - main content padding (32px each side wasted screen space)
+   - tabs / chips overflowing.
+   We use !important sparingly to override the inline `style={{padding}}`
+   that many module pages pass to .rx-panel / .glass; without it those
+   inline values keep winning on mobile. Desktop is unaffected.
+   ───────────────────────────────────────────────────────────────── */
+@media (max-width: 1023px) {
+  /* Topbar — tightens earlier than the original 480px breakpoint so
+     the icons + "Sair" button stop fighting for room on phablet sizes. */
+  .topbar-shell { padding: 0 16px; gap: 8px; }
+}
+
+@media (max-width: 640px) {
+  /* Page content shell: shrink horizontal padding so card content
+     actually fits on small phones. Top/bottom (with safe-area + nav
+     clearance calc) stays untouched via per-axis overrides. */
+  .page-content {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  /* Hero text scale-down. 36px was way too large on 360–390px viewports. */
+  .page-title-v2 { font-size: 26px; letter-spacing: -0.03em; }
+  .page-description-v2 { font-size: 13px; line-height: 1.55; }
+  .page-eyebrow { font-size: 9px; letter-spacing: 0.24em; margin-bottom: 6px; }
+
+  /* KPI tile shrinks proportionally */
+  .kpi { padding: 14px; }
+  .kpi-value { font-size: 22px; }
+  .kpi-sub { font-size: 12px; }
+
+  /* Glass panels — the workhorse module surface */
+  .glass { padding: 18px; border-radius: 16px; }
+  .glass-sm { padding: 14px; border-radius: 14px; }
+
+  /* rx-panel family — many components pass inline padding, so we
+     need !important to claw it back. Same for rounded corners that
+     look bulky at smaller widths. */
+  .rx-panel, .rx-panel-hot {
+    padding: 18px !important;
+    border-radius: 16px;
+  }
+
+  /* Module hero block + tabs */
+  .mod-hero { padding: 18px; border-radius: 16px; margin-bottom: 14px; }
+  .mod-tabs { margin-bottom: 14px; }
+  .mod-tab { padding: 10px 14px; font-size: 10px; letter-spacing: 0.14em; }
+
+  /* Tighter mobile XP strip in the topbar slot */
+  .progress-track { height: 6px; }
+}
+
+@media (max-width: 480px) {
+  /* Extra-small phones (≤480px). iPhone SE / Mini / older Androids. */
+  .page-content {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  .page-title-v2 { font-size: 22px; }
+  .page-description-v2 { font-size: 12.5px; }
+
+  .kpi { padding: 12px; }
+  .kpi-value { font-size: 20px; }
+
+  .glass { padding: 14px; border-radius: 14px; }
+  .glass-sm { padding: 12px; }
+
+  .rx-panel, .rx-panel-hot {
+    padding: 14px !important;
+  }
+
+  .mod-hero { padding: 14px; }
+  .mod-tab { padding: 10px 12px; }
+
+  /* Topbar trims further — at this width, "Sair" + Bell + Settings +
+     avatar were colliding with the breadcrumb. */
+  .topbar-shell { padding: 0 12px; height: 56px; }
+}
+
+/* Touch-target hygiene: every button-shaped element should be at
+   least 40×40 of click area on touch screens, even if the visual
+   chrome is smaller. Applies only when the device reports coarse
+   pointer (touch). */
+@media (pointer: coarse) {
+  .rx-btn-primary,
+  .rx-btn-ghost,
+  .v2-btn,
+  .v2-btn-sm,
+  .v2-btn-xs {
+    min-height: 40px;
+  }
+  .v2-btn-icon {
+    min-width: 40px;
+    min-height: 40px;
+  }
+}

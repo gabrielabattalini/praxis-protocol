@@ -13,6 +13,7 @@ import {
   Hash,
   Heart,
   Home as HomeIcon,
+  LogOut,
   Medal,
   Moon,
   Pill,
@@ -592,7 +593,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Search className="search-icon" size={14} />
                 <input placeholder="Buscar..." />
               </div>
-              <button type="button" className="v2-btn v2-btn-icon" aria-label="Notificações">
+              <button
+                type="button"
+                className="v2-btn v2-btn-icon hidden sm:inline-flex"
+                aria-label="Notificações"
+              >
                 <Bell size={16} />
               </button>
               <Link
@@ -601,7 +606,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   if (!shouldHandleNavigationClick(event)) return;
                   beginNavigation("/settings", "Configurações");
                 }}
-                className="v2-btn v2-btn-icon"
+                className="v2-btn v2-btn-icon hidden sm:inline-flex"
                 aria-label="Configurações"
               >
                 <SettingsIcon size={16} />
@@ -615,8 +620,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 }}
                 className="v2-btn v2-btn-sm"
                 style={{ paddingLeft: 14, paddingRight: 14 }}
+                aria-label="Sair"
+                title="Sair"
               >
-                Sair
+                {/* Below sm: icon only (saves ~50px in the topbar). At sm+
+                    we show the text label since there's room for it. */}
+                <LogOut size={16} className="sm:hidden" />
+                <span className="hidden sm:inline">Sair</span>
               </button>
               <Link
                 href="/profile"
