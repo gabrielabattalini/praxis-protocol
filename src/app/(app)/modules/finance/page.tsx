@@ -603,6 +603,10 @@ export default function FinanceModulePage() {
     const dueLabel = line.dueDay ? `Vence dia ${line.dueDay}` : "Sem vencimento";
     const isExpense = line.kind === "expense";
     const isAutoDebit = isFinanceAutoDebitPaymentMethod(line.paymentMethod);
+    // Anything categorized as "Combustível" gets a shortcut to the
+    // calculator right inside the line card. Match loosely so variants
+    // like "combustivel" (no accent) still light up.
+    const isFuelLine = /combust/i.test(line.category) || /combust/i.test(line.name);
     const isSettled = isExpense && isFinanceSettledInMonth(line, selectedMonthId, budget.year);
     const isSystemManaged = Boolean(line.managedBySystem);
     const partialSettleLabel = isFinanceCreditCardPaymentMethod(line.paymentMethod)
@@ -658,6 +662,24 @@ export default function FinanceModulePage() {
                 {line.name}
               </p>
               <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-500">
+                {isFuelLine ? (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      // The whole row is inside <summary>, so a plain click
+                      // would also toggle the details panel. Block both
+                      // default + propagation, then jump to the calculator.
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setActiveView("fuel");
+                    }}
+                    title="Abrir calculadora de combustível"
+                    className="inline-flex items-center gap-1.5 rounded-sm border border-amber-300/30 bg-amber-300/10 px-2 py-1 font-medium text-amber-100 transition hover:border-amber-300/60 hover:bg-amber-300/15"
+                  >
+                    <Fuel className="h-3.5 w-3.5" />
+                    Calcular
+                  </button>
+                ) : null}
                 <span className="rounded-sm border border-zinc-800 bg-black/20 px-2 py-1">
                   {line.category}
                 </span>
