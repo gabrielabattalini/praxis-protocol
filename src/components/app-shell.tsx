@@ -404,10 +404,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile drawer — slides in from the left on phones / narrow viewports.
           Renders the full nav (operação + módulos + sistema) so users on
-          mobile can reach pages that the 5-slot bottom-nav doesn't cover.
-          Hidden on lg+ via lg:hidden on both the backdrop and the panel. */}
+          mobile can reach pages that the bottom-nav (when present) doesn't
+          cover.
+
+          The whole thing is wrapped in a <div className="lg:hidden"> because
+          both children below use inline styles with `display: ...`, and
+          inline styles beat Tailwind's CSS-based lg:hidden. The wrapper has
+          no competing inline display rule, so lg:hidden cleanly removes the
+          subtree on desktop. */}
+      <div className="lg:hidden">
       <div
-        className="lg:hidden"
         onClick={() => setIsMobileMenuOpen(false)}
         aria-hidden={!isMobileMenuOpen}
         style={{
@@ -422,7 +428,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         }}
       />
       <aside
-        className="lg:hidden"
         role="dialog"
         aria-label="Menu de navegação"
         aria-hidden={!isMobileMenuOpen}
@@ -591,6 +596,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </aside>
+      </div>
 
       {/* Shell grid */}
       <div className="shell" style={{ ["--sidebar-w" as string]: "256px" } as React.CSSProperties}>
@@ -784,16 +790,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
               {/* Hamburger — only on mobile, since desktop already has the
                   sidebar. Opens the drawer with full nav (operação + módulos)
-                  so users on phones can actually reach every page. */}
-              <button
-                type="button"
-                onClick={() => setIsMobileMenuOpen(true)}
-                className="v2-btn v2-btn-icon lg:hidden"
-                aria-label="Abrir menu"
-                style={{ flexShrink: 0 }}
-              >
-                <Menu size={18} />
-              </button>
+                  so users on phones can actually reach every page.
+
+                  Wrapped in a <div className="lg:hidden"> because the button
+                  itself uses .v2-btn which sets `display: inline-flex` and
+                  wins the cascade over Tailwind's lg:hidden — globals.css is
+                  imported after Tailwind so its non-layered rules take
+                  precedence. The wrapper has no competing display rule so
+                  lg:hidden cleanly hides the whole thing on desktop. */}
+              <div className="lg:hidden">
+                <button
+                  type="button"
+                  onClick={() => setIsMobileMenuOpen(true)}
+                  className="v2-btn v2-btn-icon"
+                  aria-label="Abrir menu"
+                  style={{ flexShrink: 0 }}
+                >
+                  <Menu size={18} />
+                </button>
+              </div>
               <div className="topbar-breadcrumb" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ opacity: 0.6 }}>praxis</span>
                 <span style={{ opacity: 0.4 }}>/</span>
