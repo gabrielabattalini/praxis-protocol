@@ -208,8 +208,9 @@ export default function HomeModulePage() {
               Tarefas domésticas, manutenção e rotinas. Compras agora ficam em Mercado.
             </div>
           </div>
-          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+          <div className="mod-hero-side" style={{ display: "flex", gap: 16, alignItems: "center" }}>
             <div
+              className="mod-hero-side-stat"
               style={{
                 textAlign: "right",
                 borderLeft: "1px solid rgba(39,39,42,0.6)",

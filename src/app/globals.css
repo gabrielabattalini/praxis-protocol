@@ -1420,6 +1420,24 @@ select.praxis-field {
   }
 }
 
+/* Module hero side-stat (NÍVEL / XP block) — desktop puts it to the
+   right with a vertical separator. When it wraps onto its own row on
+   mobile the borderLeft becomes a stray vertical stripe; drop it and
+   let the block take the full width with its own top divider. */
+@media (max-width: 640px) {
+  .mod-hero-side { width: 100%; }
+  .mod-hero-side-stat {
+    border-left: none !important;
+    border-top: 1px solid rgba(39, 39, 42, 0.6);
+    padding-left: 0 !important;
+    padding-top: 12px;
+    margin-top: 4px;
+    min-width: 0 !important;
+    width: 100%;
+    text-align: left !important;
+  }
+}
+
 @media (max-width: 640px) {
   /* Shrink the daily circle + remove the "X tarefas" caption on tight
      viewports — the badge dot count above is enough signal. */

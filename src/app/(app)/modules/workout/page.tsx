@@ -1224,8 +1224,16 @@ export default function WorkoutModulePage() {
               Anote cargas, acompanhe progressão e consulte histórico completo do treino.
             </div>
           </div>
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <div style={{ textAlign: "right", borderLeft: "1px solid rgba(39,39,42,0.6)", paddingLeft: 16, minWidth: 220 }}>
+          <div className="mod-hero-side" style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <div
+              className="mod-hero-side-stat"
+              style={{
+                textAlign: "right",
+                borderLeft: "1px solid rgba(39,39,42,0.6)",
+                paddingLeft: 16,
+                minWidth: 220,
+              }}
+            >
               <div className="praxis-label" style={{ fontSize: 9 }}>NÍVEL · {user?.level || 1}</div>
               <div className="progress-track" style={{ marginTop: 6 }}>
                 <div

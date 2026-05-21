@@ -188,8 +188,8 @@ export default function MindModulePage() {
               Tarefas mentais recorrentes — meditação, journaling, blocos de foco.
             </div>
           </div>
-          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-            <div style={{ textAlign: "right", borderLeft: "1px solid rgba(39,39,42,0.6)", paddingLeft: 16 }}>
+          <div className="mod-hero-side" style={{ display: "flex", gap: 16, alignItems: "center" }}>
+            <div className="mod-hero-side-stat" style={{ textAlign: "right", borderLeft: "1px solid rgba(39,39,42,0.6)", paddingLeft: 16 }}>
               <div className="praxis-label" style={{ fontSize: 9 }}>HOJE</div>
               <div style={{ fontSize: 18, fontWeight: 600, fontFamily: "var(--font-space-grotesk), sans-serif", marginTop: 2 }}>
                 {mindTasksToday.length}/{mindTasks.length}
