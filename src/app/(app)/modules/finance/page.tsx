@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { type ReactNode, useMemo, useState } from "react";
 import {
-  ArrowRight,
   BadgeDollarSign,
   CalendarDays,
   ChevronDown,
@@ -1155,19 +1154,6 @@ export default function FinanceModulePage() {
       <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
         <GlassPanel className="space-y-5 border-[rgba(251,146,60,0.14)] bg-[linear-gradient(180deg,rgba(14,14,17,0.98),rgba(8,8,10,0.94))] p-6 md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="max-w-2xl">
-              <p className="praxis-label text-[var(--accent)]">Leitura guiada</p>
-              <h2 className="praxis-title mt-2 text-3xl">
-                Um painel para ver o mês, agir no lançamento e entender o que vale
-                manter ativo.
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-zinc-500">
-                Receita, fatura, saídas imediatas e sugestões de compra ficam no
-                mesmo lugar. A ideia aqui é reduzir ruído e acelerar a próxima
-                decisão.
-              </p>
-            </div>
-
             <div className="rounded-sm border border-[rgba(251,146,60,0.2)] bg-[rgba(251,146,60,0.08)] px-4 py-3 text-right">
               <p className="praxis-label">Mês ativo</p>
               <p className="mt-1 text-xl font-semibold text-zinc-100">
@@ -1216,32 +1202,6 @@ export default function FinanceModulePage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => setCreatePanelOpen((current) => !current)}
-              className="inline-flex items-center gap-2 rounded-sm border border-zinc-800 bg-black/50 px-4 py-3 text-sm font-medium text-white transition hover:border-[rgba(251,146,60,0.22)]"
-            >
-              <Plus className="h-4 w-4" />
-              {createPanelOpen ? "Fechar formulário" : "Abrir formulário"}
-            </button>
-
-            <Link
-              href="/modules/market"
-              className="inline-flex items-center gap-2 rounded-sm border border-zinc-800 bg-black/40 px-4 py-3 text-sm font-medium text-zinc-100 transition hover:border-[rgba(251,146,60,0.22)]"
-            >
-              Abrir Mercado
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-
-            <Link
-              href="/modules/supplements"
-              className="inline-flex items-center gap-2 rounded-sm border border-zinc-800 bg-black/40 px-4 py-3 text-sm font-medium text-zinc-100 transition hover:border-[rgba(251,146,60,0.22)]"
-            >
-              Abrir Suplementos
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
         </GlassPanel>
 
         <GlassPanel className="space-y-4 border-[rgba(251,146,60,0.16)] bg-[linear-gradient(180deg,rgba(22,16,8,0.96),rgba(8,8,10,0.94))] p-6 md:p-8">
