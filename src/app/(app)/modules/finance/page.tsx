@@ -147,7 +147,7 @@ function sortLines(
 }
 
 export default function FinanceModulePage() {
-  const { state, actions } = useAppStore();
+  const { state, actions, entitlement } = useAppStore();
   const budget = state.financeBudget;
   const [activeView, setActiveView] = useState<FinanceView>("budget");
   const [selectedMonthId, setSelectedMonthId] = useState<FinanceMonthId>("april");
@@ -1247,18 +1247,22 @@ export default function FinanceModulePage() {
         <GlassPanel className="space-y-4 border-[rgba(251,146,60,0.16)] bg-[linear-gradient(180deg,rgba(22,16,8,0.96),rgba(8,8,10,0.94))] p-6 md:p-8">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="praxis-label text-[var(--accent)]">Plano premium</p>
+              <p className="praxis-label text-[var(--accent)]">
+                {entitlement.hasFullAccess ? "Acesso liberado" : "Plano premium"}
+              </p>
               <h3 className="praxis-title mt-2 text-2xl">
-                Ative o fluxo guiado para fechar o mês com menos atrito.
+                {entitlement.hasFullAccess
+                  ? `${entitlement.label} conectado à sua conta.`
+                  : "Ative o fluxo guiado para fechar o mês com menos atrito."}
               </h3>
             </div>
             <BadgeDollarSign className="h-6 w-6 text-[var(--accent)]" />
           </div>
 
           <p className="text-sm leading-6 text-zinc-500">
-            O Praxis fica mais forte quando o financeiro conversa com o que você
-            compra, consome e paga. O upgrade abre uma leitura mais direta do seu
-            ciclo.
+            {entitlement.hasFullAccess
+              ? entitlement.reason
+              : "O Praxis fica mais forte quando o financeiro conversa com o que você compra, consome e paga. O upgrade abre uma leitura mais direta do seu ciclo."}
           </p>
 
           <div className="space-y-3">
@@ -1273,14 +1277,20 @@ export default function FinanceModulePage() {
             ))}
           </div>
 
-          <StripeCheckoutButton
-            source="finance-module"
-            className="w-full rounded-sm border-[rgba(251,146,60,0.18)] bg-[linear-gradient(135deg,var(--accent)_0%,#fbbf24_100%)] px-4 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_40px_rgba(251,146,60,0.22)]"
-            noteClassName="text-zinc-500"
-            errorClassName="text-amber-200"
-          >
-            Ver planos e fazer upgrade
-          </StripeCheckoutButton>
+          {entitlement.hasFullAccess ? (
+            <div className="rounded-sm border border-emerald-300/20 bg-emerald-300/10 px-4 py-3 text-sm font-semibold text-emerald-100">
+              Plataforma completa ativa nesta conta.
+            </div>
+          ) : (
+            <StripeCheckoutButton
+              source="finance-module"
+              className="w-full rounded-sm border-[rgba(251,146,60,0.18)] bg-[linear-gradient(135deg,var(--accent)_0%,#fbbf24_100%)] px-4 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_40px_rgba(251,146,60,0.22)]"
+              noteClassName="text-zinc-500"
+              errorClassName="text-amber-200"
+            >
+              Ver planos e fazer upgrade
+            </StripeCheckoutButton>
+          )}
         </GlassPanel>
       </section>
 
@@ -1434,88 +1444,14 @@ export default function FinanceModulePage() {
           </button>
         </div>
 
-        <div className="rounded-sm border border-zinc-800 bg-black/40 px-4 py-4 text-sm text-zinc-300">
-          {draftHasContent
-            ? `Rascunho atual: ${draft.kind === "income" ? "Receita" : "Gasto"}${draft.name.trim() ? ` - ${draft.name.trim()}` : ""}${draft.amount.trim() ? ` - ${draft.amount.trim()}` : ""}`
-            : `Formulário recolhido para reduzir ruído na página. Abra só quando for adicionar uma linha em ${selectedMonth.label}.`}
-        </div>
+        {draftHasContent ? (
+          <div className="rounded-sm border border-zinc-800 bg-black/40 px-4 py-4 text-sm text-zinc-300">
+            {`Rascunho atual: ${draft.kind === "income" ? "Receita" : "Gasto"}${draft.name.trim() ? ` - ${draft.name.trim()}` : ""}${draft.amount.trim() ? ` - ${draft.amount.trim()}` : ""}`}
+          </div>
+        ) : null}
 
         {createPanelOpen ? (
           <>
-            {shoppingSuggestions.length ? (
-              <div className="rounded-sm border border-zinc-800 bg-black/40 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm text-zinc-500">Sugestões rápidas</p>
-                    <h3 className="text-lg font-semibold text-white">
-                      Itens vindos de Mercado e Suplementos
-                    </h3>
-                  </div>
-                  <div className="rounded-sm border border-zinc-800 bg-black/40 px-3 py-2 text-xs text-zinc-500">
-                    {shoppingSuggestions.length} sugestões prontas
-                  </div>
-                </div>
-
-                <div className="mt-4 grid gap-2 lg:grid-cols-2">
-                  {shoppingSuggestions.map((suggestion) => (
-                    <button
-                      key={suggestion.id}
-                      type="button"
-                      onClick={() => applyShoppingSuggestion(suggestion)}
-                      className="flex flex-col rounded-sm border border-zinc-800 bg-black/30 px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.04]"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
-                            {suggestion.moduleLabel}
-                          </p>
-                          <p className="mt-1 truncate font-medium text-white">
-                            {suggestion.brand
-                              ? `${suggestion.name} • ${suggestion.brand}`
-                              : suggestion.name}
-                          </p>
-                        </div>
-                        <p className="shrink-0 text-sm font-semibold text-white">
-                          {formatCurrency(suggestion.unitPrice)}
-                        </p>
-                      </div>
-                      <p className="mt-2 text-sm text-zinc-500">
-                        {suggestion.quantity || "Quantidade livre"} • {suggestion.sourceName}
-                      </p>
-                      <p className="mt-2 text-xs uppercase tracking-[0.18em] text-zinc-600">
-                        Estimativa mensal {formatCurrency(suggestion.monthlyEstimate)}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="rounded-sm border border-dashed border-zinc-800 bg-black/30 p-5">
-                <p className="praxis-label text-[var(--accent)]">Sugestões vazias</p>
-                <h3 className="mt-2 text-lg font-semibold text-white">
-                  Nenhum item pronto agora
-                </h3>
-                <p className="mt-2 text-sm leading-6 text-zinc-500">
-                  Quando Mercado e Suplementos tiverem itens monitorados, eles vão
-                  aparecer aqui para virar lançamento sem retrabalho.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <Link
-                    href="/modules/market"
-                    className="rounded-sm border border-zinc-800 bg-black/50 px-4 py-2.5 text-sm text-zinc-100 transition hover:border-[rgba(251,146,60,0.22)]"
-                  >
-                    Abrir Mercado
-                  </Link>
-                  <Link
-                    href="/modules/supplements"
-                    className="rounded-sm border border-zinc-800 bg-black/50 px-4 py-2.5 text-sm text-zinc-100 transition hover:border-[rgba(251,146,60,0.22)]"
-                  >
-                    Abrir Suplementos
-                  </Link>
-                </div>
-              </div>
-            )}
-
             <div className="grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_220px]">
               <div className="space-y-2">
                 <div className="px-1 text-[11px] uppercase tracking-[0.18em] text-zinc-600">
@@ -1732,6 +1668,80 @@ export default function FinanceModulePage() {
               Lançamentos fixos replicam o valor em todos os meses. Lançamentos variáveis valem
               só no mês ativo e os próximos meses ficam zerados.
             </p>
+
+            {shoppingSuggestions.length ? (
+              <div className="rounded-sm border border-zinc-800 bg-black/40 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm text-zinc-500">Sugestões rápidas</p>
+                    <h3 className="text-lg font-semibold text-white">
+                      Itens vindos de Mercado e Suplementos
+                    </h3>
+                  </div>
+                  <div className="rounded-sm border border-zinc-800 bg-black/40 px-3 py-2 text-xs text-zinc-500">
+                    {shoppingSuggestions.length} sugestões prontas
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-2 lg:grid-cols-2">
+                  {shoppingSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion.id}
+                      type="button"
+                      onClick={() => applyShoppingSuggestion(suggestion)}
+                      className="flex flex-col rounded-sm border border-zinc-800 bg-black/30 px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.04]"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
+                            {suggestion.moduleLabel}
+                          </p>
+                          <p className="mt-1 truncate font-medium text-white">
+                            {suggestion.brand
+                              ? `${suggestion.name} • ${suggestion.brand}`
+                              : suggestion.name}
+                          </p>
+                        </div>
+                        <p className="shrink-0 text-sm font-semibold text-white">
+                          {formatCurrency(suggestion.unitPrice)}
+                        </p>
+                      </div>
+                      <p className="mt-2 text-sm text-zinc-500">
+                        {suggestion.quantity || "Quantidade livre"} • {suggestion.sourceName}
+                      </p>
+                      <p className="mt-2 text-xs uppercase tracking-[0.18em] text-zinc-600">
+                        Estimativa mensal {formatCurrency(suggestion.monthlyEstimate)}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-sm border border-dashed border-zinc-800 bg-black/30 p-5">
+                <p className="praxis-label text-[var(--accent)]">Sugestões vazias</p>
+                <h3 className="mt-2 text-lg font-semibold text-white">
+                  Nenhum item pronto agora
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-zinc-500">
+                  Quando Mercado e Suplementos tiverem itens monitorados, eles vão
+                  aparecer aqui para virar lançamento sem retrabalho.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <Link
+                    href="/modules/market"
+                    className="rounded-sm border border-zinc-800 bg-black/50 px-4 py-2.5 text-sm text-zinc-100 transition hover:border-[rgba(251,146,60,0.22)]"
+                  >
+                    Abrir Mercado
+                  </Link>
+                  <Link
+                    href="/modules/supplements"
+                    className="rounded-sm border border-zinc-800 bg-black/50 px-4 py-2.5 text-sm text-zinc-100 transition hover:border-[rgba(251,146,60,0.22)]"
+                  >
+                    Abrir Suplementos
+                  </Link>
+                </div>
+              </div>
+            )}
           </>
         ) : null}
       </GlassPanel>
