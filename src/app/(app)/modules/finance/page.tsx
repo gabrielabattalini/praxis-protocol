@@ -1928,8 +1928,13 @@ export default function FinanceModulePage() {
             type="button"
             onClick={() =>
               requestFinanceConfirmation(
-                `Zerar todos os lançamentos de ${selectedMonth.label}? As linhas continuam ativas nos próximos meses (ex.: Salário fixo continua em ${selectedMonth.label === "Dezembro" ? "Janeiro" : "meses seguintes"}).`,
+                `Fechar o mês de ${selectedMonth.label}? Vamos zerar lançamentos, fatura do cartão e baixas deste mês. As linhas continuam ativas nos próximos meses (ex.: Salário fixo continua em ${selectedMonth.label === "Dezembro" ? "Janeiro" : "meses seguintes"}).`,
                 () => {
+                  // 1. Zero out monthly values per line for the closed month.
+                  // 2. Clear any settlement state (settledAmounts / settledMonths)
+                  //    on credit-card lines so the "fatura" total drops back to 0.
+                  // 3. Wipe the manual cardInvoiceBase[month] entry — that's the
+                  //    standalone fatura value the user types in directly.
                   for (const line of budget.lines) {
                     if ((line.monthly[selectedMonthId] ?? 0) !== 0) {
                       actions.updateFinanceMonthlyValue({
@@ -1938,6 +1943,24 @@ export default function FinanceModulePage() {
                         value: 0,
                       });
                     }
+                    const hasSettlement =
+                      (line.settledAmounts?.[selectedMonthId] ?? 0) > 0 ||
+                      Boolean(line.settledMonths?.[selectedMonthId]);
+                    if (
+                      isFinanceCreditCardPaymentMethod(line.paymentMethod) &&
+                      hasSettlement
+                    ) {
+                      actions.clearFinanceSettlement({
+                        lineId: line.id,
+                        month: selectedMonthId,
+                      });
+                    }
+                  }
+                  if ((budget.cardInvoiceBase?.[selectedMonthId] ?? 0) !== 0) {
+                    actions.updateFinanceInvoiceBase({
+                      month: selectedMonthId,
+                      value: 0,
+                    });
                   }
                 },
               )
@@ -1945,7 +1968,7 @@ export default function FinanceModulePage() {
             className="inline-flex items-center gap-2 rounded-sm border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm font-medium text-rose-200 transition hover:border-rose-400/50 hover:bg-rose-400/15"
           >
             <Trash2 className="h-4 w-4" />
-            Zerar lançamentos de {selectedMonth.label}
+            Fechar mês de {selectedMonth.label}
           </button>
         </div>
       </div>
