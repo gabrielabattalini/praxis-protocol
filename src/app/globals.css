@@ -1034,17 +1034,6 @@ select.praxis-field {
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .topbar-breadcrumb .current { color: #a1a1aa; }
-.search-box { position: relative; }
-.search-box input {
-  width: 200px; padding: 7px 12px 7px 32px;
-  border: 1px solid rgba(39, 39, 42, 0.8);
-  background: rgba(0, 0, 0, 0.3); color: #f4f4f5;
-  border-radius: 999px; font-size: 13px;
-  transition: all 0.15s;
-}
-.search-box input:focus { width: 240px; border-color: rgba(251, 146, 60, 0.3); box-shadow: 0 0 0 1px rgba(251, 146, 60, 0.12); outline: none; }
-.search-box input::placeholder { color: #52525b; }
-.search-box .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #52525b; pointer-events: none; }
 
 @media (max-width: 480px) {
   .topbar-shell { padding: 0 18px; gap: 10px; }

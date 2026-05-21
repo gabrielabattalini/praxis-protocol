@@ -4,7 +4,6 @@ import {
   Activity,
   ArrowDown,
   ArrowUp,
-  Bell,
   Brain,
   Briefcase,
   CalendarDays,
@@ -18,7 +17,6 @@ import {
   Menu,
   Moon,
   Pill,
-  Search,
   Settings as SettingsIcon,
   Shield,
   ShoppingBag,
@@ -803,17 +801,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div className="search-box hidden md:block">
-                <Search className="search-icon" size={14} />
-                <input placeholder="Buscar..." />
-              </div>
-              <button
-                type="button"
-                className="v2-btn v2-btn-icon hidden sm:inline-flex"
-                aria-label="Notificações"
-              >
-                <Bell size={16} />
-              </button>
               <Link
                 href="/settings"
                 onClick={(event) => {
