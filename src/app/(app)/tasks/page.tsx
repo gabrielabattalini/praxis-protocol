@@ -752,20 +752,10 @@ export default function TasksPage() {
           color: "var(--fg)",
         };
 
-    const descriptionStyle: React.CSSProperties = {
-      fontSize: 13,
-      color: isCompleted ? "#71717a" : "var(--fg-3)",
-      marginTop: 4,
-      lineHeight: 1.55,
-      textDecoration: isCompleted ? "line-through" : "none",
-    };
-
-    const categoryBadgeClass =
-      isCompleted
-        ? "badge badge-dim"
-        : item.kind === "workout" || item.kind === "nutrition"
-          ? "badge badge-accent"
-          : "badge";
+    // descriptionStyle + categoryBadgeClass removed — both were only
+    // consumed by the badge row / description / sourceLabel block that
+    // was deleted in this commit. Keeping the data fields in AgendaItem
+    // so the values stay reachable for any future detail view.
 
     return (
       <div
@@ -821,30 +811,12 @@ export default function TasksPage() {
               href={item.moduleRoute}
               style={{ minWidth: 0, color: "inherit", textDecoration: "none" }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 8,
-                  marginBottom: 10,
-                }}
-              >
-                <span className={categoryBadgeClass}>{item.categoryLabel}</span>
-                <span className="badge badge-dim">{item.originLabel}</span>
-              </div>
+              {/* Card body simplified: dropped the [categoria + Sincronizada]
+                  badge row, the duplicated description line, and the
+                  sourceLabel hint. Title carries the info; time chip is on
+                  the left; recurrenceLabel ("Toda quinta-feira") below.
+                  See commit message for the full rationale. */}
               <div style={titleStyle}>{item.title}</div>
-              <div style={descriptionStyle}>{item.description}</div>
-              <div
-                style={{
-                  marginTop: 8,
-                  fontSize: 11,
-                  letterSpacing: "0.16em",
-                  textTransform: "uppercase",
-                  color: "var(--fg-3)",
-                }}
-              >
-                {item.sourceLabel}
-              </div>
               {item.stats?.length ? (
                 <div
                   style={{
@@ -889,30 +861,12 @@ export default function TasksPage() {
                 cursor: "pointer",
               }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 8,
-                  marginBottom: 10,
-                }}
-              >
-                <span className={categoryBadgeClass}>{item.categoryLabel}</span>
-                <span className="badge badge-dim">{item.originLabel}</span>
-              </div>
+              {/* Card body simplified: dropped the [categoria + Sincronizada]
+                  badge row, the duplicated description line, and the
+                  sourceLabel hint. Title carries the info; time chip is on
+                  the left; recurrenceLabel ("Toda quinta-feira") below.
+                  See commit message for the full rationale. */}
               <div style={titleStyle}>{item.title}</div>
-              <div style={descriptionStyle}>{item.description}</div>
-              <div
-                style={{
-                  marginTop: 8,
-                  fontSize: 11,
-                  letterSpacing: "0.16em",
-                  textTransform: "uppercase",
-                  color: "var(--fg-3)",
-                }}
-              >
-                {item.sourceLabel}
-              </div>
               {item.stats?.length ? (
                 <div
                   style={{
@@ -949,30 +903,12 @@ export default function TasksPage() {
             </button>
           ) : (
             <div style={{ minWidth: 0 }}>
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 8,
-                  marginBottom: 10,
-                }}
-              >
-                <span className={categoryBadgeClass}>{item.categoryLabel}</span>
-                <span className="badge badge-dim">{item.originLabel}</span>
-              </div>
+              {/* Card body simplified: dropped the [categoria + Sincronizada]
+                  badge row, the duplicated description line, and the
+                  sourceLabel hint. Title carries the info; time chip is on
+                  the left; recurrenceLabel ("Toda quinta-feira") below.
+                  See commit message for the full rationale. */}
               <div style={titleStyle}>{item.title}</div>
-              <div style={descriptionStyle}>{item.description}</div>
-              <div
-                style={{
-                  marginTop: 8,
-                  fontSize: 11,
-                  letterSpacing: "0.16em",
-                  textTransform: "uppercase",
-                  color: "var(--fg-3)",
-                }}
-              >
-                {item.sourceLabel}
-              </div>
               {item.recurrenceLabel ? (
                 <p
                   style={{

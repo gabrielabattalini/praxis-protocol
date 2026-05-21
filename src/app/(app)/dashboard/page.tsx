@@ -814,9 +814,11 @@ export default function DashboardPage() {
               key={item.id}
               moduleLabel={moduleLabelFromRoute(item.route)}
               title={item.title}
-              meta={[item.time ?? "Sem horário", item.description]
-                .filter(Boolean)
-                .join(" · ")}
+              // Meta was "time · description" — the description usually
+              // just restates the title (e.g. "Acordar às 8h da manhã"
+              // for a task already titled "Acordar"). Showing only the
+              // time keeps signal, drops noise.
+              meta={item.time ?? "Sem horário"}
               xp={`+${item.xp ?? 0} XP`}
               difficulty={difficultyForItem(item)}
               state={item.completed ? "done" : "pending"}
@@ -1000,8 +1002,7 @@ export default function DashboardPage() {
                 : item.kind === "workout"
                   ? "accent"
                   : "default";
-            const moduleBadgeClass =
-              tone === "accent" ? "badge badge-accent" : "badge";
+            // moduleBadgeClass dropped — badges removed from this card.
             return (
               <Link
                 key={item.id}
@@ -1013,25 +1014,10 @@ export default function DashboardPage() {
               >
                 <div className="timeline-time">{item.time ?? "—"}</div>
                 <div className="timeline-body">
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 6,
-                      flexWrap: "wrap",
-                      marginBottom: 6,
-                    }}
-                  >
-                    <span className={moduleBadgeClass}>
-                      {moduleLabelFromRoute(item.route)}
-                    </span>
-                    <span className="badge badge-dim">
-                      {item.sourceLabel}
-                    </span>
-                  </div>
+                  {/* Dropped the [Módulo + sourceLabel] badge row and the
+                      timeline-sub description line — both just restated
+                      info already in title + time + module color stripe. */}
                   <div className="timeline-title">{item.title}</div>
-                  {item.description ? (
-                    <div className="timeline-sub">{item.description}</div>
-                  ) : null}
                 </div>
               </Link>
             );
