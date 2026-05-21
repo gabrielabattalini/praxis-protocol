@@ -84,15 +84,6 @@ const moduleIcons = {
   supplements: Pill,
 };
 
-// Mobile bottom nav (compact)
-const mobileBottomLinks = [
-  { href: "/dashboard", label: "Hub", icon: HomeIcon },
-  { href: "/tasks", label: "Missões", icon: Target },
-  { href: "/agenda", label: "Agenda", icon: CalendarDays },
-  { href: "/arena", label: "Arena", icon: Sword },
-  { href: "/profile", label: "Perfil", icon: UserRound },
-];
-
 function normalizePath(path: string) {
   if (path === "/") return "/";
   return path.replace(/\/+$/, "");
@@ -897,55 +888,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             {children}
           </main>
-
-          {/* Mobile bottom nav — preserved with current handlers */}
-          <nav
-            className="mobile-bottom-nav"
-            style={{
-              position: "fixed",
-              insetInline: 0,
-              bottom: 0,
-              zIndex: 50,
-              borderTop: "1px solid rgba(39,39,42,0.6)",
-              background: "rgba(5,5,7,0.92)",
-              backdropFilter: "blur(12px)",
-              padding: "8px 8px calc(12px + env(safe-area-inset-bottom))",
-              gridTemplateColumns: "repeat(5, 1fr)",
-              gap: 4,
-            }}
-          >
-            {mobileBottomLinks.map((item) => {
-              const Icon = item.icon;
-              const active = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={(event) => {
-                    if (!shouldHandleNavigationClick(event)) return;
-                    beginNavigation(item.href, item.label);
-                  }}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 4,
-                    padding: "8px 4px",
-                    borderRadius: 12,
-                    border: active ? "1px solid rgba(251,146,60,0.34)" : "1px solid transparent",
-                    background: active ? "rgba(251,146,60,0.1)" : "transparent",
-                    color: active ? "var(--accent)" : "var(--fg-3)",
-                    fontSize: 10,
-                    textDecoration: "none",
-                    transition: "all 0.15s",
-                  }}
-                >
-                  <Icon size={16} />
-                  <span style={{ letterSpacing: "0.06em", textAlign: "center" }}>{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
         </div>
       </div>
     </div>

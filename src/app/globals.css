@@ -952,7 +952,6 @@ select.praxis-field {
 }
 .sidebar::-webkit-scrollbar { display: none; }
 .desktop-sidebar { display: none; }
-.mobile-bottom-nav { display: none; }
 
 @media (min-width: 1024px) {
   .shell { grid-template-columns: var(--sidebar-w, 256px) 1fr; }
@@ -961,19 +960,14 @@ select.praxis-field {
 
 @media (max-width: 1023px) {
   :root {
-    /* Generous clearance so page CTAs are never hidden behind the
-       fixed bottom nav (nav is ~72px; extra buffer for tall buttons). */
-    --mobile-bottom-nav-space: calc(120px + env(safe-area-inset-bottom));
-  }
-
-  .mobile-bottom-nav {
-    display: grid;
-    /* Lock the nav height so it can't exceed the reserved space. */
-    max-height: calc(72px + env(safe-area-inset-bottom));
+    /* No bottom nav on mobile anymore — the hamburger drawer covers
+       full navigation. Reserve only the iOS home-bar safe area so
+       content isn't tucked under the system gesture indicator. */
+    --mobile-bottom-nav-space: env(safe-area-inset-bottom);
   }
 }
 
-/* Any page-level sticky/fixed bottom bar must clear the mobile nav. */
+/* Any page-level sticky/fixed bottom bar clears the iOS safe area only. */
 @media (max-width: 1023px) {
   .clear-bottom-nav {
     margin-bottom: var(--mobile-bottom-nav-space);
