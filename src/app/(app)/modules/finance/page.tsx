@@ -149,7 +149,18 @@ export default function FinanceModulePage() {
   const { state, actions, entitlement } = useAppStore();
   const budget = state.financeBudget;
   const [activeView, setActiveView] = useState<FinanceView>("budget");
-  const [selectedMonthId, setSelectedMonthId] = useState<FinanceMonthId>("april");
+  const [selectedMonthId, setSelectedMonthId] = useState<FinanceMonthId>(() => {
+    // Default to the month AHEAD of the real "today" — the user
+    // closes month N on month N+1 ("o fechamento de maio é feito em
+    // junho"). Clamp at december so the page never starts on a month
+    // that doesn't exist in the year budget.
+    const monthIds: FinanceMonthId[] = [
+      "january","february","march","april","may","june",
+      "july","august","september","october","november","december",
+    ];
+    const nextIndex = Math.min(new Date().getMonth() + 1, 11);
+    return monthIds[nextIndex];
+  });
   const [expenseSort, setExpenseSort] = useState<ExpenseSortMode>("due-date");
   const [settlementDrafts, setSettlementDrafts] = useState<Record<string, string>>({});
   const [invoiceDrafts, setInvoiceDrafts] = useState<
@@ -1911,6 +1922,32 @@ export default function FinanceModulePage() {
           ))}
         </div>
         </details>
+
+        <div className="flex justify-center pt-2">
+          <button
+            type="button"
+            onClick={() =>
+              requestFinanceConfirmation(
+                `Zerar todos os lançamentos de ${selectedMonth.label}? As linhas continuam ativas nos próximos meses (ex.: Salário fixo continua em ${selectedMonth.label === "Dezembro" ? "Janeiro" : "meses seguintes"}).`,
+                () => {
+                  for (const line of budget.lines) {
+                    if ((line.monthly[selectedMonthId] ?? 0) !== 0) {
+                      actions.updateFinanceMonthlyValue({
+                        lineId: line.id,
+                        month: selectedMonthId,
+                        value: 0,
+                      });
+                    }
+                  }
+                },
+              )
+            }
+            className="inline-flex items-center gap-2 rounded-sm border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm font-medium text-rose-200 transition hover:border-rose-400/50 hover:bg-rose-400/15"
+          >
+            <Trash2 className="h-4 w-4" />
+            Zerar lançamentos de {selectedMonth.label}
+          </button>
+        </div>
       </div>
 
       {activeView === "fuel" ? <FinanceFuelPlanner /> : null}
