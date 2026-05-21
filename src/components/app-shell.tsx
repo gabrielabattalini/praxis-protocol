@@ -15,6 +15,7 @@ import {
   Home as HomeIcon,
   LogOut,
   Medal,
+  Menu,
   Moon,
   Pill,
   Search,
@@ -28,6 +29,7 @@ import {
   Utensils,
   UserRound,
   Wallet,
+  X,
   Zap,
 } from "lucide-react";
 import Link from "next/link";
@@ -162,6 +164,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [navigationPending, setNavigationPending] = useState(false);
   const [navigationMessage, setNavigationMessage] = useState("Carregando");
   const [isModuleOrderEditing, setIsModuleOrderEditing] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Close the drawer whenever the route changes — without this it would
+  // stay open behind the new page after the user taps a link.
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
+
+  // Lock body scroll while the drawer is open so the page underneath
+  // doesn't drift around when the user scrolls inside the menu.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.style.overflow = isMobileMenuOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileMenuOpen]);
   const effectiveAuthLoaded = isLocalAuthBypassEnabled ? true : authLoaded;
   const effectiveSignedIn = isLocalAuthBypassEnabled ? true : isSignedIn;
   const shouldShowAccountOnboarding = effectiveSignedIn && !isLocalAuthBypassEnabled;
@@ -394,6 +413,196 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       ) : null}
 
+      {/* Mobile drawer — slides in from the left on phones / narrow viewports.
+          Renders the full nav (operação + módulos + sistema) so users on
+          mobile can reach pages that the 5-slot bottom-nav doesn't cover.
+          Hidden on lg+ via lg:hidden on both the backdrop and the panel. */}
+      <div
+        className="lg:hidden"
+        onClick={() => setIsMobileMenuOpen(false)}
+        aria-hidden={!isMobileMenuOpen}
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 60,
+          background: "rgba(0,0,0,0.55)",
+          backdropFilter: "blur(4px)",
+          opacity: isMobileMenuOpen ? 1 : 0,
+          pointerEvents: isMobileMenuOpen ? "auto" : "none",
+          transition: "opacity 200ms ease",
+        }}
+      />
+      <aside
+        className="lg:hidden"
+        role="dialog"
+        aria-label="Menu de navegação"
+        aria-hidden={!isMobileMenuOpen}
+        style={{
+          position: "fixed",
+          top: 0,
+          bottom: 0,
+          left: 0,
+          width: 280,
+          maxWidth: "85vw",
+          zIndex: 61,
+          background: "linear-gradient(180deg, rgba(10,10,12,0.98), rgba(5,5,7,0.99))",
+          borderRight: "1px solid rgba(39,39,42,0.6)",
+          boxShadow: isMobileMenuOpen ? "0 0 64px rgba(0,0,0,0.6)" : "none",
+          transform: isMobileMenuOpen ? "translateX(0)" : "translateX(-100%)",
+          transition: "transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+          overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Header with logo + close button */}
+        <div
+          style={{
+            padding: "16px 16px 12px",
+            borderBottom: "1px solid rgba(39,39,42,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
+          }}
+        >
+          <Link
+            href="/dashboard"
+            className="sidebar-logo"
+            onClick={(event) => {
+              if (!shouldHandleNavigationClick(event)) return;
+              beginNavigation("/dashboard", "Dashboard");
+              setIsMobileMenuOpen(false);
+            }}
+            style={{
+              padding: 0,
+              border: "none",
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
+            <PraxisGlyph size={28} />
+            <span className="logo-word" style={{ fontSize: 16 }}>
+              praxis<span>.</span>
+            </span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="v2-btn v2-btn-icon"
+            aria-label="Fechar menu"
+            style={{ flexShrink: 0 }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Operação group */}
+        <div className="sidebar-nav-label">Operação</div>
+        {operationLinks.map((item) => {
+          const Icon = item.icon;
+          const active = pathname === item.href;
+          return (
+            <Link
+              key={`drawer-op-${item.href}`}
+              href={item.href}
+              onClick={(event) => {
+                if (!shouldHandleNavigationClick(event)) return;
+                beginNavigation(item.href, item.label);
+                setIsMobileMenuOpen(false);
+              }}
+              className={cn("nav-item", active && "active")}
+            >
+              <Icon size={16} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+
+        {/* Módulos group */}
+        <div className="sidebar-nav-label" style={{ marginTop: 8 }}>
+          Módulos · {visibleModules.length}
+        </div>
+        {visibleModules.length === 0 ? (
+          <div
+            style={{
+              padding: "8px 18px",
+              fontSize: 11,
+              color: "var(--fg-4)",
+              lineHeight: 1.5,
+            }}
+          >
+            Nenhum módulo ativo. Ative em Configurações.
+          </div>
+        ) : (
+          visibleModules.map((module) => {
+            const Icon = moduleIcons[module.id] ?? Sparkles;
+            const active = pathname.startsWith(module.route);
+            return (
+              <Link
+                key={`drawer-mod-${module.id}`}
+                href={module.route}
+                onClick={(event) => {
+                  if (!shouldHandleNavigationClick(event)) return;
+                  beginNavigation(module.route, module.name);
+                  setIsMobileMenuOpen(false);
+                }}
+                className={cn("nav-item", active && "active")}
+              >
+                <Icon size={16} />
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {module.name}
+                </span>
+              </Link>
+            );
+          })
+        )}
+
+        {/* Sistema group (settings + tools) */}
+        <div className="sidebar-nav-label" style={{ marginTop: 8 }}>
+          Sistema
+        </div>
+        {footerLinks.map((item) => {
+          const Icon = item.icon;
+          const active = pathname === item.href;
+          return (
+            <Link
+              key={`drawer-foot-${item.href}`}
+              href={item.href}
+              onClick={(event) => {
+                if (!shouldHandleNavigationClick(event)) return;
+                beginNavigation(item.href, item.label);
+                setIsMobileMenuOpen(false);
+              }}
+              className={cn("nav-item", active && "active")}
+            >
+              <Icon size={16} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+
+        {/* User card pinned to the bottom */}
+        <div className="sidebar-footer" style={{ marginTop: "auto" }}>
+          <div className="user-avatar-pill">{avatarLabel}</div>
+          <div className="user-info" style={{ minWidth: 0, flex: 1 }}>
+            <div
+              className="user-name"
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {displayName}
+            </div>
+            <div className="user-rank">
+              {user.rankTier} · LV {user.level}
+            </div>
+          </div>
+        </div>
+      </aside>
+
       {/* Shell grid */}
       <div className="shell" style={{ ["--sidebar-w" as string]: "256px" } as React.CSSProperties}>
         {/* Sidebar — desktop only */}
@@ -583,10 +792,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="flex min-h-screen min-w-0 flex-1 flex-col">
           {/* Topbar */}
           <header className="topbar-shell">
-            <div className="topbar-breadcrumb" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ opacity: 0.6 }}>praxis</span>
-              <span style={{ opacity: 0.4 }}>/</span>
-              <span className="current">{routeBreadcrumb(pathname)}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              {/* Hamburger — only on mobile, since desktop already has the
+                  sidebar. Opens the drawer with full nav (operação + módulos)
+                  so users on phones can actually reach every page. */}
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="v2-btn v2-btn-icon lg:hidden"
+                aria-label="Abrir menu"
+                style={{ flexShrink: 0 }}
+              >
+                <Menu size={18} />
+              </button>
+              <div className="topbar-breadcrumb" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ opacity: 0.6 }}>praxis</span>
+                <span style={{ opacity: 0.4 }}>/</span>
+                <span className="current">{routeBreadcrumb(pathname)}</span>
+              </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div className="search-box hidden md:block">
