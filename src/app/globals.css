@@ -1405,6 +1405,21 @@ select.praxis-field {
 .tasks-month-cell-date { font-size: 14px; }
 .tasks-month-cell-meta { margin-top: 16px; font-size: 11px; }
 
+/* Dashboard hero — desktop pairs the stats panel with the score ring
+   side by side. On mobile that produces a squished ring; stack instead. */
+@media (max-width: 768px) {
+  .dashboard-hero-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+  /* Drop the 4-stat strip from 4 cols → 2x2 so each label has room to
+     breathe (was running into 77px-wide cells on a phone). */
+  .dashboard-hero-stats {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+}
+
 @media (max-width: 640px) {
   /* Shrink the daily circle + remove the "X tarefas" caption on tight
      viewports — the badge dot count above is enough signal. */

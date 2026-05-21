@@ -351,6 +351,7 @@ export default function DashboardPage() {
   const heroHud = (
     <div className="glass">
       <div
+        className="dashboard-hero-grid"
         style={{
           display: "grid",
           gridTemplateColumns: "minmax(0, 1fr) minmax(0, 360px)",
@@ -431,6 +432,7 @@ export default function DashboardPage() {
               />
             </div>
             <div
+              className="dashboard-hero-stats"
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(4, 1fr)",
