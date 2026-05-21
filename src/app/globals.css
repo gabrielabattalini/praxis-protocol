@@ -1388,6 +1388,40 @@ select.praxis-field {
   .topbar-shell { padding: 0 12px; height: 56px; }
 }
 
+/* Tasks calendar — desktop sizing; mobile sizing comes below. The
+   classes are defined here (not inline) so we can swap font/circle
+   sizes by breakpoint without touching the component each time. */
+.tasks-day-button { cursor: pointer; }
+.tasks-day-circle {
+  width: 44px;
+  height: 44px;
+  font-size: 18px;
+}
+.tasks-day-count { font-size: 11px; }
+.tasks-month-cell {
+  min-height: 92px;
+  padding: 12px;
+}
+.tasks-month-cell-date { font-size: 14px; }
+.tasks-month-cell-meta { margin-top: 16px; font-size: 11px; }
+
+@media (max-width: 640px) {
+  /* Shrink the daily circle + remove the "X tarefas" caption on tight
+     viewports — the badge dot count above is enough signal. */
+  .tasks-day-circle { width: 32px; height: 32px; font-size: 14px; }
+  .tasks-day-count { display: none; }
+
+  .tasks-month-cell { min-height: 58px; padding: 6px; border-radius: 10px; }
+  .tasks-month-cell--empty { min-height: 58px; }
+  .tasks-month-cell-date { font-size: 12px; }
+  .tasks-month-cell-meta {
+    /* Hide the verbose "X tarefas / Sem tarefas" line on phones — the
+       badge in the corner already conveys count. */
+    display: none;
+  }
+  .tasks-month-cell-badge { font-size: 9px; }
+}
+
 /* Touch-target hygiene: every button-shaped element should be at
    least 40×40 of click area on touch screens, even if the visual
    chrome is smaller. Applies only when the device reports coarse

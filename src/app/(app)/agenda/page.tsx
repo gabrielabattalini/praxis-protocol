@@ -280,7 +280,165 @@ export default function AgendaPage() {
         </Link>
       </div>
 
-      <div className="glass" style={{ marginBottom: 24, overflow: "hidden", padding: 0 }}>
+      {/* Mobile-only day strip + selected day detail. The full weekly
+          grid below (940px wide) is hopeless on a phone — too much
+          horizontal scroll. On small screens we show a compact day
+          picker and just the events for the selected day. */}
+      <div className="agenda-mobile-stack lg:hidden" style={{ marginBottom: 16 }}>
+        <div
+          className="glass"
+          style={{ padding: 12, overflowX: "auto", marginBottom: 12 }}
+        >
+          <div style={{ display: "flex", gap: 6, minWidth: "min-content" }}>
+            {weekAgenda.map((day) => {
+              const selected = day.dateKey === selectedDay?.dateKey;
+              const isToday = isSameDate(day.date, today);
+              return (
+                <button
+                  key={`m-${day.dateKey}`}
+                  type="button"
+                  onClick={() => setSelectedDateKey(day.dateKey)}
+                  style={{
+                    flex: "0 0 auto",
+                    minWidth: 56,
+                    padding: "10px 6px",
+                    borderRadius: 12,
+                    border: selected
+                      ? "1px solid rgba(74,222,128,0.45)"
+                      : "1px solid rgba(39,39,42,0.8)",
+                    background: selected
+                      ? "rgba(74,222,128,0.1)"
+                      : isToday
+                        ? "rgba(74,222,128,0.04)"
+                        : "rgba(18,18,20,0.88)",
+                    cursor: "pointer",
+                    textAlign: "center",
+                  }}
+                >
+                  <div
+                    className="praxis-label"
+                    style={{
+                      fontSize: 9,
+                      color: selected || isToday ? "var(--ok)" : "#71717a",
+                      marginBottom: 4,
+                    }}
+                  >
+                    {day.shortLabel}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "var(--font-space-grotesk), sans-serif",
+                      fontSize: 18,
+                      fontWeight: 700,
+                      letterSpacing: "-0.03em",
+                      color: selected || isToday ? "#d1fae5" : "#f4f4f5",
+                    }}
+                  >
+                    {day.date.getDate().toString().padStart(2, "0")}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      marginTop: 2,
+                      color: selected || isToday ? "var(--ok)" : "#52525b",
+                    }}
+                  >
+                    {day.totalCount}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="glass" style={{ padding: 16 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 12,
+            }}
+          >
+            <div>
+              <div className="praxis-label" style={{ color: "var(--ok)" }}>
+                {selectedDay?.shortLabel ?? "—"}
+              </div>
+              <div
+                style={{
+                  marginTop: 2,
+                  fontFamily: "var(--font-space-grotesk), sans-serif",
+                  fontSize: 22,
+                  fontWeight: 700,
+                  letterSpacing: "-0.03em",
+                  color: "#f4f4f5",
+                }}
+              >
+                {selectedDay
+                  ? `${selectedDay.date.getDate().toString().padStart(2, "0")} ${selectedDay.shortLabel}`
+                  : "—"}
+              </div>
+            </div>
+            <span className="badge badge-dim">
+              {selectedDay?.totalCount ?? 0} tarefas
+            </span>
+          </div>
+
+          {selectedDay && selectedDay.items.length === 0 ? (
+            <p style={{ color: "#71717a", fontSize: 13, lineHeight: 1.6 }}>
+              Sem eventos para este dia. Bom momento para descansar ou planejar
+              o próximo bloco.
+            </p>
+          ) : null}
+
+          {/* Group by agenda slot, plus a "Dia todo" bucket for untimed items. */}
+          {selectedDay
+            ? agendaSlots.map((slot) => {
+                const itemsInSlot = selectedDay.items.filter(
+                  (item) => slotForAgendaItem(item) === slot,
+                );
+                if (itemsInSlot.length === 0) return null;
+                return (
+                  <div key={`m-slot-${slot}`} style={{ marginBottom: 12 }}>
+                    <div
+                      className="praxis-label"
+                      style={{ color: "#52525b", fontSize: 10, marginBottom: 6 }}
+                    >
+                      {slot}
+                    </div>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      {itemsInSlot.map((item) => (
+                        <AgendaEventLink key={item.id} item={item} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })
+            : null}
+
+          {selectedDay && selectedDay.items.some((item) => !item.time) ? (
+            <div>
+              <div
+                className="praxis-label"
+                style={{ color: "#52525b", fontSize: 10, marginBottom: 6 }}
+              >
+                Dia todo
+              </div>
+              <div style={{ display: "grid", gap: 6 }}>
+                {selectedDay.items
+                  .filter((item) => !item.time)
+                  .map((item) => (
+                    <AgendaEventLink key={`m-day-${item.id}`} item={item} />
+                  ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Desktop / tablet weekly grid (≥lg). Hidden on phones because the
+          940px content is impractical to scroll horizontally there. */}
+      <div className="glass hidden lg:block" style={{ marginBottom: 24, overflow: "hidden", padding: 0 }}>
         <div style={{ overflowX: "auto" }}>
           <div
             style={{

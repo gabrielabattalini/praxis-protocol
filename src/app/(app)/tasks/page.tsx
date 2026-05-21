@@ -1369,13 +1369,15 @@ export default function TasksPage() {
 
         {/* Calendar grid */}
         {calendarView === "week" ? (
+          // Removed the desktop-only minWidth: 720 so the 7-day strip fits
+          // a 360px viewport (≈47px per column). The circle inside drops
+          // to 36px on mobile via the .tasks-day-circle class below.
           <div style={{ overflowX: "auto", paddingBottom: 4 }}>
             <div
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-                gap: 10,
-                minWidth: 720,
+                gap: 6,
               }}
             >
               {weeklyProgress.map((day) => {
@@ -1385,9 +1387,10 @@ export default function TasksPage() {
                     type="button"
                     key={day.id}
                     onClick={() => focusDate(day.date)}
+                    className="tasks-day-button"
                     style={{
-                      borderRadius: 20,
-                      padding: "14px 8px",
+                      borderRadius: 16,
+                      padding: "10px 4px",
                       textAlign: "center",
                       cursor: "pointer",
                       transition: "all 0.15s",
@@ -1404,20 +1407,19 @@ export default function TasksPage() {
                       style={{
                         marginBottom: 0,
                         color: active ? "var(--ok)" : "#71717a",
+                        fontSize: 9,
                       }}
                     >
                       {day.weekdayLabel}
                     </div>
                     <div
+                      className="tasks-day-circle"
                       style={{
-                        width: 44,
-                        height: 44,
                         borderRadius: "50%",
-                        margin: "8px auto",
+                        margin: "6px auto",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        fontSize: 18,
                         fontWeight: 600,
                         border: active
                           ? "1px solid rgba(74,222,128,0.4)"
@@ -1431,8 +1433,8 @@ export default function TasksPage() {
                       {day.dateLabel}
                     </div>
                     <div
+                      className="tasks-day-count"
                       style={{
-                        fontSize: 11,
                         color: active ? "var(--ok)" : "#71717a",
                       }}
                     >
@@ -1444,27 +1446,30 @@ export default function TasksPage() {
             </div>
           </div>
         ) : (
+          // Month view: same treatment — drop the desktop minWidth so the
+          // 7×N grid actually fits the phone viewport instead of forcing
+          // a horizontal scroll the user might not realize they need.
           <div style={{ overflowX: "auto", paddingBottom: 4 }}>
-            <div style={{ minWidth: 720, display: "grid", gap: 10 }}>
+            <div style={{ display: "grid", gap: 6 }}>
               <div
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-                  gap: 10,
+                  gap: 4,
                 }}
               >
                 {calendarHeaderLabels.map((label) => (
                   <div
                     key={label}
                     style={{
-                      borderRadius: 14,
+                      borderRadius: 10,
                       border: "1px solid rgba(39,39,42,0.8)",
                       background: "rgba(18,18,20,0.88)",
-                      padding: "10px 8px",
+                      padding: "6px 4px",
                       textAlign: "center",
                       fontFamily: "var(--font-mono), monospace",
-                      fontSize: 10,
-                      letterSpacing: "0.24em",
+                      fontSize: 9,
+                      letterSpacing: "0.16em",
                       textTransform: "uppercase",
                       color: "#71717a",
                     }}
@@ -1474,10 +1479,11 @@ export default function TasksPage() {
                 ))}
               </div>
               <div
+                className="tasks-month-grid"
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-                  gap: 10,
+                  gap: 4,
                 }}
               >
                 {monthlyProgress.map((day, index) =>
@@ -1486,10 +1492,9 @@ export default function TasksPage() {
                       type="button"
                       key={day.id}
                       onClick={() => focusDate(day.date)}
+                      className="tasks-month-cell"
                       style={{
-                        minHeight: 92,
-                        borderRadius: 18,
-                        padding: 12,
+                        borderRadius: 12,
                         transition: "all 0.15s",
                         border: day.isSelected
                           ? "1px solid rgba(74,222,128,0.45)"
@@ -1510,12 +1515,12 @@ export default function TasksPage() {
                           display: "flex",
                           justifyContent: "space-between",
                           alignItems: "center",
-                          gap: 6,
+                          gap: 4,
                         }}
                       >
                         <span
+                          className="tasks-month-cell-date"
                           style={{
-                            fontSize: 14,
                             fontWeight: 600,
                             color:
                               day.isSelected || day.isToday
@@ -1527,17 +1532,16 @@ export default function TasksPage() {
                         </span>
                         {day.total > 0 ? (
                           <span
-                            className="badge badge-sm"
-                            style={{ padding: "2px 8px" }}
+                            className="badge badge-sm tasks-month-cell-badge"
+                            style={{ padding: "1px 6px" }}
                           >
                             {day.total}
                           </span>
                         ) : null}
                       </div>
                       <p
+                        className="tasks-month-cell-meta"
                         style={{
-                          marginTop: 16,
-                          fontSize: 11,
                           letterSpacing: "0.18em",
                           textTransform: "uppercase",
                           color: "#71717a",
@@ -1549,9 +1553,9 @@ export default function TasksPage() {
                   ) : (
                     <div
                       key={`empty-${index}`}
+                      className="tasks-month-cell tasks-month-cell--empty"
                       style={{
-                        minHeight: 92,
-                        borderRadius: 18,
+                        borderRadius: 12,
                         border: "1px dashed rgba(39,39,42,0.6)",
                         background: "rgba(10,10,12,0.4)",
                       }}
