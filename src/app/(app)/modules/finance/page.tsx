@@ -1419,29 +1419,39 @@ export default function FinanceModulePage() {
       </div>
 
       <GlassPanel className="space-y-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Plus className="h-6 w-6 text-[var(--accent)]" />
-            <div>
-              <p className="text-sm text-zinc-500">Novo lançamento</p>
-              <h2 className="text-2xl font-semibold text-white">
-                Adicionar receita ou gasto
-              </h2>
-            </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm text-zinc-500">Novo lançamento</p>
+            <h2 className="text-2xl font-semibold text-white">
+              Adicionar receita ou gasto
+            </h2>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setCreatePanelOpen((current) => !current)}
-            className="inline-flex items-center gap-2 rounded-sm border border-zinc-800 bg-black/50 px-4 py-3 text-sm font-medium text-white transition hover:border-white/20"
-          >
-            {createPanelOpen ? "Fechar formulário" : "Abrir formulário"}
-            <ChevronDown
-              className={`h-4 w-4 transition ${
-                createPanelOpen ? "rotate-180" : ""
-              }`}
-            />
-          </button>
+          <div className="flex items-center gap-2">
+            <select
+              value={expenseSort}
+              onChange={(event) => setExpenseSort(event.target.value as ExpenseSortMode)}
+              aria-label="Ordenação dos gastos"
+              className="rounded-sm border border-zinc-800 bg-black/60 px-3 py-2.5 text-sm text-white"
+            >
+              <option value="due-date">Por vencimento</option>
+              <option value="highest-value">Maior valor</option>
+              <option value="lowest-value">Menor valor</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => setCreatePanelOpen((current) => !current)}
+              aria-label={createPanelOpen ? "Fechar formulário" : "Abrir formulário"}
+              title={createPanelOpen ? "Fechar formulário" : "Adicionar lançamento"}
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-sm border border-zinc-800 bg-black/50 text-white transition hover:border-[var(--accent)]/40 hover:bg-[rgba(251,146,60,0.08)]"
+            >
+              <Plus
+                className={`h-5 w-5 transition ${
+                  createPanelOpen ? "rotate-45 text-[var(--accent)]" : ""
+                }`}
+              />
+            </button>
+          </div>
         </div>
 
         {draftHasContent ? (
@@ -1744,25 +1754,6 @@ export default function FinanceModulePage() {
             )}
           </>
         ) : null}
-      </GlassPanel>
-
-      <GlassPanel className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p className="text-sm text-zinc-500">Ordenação dos gastos</p>
-          <h2 className="text-2xl font-semibold text-white">
-            Escolha como quer visualizar
-          </h2>
-        </div>
-
-        <select
-          value={expenseSort}
-          onChange={(event) => setExpenseSort(event.target.value as ExpenseSortMode)}
-          className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white lg:max-w-[280px]"
-        >
-          <option value="due-date">Data de vencimento</option>
-          <option value="highest-value">Maior valor no mês</option>
-          <option value="lowest-value">Menor valor no mês</option>
-        </select>
       </GlassPanel>
 
       <GlassPanel className="space-y-4">
