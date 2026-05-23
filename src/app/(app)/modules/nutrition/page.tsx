@@ -35,6 +35,7 @@ import {
   emptyMacros,
   estimateBasalMetabolicRate,
   formatPoints,
+  weekdayLabel,
   weekdayLongLabel,
 } from "@/lib/utils";
 
@@ -2239,33 +2240,40 @@ export default function NutritionModulePage() {
             {weeklyPlanAssignmentsCount}/7 dias
           </span>
         </div>
-        <div className="space-y-2">
-          {weekdayOrder.map((weekday) => (
-            <div
-              key={weekday}
-              className="flex items-center gap-3 rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2"
-            >
-              <span className="w-28 shrink-0 text-sm font-medium text-white capitalize">
-                {weekdayLongLabel(weekday)}
-              </span>
-              <select
-                value={state.dietWeekSchedule[weekday] ?? activeDietPlan?.id ?? ""}
-                onChange={(event) =>
-                  actions.setDietWeekPlan({
-                    weekday,
-                    planId: event.target.value,
-                  })
-                }
-                className="flex-1 rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-3 py-1.5 text-sm text-white"
+        {/* Horizontal weekday strip — 7 columns reading left-to-right.
+            On narrow phones the row overflows: the wrapper scrolls
+            horizontally while each cell keeps a minimum width so the
+            select stays usable. min-w-[560px] = 7 × ~80px. */}
+        <div className="-mx-1 overflow-x-auto px-1 pb-1">
+          <div className="grid min-w-[560px] grid-cols-7 gap-2">
+            {weekdayOrder.map((weekday) => (
+              <div
+                key={weekday}
+                className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] p-2"
               >
-                {dietPlans.map((plan) => (
-                  <option key={plan.id} value={plan.id}>
-                    {plan.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
+                <p className="text-center font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                  {weekdayLabel(weekday)}
+                </p>
+                <select
+                  value={state.dietWeekSchedule[weekday] ?? activeDietPlan?.id ?? ""}
+                  onChange={(event) =>
+                    actions.setDietWeekPlan({
+                      weekday,
+                      planId: event.target.value,
+                    })
+                  }
+                  className="mt-2 w-full rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-1.5 py-1.5 text-xs text-white"
+                  aria-label={`Dieta para ${weekdayLongLabel(weekday)}`}
+                >
+                  {dietPlans.map((plan) => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
         </div>
       </GlassPanel>
 
