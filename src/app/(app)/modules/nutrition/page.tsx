@@ -2220,6 +2220,55 @@ export default function NutritionModulePage() {
         </div>
       </div>
 
+      {/* Plano semanal — compact vertical list of weekdays mapping to a
+          diet plan each. Pinned right after the module hero per user
+          request: this is the first interaction they want when opening
+          nutrition. The richer library UI (create/edit/duplicate
+          plans + assigned-days summary) lives further down in another
+          edit; only the per-day selector is up here to keep the
+          attention surface tight. */}
+      <GlassPanel className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm text-zinc-500">Plano semanal</p>
+            <h2 className="mt-0.5 text-xl font-semibold text-white">
+              Dieta por dia
+            </h2>
+          </div>
+          <span className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-1.5 text-xs text-zinc-300">
+            {weeklyPlanAssignmentsCount}/7 dias
+          </span>
+        </div>
+        <div className="space-y-2">
+          {weekdayOrder.map((weekday) => (
+            <div
+              key={weekday}
+              className="flex items-center gap-3 rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2"
+            >
+              <span className="w-28 shrink-0 text-sm font-medium text-white capitalize">
+                {weekdayLongLabel(weekday)}
+              </span>
+              <select
+                value={state.dietWeekSchedule[weekday] ?? activeDietPlan?.id ?? ""}
+                onChange={(event) =>
+                  actions.setDietWeekPlan({
+                    weekday,
+                    planId: event.target.value,
+                  })
+                }
+                className="flex-1 rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-3 py-1.5 text-sm text-white"
+              >
+                {dietPlans.map((plan) => (
+                  <option key={plan.id} value={plan.id}>
+                    {plan.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      </GlassPanel>
+
       <section className="space-y-4">
         <div className="flex flex-col gap-4 border-l-2 border-tertiary-dim pl-5 pt-4 md:flex-row md:items-end md:justify-between" style={{ display: "none" }}>
           <div className="space-y-1">
@@ -2476,338 +2525,6 @@ export default function NutritionModulePage() {
           })}
         </div>
       </GlassPanel>
-
-      <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
-        <div className="space-y-6">
-          <GlassPanel className="space-y-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm text-zinc-500">Dietas salvas</p>
-                <h2 className="mt-1 text-2xl font-semibold text-white">
-                  Biblioteca de dietas
-                </h2>
-                {!isDietLibraryCollapsed ? (
-                  <p className="mt-2 text-sm text-zinc-500">
-                    Salve, distribua na semana e duplique quando precisar variar o plano.
-                  </p>
-                ) : null}
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] px-3 py-2 text-xs text-[var(--accent)]">
-                  {dietPlans.length} dietas
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setIsDietLibraryCollapsed((current) => !current)}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2 text-xs text-zinc-300"
-                >
-                  {isDietLibraryCollapsed ? (
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  ) : (
-                    <ChevronUp className="h-3.5 w-3.5" />
-                  )}
-                  {isDietLibraryCollapsed ? "Expandir" : "Ocultar"}
-                </button>
-              </div>
-            </div>
-
-            {isDietLibraryCollapsed ? (
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-4 py-4">
-                  <p className="text-sm text-zinc-500">Dieta ativa</p>
-                  <p className="mt-2 text-lg font-semibold text-white">
-                    {activeDietPlan?.name ?? "Sem dieta ativa"}
-                  </p>
-                </div>
-                <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-4 py-4">
-                  <p className="text-sm text-zinc-500">Semana distribuída</p>
-                  <p className="mt-2 text-lg font-semibold text-white">
-                    {weeklyPlanAssignmentsCount}/7 dias
-                  </p>
-                </div>
-                <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-4 py-4">
-                  <p className="text-sm text-zinc-500">Biblioteca</p>
-                  <p className="mt-2 text-lg font-semibold text-white">
-                    {dietPlans.length} planos
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="grid gap-4 xl:grid-cols-[1.02fr_0.98fr]">
-                  <div className="space-y-4">
-                    <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] p-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-sm text-zinc-500">Dieta ativa</p>
-                          <p className="mt-1 text-lg font-semibold text-white">
-                            {activeDietPlan?.name ?? "Dieta atual"}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center justify-end gap-2">
-                          {activeDietDuration ? (
-                            <span className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2 text-xs text-zinc-300">
-                              {activeDietDuration} dias
-                            </span>
-                          ) : null}
-                          {activeDietPlan ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                editingDietPlanId === activeDietPlan.id
-                                  ? cancelDietPlanEdit()
-                                  : startEditingDietPlan()
-                              }
-                              className="inline-flex items-center gap-1 rounded-sm border border-zinc-800 bg-[rgba(10,10,12,0.72)] px-3 py-2 text-xs text-zinc-200"
-                            >
-                              {editingDietPlanId === activeDietPlan.id ? (
-                                <X className="h-3.5 w-3.5" />
-                              ) : (
-                                <PencilLine className="h-3.5 w-3.5" />
-                              )}
-                              {editingDietPlanId === activeDietPlan.id
-                                ? "Cancelar"
-                                : "Editar dieta"}
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                      {editingDietPlanId === activeDietPlan?.id ? (
-                        <div className="mt-4 grid gap-3 md:grid-cols-2">
-                          <input
-                            value={dietPlanEditDraft.name}
-                            onChange={(event) =>
-                              setDietPlanEditDraft((current) => ({
-                                ...current,
-                                name: event.target.value,
-                              }))
-                            }
-                            placeholder="Nome da dieta"
-                            className="rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-4 py-3 text-white placeholder:text-zinc-500"
-                          />
-                          <input
-                            value={dietPlanEditDraft.startDate}
-                            onChange={(event) =>
-                              setDietPlanEditDraft((current) => ({
-                                ...current,
-                                startDate: event.target.value,
-                              }))
-                            }
-                            type="date"
-                            className="rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-4 py-3 text-white"
-                          />
-                          <input
-                            value={dietPlanEditDraft.endDate}
-                            onChange={(event) =>
-                              setDietPlanEditDraft((current) => ({
-                                ...current,
-                                endDate: event.target.value,
-                              }))
-                            }
-                            type="date"
-                            className="rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-4 py-3 text-white"
-                          />
-                          <textarea
-                            value={dietPlanEditDraft.notes}
-                            onChange={(event) =>
-                              setDietPlanEditDraft((current) => ({
-                                ...current,
-                                notes: event.target.value,
-                              }))
-                            }
-                            rows={3}
-                            placeholder="Observações da fase"
-                            className="rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-4 py-3 text-white placeholder:text-zinc-500"
-                          />
-                          <button
-                            type="button"
-                            onClick={saveDietPlanEdit}
-                            className="md:col-span-2 inline-flex items-center justify-center gap-2 rounded-sm border border-[rgba(251,146,60,0.18)] bg-[rgba(251,146,60,0.08)] px-4 py-3 text-sm font-medium text-[var(--accent)]"
-                          >
-                            <Save className="h-4 w-4" />
-                            Salvar edição da dieta
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          {activeDietPlan?.startDate || activeDietPlan?.endDate ? (
-                            <p className="mt-3 text-sm text-zinc-500">
-                              {activeDietPlan?.startDate || "Sem início"} até{" "}
-                              {activeDietPlan?.endDate || "Sem fim"}
-                            </p>
-                          ) : null}
-                          {activeDietPlan?.notes ? (
-                            <p className="mt-3 text-sm text-zinc-500">
-                              {activeDietPlan.notes}
-                            </p>
-                          ) : null}
-                        </>
-                      )}
-                    </div>
-
-                    <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] p-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-sm text-zinc-500">Nova dieta</p>
-                          <p className="mt-1 text-lg font-semibold text-white">
-                            Salvar na biblioteca
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setIsCreateDietPanelOpen((current) => !current)}
-                          className="inline-flex items-center gap-1 rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.08)] px-3 py-2 text-xs text-[var(--accent)]"
-                        >
-                          {isCreateDietPanelOpen ? (
-                            <X className="h-3.5 w-3.5" />
-                          ) : (
-                            <Plus className="h-3.5 w-3.5" />
-                          )}
-                          {isCreateDietPanelOpen ? "Fechar" : "Nova dieta"}
-                        </button>
-                      </div>
-                      {isCreateDietPanelOpen ? (
-                        <div className="mt-4 space-y-3">
-                          <div className="grid gap-3 md:grid-cols-2">
-                            <input
-                              value={dietName}
-                              onChange={(event) => setDietName(event.target.value)}
-                              placeholder="Nome da dieta"
-                              className="rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-4 py-3 text-white placeholder:text-zinc-500"
-                            />
-                            <input
-                              value={dietStartDate}
-                              onChange={(event) => setDietStartDate(event.target.value)}
-                              type="date"
-                              className="rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-4 py-3 text-white"
-                            />
-                            <input
-                              value={dietEndDate}
-                              onChange={(event) => setDietEndDate(event.target.value)}
-                              type="date"
-                              className="rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-4 py-3 text-white"
-                            />
-                            <textarea
-                              value={dietNotes}
-                              onChange={(event) => setDietNotes(event.target.value)}
-                              rows={3}
-                              placeholder="Observações da fase"
-                              className="rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-4 py-3 text-white placeholder:text-zinc-500"
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={saveCurrentDiet}
-                            className="w-full rounded-sm bg-[linear-gradient(135deg,var(--accent)_0%,var(--accent-2)_100%)] px-4 py-3 font-semibold text-slate-950"
-                          >
-                            Salvar dieta atual
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm text-zinc-500">Distribuição da semana</p>
-                        <p className="mt-1 text-sm text-zinc-500">
-                          Escolha qual dieta vale em cada dia.
-                        </p>
-                      </div>
-                      <span className="rounded-sm border border-zinc-800 bg-[rgba(10,10,12,0.72)] px-3 py-2 text-xs text-zinc-300">
-                        {weeklyPlanAssignmentsCount}/7 dias
-                      </span>
-                    </div>
-                    <div className="mt-4 grid gap-3 md:grid-cols-2">
-                      {weekdayOrder.map((weekday) => (
-                        <div
-                          key={weekday}
-                          className="rounded-sm border border-zinc-800 bg-[rgba(10,10,12,0.72)] px-3 py-3"
-                        >
-                          <p className="text-sm font-medium text-white">
-                            {weekdayLongLabel(weekday)}
-                          </p>
-                          <select
-                            value={state.dietWeekSchedule[weekday] ?? activeDietPlan?.id ?? ""}
-                            onChange={(event) =>
-                              actions.setDietWeekPlan({
-                                weekday,
-                                planId: event.target.value,
-                              })
-                            }
-                            className="mt-3 w-full rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-3 py-2.5 text-sm text-white"
-                          >
-                            {dietPlans.map((plan) => (
-                              <option key={plan.id} value={plan.id}>
-                                {plan.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm text-zinc-500">Planos disponíveis</p>
-                    <span className="text-xs text-zinc-500">
-                      {dietPlans.length} cadastradas
-                    </span>
-                  </div>
-                  <div className="grid gap-3 xl:grid-cols-2">
-                    {dietPlans.map((plan) => (
-                      <div
-                        key={plan.id}
-                        className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] p-4"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0">
-                            <p className="font-medium text-white">{plan.name}</p>
-                            <p className="mt-1 text-sm text-zinc-500">
-                              {plan.startDate || "Sem início"} até {plan.endDate || "Sem fim"}
-                            </p>
-                            <p className="mt-2 text-xs text-zinc-500">
-                              {(dietPlanAssignedDays[plan.id] ?? []).length
-                                ? `Dias vinculados: ${(dietPlanAssignedDays[plan.id] ?? [])
-                                    .map((weekday) => weekdayLongLabel(weekday))
-                                    .join(" • ")}`
-                                : "Nenhum dia da semana está usando essa dieta ainda."}
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => actions.duplicateDietPlan(plan.id)}
-                              className="inline-flex items-center gap-1 rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2 text-xs text-zinc-300"
-                            >
-                              <Copy className="h-3.5 w-3.5" />
-                              Duplicar
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => actions.activateDietPlan(plan.id)}
-                              className={`rounded-sm px-3 py-2 text-xs ${
-                                plan.id === state.activeDietPlanId
-                                  ? "bg-[rgba(251,146,60,0.12)] text-[var(--accent)]"
-                                  : "bg-white/8 text-zinc-300"
-                              }`}
-                            >
-                              {plan.id === state.activeDietPlanId ? "Ativa" : "Ativar"}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-          </GlassPanel>
-
-        </div>
 
         <div className="space-y-6">
           <GlassPanel className="space-y-4">
@@ -3971,7 +3688,9 @@ export default function NutritionModulePage() {
               </div>
           </GlassPanel>
         </div>
-      </div>
+      {/* Outer 2-col grid removed — only one column remained after the
+          Biblioteca library panel was extracted into the compact
+          "Plano semanal" block at the top of the page. */}
 
       {/* Was 2xl:grid-cols (kicked in only at 1536px+), so desktop in the
           1024-1535 band stacked Meta ativa above NutritionTargetsEditor.
