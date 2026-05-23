@@ -608,12 +608,9 @@ export default function TasksPage() {
     day: "2-digit",
     month: "long",
   });
-  const visibleMonthLabel = calendarCursor
-    .toLocaleDateString("pt-BR", {
-      month: "long",
-      year: "numeric",
-    })
-    .replace(/^\p{L}/u, (letter) => letter.toUpperCase());
+  // visibleMonthLabel + weeklyRangeLabel deleted — the badge that
+  // showed them between the prev/next arrows was removed for being
+  // redundant with the calendar grid itself.
 
   function countAgendaEntriesForDate(targetDate: Date) {
     const targetWeekday = getTodayWeekday(targetDate);
@@ -657,17 +654,6 @@ export default function TasksPage() {
       isSelected: dateKey === selectedDateKey,
     };
   });
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
-  const weeklyRangeLabel = `${weekStart.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "short",
-  })} - ${weekEnd.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })}`;
-
   const monthStart = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(), 1);
   const monthEnd = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + 1, 0);
   const monthLeadingSlots = monthStart.getDay();
@@ -1286,12 +1272,9 @@ export default function TasksPage() {
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <span
-            className="badge"
-            style={{ fontSize: 11, padding: "8px 14px" }}
-          >
-            {calendarView === "week" ? weeklyRangeLabel : visibleMonthLabel}
-          </span>
+          {/* Removed the "17 de mai. - 23 de mai. de 2026" range badge —
+              the calendar grid below already shows the days, so the textual
+              range was redundant. The arrows still scroll week/month. */}
           <button
             type="button"
             onClick={() => moveCalendar(1)}
