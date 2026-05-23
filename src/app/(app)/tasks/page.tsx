@@ -1146,7 +1146,11 @@ export default function TasksPage() {
   }
 
   return (
-    <div>
+    // Capped at max-w-4xl + mx-auto so the page sits as a centered column
+    // instead of stretching edge-to-edge on widescreen monitors. On phones
+    // the cap is larger than the viewport so the layout still uses the
+    // full width naturally.
+    <div className="mx-auto w-full max-w-4xl">
       {/* Page header */}
       <div style={{ marginBottom: 24 }}>
         <div className="page-eyebrow" style={{ color: "var(--ok)" }}>
