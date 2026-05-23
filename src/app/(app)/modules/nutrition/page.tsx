@@ -32,9 +32,11 @@ import type {
 } from "@/lib/types";
 import {
   addMacros,
+  describeTrainingActivity,
   emptyMacros,
   estimateBasalMetabolicRate,
   formatPoints,
+  getActivityMultiplierFromTrainingDays,
   weekdayLongLabel,
 } from "@/lib/utils";
 
@@ -1350,6 +1352,21 @@ export default function NutritionModulePage() {
   const caloriesTarget = dailyNutritionTargets.totals.calories;
   const waterTarget = dailyNutritionTargets.waterMl;
   const goalAdjustmentKcal = dailyNutritionTargets.goalAdjustmentKcal;
+  // TDEE breakdown — surfaced in the Meta ativa panel so the user can
+  // see how the daily calorie target is being assembled:
+  //   BMR × activityMultiplier (from training days/week) + adjustment.
+  const activeWorkoutProgramForActivity = state.workoutPrograms.find(
+    (program) => program.id === state.activeWorkoutProgramId,
+  );
+  const trainingDaysPerWeek = activeWorkoutProgramForActivity
+    ? activeWorkoutProgramForActivity.workoutPlan.filter((d) => !d.isRestDay)
+        .length
+    : 0;
+  const activityMultiplier =
+    getActivityMultiplierFromTrainingDays(trainingDaysPerWeek);
+  const tdeeKcal = Math.round(
+    dailyNutritionTargets.basalMetabolicRate * activityMultiplier,
+  );
   const hydrationTaskSourceKey = "nutrition-hydration-daily";
   const hydrationTaskEntries = useMemo(
     () =>
@@ -2718,110 +2735,6 @@ export default function NutritionModulePage() {
                   ) : null}
                 </div>
 
-                <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm text-zinc-500">Adicionar alimento ou receita</p>
-                      <h3 className="mt-1 text-lg font-semibold text-white">
-                        Adicionar alimento ou receita
-                      </h3>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsQuickAddFoodPanelOpen((current) => !current)}
-                      className="inline-flex items-center gap-2 rounded-sm border border-zinc-800 bg-[rgba(18,18,20,0.96)] px-4 py-3 text-sm font-medium text-zinc-100"
-                    >
-                      {isQuickAddFoodPanelOpen ? (
-                        <X className="h-4 w-4" />
-                      ) : (
-                        <Plus className="h-4 w-4" />
-                      )}
-                      {isQuickAddFoodPanelOpen ? "Fechar atalho" : "Adicionar alimento"}
-                    </button>
-                  </div>
-                  {isQuickAddFoodPanelOpen ? (
-                    <div className="mt-4 rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.72)] p-4">
-                      <p className="text-sm text-zinc-500">
-                        Cadastre o item na sua base e depois selecione dentro da refeição que quiser.
-                      </p>
-                      <div className="mt-4 grid gap-3 md:grid-cols-2">
-                        <input
-                          value={libraryFoodDraft.name}
-                          onChange={(event) =>
-                            updateLibraryFoodDraft({ name: event.target.value })
-                          }
-                          placeholder="Nome do alimento ou receita"
-                          className="rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-4 py-3 text-white placeholder:text-zinc-500"
-                        />
-                        <input
-                          value={libraryFoodDraft.servingLabel}
-                          onChange={(event) =>
-                            updateLibraryFoodDraft({ servingLabel: event.target.value })
-                          }
-                          placeholder="Base nutricional, ex.: 100 g"
-                          className="rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-4 py-3 text-white placeholder:text-zinc-500"
-                        />
-                      </div>
-                      <div className="mt-4 grid gap-4 md:grid-cols-3">
-                        <MetricInput
-                          label="Proteína"
-                          unit="g"
-                          value={libraryFoodDraft.protein}
-                          onChange={(value) => updateLibraryFoodDraft({ protein: value })}
-                          step="0.1"
-                          min="0"
-                        />
-                        <MetricInput
-                          label="Carboidratos"
-                          unit="g"
-                          value={libraryFoodDraft.carbs}
-                          onChange={(value) => updateLibraryFoodDraft({ carbs: value })}
-                          step="0.1"
-                          min="0"
-                        />
-                        <MetricInput
-                          label="Gorduras"
-                          unit="g"
-                          value={libraryFoodDraft.fat}
-                          onChange={(value) => updateLibraryFoodDraft({ fat: value })}
-                          step="0.1"
-                          min="0"
-                        />
-                        <MetricInput
-                          label="Fibras"
-                          unit="g"
-                          value={libraryFoodDraft.fiber}
-                          onChange={(value) => updateLibraryFoodDraft({ fiber: value })}
-                          step="0.1"
-                          min="0"
-                        />
-                        <MetricInput
-                          label="Sódio"
-                          unit="mg"
-                          value={libraryFoodDraft.sodium}
-                          onChange={(value) => updateLibraryFoodDraft({ sodium: value })}
-                          step="1"
-                          min="0"
-                        />
-                        <MetricInput
-                          label="Calorias"
-                          unit="kcal"
-                          value={libraryFoodDraft.calories}
-                          onChange={(value) => updateLibraryFoodDraft({ calories: value })}
-                          step="1"
-                          min="0"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={saveLibraryFood}
-                        className="mt-4 w-full rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] px-4 py-3 font-semibold text-[var(--accent)]"
-                      >
-                        Salvar na minha base de alimentos
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
               </div>
 
               {mealPlan.map((block) => {
@@ -3868,6 +3781,63 @@ export default function NutritionModulePage() {
               <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--accent)]">
                 Objetivo corporal
               </p>
+
+              {/* Calorie breakdown: shows how the final daily target is
+                  assembled — BMR pulled from body metrics, × multiplier
+                  from the user's active workout program (training days
+                  per week), + the cut/bulk adjustment from goal. */}
+              <div className="rounded-sm border border-zinc-800 bg-[rgba(10,10,12,0.72)] p-3">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
+                  Como a meta é calculada
+                </p>
+                <div className="mt-2 grid gap-3 sm:grid-cols-4 text-sm">
+                  <div>
+                    <p className="text-[11px] text-zinc-500">BMR (basal)</p>
+                    <p className="mt-0.5 font-semibold text-white">
+                      {dailyNutritionTargets.basalMetabolicRate} kcal
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-zinc-500">
+                      Treinos/semana
+                    </p>
+                    <p className="mt-0.5 font-semibold text-white">
+                      {trainingDaysPerWeek}{" "}
+                      <span className="text-xs font-normal text-zinc-400">
+                        × {activityMultiplier.toFixed(3)}
+                      </span>
+                    </p>
+                    <p className="mt-0.5 text-[10px] leading-tight text-zinc-500">
+                      {describeTrainingActivity(trainingDaysPerWeek)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-zinc-500">TDEE</p>
+                    <p className="mt-0.5 font-semibold text-white">
+                      {tdeeKcal} kcal
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-zinc-500">
+                      Ajuste {goalAdjustmentKcal > 0 ? "+" : ""}
+                      {goalAdjustmentKcal}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-[var(--accent)]">
+                      Meta diária
+                    </p>
+                    <p className="mt-0.5 text-base font-semibold text-[var(--accent)]">
+                      {caloriesTarget} kcal
+                    </p>
+                  </div>
+                </div>
+                {!activeWorkoutProgramForActivity ? (
+                  <p className="mt-2 text-[11px] leading-snug text-zinc-500">
+                    Sem treino ativo — assumindo sedentário (× 1.20). Crie e
+                    ative um programa em Treino para refinar o cálculo.
+                  </p>
+                ) : null}
+              </div>
+
               <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] p-4">
                 <div className="grid gap-3 md:grid-cols-[160px_minmax(0,1fr)_auto] md:items-end">
                   <label className="space-y-2">

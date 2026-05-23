@@ -651,6 +651,34 @@ export function resolveBasalMetabolicRate(payload: {
   return estimateBasalMetabolicRate(payload);
 }
 
+/**
+ * Activity multiplier (TDEE coefficient) inferred from how many days
+ * per week the user actually trains. The classic Mifflin-St Jeor BMR
+ * captures the bedrest baseline; multiplying it gives total daily
+ * energy expenditure including NEAT + planned exercise.
+ *
+ * Mapping mirrors the Harris-Benedict bands:
+ *   0    → 1.2   sedentary
+ *   1-3  → 1.375 light
+ *   4-5  → 1.55  moderate
+ *   6+   → 1.725 high
+ */
+export function getActivityMultiplierFromTrainingDays(daysPerWeek: number) {
+  const days = Math.max(0, Math.round(daysPerWeek));
+  if (days === 0) return 1.2;
+  if (days <= 3) return 1.375;
+  if (days <= 5) return 1.55;
+  return 1.725;
+}
+
+export function describeTrainingActivity(daysPerWeek: number) {
+  const days = Math.max(0, Math.round(daysPerWeek));
+  if (days === 0) return "Sedentário (sem treinos)";
+  if (days <= 3) return "Leve (1-3 treinos/semana)";
+  if (days <= 5) return "Moderado (4-5 treinos/semana)";
+  return "Intenso (6+ treinos/semana)";
+}
+
 export function addMacros(
   base: NutritionMacros,
   current: NutritionMacros,

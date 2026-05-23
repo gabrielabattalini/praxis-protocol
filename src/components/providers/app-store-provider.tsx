@@ -90,6 +90,7 @@ import {
   normalizeRecurringTaskCompletion,
   normalizeTaskDifficulty,
   roundCurrencyValue,
+  getActivityMultiplierFromTrainingDays,
   resolveBasalMetabolicRate,
 } from "@/lib/utils";
 import { normalizeWorkControlEntry } from "@/lib/work-control";
@@ -1429,6 +1430,7 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         const caloriesTarget = resolveNutritionCaloriesTarget(
           currentTargets.basalMetabolicRate,
           goalAdjustmentKcal,
+          getActivityMultiplierFromTrainingDaysForState(state),
         );
         const nextTargets = {
           ...currentTargets,
@@ -1465,6 +1467,7 @@ function reducer(state: PersistedState, action: Action): PersistedState {
       const caloriesTarget = resolveNutritionCaloriesTarget(
         currentTargets.basalMetabolicRate,
         goalAdjustmentKcal,
+        getActivityMultiplierFromTrainingDaysForState(state),
       );
       const nextTargets = {
         ...currentTargets,
@@ -1525,6 +1528,7 @@ function reducer(state: PersistedState, action: Action): PersistedState {
       const caloriesTarget = resolveNutritionCaloriesTarget(
         basalMetabolicRate,
         goalAdjustmentKcal,
+        getActivityMultiplierFromTrainingDaysForState(state),
       );
       const fiberTarget = resolveNutritionFiberTarget(caloriesTarget, bodyWeightKg, {
         fiberStrategy,
@@ -1828,6 +1832,7 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         nutritionGoal: duplicatedPlan.nutritionGoal,
         dailyNutritionTargets: normalizeDailyNutritionTargets(
           duplicatedPlan.nutritionTargets,
+          getActivityMultiplierFromTrainingDaysForState(state),
         ),
         dietDayTypes: duplicatedPlan.dayTypes,
         dietWorkoutLink: duplicatedPlan.workoutLinkSettings,
@@ -1845,6 +1850,7 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         nutritionGoal: nextPlan.nutritionGoal,
         dailyNutritionTargets: normalizeDailyNutritionTargets(
           nextPlan.nutritionTargets,
+          getActivityMultiplierFromTrainingDaysForState(state),
         ),
         dietDayTypes: nextPlan.dayTypes,
         dietWorkoutLink: nextPlan.workoutLinkSettings,
@@ -2736,8 +2742,29 @@ function normalizeFinanceAmounts(
 function resolveNutritionCaloriesTarget(
   basalMetabolicRate: number,
   goalAdjustmentKcal: number,
+  activityMultiplier: number = 1,
 ) {
-  return Math.max(0, Math.round(basalMetabolicRate + goalAdjustmentKcal));
+  // TDEE = BMR × activity multiplier. Then ± the user's cut/bulk
+  // adjustment. activityMultiplier defaults to 1 for backward compat
+  // (callsites that don't pass it stay on the old BMR + adjustment
+  // formula); the four nutrition callsites below pass the value from
+  // getActivityMultiplierFromTrainingDaysForState.
+  const tdee = basalMetabolicRate * activityMultiplier;
+  return Math.max(0, Math.round(tdee + goalAdjustmentKcal));
+}
+
+/** Reads the active workout program and maps non-rest days/week to a
+ *  TDEE multiplier. Falls back to 1.2 (sedentary) when no program is
+ *  active — same baseline as a person with zero scheduled workouts. */
+function getActivityMultiplierFromTrainingDaysForState(
+  state: PersistedState,
+): number {
+  const program = state.workoutPrograms.find(
+    (p) => p.id === state.activeWorkoutProgramId,
+  );
+  if (!program) return getActivityMultiplierFromTrainingDays(0);
+  const days = program.workoutPlan.filter((d) => !d.isRestDay).length;
+  return getActivityMultiplierFromTrainingDays(days);
 }
 
 function resolveNutritionFiberTarget(
@@ -2762,6 +2789,11 @@ function resolveNutritionFiberTarget(
 
 function normalizeDailyNutritionTargets(
   targets: PersistedState["dailyNutritionTargets"] | undefined,
+  // Activity multiplier from the user's active workout program. Defaults
+  // to 1 so legacy callers (or callers without state context) don't break.
+  // Callsites with access to state should pass
+  // getActivityMultiplierFromTrainingDaysForState(state).
+  activityMultiplier: number = 1,
 ) {
   const fallback = initialPersistedState.dailyNutritionTargets;
   const bodyWeightKg = targets?.bodyWeightKg ?? fallback.bodyWeightKg;
@@ -2810,6 +2842,7 @@ function normalizeDailyNutritionTargets(
   const caloriesTarget = resolveNutritionCaloriesTarget(
     basalMetabolicRate,
     goalAdjustmentKcal,
+    activityMultiplier,
   );
 
   return {
@@ -4256,8 +4289,27 @@ function parseStateValue(
     const parsedState = { ...parsed };
     delete (parsedState as { aiHistory?: unknown }).aiHistory;
     const financeBudget = migrateFinanceBudget(parsedState.financeBudget);
+
+    // Hydrate-time activity multiplier — same lookup the reducers use,
+    // pulled here from the parsedState shape because we don't have a
+    // PersistedState yet. Without this the first load would silently
+    // show BMR-only calories until the user edits anything.
+    const hydrationPrograms = Array.isArray(parsedState.workoutPrograms)
+      ? parsedState.workoutPrograms
+      : [];
+    const hydrationActiveProgram = hydrationPrograms.find(
+      (p) => p?.id === parsedState.activeWorkoutProgramId,
+    );
+    const hydrationActivityMultiplier = hydrationActiveProgram
+      ? getActivityMultiplierFromTrainingDays(
+          hydrationActiveProgram.workoutPlan?.filter((d) => d && !d.isRestDay)
+            .length ?? 0,
+        )
+      : getActivityMultiplierFromTrainingDays(0);
+
     const dailyNutritionTargets = normalizeDailyNutritionTargets(
       parsedState.dailyNutritionTargets,
+      hydrationActivityMultiplier,
     );
     const dietDayTypes = normalizeDietDayTypes(parsedState.dietDayTypes);
     const workoutPlan = normalizeWorkoutPlan(parsedState.workoutPlan);
@@ -4289,7 +4341,10 @@ function parseStateValue(
         emptyPersistedState.nutritionGoal,
     );
     const activeDailyNutritionTargets = activeDietPlan
-      ? normalizeDailyNutritionTargets(activeDietPlan.nutritionTargets)
+      ? normalizeDailyNutritionTargets(
+          activeDietPlan.nutritionTargets,
+          hydrationActivityMultiplier,
+        )
       : dailyNutritionTargets;
     const dietWeekSchedule = normalizeDietWeekSchedule(
       parsedState.dietWeekSchedule,
