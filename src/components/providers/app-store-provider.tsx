@@ -4881,10 +4881,11 @@ export function AppStoreProvider({
       },
       addTask(task) {
         const difficulty = normalizeTaskDifficulty(task.difficulty);
+        const taskId = makeId("task");
         dispatch({
           type: "add-task",
           task: {
-            id: makeId("task"),
+            id: taskId,
             moduleId: null,
             completed: false,
             ...task,
@@ -4893,6 +4894,43 @@ export function AppStoreProvider({
             xp: 0,
           },
         });
+
+        // Auto-create an enabled reminder when the new task ships with a
+        // scheduledTime. Without this, every brand-new task showed up with
+        // the alarm in the OFF state — defaulting to ON matches the user's
+        // expectation that "if I gave it a time, I want to be reminded."
+        // Tasks without a time get no reminder (and no alarm button — the
+        // tasks page gates the toggle on item.time).
+        const scheduledTime = task.scheduledTime?.trim();
+        if (scheduledTime) {
+          const recurrence = task.recurrence;
+          let weekdaysFromRecurrence: Weekday[] | undefined;
+          if (recurrence?.kind === "daily") {
+            weekdaysFromRecurrence = [
+              "monday",
+              "tuesday",
+              "wednesday",
+              "thursday",
+              "friday",
+              "saturday",
+              "sunday",
+            ];
+          } else if (recurrence?.kind === "selected-weekdays" && recurrence.weekdays?.length) {
+            weekdaysFromRecurrence = recurrence.weekdays;
+          } else if (recurrence?.kind === "weekly-fixed" && recurrence.weekday) {
+            weekdaysFromRecurrence = [recurrence.weekday];
+          }
+          dispatch({
+            type: "add-reminder",
+            payload: {
+              entityType: "task",
+              entityId: taskId,
+              title: task.title,
+              time: scheduledTime,
+              weekdays: weekdaysFromRecurrence,
+            },
+          });
+        }
       },
       updateTask(payload) {
         dispatch({ type: "update-task", payload });

@@ -712,7 +712,11 @@ export default function TasksPage() {
       item.kind === "nutrition" &&
       Boolean(detailBlockId) &&
       Boolean(item.detailItems?.length);
-    const canToggleAlarm = Boolean(item.reminderId || item.reminderConfig);
+    // Alarm button only shows when the item has an actual scheduled time.
+    // Tasks like "Hidratação" with no time can't be reminded at a moment,
+    // so the toggle was misleading. Without item.time, no alarm UI at all.
+    const canToggleAlarm =
+      Boolean(item.time) && Boolean(item.reminderId || item.reminderConfig);
 
     const cardClasses = [
       "item-card",
