@@ -3973,7 +3973,10 @@ export default function NutritionModulePage() {
         </div>
       </div>
 
-      <div className="grid gap-6 2xl:grid-cols-[minmax(380px,0.76fr)_minmax(0,1.24fr)]">
+      {/* Was 2xl:grid-cols (kicked in only at 1536px+), so desktop in the
+          1024-1535 band stacked Meta ativa above NutritionTargetsEditor.
+          Drops to lg: so they sit side-by-side from 1024px upward. */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(360px,0.8fr)_minmax(0,1.2fr)]">
         <GlassPanel className="space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -4019,8 +4022,15 @@ export default function NutritionModulePage() {
             </div>
           ) : (
             <>
+              {/* Ajuste row: was a single 2xl-only 3-col grid that
+                  collapsed to a tall stack on every desktop width below
+                  1536. md: gives it a 3-col layout from 768 upward — input
+                  on the left, "Meta final" summary in the middle, button
+                  on the right; the input now has a saner natural width
+                  via the explicit 160px lane instead of stretching to
+                  full panel width. */}
               <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] p-4">
-                <div className="grid gap-3 2xl:grid-cols-[220px_minmax(0,1fr)_auto]">
+                <div className="grid gap-3 md:grid-cols-[160px_minmax(0,1fr)_auto] md:items-end">
                   <label className="space-y-2">
                     <span className="text-xs uppercase tracking-[0.18em] text-zinc-500">
                       Ajuste da meta
@@ -4035,27 +4045,32 @@ export default function NutritionModulePage() {
                       }
                       type="number"
                       step="1"
-                      className="w-full rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-4 py-3 text-white"
+                      className="w-full rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-3 py-2.5 text-white"
                     />
                   </label>
-                  <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-4 py-3">
+                  <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2.5">
                     <p className="text-sm text-zinc-300">
-                      Meta final: {caloriesTarget.toFixed(0)} kcal por dia
+                      Meta final: {caloriesTarget.toFixed(0)} kcal/dia
                     </p>
                     <p className="mt-1 text-xs text-zinc-500">
-                      Use negativo para déficit e positivo para superávit.
+                      Negativo = déficit. Positivo = superávit.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={applyGoalAdjustment}
-                    className="rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] px-4 py-3 text-sm font-medium text-[var(--accent)]"
+                    className="rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] px-4 py-2.5 text-sm font-medium text-[var(--accent)]"
                   >
                     Fixar ajuste
                   </button>
                 </div>
               </div>
-              <div className="grid gap-3 2xl:grid-cols-2">
+
+              {/* Goal cards: 2xl breakpoint moved to md so cards sit
+                  side-by-side on desktop. Recommendation chip lost
+                  shrink-0 + got max-w + leading-tight so long copy wraps
+                  inside the chip instead of pushing the card layout. */}
+              <div className="grid gap-3 md:grid-cols-2">
                 {(Object.entries(nutritionGoals) as Array<
                   [NutritionGoalId, (typeof nutritionGoals)[NutritionGoalId]]
                 >).map(([goalId, goal]) => (
@@ -4069,18 +4084,20 @@ export default function NutritionModulePage() {
                       });
                       actions.setNutritionGoal(goalId);
                     }}
-                    className={`rounded-sm border px-4 py-4 text-left ${
+                    className={`rounded-sm border px-4 py-3 text-left ${
                       state.nutritionGoal === goalId
                         ? "border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)]"
                         : "border-zinc-800 bg-[rgba(14,14,17,0.96)]"
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-medium text-white">{goal.name}</p>
-                        <p className="mt-2 text-sm text-zinc-500">{goal.description}</p>
+                        <p className="mt-1.5 text-sm leading-snug text-zinc-500">
+                          {goal.description}
+                        </p>
                       </div>
-                      <span className="shrink-0 rounded-sm bg-white/8 px-3 py-2 text-xs text-zinc-300">
+                      <span className="max-w-[120px] rounded-sm bg-white/8 px-2 py-1.5 text-[11px] leading-tight text-zinc-300">
                         {goal.recommendation}
                       </span>
                     </div>
