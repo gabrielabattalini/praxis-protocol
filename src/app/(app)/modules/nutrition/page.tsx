@@ -2204,10 +2204,7 @@ export default function NutritionModulePage() {
           <div className="mod-icon" style={{ width: 56, height: 56, borderRadius: 14, fontSize: 24 }}>🍽️</div>
           <div style={{ flex: 1, minWidth: 200 }}>
             <div className="praxis-label" style={{ color: "var(--accent)", marginBottom: 4 }}>▸ MÓDULO · NUTRIÇÃO</div>
-            <div className="praxis-title" style={{ fontSize: 26 }}>Registro da dieta</div>
-            <div style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 4 }}>
-              Biblioteca, metas e refeições no mesmo fluxo.
-            </div>
+            <div className="praxis-title" style={{ fontSize: 26 }}>Dieta</div>
           </div>
           <div className="mod-hero-side" style={{ display: "flex", gap: 16, alignItems: "center" }}>
             <div className="mod-hero-side-stat" style={{ textAlign: "right", borderLeft: "1px solid rgba(39,39,42,0.6)", paddingLeft: 16 }}>
