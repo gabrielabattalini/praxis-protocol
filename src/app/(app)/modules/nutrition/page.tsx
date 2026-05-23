@@ -40,24 +40,9 @@ import {
 
 type UsdaSearchStatus = "idle" | "loading" | "ready" | "error" | "missing";
 
-const nutritionReferenceCards = [
-  {
-    title: "Proteína",
-    detail: "Hipertrofia e atletas: 1,6 a 2,2 g/kg. Corte e definição: pode subir até 2,5 g/kg.",
-  },
-  {
-    title: "Carboidratos",
-    detail: "Leve: 3 a 5 g/kg. Moderado: 5 a 7 g/kg. Intenso: 7 a 10 g/kg. Picos: até 12 g/kg.",
-  },
-  {
-    title: "Gorduras",
-    detail: "Faixa prática: cerca de 0,5 a 1 g/kg. Ajuste conforme calorias totais e adesão.",
-  },
-  {
-    title: "Fibra e sódio",
-    detail: "Fibra: 10 g a cada 1000 kcal. Sódio: máximo recomendado de 3000 mg por dia.",
-  },
-];
+// Reference cards array deleted — its content (per-macro guidance like
+// "Hipertrofia e atletas: 1,6 a 2,2 g/kg") was inlined into the macro
+// strip below as the `note` field on each item.
 
 const weekdayOrder: Weekday[] = [
   "monday",
@@ -1065,7 +1050,7 @@ export default function NutritionModulePage() {
   const [editingDietPlanId, setEditingDietPlanId] = useState<string | null>(null);
   const [isGoalPanelCollapsed, setIsGoalPanelCollapsed] = useState(true);
   const [isTargetsPanelCollapsed, setIsTargetsPanelCollapsed] = useState(true);
-  const [isReferencesCollapsed, setIsReferencesCollapsed] = useState(true);
+  // isReferencesCollapsed state removed — the panel it controlled is gone.
   const [isDietLibraryCollapsed, setIsDietLibraryCollapsed] = useState(false);
   const [isCreateDietPanelOpen, setIsCreateDietPanelOpen] = useState(false);
   const [dietPlanEditDraft, setDietPlanEditDraft] = useState({
@@ -2104,6 +2089,17 @@ export default function NutritionModulePage() {
     carbsTarget,
   );
   const fatProgress = getNutritionProgressPercent(consumedDietTotals.fat, fatTarget);
+  // Fiber + sodium now also surfaced in the daily progress strip — the
+  // user reported fiber was missing entirely, and adding sodium next to
+  // it costs almost nothing once the math is in place.
+  const fiberProgress = getNutritionProgressPercent(
+    consumedDietTotals.fiber,
+    fiberTarget,
+  );
+  const sodiumProgress = getNutritionProgressPercent(
+    consumedDietTotals.sodium,
+    sodiumTarget,
+  );
   const waterProgress = waterTarget > 0 ? (todayWaterConsumed / waterTarget) * 100 : 0;
   const mealBlocksCount = mealPlan.length;
   const totalMealItemsCount = mealPlan.reduce(
@@ -2352,27 +2348,46 @@ export default function NutritionModulePage() {
                   style={{ width: `${Math.max(Math.min(calorieProgress, 100), 4)}%` }}
                 />
               </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {/* Macro tracking strip. Each card now includes the reference
+                  note ("Hipertrofia e atletas: 1,6 a 2,2 g/kg" etc) that
+                  used to live in a separate "Faixas para montar a dieta"
+                  panel — moving them in line saves a full panel of vertical
+                  space and keeps the guidance next to the actual number.
+                  Fiber + sodium are new additions; the user pointed out
+                  fiber wasn't being tracked anywhere. "Itens concluídos"
+                  retired to make room — the count is visible in the meal
+                  blocks below. */}
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                 {[
                   {
                     label: "Proteína",
                     value: `${consumedDietTotals.protein.toFixed(1)} / ${proteinTarget.toFixed(1)} g`,
                     percent: proteinProgress,
+                    note: "Hipertrofia e atletas: 1,6–2,2 g/kg. Corte: até 2,5 g/kg.",
                   },
                   {
                     label: "Carboidratos",
                     value: `${consumedDietTotals.carbs.toFixed(1)} / ${carbsTarget.toFixed(1)} g`,
                     percent: carbsProgress,
+                    note: "Leve 3–5 g/kg · Moderado 5–7 · Intenso 7–10 · Pico 12.",
                   },
                   {
                     label: "Gorduras",
                     value: `${consumedDietTotals.fat.toFixed(1)} / ${fatTarget.toFixed(1)} g`,
                     percent: fatProgress,
+                    note: "0,5–1 g/kg na prática. Ajuste pelas calorias totais.",
                   },
                   {
-                    label: "Itens concluídos",
-                    value: `${completedMealItemsCount} lançados`,
-                    percent: totalMealItemsCount > 0 ? (completedMealItemsCount / totalMealItemsCount) * 100 : 0,
+                    label: "Fibras",
+                    value: `${consumedDietTotals.fiber.toFixed(1)} / ${fiberTarget.toFixed(1)} g`,
+                    percent: fiberProgress,
+                    note: "10 g a cada 1000 kcal de referência.",
+                  },
+                  {
+                    label: "Sódio",
+                    value: `${consumedDietTotals.sodium.toFixed(0)} / ${sodiumTarget.toFixed(0)} mg`,
+                    percent: sodiumProgress,
+                    note: "Máximo recomendado: 3000 mg por dia.",
                   },
                 ].map((item) => (
                   <div
@@ -2388,6 +2403,9 @@ export default function NutritionModulePage() {
                       </span>
                     </div>
                     <p className="mt-2 text-sm font-medium text-white">{item.value}</p>
+                    <p className="mt-1.5 text-[11px] leading-snug text-zinc-500">
+                      {item.note}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -2431,57 +2449,9 @@ export default function NutritionModulePage() {
         </GlassPanel>
       </section>
 
-      <GlassPanel className="space-y-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm text-zinc-500">Referências rápidas</p>
-            <h2 className="mt-1 text-2xl font-semibold text-white">
-              Faixas para montar a dieta
-            </h2>
-            {!isReferencesCollapsed ? (
-              <p className="mt-2 text-sm text-zinc-500">
-                Deixe aberto só quando precisar consultar as faixas.
-              </p>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsReferencesCollapsed((current) => !current)}
-            className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2 text-xs text-zinc-300"
-          >
-            {isReferencesCollapsed ? (
-              <ChevronDown className="h-3.5 w-3.5" />
-            ) : (
-              <ChevronUp className="h-3.5 w-3.5" />
-            )}
-            {isReferencesCollapsed ? "Expandir" : "Ocultar"}
-          </button>
-        </div>
-        {isReferencesCollapsed ? (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {nutritionReferenceCards.map((card) => (
-              <div
-                key={card.title}
-                className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-4 py-3"
-              >
-                <p className="font-medium text-white">{card.title}</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {nutritionReferenceCards.map((card) => (
-              <div
-                key={card.title}
-                className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-4 py-4"
-              >
-                <p className="font-medium text-white">{card.title}</p>
-                <p className="mt-2 text-sm leading-6 text-zinc-500">{card.detail}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </GlassPanel>
+      {/* "Faixas para montar a dieta" panel removed — its content
+          (hipertrofia faixa, carboidratos por nível, etc) was inlined
+          beneath each macro card in the Progresso da meta strip above. */}
 
       <GlassPanel className="space-y-4">
         <div className="flex items-start justify-between gap-4">
