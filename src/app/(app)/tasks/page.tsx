@@ -778,33 +778,40 @@ export default function TasksPage() {
               textAlign: "center",
             }}
           >
-            <span
-              style={{
-                fontFamily: "var(--font-mono), monospace",
-                fontSize: 10,
-                letterSpacing: "0.22em",
-                textTransform: "uppercase",
-                color: "var(--fg-3)",
-              }}
-            >
-              {/* "Fluxo" caption for untimed tasks removed — looked like
-                  filler text. When there's no time we hide the label and
-                  show "—" below instead of "--:--". */}
-              {item.time ? "Horário" : ""}
-            </span>
-            <div
-              style={{
-                fontFamily: "var(--font-space-grotesk), sans-serif",
-                fontSize: 28,
-                fontWeight: 600,
-                lineHeight: 1,
-                letterSpacing: "-0.02em",
-                color: isCompleted ? "#a1a1aa" : "var(--fg)",
-                fontVariantNumeric: "tabular-nums",
-              }}
-            >
-              {item.time || "—"}
-            </div>
+            {/* Time block only renders when the item actually has a time.
+                Untimed items (Hidratação etc) used to show "—" as a
+                placeholder — that read as a stray dash rather than
+                meaningful info, so we now render nothing at all. The
+                empty parent div keeps the grid column in place on
+                desktop without producing any visible glyph. */}
+            {item.time ? (
+              <>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono), monospace",
+                    fontSize: 10,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color: "var(--fg-3)",
+                  }}
+                >
+                  Horário
+                </span>
+                <div
+                  style={{
+                    fontFamily: "var(--font-space-grotesk), sans-serif",
+                    fontSize: 28,
+                    fontWeight: 600,
+                    lineHeight: 1,
+                    letterSpacing: "-0.02em",
+                    color: isCompleted ? "#a1a1aa" : "var(--fg)",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {item.time}
+                </div>
+              </>
+            ) : null}
           </div>
 
           {/* Body */}
