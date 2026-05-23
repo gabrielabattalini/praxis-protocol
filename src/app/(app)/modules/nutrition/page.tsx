@@ -1211,14 +1211,22 @@ export default function NutritionModulePage() {
       ),
     emptyMacros(),
   );
-  const completedMealItemsCount = mealPlan.reduce(
-    (count, block) =>
-      count +
-      block.items.filter(
-        (item) => item.completed && item.completedAt?.slice(0, 10) === todayKey,
-      ).length,
-    0,
+  // Planned totals sum every item in the active meal plan, regardless of
+  // completion state. The "Leitura detalhada da meta" panel uses these so
+  // freshly added foods show up in the macro readout immediately — user
+  // feedback was that items added to refeições weren't reflecting there
+  // because the panel was only counting completed items.
+  const plannedDietTotals = mealPlan.reduce(
+    (total, block) =>
+      block.items.reduce(
+        (blockTotal, item) => addMacros(blockTotal, item.macros),
+        total,
+      ),
+    emptyMacros(),
   );
+  // completedMealItemsCount removed — its only consumer (the "X itens
+  // concluídos" badge on the Leitura detalhada panel header) was deleted
+  // along with that header.
   // linkedShoppingItemsByBlock removed — its only consumer (the per-block
   // "Itens vinculados de mercado e suplementos" panel) was deleted at the
   // user's request. Helper function buildLinkedShoppingItemsByBlock stays
@@ -1382,10 +1390,15 @@ export default function NutritionModulePage() {
     },
     {},
   );
+  // dietComparisonItems uses plannedDietTotals (sum of every item in the
+  // meal plan, regardless of completion) so adding food/recipes is
+  // reflected here as soon as it lands. consumedDietTotals is still used
+  // by the hero KPI strip + percent-of-day calculation where "what you
+  // actually ate today" is the right metric.
   const dietComparisonItems = [
     {
       label: "Proteína",
-      current: consumedDietTotals.protein,
+      current: plannedDietTotals.protein,
       target: proteinTarget,
       unit: "g",
       decimals: 1,
@@ -1393,7 +1406,7 @@ export default function NutritionModulePage() {
     },
     {
       label: "Carboidratos",
-      current: consumedDietTotals.carbs,
+      current: plannedDietTotals.carbs,
       target: carbsTarget,
       unit: "g",
       decimals: 1,
@@ -1401,7 +1414,7 @@ export default function NutritionModulePage() {
     },
     {
       label: "Gorduras",
-      current: consumedDietTotals.fat,
+      current: plannedDietTotals.fat,
       target: fatTarget,
       unit: "g",
       decimals: 1,
@@ -1409,7 +1422,7 @@ export default function NutritionModulePage() {
     },
     {
       label: "Fibras",
-      current: consumedDietTotals.fiber,
+      current: plannedDietTotals.fiber,
       target: fiberTarget,
       unit: "g",
       decimals: 1,
@@ -1417,7 +1430,7 @@ export default function NutritionModulePage() {
     },
     {
       label: "Sódio",
-      current: consumedDietTotals.sodium,
+      current: plannedDietTotals.sodium,
       target: sodiumTarget,
       unit: "mg",
       decimals: 0,
@@ -1425,7 +1438,7 @@ export default function NutritionModulePage() {
     },
     {
       label: "Calorias",
-      current: consumedDietTotals.calories,
+      current: plannedDietTotals.calories,
       target: caloriesTarget,
       unit: "kcal",
       decimals: 0,
@@ -2603,22 +2616,9 @@ export default function NutritionModulePage() {
           per-card expand). Hydration kept above as a thin strip. */}
 
       <GlassPanel className="space-y-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm text-zinc-500">Consumo do dia</p>
-            <h2 className="mt-1 text-2xl font-semibold text-white">
-              Leitura detalhada da meta
-            </h2>
-          </div>
-          <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2 text-xs text-zinc-300">
-            {completedMealItemsCount} itens concluídos
-          </div>
-        </div>
-
-        {/* Per-card "Faixa" expand buttons removed — the macro reference
-            notes (Hipertrofia 1,6-2,2 g/kg etc) moved into a dedicated
-            "Faixas de referência" section inside the unified Meta ativa
-            · Referência diária panel at the bottom of the page. */}
+        {/* Header removed — was "Consumo do dia / Leitura detalhada da
+            meta" + a "X itens concluídos" pill. The macro grid below
+            speaks for itself; the user asked for no preamble here. */}
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {dietComparisonItems.map((item) => {
             const progress =
