@@ -1090,6 +1090,12 @@ export default function NutritionModulePage() {
   // available — see the effect below if we ever need to reset on switch).
   const [isCreateDietPanelOpen, setIsCreateDietPanelOpen] = useState(false);
   const [newDietGoal, setNewDietGoal] = useState<NutritionGoalId>("maintain");
+  // Inline rename for the active diet — pencil button on the header
+  // swaps the name h2 for an editable input. Keeping it local (vs the
+  // existing dietPlanEditDraft used by the deeper edit form) so the
+  // shortcut stays light: name only, no startDate / endDate / notes.
+  const [isRenamingActiveDiet, setIsRenamingActiveDiet] = useState(false);
+  const [activeDietRenameDraft, setActiveDietRenameDraft] = useState("");
   const [dietPlanEditDraft, setDietPlanEditDraft] = useState({
     name: "",
     startDate: "",
@@ -1777,6 +1783,34 @@ export default function NutritionModulePage() {
     setIsCreateDietPanelOpen(false);
   }
 
+  function startRenamingActiveDiet() {
+    if (!activeDietPlan) return;
+    setActiveDietRenameDraft(activeDietPlan.name);
+    setIsRenamingActiveDiet(true);
+  }
+
+  function commitActiveDietRename() {
+    if (!activeDietPlan) {
+      setIsRenamingActiveDiet(false);
+      return;
+    }
+    const trimmed = activeDietRenameDraft.trim();
+    if (!trimmed || trimmed === activeDietPlan.name) {
+      setIsRenamingActiveDiet(false);
+      return;
+    }
+    actions.updateDietPlan({
+      planId: activeDietPlan.id,
+      patch: { name: trimmed },
+    });
+    setIsRenamingActiveDiet(false);
+  }
+
+  function cancelActiveDietRename() {
+    setIsRenamingActiveDiet(false);
+    setActiveDietRenameDraft("");
+  }
+
   function updateMealItemDraft(
     blockId: string,
     patch: Partial<{
@@ -2264,9 +2298,66 @@ export default function NutritionModulePage() {
             <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--accent)]">
               Dieta em edição
             </p>
-            <h2 className="mt-1 text-xl font-semibold text-white">
-              {activeDietPlan?.name ?? "Sem dieta criada"}
-            </h2>
+            {/* Inline rename: pencil button next to the name swaps the h2
+                for an input. Enter / blur saves via updateDietPlan; Esc
+                cancels. Pencil is hidden when no diet is active because
+                there's nothing to rename yet. */}
+            {isRenamingActiveDiet && activeDietPlan ? (
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  value={activeDietRenameDraft}
+                  onChange={(event) => setActiveDietRenameDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitActiveDietRename();
+                    } else if (event.key === "Escape") {
+                      event.preventDefault();
+                      cancelActiveDietRename();
+                    }
+                  }}
+                  onBlur={commitActiveDietRename}
+                  autoFocus
+                  className="min-w-0 flex-1 rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-3 py-1.5 text-lg font-semibold text-white"
+                  aria-label="Nome da dieta"
+                />
+                <button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={commitActiveDietRename}
+                  className="inline-flex items-center justify-center rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] px-2.5 py-1.5 text-[var(--accent)]"
+                  aria-label="Salvar novo nome"
+                >
+                  <Check className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={cancelActiveDietRename}
+                  className="inline-flex items-center justify-center rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-2.5 py-1.5 text-zinc-400"
+                  aria-label="Cancelar edição do nome"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="mt-1 flex items-center gap-2">
+                <h2 className="text-xl font-semibold text-white">
+                  {activeDietPlan?.name ?? "Sem dieta criada"}
+                </h2>
+                {activeDietPlan ? (
+                  <button
+                    type="button"
+                    onClick={startRenamingActiveDiet}
+                    className="inline-flex items-center justify-center rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-2 py-1 text-zinc-400 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"
+                    aria-label="Renomear dieta ativa"
+                    title="Renomear dieta"
+                  >
+                    <PencilLine className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
+              </div>
+            )}
             <p className="mt-1 text-sm text-zinc-500">
               Objetivo:{" "}
               {nutritionGoals[
