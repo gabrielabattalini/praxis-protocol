@@ -101,6 +101,17 @@ type AppStoreValue = {
   entitlement: AccountEntitlement;
   actions: {
     toggleTask: (taskId: string) => void;
+    /**
+     * Toggle completion for a specific date (YYYY-MM-DD). Used to
+     * retroactively mark past days complete without trampling the
+     * task's primary completedAt slot. The Tasks page routes the
+     * button to this when the user has scrolled the calendar to any
+     * day other than today.
+     */
+    toggleTaskCompletionForDate: (payload: {
+      taskId: string;
+      dateKey: string;
+    }) => void;
     addTask: (task: {
       title: string;
       description: string;
@@ -457,6 +468,10 @@ type Action =
   | { type: "hydrate"; payload: PersistedState; allowSeed?: boolean }
   | { type: "sync-session"; session: PersistedState["session"] }
   | { type: "toggle-task"; taskId: string }
+  | {
+      type: "toggle-task-completion-for-date";
+      payload: { taskId: string; dateKey: string };
+    }
   | { type: "sync-daily-task-completions" }
   | { type: "add-task"; task: Task }
   | {
@@ -1046,6 +1061,23 @@ function reducer(state: PersistedState, action: Action): PersistedState {
               })()
             : task,
         ),
+      };
+    case "toggle-task-completion-for-date":
+      return {
+        ...state,
+        tasks: state.tasks.map((task) => {
+          if (task.id !== action.payload.taskId) return task;
+          const { dateKey } = action.payload;
+          const currentList = task.completedDates ?? [];
+          const alreadyComplete = currentList.includes(dateKey);
+          const nextList = alreadyComplete
+            ? currentList.filter((entry) => entry !== dateKey)
+            : [...currentList, dateKey];
+          return {
+            ...task,
+            completedDates: nextList,
+          };
+        }),
       };
     case "sync-daily-task-completions":
       return {
@@ -4878,6 +4910,9 @@ export function AppStoreProvider({
     actions: {
       toggleTask(taskId) {
         dispatch({ type: "toggle-task", taskId });
+      },
+      toggleTaskCompletionForDate(payload) {
+        dispatch({ type: "toggle-task-completion-for-date", payload });
       },
       addTask(task) {
         const difficulty = normalizeTaskDifficulty(task.difficulty);

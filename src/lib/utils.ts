@@ -451,6 +451,22 @@ export function isTaskCompletedForDate(
   task: Task,
   referenceDate = new Date(),
 ) {
+  // Per-date completion array takes precedence — it's the source of
+  // truth once the user starts marking past days. Empty array (length
+  // 0) is still treated as "no per-date data yet" so legacy tasks
+  // toggled before this field existed keep their original completedAt
+  // behavior.
+  if (task.completedDates && task.completedDates.length > 0) {
+    const dateKey = formatDateKey(referenceDate);
+    if (task.completedDates.includes(dateKey)) return true;
+    // For one-time tasks, the array is authoritative — if today isn't
+    // in the list, the task isn't done. For recurring tasks we fall
+    // through to the legacy completedAt check so completing today via
+    // the old toggleTask flow still registers without requiring the
+    // user to re-click after migration.
+    if (task.recurrence.kind === "one-time") return false;
+  }
+
   if (!task.completed) return false;
   if (!task.completedAt) return task.completed;
 

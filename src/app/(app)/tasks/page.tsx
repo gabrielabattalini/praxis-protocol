@@ -706,7 +706,12 @@ export default function TasksPage() {
     const hasDetails =
       item.kind !== "workout" && Boolean(item.detailItems?.length);
     const isCompleted = item.completed;
-    const canUpdateSelectedDate = isSelectedDateToday;
+    // Today + past dates can be toggled. Future dates stay read-only — you
+    // can't pre-complete something that hasn't happened. Past-date toggles
+    // route through toggleTaskCompletionForDate so today's primary
+    // completedAt slot is untouched and we build per-date history instead.
+    const canUpdateSelectedDate =
+      isSelectedDateToday || selectedDateKey < todayKey;
     const detailBlockId = item.detailItems?.[0]?.blockId;
     const canToggleAllDetails =
       item.kind === "nutrition" &&
@@ -944,7 +949,21 @@ export default function TasksPage() {
                 {canUpdateSelectedDate ? (
                   <button
                     type="button"
-                    onClick={() => actions.toggleTask(item.manualTaskId!)}
+                    onClick={() => {
+                      // Today routes to the existing toggleTask so all the
+                      // existing today-aware logic (deferUntilDate clearing,
+                      // recurring-task completedAt timestamp) keeps working.
+                      // Past dates go through the per-date history toggle so
+                      // they don't clobber today's state.
+                      if (isSelectedDateToday) {
+                        actions.toggleTask(item.manualTaskId!);
+                      } else {
+                        actions.toggleTaskCompletionForDate({
+                          taskId: item.manualTaskId!,
+                          dateKey: selectedDateKey,
+                        });
+                      }
+                    }}
                     className={`v2-btn v2-btn-sm ${
                       item.completed ? "" : "v2-btn-ok"
                     }`}

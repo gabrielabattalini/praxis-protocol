@@ -203,6 +203,11 @@ export interface Task {
   recurrence: TaskRecurrence;
   progressLabel?: string;
   completedAt?: string;
+  // Per-date completion history (YYYY-MM-DD keys). Lets the user
+  // retroactively mark past days complete without trampling today's
+  // completedAt slot. isTaskCompletedForDate consults this first; older
+  // tasks without the array fall back to the legacy completedAt logic.
+  completedDates?: string[];
 }
 
 export interface LifeAreaAssessment {
