@@ -254,6 +254,17 @@ type AppStoreValue = {
       endDate?: string;
       notes?: string;
     }) => void;
+    /**
+     * Create an EMPTY diet plan with the given name + goal and make it
+     * active immediately. The user flow is name + objective first, then
+     * the meal blocks are built inside the now-active plan. Unlike
+     * saveCurrentDietPlan, this does not snapshot the existing mealPlan
+     * — it intentionally starts from zero so the user has a clean slate.
+     */
+    createBlankDietPlan: (payload: {
+      name: string;
+      nutritionGoal: NutritionGoalId;
+    }) => void;
     duplicateDietPlan: (planId: string) => void;
     updateDietPlan: (payload: {
       planId: string;
@@ -673,6 +684,10 @@ type Action =
         endDate?: string;
         notes?: string;
       };
+    }
+  | {
+      type: "create-blank-diet-plan";
+      payload: { name: string; nutritionGoal: NutritionGoalId };
     }
   | {
       type: "update-diet-plan";
@@ -1745,6 +1760,33 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         ...state,
         dietPlans: [nextPlan, ...state.dietPlans],
         activeDietPlanId: planId,
+      };
+    }
+    case "create-blank-diet-plan": {
+      // User wants name + objective first, then build structure inside
+      // the now-active blank plan. Snapshots the current macro/target
+      // settings (so the new plan inherits the user's existing per-kg
+      // metrics) but starts with an empty mealPlan + empty foodSubs.
+      const planId = makeId("diet");
+      const nextPlan: SavedDietPlan = {
+        id: planId,
+        name: action.payload.name,
+        createdAt: new Date().toISOString(),
+        mealPlan: [],
+        nutritionGoal: action.payload.nutritionGoal,
+        nutritionTargets: state.dailyNutritionTargets,
+        dayTypes: state.dietDayTypes,
+        workoutLinkSettings: state.dietWorkoutLink,
+        foodSubstitutions: [],
+      };
+
+      return {
+        ...state,
+        dietPlans: [nextPlan, ...state.dietPlans],
+        activeDietPlanId: planId,
+        mealPlan: [],
+        nutritionGoal: action.payload.nutritionGoal,
+        foodSubstitutions: [],
       };
     }
     case "update-diet-plan":
@@ -5063,6 +5105,9 @@ export function AppStoreProvider({
       },
       saveCurrentDietPlan(payload) {
         dispatch({ type: "save-current-diet-plan", payload });
+      },
+      createBlankDietPlan(payload) {
+        dispatch({ type: "create-blank-diet-plan", payload });
       },
       duplicateDietPlan(planId) {
         dispatch({ type: "duplicate-diet-plan", planId });

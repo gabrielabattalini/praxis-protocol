@@ -1084,7 +1084,12 @@ export default function NutritionModulePage() {
   // Leitura detalhada (expandedMacroNote state). Moved into a static
   // section inside the unified Meta ativa panel, so the state is gone too.
   const [isDietLibraryCollapsed, setIsDietLibraryCollapsed] = useState(false);
+  // isCreateDietPanelOpen is reused for the new top-of-page "Nova dieta"
+  // inline form. newDietGoal stores the goal preset the user picks for
+  // the brand-new plan (initialized lazily once state.nutritionGoal is
+  // available — see the effect below if we ever need to reset on switch).
   const [isCreateDietPanelOpen, setIsCreateDietPanelOpen] = useState(false);
+  const [newDietGoal, setNewDietGoal] = useState<NutritionGoalId>("maintain");
   const [dietPlanEditDraft, setDietPlanEditDraft] = useState({
     name: "",
     startDate: "",
@@ -1756,6 +1761,22 @@ export default function NutritionModulePage() {
     setDietNotes("");
   }
 
+  // Creates a brand-new EMPTY diet plan with name + objective and makes
+  // it active immediately. The follow-up steps (Estrutura do dia, add
+  // food/recipe) all operate against the active plan, so this is the
+  // entry point of the creation flow.
+  function createNewDietPlan() {
+    const trimmedName = dietName.trim();
+    if (!trimmedName) return;
+    actions.createBlankDietPlan({
+      name: trimmedName,
+      nutritionGoal: newDietGoal,
+    });
+    setDietName("");
+    setNewDietGoal("maintain");
+    setIsCreateDietPanelOpen(false);
+  }
+
   function updateMealItemDraft(
     blockId: string,
     patch: Partial<{
@@ -2227,6 +2248,115 @@ export default function NutritionModulePage() {
           </div>
         </div>
       </div>
+
+      {/* Dieta em edição — sits at the top of the page so the user
+          always knows which plan the structure + food-add actions
+          below will target. Provides three primitives:
+            1. read the active diet's name + objective at a glance
+            2. switch active diet (select)
+            3. create a brand-new EMPTY diet (name + objective form
+               toggled via the "Nova dieta" chip)
+          Building the structure (meal blocks) and adding food/recipes
+          all happen in the panels below, against the active plan. */}
+      <GlassPanel className="space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--accent)]">
+              Dieta em edição
+            </p>
+            <h2 className="mt-1 text-xl font-semibold text-white">
+              {activeDietPlan?.name ?? "Sem dieta criada"}
+            </h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              Objetivo:{" "}
+              {nutritionGoals[
+                (activeDietPlan?.nutritionGoal ?? state.nutritionGoal) as NutritionGoalId
+              ]?.name ?? "Manutenção"}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {dietPlans.length > 0 ? (
+              <select
+                value={state.activeDietPlanId ?? ""}
+                onChange={(event) => actions.activateDietPlan(event.target.value)}
+                className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2 text-sm text-white"
+                aria-label="Trocar dieta ativa"
+              >
+                {dietPlans.map((plan) => (
+                  <option key={plan.id} value={plan.id}>
+                    {plan.name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setIsCreateDietPanelOpen((current) => !current)}
+              className="inline-flex items-center gap-1.5 rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] px-3 py-2 text-sm font-medium text-[var(--accent)]"
+            >
+              {isCreateDietPanelOpen ? (
+                <X className="h-4 w-4" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              {isCreateDietPanelOpen ? "Fechar" : "Nova dieta"}
+            </button>
+          </div>
+        </div>
+
+        {isCreateDietPanelOpen ? (
+          <div className="rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.72)] p-4 space-y-3">
+            <p className="text-xs text-zinc-500">
+              Comece pela identidade da dieta — depois você adiciona refeições e
+              alimentos pelas seções abaixo.
+            </p>
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="space-y-1">
+                <span className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  Nome da dieta
+                </span>
+                <input
+                  value={dietName}
+                  onChange={(event) => setDietName(event.target.value)}
+                  placeholder="Ex.: Cutting Q1 2026"
+                  className="w-full rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-3 py-2.5 text-white placeholder:text-zinc-500"
+                  autoFocus
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  Objetivo
+                </span>
+                <select
+                  value={newDietGoal}
+                  onChange={(event) =>
+                    setNewDietGoal(event.target.value as NutritionGoalId)
+                  }
+                  className="w-full rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-3 py-2.5 text-white"
+                >
+                  {(
+                    Object.entries(nutritionGoals) as Array<
+                      [NutritionGoalId, (typeof nutritionGoals)[NutritionGoalId]]
+                    >
+                  ).map(([goalId, goal]) => (
+                    <option key={goalId} value={goalId}>
+                      {goal.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={createNewDietPlan}
+              disabled={!dietName.trim()}
+              className="w-full rounded-sm bg-[linear-gradient(135deg,var(--accent)_0%,var(--accent-2)_100%)] px-4 py-3 font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Criar dieta e ativar
+            </button>
+          </div>
+        ) : null}
+      </GlassPanel>
 
       {/* Plano semanal — compact vertical list of weekdays mapping to a
           diet plan each. Pinned right after the module hero per user
