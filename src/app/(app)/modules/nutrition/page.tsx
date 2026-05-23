@@ -40,9 +40,17 @@ import {
 
 type UsdaSearchStatus = "idle" | "loading" | "ready" | "error" | "missing";
 
-// Reference cards array deleted — its content (per-macro guidance like
-// "Hipertrofia e atletas: 1,6 a 2,2 g/kg") was inlined into the macro
-// strip below as the `note` field on each item.
+// Per-macro guidance notes shown when the user expands a card in the
+// "Leitura detalhada da meta" panel. The keys match the labels used in
+// dietComparisonItems so the lookup is a plain string match.
+const nutritionMacroNotes: Record<string, string> = {
+  "Proteína": "Hipertrofia e atletas: 1,6 a 2,2 g/kg. Corte e definição: pode subir até 2,5 g/kg.",
+  "Carboidratos": "Leve: 3 a 5 g/kg. Moderado: 5 a 7 g/kg. Intenso: 7 a 10 g/kg. Picos: até 12 g/kg.",
+  "Gorduras": "Faixa prática: cerca de 0,5 a 1 g/kg. Ajuste conforme calorias totais e adesão.",
+  "Fibras": "Referência: 10 g a cada 1000 kcal consumidas. Boa fonte: vegetais, leguminosas e grãos integrais.",
+  "Sódio": "Máximo recomendado: 3000 mg por dia. Reduza alimentos ultraprocessados e tempere com ervas.",
+  "Calorias": "Resultado do BMR ajustado pelo nível de atividade e pelo ajuste de fase (déficit ou superávit).",
+};
 
 const weekdayOrder: Weekday[] = [
   "monday",
@@ -1051,6 +1059,9 @@ export default function NutritionModulePage() {
   const [isGoalPanelCollapsed, setIsGoalPanelCollapsed] = useState(true);
   const [isTargetsPanelCollapsed, setIsTargetsPanelCollapsed] = useState(true);
   // isReferencesCollapsed state removed — the panel it controlled is gone.
+  // Macro reference notes now expand inline per-card in Leitura detalhada;
+  // track which macro is open so only one note is visible at a time.
+  const [expandedMacroNote, setExpandedMacroNote] = useState<string | null>(null);
   const [isDietLibraryCollapsed, setIsDietLibraryCollapsed] = useState(false);
   const [isCreateDietPanelOpen, setIsCreateDietPanelOpen] = useState(false);
   const [dietPlanEditDraft, setDietPlanEditDraft] = useState({
@@ -2080,26 +2091,9 @@ export default function NutritionModulePage() {
     consumedDietTotals.calories,
     caloriesTarget,
   );
-  const proteinProgress = getNutritionProgressPercent(
-    consumedDietTotals.protein,
-    proteinTarget,
-  );
-  const carbsProgress = getNutritionProgressPercent(
-    consumedDietTotals.carbs,
-    carbsTarget,
-  );
-  const fatProgress = getNutritionProgressPercent(consumedDietTotals.fat, fatTarget);
-  // Fiber + sodium now also surfaced in the daily progress strip — the
-  // user reported fiber was missing entirely, and adding sodium next to
-  // it costs almost nothing once the math is in place.
-  const fiberProgress = getNutritionProgressPercent(
-    consumedDietTotals.fiber,
-    fiberTarget,
-  );
-  const sodiumProgress = getNutritionProgressPercent(
-    consumedDietTotals.sodium,
-    sodiumTarget,
-  );
+  // Per-macro progress vars (proteinProgress / carbsProgress / etc) were
+  // removed alongside the deleted "Progresso da meta" panel. The Leitura
+  // detalhada cards compute their own percent from current/target inline.
   const waterProgress = waterTarget > 0 ? (todayWaterConsumed / waterTarget) * 100 : 0;
   const mealBlocksCount = mealPlan.length;
   const totalMealItemsCount = mealPlan.reduce(
@@ -2328,130 +2322,42 @@ export default function NutritionModulePage() {
           </div>
         </div>
 
-        <GlassPanel className="space-y-4">
-          <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-sm border border-zinc-800 bg-surface-container-low px-4 py-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm text-zinc-500">Consumo do dia</p>
-                  <h3 className="mt-1 text-xl font-semibold text-white">
-                    Progresso da meta
-                  </h3>
-                </div>
-                <span className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2 text-xs text-zinc-300">
-                  {Math.round(calorieProgress)}%
-                </span>
-              </div>
-              <div className="mt-4 h-2 rounded-sm bg-slate-900/80">
-                <div
-                  className="h-full rounded-sm bg-[linear-gradient(135deg,var(--accent)_0%,var(--accent-2)_100%)]"
-                  style={{ width: `${Math.max(Math.min(calorieProgress, 100), 4)}%` }}
-                />
-              </div>
-              {/* Macro tracking strip. Each card now includes the reference
-                  note ("Hipertrofia e atletas: 1,6 a 2,2 g/kg" etc) that
-                  used to live in a separate "Faixas para montar a dieta"
-                  panel — moving them in line saves a full panel of vertical
-                  space and keeps the guidance next to the actual number.
-                  Fiber + sodium are new additions; the user pointed out
-                  fiber wasn't being tracked anywhere. "Itens concluídos"
-                  retired to make room — the count is visible in the meal
-                  blocks below. */}
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                {[
-                  {
-                    label: "Proteína",
-                    value: `${consumedDietTotals.protein.toFixed(1)} / ${proteinTarget.toFixed(1)} g`,
-                    percent: proteinProgress,
-                    note: "Hipertrofia e atletas: 1,6–2,2 g/kg. Corte: até 2,5 g/kg.",
-                  },
-                  {
-                    label: "Carboidratos",
-                    value: `${consumedDietTotals.carbs.toFixed(1)} / ${carbsTarget.toFixed(1)} g`,
-                    percent: carbsProgress,
-                    note: "Leve 3–5 g/kg · Moderado 5–7 · Intenso 7–10 · Pico 12.",
-                  },
-                  {
-                    label: "Gorduras",
-                    value: `${consumedDietTotals.fat.toFixed(1)} / ${fatTarget.toFixed(1)} g`,
-                    percent: fatProgress,
-                    note: "0,5–1 g/kg na prática. Ajuste pelas calorias totais.",
-                  },
-                  {
-                    label: "Fibras",
-                    value: `${consumedDietTotals.fiber.toFixed(1)} / ${fiberTarget.toFixed(1)} g`,
-                    percent: fiberProgress,
-                    note: "10 g a cada 1000 kcal de referência.",
-                  },
-                  {
-                    label: "Sódio",
-                    value: `${consumedDietTotals.sodium.toFixed(0)} / ${sodiumTarget.toFixed(0)} mg`,
-                    percent: sodiumProgress,
-                    note: "Máximo recomendado: 3000 mg por dia.",
-                  },
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    className="rounded-sm border border-zinc-800 bg-[rgba(10,10,12,0.72)] px-3 py-3"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
-                        {item.label}
-                      </p>
-                      <span className="text-[11px] text-zinc-400">
-                        {Math.round(Math.min(item.percent, 100))}%
-                      </span>
-                    </div>
-                    <p className="mt-2 text-sm font-medium text-white">{item.value}</p>
-                    <p className="mt-1.5 text-[11px] leading-snug text-zinc-500">
-                      {item.note}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-sm border border-zinc-800 bg-surface-container-low px-4 py-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm text-zinc-500">Hidratação</p>
-                  <h3 className="mt-1 text-xl font-semibold text-white">
-                    Registro rápido
-                  </h3>
-                </div>
-                <span className="rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.08)] px-3 py-2 text-xs text-[var(--accent)]">
-                  {Math.round(Math.min(waterProgress, 100))}%
-                </span>
-              </div>
-              <div className="mt-4 h-2 rounded-sm bg-slate-900/80">
-                <div
-                  className="h-full rounded-sm bg-[linear-gradient(135deg,var(--accent)_0%,var(--accent-2)_100%)]"
-                  style={{ width: `${Math.max(Math.min(waterProgress, 100), 4)}%` }}
-                />
-              </div>
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                {waterQuickActions.map((amount) => (
-                  <button
-                    key={amount}
-                    type="button"
-                    onClick={() => addWater(amount)}
-                    className="rounded-sm border border-zinc-800 bg-[rgba(18,18,20,0.96)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-zinc-200 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"
-                  >
-                    +{formatPoints(amount)} ml
-                  </button>
-                ))}
-              </div>
-              <p className="mt-3 text-[11px] text-zinc-500">
-                1 copo foi tratado como 200 ml para facilitar o registro rápido.
-              </p>
-            </div>
+        {/* Thin hydration strip — replaces the entire "Progresso da meta"
+            GlassPanel. Macro tracking + notes moved into the "Leitura
+            detalhada da meta" cards further down (one expand button per
+            macro). Hydration stays here as a single thin row because the
+            "+200ml" quick-add is the most-used action. */}
+        <div className="flex flex-wrap items-center gap-3 rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
+              Hidratação
+            </span>
+            <span className="text-sm font-medium text-white">
+              {formatPoints(Math.round(todayWaterConsumed))} /{" "}
+              {formatPoints(waterTarget)} ml
+            </span>
+            <span className="rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.08)] px-1.5 py-0.5 text-[10px] text-[var(--accent)]">
+              {Math.round(Math.min(waterProgress, 100))}%
+            </span>
           </div>
-        </GlassPanel>
+          <div className="ml-auto flex flex-wrap items-center gap-1.5">
+            {waterQuickActions.map((amount) => (
+              <button
+                key={amount}
+                type="button"
+                onClick={() => addWater(amount)}
+                className="rounded-sm border border-zinc-800 bg-[rgba(18,18,20,0.96)] px-2 py-1 text-[11px] font-medium text-zinc-200 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"
+              >
+                +{formatPoints(amount)} ml
+              </button>
+            ))}
+          </div>
+        </div>
       </section>
 
-      {/* "Faixas para montar a dieta" panel removed — its content
-          (hipertrofia faixa, carboidratos por nível, etc) was inlined
-          beneath each macro card in the Progresso da meta strip above. */}
+      {/* "Faixas para montar a dieta" + "Progresso da meta" panels were
+          removed — macro notes moved inline into Leitura detalhada (with
+          per-card expand). Hydration kept above as a thin strip. */}
 
       <GlassPanel className="space-y-4">
         <div className="flex items-start justify-between gap-4">
@@ -2472,6 +2378,12 @@ export default function NutritionModulePage() {
               item.mode === "limit"
                 ? getNutritionProgressPercent(item.current, item.target, "limit") / 100
                 : getNutritionProgressPercent(item.current, item.target) / 100;
+            // Each macro has an expandable guidance note (the old "Faixas
+            // para montar a dieta" content). Per-card toggle uses a single
+            // shared expandedMacroNote slot — opening one closes the
+            // previous, keeping the panel tidy.
+            const note = nutritionMacroNotes[item.label];
+            const isNoteOpen = expandedMacroNote === item.label;
 
             return (
               <div
@@ -2493,9 +2405,36 @@ export default function NutritionModulePage() {
                     style={{ width: `${Math.max(progress * 100, 4)}%` }}
                   />
                 </div>
-                <p className="mt-2 text-sm text-zinc-500">
-                  {Math.round(progress * 100)}% da meta
-                </p>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <p className="text-sm text-zinc-500">
+                    {Math.round(progress * 100)}% da meta
+                  </p>
+                  {note ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedMacroNote((current) =>
+                          current === item.label ? null : item.label,
+                        )
+                      }
+                      className="inline-flex items-center gap-1 rounded-sm border border-zinc-800 bg-[rgba(10,10,12,0.72)] px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-zinc-400 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"
+                      aria-expanded={isNoteOpen}
+                      aria-label={`${isNoteOpen ? "Ocultar" : "Ver"} faixa de referência de ${item.label}`}
+                    >
+                      {isNoteOpen ? (
+                        <ChevronUp className="h-3 w-3" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3" />
+                      )}
+                      Faixa
+                    </button>
+                  ) : null}
+                </div>
+                {note && isNoteOpen ? (
+                  <p className="mt-2 rounded-sm border border-zinc-800 bg-[rgba(10,10,12,0.72)] px-3 py-2 text-[12px] leading-snug text-zinc-400">
+                    {note}
+                  </p>
+                ) : null}
               </div>
             );
           })}
