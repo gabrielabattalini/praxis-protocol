@@ -1219,10 +1219,10 @@ export default function NutritionModulePage() {
       ).length,
     0,
   );
-  const linkedShoppingItemsByBlock = buildLinkedShoppingItemsByBlock(
-    (state.shoppingModules.market?.items ?? []) as ShoppingItemWithMealBlocks[],
-    (state.shoppingModules.supplements?.items ?? []) as ShoppingItemWithMealBlocks[],
-  );
+  // linkedShoppingItemsByBlock removed — its only consumer (the per-block
+  // "Itens vinculados de mercado e suplementos" panel) was deleted at the
+  // user's request. Helper function buildLinkedShoppingItemsByBlock stays
+  // defined for now in case we wire this surface back in later.
 
   useEffect(() => {
     if (!mealSearchBlockId || deferredMealLookup.length < 2) return;
@@ -2905,7 +2905,8 @@ export default function NutritionModulePage() {
                   const isEditingMealBlock = editingMealBlockId === block.id;
                   const mealItemsLabel =
                     block.items.length === 1 ? "1 item" : `${block.items.length} itens`;
-                  const linkedShoppingItems = linkedShoppingItemsByBlock[block.id] ?? [];
+                  // linkedShoppingItems lookup removed — the "Itens vinculados
+                  // de mercado e suplementos" panel that consumed it is gone.
                   const quantityScaling = selectedFood
                     ? resolveQuantityScaling(selectedFood.servingLabel, draft.quantityLabel)
                     : null;
@@ -3757,58 +3758,13 @@ export default function NutritionModulePage() {
                           </button>
                         </div>
                       )}
-                      <div className="mt-4 rounded-sm border border-zinc-800 bg-[rgba(10,10,12,0.72)] p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <p className="font-medium text-white">
-                              Itens vinculados de mercado e suplementos
-                            </p>
-                          </div>
-                          <span className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-zinc-400">
-                            {linkedShoppingItems.length} vinculados
-                          </span>
-                        </div>
-                        {linkedShoppingItems.length > 0 ? (
-                          <div className="mt-4 space-y-3">
-                            {linkedShoppingItems.map((linkedItem) => (
-                              <div
-                                key={linkedItem.id}
-                                className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-4 py-3"
-                              >
-                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                  <p className="font-medium text-white">
-                                    {linkedItem.name}
-                                  </p>
-                                  <span className="rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-3 py-1 text-xs text-zinc-300">
-                                    {linkedItem.quantity}
-                                  </span>
-                                </div>
-                                <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-                                  <span
-                                    className={`rounded-sm border px-3 py-1 ${
-                                      linkedItem.originLabel === "Mercado"
-                                        ? "border-sky-400/20 bg-sky-400/10 text-sky-100"
-                                        : "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
-                                    }`}
-                                  >
-                                    {linkedItem.originLabel}
-                                  </span>
-                                  {linkedItem.scheduleLabel ? (
-                                    <span className="rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-3 py-1 text-zinc-400">
-                                      Horário {linkedItem.scheduleLabel}
-                                    </span>
-                                  ) : null}
-                                  {linkedItem.localStoreName ? (
-                                    <span className="rounded-sm border border-zinc-800 bg-[rgba(7,7,9,0.98)] px-3 py-1 text-zinc-400">
-                                      Local {linkedItem.localStoreName}
-                                    </span>
-                                  ) : null}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
+                      {/* "Itens vinculados de mercado e suplementos" panel
+                          removed per user request. It showed the cross-module
+                          link between Mercado / Suplementos items and the
+                          meal block, but added a permanent "0 vinculados"
+                          empty state for users who don't use those modules.
+                          The linkage still exists in the data — just no
+                          longer rendered here. */}
                         </>
                       ) : null}
                     </div>
