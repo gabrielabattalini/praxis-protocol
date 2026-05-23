@@ -35,7 +35,6 @@ import {
   emptyMacros,
   estimateBasalMetabolicRate,
   formatPoints,
-  weekdayLabel,
   weekdayLongLabel,
 } from "@/lib/utils";
 
@@ -2238,18 +2237,20 @@ export default function NutritionModulePage() {
           </span>
         </div>
         {/* Horizontal weekday strip — 7 columns reading left-to-right.
-            On narrow phones the row overflows: the wrapper scrolls
-            horizontally while each cell keeps a minimum width so the
-            select stays usable. min-w-[560px] = 7 × ~80px. */}
+            Full weekday names (Segunda / Terca / ...) instead of the
+            three-letter abbreviation per user request. Bumped the inner
+            min-width to 770px so each cell gets ~110px — comfortable for
+            "Segunda" / "Domingo" without needing to scroll on desktop.
+            Phones still scroll horizontally below ~770px. */}
         <div className="-mx-1 overflow-x-auto px-1 pb-1">
-          <div className="grid min-w-[560px] grid-cols-7 gap-2">
+          <div className="grid min-w-[770px] grid-cols-7 gap-2">
             {weekdayOrder.map((weekday) => (
               <div
                 key={weekday}
                 className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] p-2"
               >
-                <p className="text-center font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
-                  {weekdayLabel(weekday)}
+                <p className="text-center text-xs font-medium text-zinc-300 capitalize">
+                  {weekdayLongLabel(weekday)}
                 </p>
                 <select
                   value={state.dietWeekSchedule[weekday] ?? activeDietPlan?.id ?? ""}
