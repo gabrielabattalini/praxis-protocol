@@ -602,6 +602,7 @@ function NutritionTargetsEditor({
   onApply,
   isCollapsed,
   onToggle,
+  embedded = false,
 }: {
   targets: DailyNutritionTargets;
   onApply: (payload: {
@@ -625,6 +626,11 @@ function NutritionTargetsEditor({
   }) => void;
   isCollapsed: boolean;
   onToggle: () => void;
+  // When embedded, the editor renders its body without the outer
+  // GlassPanel + header + toggle button. The parent owns the collapse
+  // state and the wrapping panel — used by the unified "Meta ativa +
+  // Referência diária" section so we don't end up with nested panels.
+  embedded?: boolean;
 }) {
   const [bodyWeightKg, setBodyWeightKg] = useState(targets.bodyWeightKg.toString());
   const [bodyHeightCm, setBodyHeightCm] = useState(targets.bodyHeightCm.toString());
@@ -693,30 +699,8 @@ function NutritionTargetsEditor({
           ).toFixed(1),
         );
 
-  return (
-    <GlassPanel className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm text-zinc-500">Metas por peso</p>
-          <h2 className="mt-1 text-2xl font-semibold text-white">
-            Ajuste peso e referência diária
-          </h2>
-          {!isCollapsed ? (
-            <p className="mt-2 text-sm text-zinc-500">
-              Defina metas por kg, sódio diário e estratégia de fibra para esta dieta.
-            </p>
-          ) : null}
-        </div>
-        <button
-          type="button"
-          onClick={onToggle}
-          className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2 text-xs text-zinc-300"
-        >
-          {isCollapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-          {isCollapsed ? "Expandir" : "Ocultar"}
-        </button>
-      </div>
-
+  const editorBody = (
+    <>
       {isCollapsed ? (
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-4 py-4">
@@ -1045,6 +1029,40 @@ function NutritionTargetsEditor({
       </button>
         </>
       )}
+    </>
+  );
+
+  // Embedded mode skips the GlassPanel + header + collapse toggle so
+  // the parent can stitch this editor next to other content inside a
+  // single unified panel without nesting borders.
+  if (embedded) {
+    return editorBody;
+  }
+
+  return (
+    <GlassPanel className="space-y-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm text-zinc-500">Metas por peso</p>
+          <h2 className="mt-1 text-2xl font-semibold text-white">
+            Ajuste peso e referência diária
+          </h2>
+          {!isCollapsed ? (
+            <p className="mt-2 text-sm text-zinc-500">
+              Defina metas por kg, sódio diário e estratégia de fibra para esta dieta.
+            </p>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={onToggle}
+          className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2 text-xs text-zinc-300"
+        >
+          {isCollapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+          {isCollapsed ? "Expandir" : "Ocultar"}
+        </button>
+      </div>
+      {editorBody}
     </GlassPanel>
   );
 }
@@ -1056,8 +1074,11 @@ export default function NutritionModulePage() {
   const [dietEndDate, setDietEndDate] = useState("");
   const [dietNotes, setDietNotes] = useState("");
   const [editingDietPlanId, setEditingDietPlanId] = useState<string | null>(null);
-  const [isGoalPanelCollapsed, setIsGoalPanelCollapsed] = useState(true);
-  const [isTargetsPanelCollapsed, setIsTargetsPanelCollapsed] = useState(true);
+  // Unified collapse state: the Meta ativa goal selector and the
+  // NutritionTargetsEditor live inside the same GlassPanel now, so one
+  // shared flag controls them both. Default closed because both blocks
+  // are dense and most users only open them when reconfiguring.
+  const [isMetricsPanelCollapsed, setIsMetricsPanelCollapsed] = useState(true);
   // isReferencesCollapsed state removed — the panel it controlled is gone.
   // Macro reference notes now expand inline per-card in Leitura detalhada;
   // track which macro is open so only one note is visible at a time.
@@ -3607,62 +3628,72 @@ export default function NutritionModulePage() {
           Biblioteca library panel was extracted into the compact
           "Plano semanal" block at the top of the page. */}
 
-      {/* Was 2xl:grid-cols (kicked in only at 1536px+), so desktop in the
-          1024-1535 band stacked Meta ativa above NutritionTargetsEditor.
-          Drops to lg: so they sit side-by-side from 1024px upward. */}
-      <div className="grid gap-6 lg:grid-cols-[minmax(360px,0.8fr)_minmax(0,1.2fr)]">
-        <GlassPanel className="space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm text-zinc-500">Objetivo corporal</p>
-              <h2 className="mt-1 text-2xl font-semibold text-white">
-                Meta ativa: {currentGoal.name}
-              </h2>
-              {!isGoalPanelCollapsed ? (
-                <p className="mt-2 text-sm text-zinc-500">
-                  {currentGoal.recommendation}. Ajuste atual:{" "}
-                  {formatGoalAdjustment(goalAdjustmentKcal).toLowerCase()}.
-                </p>
-              ) : null}
-              <p className="mt-2 text-xs uppercase tracking-[0.18em] text-zinc-500">
-                Aplicado à dieta: {activeDietPlan?.name ?? "Dieta atual"}
+      {/* Unified "Meta ativa + Referência diária" panel — both halves
+          used to live in their own GlassPanels inside a 2-col grid.
+          User requested they collapse into a single section at the
+          bottom of the page so the configuration surface stays in one
+          place. Single shared collapse state (isMetricsPanelCollapsed)
+          drives both pieces; NutritionTargetsEditor renders in embedded
+          mode so we don't end up with nested panel borders. */}
+      <GlassPanel className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm text-zinc-500">Configuração da meta</p>
+            <h2 className="mt-1 text-2xl font-semibold text-white">
+              Meta ativa · Referência diária
+            </h2>
+            {!isMetricsPanelCollapsed ? (
+              <p className="mt-2 text-sm text-zinc-500">
+                Escolha o objetivo corporal e ajuste pesos, faixas e
+                referências da dieta no mesmo lugar.
+              </p>
+            ) : null}
+            <p className="mt-2 text-xs uppercase tracking-[0.18em] text-zinc-500">
+              {currentGoal.name} · Aplicado à dieta: {activeDietPlan?.name ?? "Dieta atual"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsMetricsPanelCollapsed((current) => !current)}
+            className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2 text-xs text-zinc-300"
+          >
+            {isMetricsPanelCollapsed ? (
+              <ChevronDown className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronUp className="h-3.5 w-3.5" />
+            )}
+            {isMetricsPanelCollapsed ? "Expandir" : "Ocultar"}
+          </button>
+        </div>
+
+        {isMetricsPanelCollapsed ? (
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-4 py-3">
+              <p className="text-sm text-zinc-500">Meta ativa</p>
+              <p className="mt-1 text-base font-semibold text-white">
+                {currentGoal.name}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsGoalPanelCollapsed((current) => !current)}
-              className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2 text-xs text-zinc-300"
-            >
-              {isGoalPanelCollapsed ? (
-                <ChevronDown className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronUp className="h-3.5 w-3.5" />
-              )}
-              {isGoalPanelCollapsed ? "Expandir" : "Ocultar"}
-            </button>
-          </div>
-          {isGoalPanelCollapsed ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-4 py-4">
-                <p className="text-sm text-zinc-500">Meta ativa</p>
-                <p className="mt-2 text-lg font-semibold text-white">{currentGoal.name}</p>
-              </div>
-              <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-4 py-4">
-                <p className="text-sm text-zinc-500">Calorias alvo</p>
-                <p className="mt-2 text-lg font-semibold text-white">
-                  {caloriesTarget.toFixed(0)} kcal
-                </p>
-              </div>
+            <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-4 py-3">
+              <p className="text-sm text-zinc-500">Calorias alvo</p>
+              <p className="mt-1 text-base font-semibold text-white">
+                {caloriesTarget.toFixed(0)} kcal
+              </p>
             </div>
-          ) : (
-            <>
-              {/* Ajuste row: was a single 2xl-only 3-col grid that
-                  collapsed to a tall stack on every desktop width below
-                  1536. md: gives it a 3-col layout from 768 upward — input
-                  on the left, "Meta final" summary in the middle, button
-                  on the right; the input now has a saner natural width
-                  via the explicit 160px lane instead of stretching to
-                  full panel width. */}
+            <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-4 py-3">
+              <p className="text-sm text-zinc-500">Peso</p>
+              <p className="mt-1 text-base font-semibold text-white">
+                {dailyNutritionTargets.bodyWeightKg.toFixed(1)} kg
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* SECTION 1 — Meta ativa (goal selector + adjustment) */}
+            <div className="space-y-3">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--accent)]">
+                Objetivo corporal
+              </p>
               <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] p-4">
                 <div className="grid gap-3 md:grid-cols-[160px_minmax(0,1fr)_auto] md:items-end">
                   <label className="space-y-2">
@@ -3700,10 +3731,6 @@ export default function NutritionModulePage() {
                 </div>
               </div>
 
-              {/* Goal cards: 2xl breakpoint moved to md so cards sit
-                  side-by-side on desktop. Recommendation chip lost
-                  shrink-0 + got max-w + leading-tight so long copy wraps
-                  inside the chip instead of pushing the card layout. */}
               <div className="grid gap-3 md:grid-cols-2">
                 {(Object.entries(nutritionGoals) as Array<
                   [NutritionGoalId, (typeof nutritionGoals)[NutritionGoalId]]
@@ -3738,18 +3765,29 @@ export default function NutritionModulePage() {
                   </button>
                 ))}
               </div>
-            </>
-          )}
-        </GlassPanel>
+            </div>
 
-        <NutritionTargetsEditor
-          key={`nutrition-targets-${state.activeDietPlanId}-${dailyNutritionTargets.bodyWeightKg}-${dailyNutritionTargets.goalAdjustmentKcal}-${dailyNutritionTargets.perKg.waterMl}-${dailyNutritionTargets.perKg.protein}-${dailyNutritionTargets.perKg.carbs}-${dailyNutritionTargets.perKg.fat}-${dailyNutritionTargets.fiberStrategy}-${dailyNutritionTargets.fiberPerKg}-${dailyNutritionTargets.fiberRatioGrams}-${dailyNutritionTargets.fiberRatioCalories}-${dailyNutritionTargets.sodiumTargetMg}`}
-          targets={dailyNutritionTargets}
-          onApply={actions.updateNutritionTargets}
-          isCollapsed={isTargetsPanelCollapsed}
-          onToggle={() => setIsTargetsPanelCollapsed((current) => !current)}
-        />
-      </div>
+            {/* Divider between the two integrated sections */}
+            <div className="border-t border-zinc-800" />
+
+            {/* SECTION 2 — Ajuste de peso e referência diária (embedded
+                NutritionTargetsEditor, no inner panel/header/toggle). */}
+            <div className="space-y-3">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--accent)]">
+                Ajuste de peso e referência diária
+              </p>
+              <NutritionTargetsEditor
+                key={`nutrition-targets-${state.activeDietPlanId}-${dailyNutritionTargets.bodyWeightKg}-${dailyNutritionTargets.goalAdjustmentKcal}-${dailyNutritionTargets.perKg.waterMl}-${dailyNutritionTargets.perKg.protein}-${dailyNutritionTargets.perKg.carbs}-${dailyNutritionTargets.perKg.fat}-${dailyNutritionTargets.fiberStrategy}-${dailyNutritionTargets.fiberPerKg}-${dailyNutritionTargets.fiberRatioGrams}-${dailyNutritionTargets.fiberRatioCalories}-${dailyNutritionTargets.sodiumTargetMg}`}
+                targets={dailyNutritionTargets}
+                onApply={actions.updateNutritionTargets}
+                isCollapsed={false}
+                onToggle={() => undefined}
+                embedded
+              />
+            </div>
+          </>
+        )}
+      </GlassPanel>
     </div>
   );
 }
