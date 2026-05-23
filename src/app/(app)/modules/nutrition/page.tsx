@@ -1080,9 +1080,9 @@ export default function NutritionModulePage() {
   // are dense and most users only open them when reconfiguring.
   const [isMetricsPanelCollapsed, setIsMetricsPanelCollapsed] = useState(true);
   // isReferencesCollapsed state removed — the panel it controlled is gone.
-  // Macro reference notes now expand inline per-card in Leitura detalhada;
-  // track which macro is open so only one note is visible at a time.
-  const [expandedMacroNote, setExpandedMacroNote] = useState<string | null>(null);
+  // Macro reference notes used to live as per-card expand panels in
+  // Leitura detalhada (expandedMacroNote state). Moved into a static
+  // section inside the unified Meta ativa panel, so the state is gone too.
   const [isDietLibraryCollapsed, setIsDietLibraryCollapsed] = useState(false);
   const [isCreateDietPanelOpen, setIsCreateDietPanelOpen] = useState(false);
   const [dietPlanEditDraft, setDietPlanEditDraft] = useState({
@@ -2393,18 +2393,16 @@ export default function NutritionModulePage() {
           </div>
         </div>
 
+        {/* Per-card "Faixa" expand buttons removed — the macro reference
+            notes (Hipertrofia 1,6-2,2 g/kg etc) moved into a dedicated
+            "Faixas de referência" section inside the unified Meta ativa
+            · Referência diária panel at the bottom of the page. */}
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {dietComparisonItems.map((item) => {
             const progress =
               item.mode === "limit"
                 ? getNutritionProgressPercent(item.current, item.target, "limit") / 100
                 : getNutritionProgressPercent(item.current, item.target) / 100;
-            // Each macro has an expandable guidance note (the old "Faixas
-            // para montar a dieta" content). Per-card toggle uses a single
-            // shared expandedMacroNote slot — opening one closes the
-            // previous, keeping the panel tidy.
-            const note = nutritionMacroNotes[item.label];
-            const isNoteOpen = expandedMacroNote === item.label;
 
             return (
               <div
@@ -2426,36 +2424,9 @@ export default function NutritionModulePage() {
                     style={{ width: `${Math.max(progress * 100, 4)}%` }}
                   />
                 </div>
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <p className="text-sm text-zinc-500">
-                    {Math.round(progress * 100)}% da meta
-                  </p>
-                  {note ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setExpandedMacroNote((current) =>
-                          current === item.label ? null : item.label,
-                        )
-                      }
-                      className="inline-flex items-center gap-1 rounded-sm border border-zinc-800 bg-[rgba(10,10,12,0.72)] px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-zinc-400 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"
-                      aria-expanded={isNoteOpen}
-                      aria-label={`${isNoteOpen ? "Ocultar" : "Ver"} faixa de referência de ${item.label}`}
-                    >
-                      {isNoteOpen ? (
-                        <ChevronUp className="h-3 w-3" />
-                      ) : (
-                        <ChevronDown className="h-3 w-3" />
-                      )}
-                      Faixa
-                    </button>
-                  ) : null}
-                </div>
-                {note && isNoteOpen ? (
-                  <p className="mt-2 rounded-sm border border-zinc-800 bg-[rgba(10,10,12,0.72)] px-3 py-2 text-[12px] leading-snug text-zinc-400">
-                    {note}
-                  </p>
-                ) : null}
+                <p className="mt-2 text-sm text-zinc-500">
+                  {Math.round(progress * 100)}% da meta
+                </p>
               </div>
             );
           })}
@@ -3788,6 +3759,34 @@ export default function NutritionModulePage() {
                       </span>
                     </div>
                   </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Divider before the reference notes */}
+            <div className="border-t border-zinc-800" />
+
+            {/* SECTION 3 — Faixas de referência (the macro guidance notes
+                that used to live as per-card expand panels in Leitura
+                detalhada). Pulled together as a single reference block
+                here next to where the user is editing the targets. */}
+            <div className="space-y-3">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--accent)]">
+                Faixas de referência
+              </p>
+              <div className="grid gap-2 md:grid-cols-2">
+                {Object.entries(nutritionMacroNotes).map(([label, note]) => (
+                  <div
+                    key={label}
+                    className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2"
+                  >
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
+                      {label}
+                    </p>
+                    <p className="mt-1 text-xs leading-snug text-zinc-400">
+                      {note}
+                    </p>
+                  </div>
                 ))}
               </div>
             </div>
