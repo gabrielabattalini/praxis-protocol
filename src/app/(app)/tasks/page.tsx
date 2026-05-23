@@ -1183,72 +1183,16 @@ export default function TasksPage() {
             >
               Calendário de tarefas
             </div>
-            <div
-              style={{
-                fontFamily: "var(--font-space-grotesk), sans-serif",
-                fontSize: 22,
-                fontWeight: 700,
-                letterSpacing: "-0.02em",
-                color: "var(--fg)",
-              }}
-            >
-              {calendarView === "week"
-                ? "Visualização semanal"
-                : "Visualização mensal"}
-            </div>
-            <div
-              style={{
-                fontSize: 13,
-                color: "var(--fg-3)",
-                marginTop: 4,
-                lineHeight: 1.6,
-              }}
-            >
-              {calendarView === "week"
-                ? "Volume de execução por dia desta semana."
-                : "Distribuição mensal para enxergar a carga e o ritmo."}
-            </div>
+            {/* Removed: "Visualização semanal/mensal" heading + the
+                "Volume de execução por dia desta semana." description.
+                The eyebrow above already labels this block, and the
+                calendar grid below conveys the rest. */}
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 8,
-              alignItems: "center",
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setShowCreateTaskForm((current) => !current)}
-              className={`v2-btn v2-btn-sm ${
-                showCreateTaskForm ? "v2-btn-ok" : ""
-              }`}
-            >
-              <Plus className="h-4 w-4" />
-              {showCreateTaskForm ? "Fechar criação" : "Nova meta"}
-            </button>
-            <button
-              type="button"
-              onClick={() => focusDate(today)}
-              className={`v2-btn v2-btn-sm ${
-                isSelectedDateToday ? "v2-btn-ok" : ""
-              }`}
-            >
-              <CalendarDays className="h-4 w-4" />
-              Hoje
-            </button>
-            <button
-              type="button"
-              onClick={() => focusDate(tomorrow)}
-              className={`v2-btn v2-btn-sm ${
-                isSelectedDateTomorrow ? "v2-btn-ok" : ""
-              }`}
-            >
-              <ArrowRight className="h-4 w-4" />
-              Amanhã
-            </button>
-          </div>
+          {/* Removed the Nova meta / Hoje / Amanhã action row. The Nova
+              meta form heading further down still works if reached via
+              the showCreateTaskForm flag from somewhere else; today's
+              path is just the calendar grid. */}
         </div>
 
         {/* Calendar nav */}
