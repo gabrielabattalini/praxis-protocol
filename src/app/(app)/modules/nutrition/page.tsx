@@ -3689,7 +3689,32 @@ export default function NutritionModulePage() {
           </div>
         ) : (
           <>
-            {/* SECTION 1 — Meta ativa (goal selector + adjustment) */}
+            {/* Order swapped per user request: "Ajuste de peso e
+                referência diária" now comes first, "Objetivo corporal"
+                comes after. The reasoning is that body metrics +
+                per-kg targets are the foundation users tune first;
+                the goal preset on top of that is a quicker pivot. */}
+
+            {/* SECTION 1 — Ajuste de peso e referência diária (embedded
+                NutritionTargetsEditor, no inner panel/header/toggle). */}
+            <div className="space-y-3">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--accent)]">
+                Ajuste de peso e referência diária
+              </p>
+              <NutritionTargetsEditor
+                key={`nutrition-targets-${state.activeDietPlanId}-${dailyNutritionTargets.bodyWeightKg}-${dailyNutritionTargets.goalAdjustmentKcal}-${dailyNutritionTargets.perKg.waterMl}-${dailyNutritionTargets.perKg.protein}-${dailyNutritionTargets.perKg.carbs}-${dailyNutritionTargets.perKg.fat}-${dailyNutritionTargets.fiberStrategy}-${dailyNutritionTargets.fiberPerKg}-${dailyNutritionTargets.fiberRatioGrams}-${dailyNutritionTargets.fiberRatioCalories}-${dailyNutritionTargets.sodiumTargetMg}`}
+                targets={dailyNutritionTargets}
+                onApply={actions.updateNutritionTargets}
+                isCollapsed={false}
+                onToggle={() => undefined}
+                embedded
+              />
+            </div>
+
+            {/* Divider between the two integrated sections */}
+            <div className="border-t border-zinc-800" />
+
+            {/* SECTION 2 — Objetivo corporal (goal selector + adjustment) */}
             <div className="space-y-3">
               <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--accent)]">
                 Objetivo corporal
@@ -3765,25 +3790,6 @@ export default function NutritionModulePage() {
                   </button>
                 ))}
               </div>
-            </div>
-
-            {/* Divider between the two integrated sections */}
-            <div className="border-t border-zinc-800" />
-
-            {/* SECTION 2 — Ajuste de peso e referência diária (embedded
-                NutritionTargetsEditor, no inner panel/header/toggle). */}
-            <div className="space-y-3">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--accent)]">
-                Ajuste de peso e referência diária
-              </p>
-              <NutritionTargetsEditor
-                key={`nutrition-targets-${state.activeDietPlanId}-${dailyNutritionTargets.bodyWeightKg}-${dailyNutritionTargets.goalAdjustmentKcal}-${dailyNutritionTargets.perKg.waterMl}-${dailyNutritionTargets.perKg.protein}-${dailyNutritionTargets.perKg.carbs}-${dailyNutritionTargets.perKg.fat}-${dailyNutritionTargets.fiberStrategy}-${dailyNutritionTargets.fiberPerKg}-${dailyNutritionTargets.fiberRatioGrams}-${dailyNutritionTargets.fiberRatioCalories}-${dailyNutritionTargets.sodiumTargetMg}`}
-                targets={dailyNutritionTargets}
-                onApply={actions.updateNutritionTargets}
-                isCollapsed={false}
-                onToggle={() => undefined}
-                embedded
-              />
             </div>
           </>
         )}
