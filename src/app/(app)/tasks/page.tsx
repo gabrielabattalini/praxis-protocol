@@ -1703,9 +1703,9 @@ export default function TasksPage() {
                     >
                       {phase.label}
                     </span>
-                    <span className="field-label" style={{ marginBottom: 0 }}>
-                      {phase.window}
-                    </span>
+                    {/* Removed the time-window caption ("05:00 - 11:59") —
+                        the Manhã / Tarde / Noite label is enough on its own,
+                        and the explicit range added noise without info. */}
                     <span
                       style={{
                         marginLeft: "auto",
