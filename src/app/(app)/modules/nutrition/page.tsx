@@ -2343,31 +2343,32 @@ export default function NutritionModulePage() {
           </div>
         </div>
 
-        {/* Thin hydration strip — replaces the entire "Progresso da meta"
-            GlassPanel. Macro tracking + notes moved into the "Leitura
-            detalhada da meta" cards further down (one expand button per
-            macro). Hydration stays here as a single thin row because the
-            "+200ml" quick-add is the most-used action. */}
-        <div className="flex flex-wrap items-center gap-3 rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2">
-          <div className="flex items-center gap-2">
+        {/* Hydration strip — user feedback: previous version had buttons
+            too thin to tap comfortably and the content drifted to the
+            right via ml-auto. Bumped: top label + count row centered;
+            quick-add buttons each ~84px tall-equivalent (py-3 px-5,
+            text-sm) and laid out in a centered 3-up grid that stacks on
+            very narrow phones. */}
+        <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-4 py-4">
+          <div className="flex flex-wrap items-center justify-center gap-2">
             <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
               Hidratação
             </span>
-            <span className="text-sm font-medium text-white">
+            <span className="text-base font-semibold text-white">
               {formatPoints(Math.round(todayWaterConsumed))} /{" "}
               {formatPoints(waterTarget)} ml
             </span>
-            <span className="rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.08)] px-1.5 py-0.5 text-[10px] text-[var(--accent)]">
+            <span className="rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.08)] px-2 py-0.5 text-[11px] text-[var(--accent)]">
               {Math.round(Math.min(waterProgress, 100))}%
             </span>
           </div>
-          <div className="ml-auto flex flex-wrap items-center gap-1.5">
+          <div className="mt-3 grid grid-cols-3 gap-2">
             {waterQuickActions.map((amount) => (
               <button
                 key={amount}
                 type="button"
                 onClick={() => addWater(amount)}
-                className="rounded-sm border border-zinc-800 bg-[rgba(18,18,20,0.96)] px-2 py-1 text-[11px] font-medium text-zinc-200 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"
+                className="rounded-sm border border-zinc-800 bg-[rgba(18,18,20,0.96)] px-3 py-3 text-sm font-semibold text-zinc-200 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"
               >
                 +{formatPoints(amount)} ml
               </button>
