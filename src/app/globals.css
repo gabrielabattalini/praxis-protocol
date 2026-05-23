@@ -1371,6 +1371,19 @@ select.praxis-field {
   .topbar-shell { padding: 0 12px; height: 56px; }
 }
 
+/* Tasks page — compact density pass. The page is wrapped in
+   .tasks-page-compact so these overrides only apply on /tasks and don't
+   leak into other modules. Tighter card / panel padding + smaller
+   radii give ~30% more visible content per scroll. */
+.tasks-page-compact .glass {
+  padding: 14px;
+  border-radius: 14px;
+}
+.tasks-page-compact .item-card {
+  padding: 14px;
+  border-radius: 14px;
+}
+
 /* Tasks calendar — desktop sizing; mobile sizing comes below. The
    classes are defined here (not inline) so we can swap font/circle
    sizes by breakpoint without touching the component each time. */

@@ -749,12 +749,12 @@ export default function TasksPage() {
       <div
         key={item.id}
         className={cardClasses}
-        style={{ display: "grid", gap: 16 }}
+        style={{ display: "grid", gap: 10 }}
       >
         <div
           style={{
             display: "grid",
-            gap: 16,
+            gap: 12,
             gridTemplateColumns: "minmax(0,1fr)",
           }}
           className="lg:grid-cols-[80px_minmax(0,1fr)_220px]"
@@ -1148,53 +1148,31 @@ export default function TasksPage() {
 
   return (
     // Capped at max-w-4xl + mx-auto so the page sits as a centered column
-    // instead of stretching edge-to-edge on widescreen monitors. On phones
-    // the cap is larger than the viewport so the layout still uses the
-    // full width naturally.
-    <div className="mx-auto w-full max-w-4xl">
-      {/* Page header */}
-      <div style={{ marginBottom: 24 }}>
-        <div className="page-eyebrow" style={{ color: "var(--ok)" }}>
-          Linha do tempo
-        </div>
-        <h1 className="page-title-v2">Tarefas em modo execução</h1>
-        <p className="page-description-v2">
-          Calendário, consistência e execução no mesmo eixo visual. Acompanhe o
-          fluxo do dia em manhã, tarde e noite.
-        </p>
-      </div>
+    // instead of stretching edge-to-edge on widescreen monitors.
+    // .tasks-page-compact scopes per-page CSS overrides (see globals.css)
+    // that shrink .glass / .item-card padding + border-radius for the
+    // tighter visual density requested for this view.
+    <div className="tasks-page-compact mx-auto w-full max-w-4xl">
+      {/* Compact header: just the h1. The eyebrow + description paragraph
+          were removed — the page is reached via the "Missões" topbar
+          breadcrumb so users already know where they are. */}
+      <h1
+        style={{
+          fontFamily: "var(--font-space-grotesk), sans-serif",
+          fontSize: 22,
+          fontWeight: 700,
+          letterSpacing: "-0.02em",
+          color: "var(--fg)",
+          marginBottom: 14,
+        }}
+      >
+        Tarefas
+      </h1>
 
-      {/* Controls + calendar */}
-      <div className="glass glass-ok" style={{ marginBottom: 20 }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: 16,
-            flexWrap: "wrap",
-            marginBottom: 20,
-          }}
-        >
-          <div style={{ minWidth: 0 }}>
-            <div
-              className="page-eyebrow"
-              style={{ color: "var(--ok)", marginBottom: 6 }}
-            >
-              Calendário de tarefas
-            </div>
-            {/* Removed: "Visualização semanal/mensal" heading + the
-                "Volume de execução por dia desta semana." description.
-                The eyebrow above already labels this block, and the
-                calendar grid below conveys the rest. */}
-          </div>
-
-          {/* Removed the Nova meta / Hoje / Amanhã action row. The Nova
-              meta form heading further down still works if reached via
-              the showCreateTaskForm flag from somewhere else; today's
-              path is just the calendar grid. */}
-        </div>
-
+      {/* Calendar block — eyebrow + heading + Nova meta row all removed
+          in previous compact passes; now just the navigation arrows + the
+          grid itself. marginBottom dropped from 20 → 12 for tighter rhythm. */}
+      <div className="glass glass-ok" style={{ marginBottom: 12 }}>
         {/* Calendar nav */}
         <div
           style={{
@@ -1203,7 +1181,7 @@ export default function TasksPage() {
             alignItems: "center",
             gap: 8,
             flexWrap: "wrap",
-            marginBottom: 16,
+            marginBottom: 12,
           }}
         >
           <button
@@ -1560,34 +1538,10 @@ export default function TasksPage() {
         </div>
       ) : null}
 
-      {/* Consistency KPI */}
-      <div className="glass" style={{ marginBottom: 16 }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: 14,
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <div className="field-label" style={{ marginBottom: 6 }}>
-              Consistência diária
-            </div>
-            <div className="kpi-value">{Math.round(consistencyRate)}%</div>
-            <div className="kpi-sub">{selectedDateSummaryLabel}</div>
-          </div>
-          <span className="badge">
-            {completedAgenda.length}/{activeTimelineItems.length || 0}
-          </span>
-        </div>
-        <div style={{ marginTop: 14 }}>
-          <RxPBar value={consistencyRate} />
-        </div>
-      </div>
-
-      {/* Timeline */}
+      {/* Timeline — consistency moved from a separate glass block into a
+          compact strip at the top of this block. Replaces ~140px of vertical
+          space (label + 28px value + sub-label + 14px gap + 8px bar +
+          padding × 2) with a single ~36px row of text + a thin bar. */}
       <div className="glass">
         <div
           style={{
@@ -1596,13 +1550,13 @@ export default function TasksPage() {
             alignItems: "center",
             gap: 12,
             flexWrap: "wrap",
-            marginBottom: 18,
+            marginBottom: 8,
           }}
         >
           <h2
             style={{
               fontFamily: "var(--font-space-grotesk), sans-serif",
-              fontSize: 22,
+              fontSize: 18,
               fontWeight: 700,
               letterSpacing: "-0.02em",
               color: "var(--fg)",
@@ -1610,33 +1564,49 @@ export default function TasksPage() {
           >
             Tarefas
           </h2>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <span className="badge badge-ok">
-              {completedAgenda.length} concluídas
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              flexWrap: "wrap",
+              fontSize: 11,
+              color: "var(--fg-3)",
+            }}
+          >
+            <span style={{ color: "var(--ok)", fontWeight: 600 }}>
+              {Math.round(consistencyRate)}%
             </span>
-            <span className="badge">{pendingAgenda.length} pendentes</span>
+            <span style={{ opacity: 0.5 }}>·</span>
+            <span>
+              {completedAgenda.length}/{activeTimelineItems.length || 0}
+            </span>
           </div>
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <RxPBar value={consistencyRate} />
         </div>
 
         {activeTimelineItems.length ? (
-          <div style={{ display: "grid", gap: 24 }}>
+          <div style={{ display: "grid", gap: 16 }}>
             {activeTimelineBuckets.map((phase) => {
               const accent = phaseAccent[phase.id];
               return (
                 <section key={phase.id}>
+                  {/* Compact bucket header: no border-bottom (was eating
+                      ~15px per bucket), no big padding. Just a tighter
+                      label + count row. */}
                   <div
                     style={{
                       display: "flex",
                       flexWrap: "wrap",
                       alignItems: "center",
-                      gap: 10,
-                      padding: "10px 0",
-                      borderBottom: "1px solid rgba(39,39,42,0.5)",
-                      marginBottom: 12,
+                      gap: 8,
+                      marginBottom: 8,
                     }}
                   >
                     <span
-                      className="badge"
+                      className="badge badge-sm"
                       style={{
                         borderColor: accent.border,
                         background: accent.bg,
@@ -1645,20 +1615,17 @@ export default function TasksPage() {
                     >
                       {phase.label}
                     </span>
-                    {/* Removed the time-window caption ("05:00 - 11:59") —
-                        the Manhã / Tarde / Noite label is enough on its own,
-                        and the explicit range added noise without info. */}
                     <span
                       style={{
                         marginLeft: "auto",
-                        fontSize: 11,
+                        fontSize: 10,
                         color: "#71717a",
                       }}
                     >
-                      {phase.completed}/{phase.total} concluídas
+                      {phase.completed}/{phase.total}
                     </span>
                   </div>
-                  <div style={{ display: "grid", gap: 14 }}>
+                  <div style={{ display: "grid", gap: 10 }}>
                     {phase.items.map((item) =>
                       renderAgendaItemCard(item, {
                         featured: item.id === featuredAgendaItemId,
@@ -1672,18 +1639,18 @@ export default function TasksPage() {
         ) : (
           <div
             style={{
-              borderRadius: 20,
+              borderRadius: 14,
               border: "1px dashed rgba(39,39,42,0.8)",
-              padding: "40px 20px",
+              padding: "20px 14px",
               textAlign: "center",
               color: "#71717a",
             }}
           >
             <Clock3
-              className="h-5 w-5"
-              style={{ color: "var(--fg-3)", margin: "0 auto 10px" }}
+              className="h-4 w-4"
+              style={{ color: "var(--fg-3)", margin: "0 auto 6px" }}
             />
-            <div style={{ fontSize: 14 }}>
+            <div style={{ fontSize: 13 }}>
               {isSelectedDateToday
                 ? "Nada programado para hoje."
                 : `Nada programado para ${selectedDateLabel.toLowerCase()}.`}
