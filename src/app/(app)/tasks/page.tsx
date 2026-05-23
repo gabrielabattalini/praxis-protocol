@@ -325,7 +325,7 @@ const agendaPhaseOrder: Array<Omit<AgendaPhaseBucket, "items">> = [
   {
     id: "unscheduled",
     label: "Sem horário",
-    window: "Fluxo livre",
+    window: "",
     description: "Itens úteis que ainda não têm janela definida.",
     accentClass: "from-zinc-400/20 to-zinc-500/10",
   },
@@ -788,7 +788,10 @@ export default function TasksPage() {
                 color: "var(--fg-3)",
               }}
             >
-              {item.time ? "Horário" : "Fluxo"}
+              {/* "Fluxo" caption for untimed tasks removed — looked like
+                  filler text. When there's no time we hide the label and
+                  show "—" below instead of "--:--". */}
+              {item.time ? "Horário" : ""}
             </span>
             <div
               style={{
@@ -801,7 +804,7 @@ export default function TasksPage() {
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {item.time || "--:--"}
+              {item.time || "—"}
             </div>
           </div>
 
