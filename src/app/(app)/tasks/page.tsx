@@ -745,11 +745,13 @@ export default function TasksPage() {
           fontWeight: 600,
           color: "#71717a",
           textDecoration: "line-through",
+          textAlign: "center",
         }
       : {
           fontSize: 16,
           fontWeight: 600,
           color: "var(--fg)",
+          textAlign: "center",
         };
 
     // descriptionStyle + categoryBadgeClass removed — both were only
@@ -776,7 +778,9 @@ export default function TasksPage() {
             style={{
               display: "flex",
               flexDirection: "column",
+              alignItems: "center",
               gap: 6,
+              textAlign: "center",
             }}
           >
             <span
@@ -812,7 +816,12 @@ export default function TasksPage() {
           {item.kind === "workout" && item.moduleRoute ? (
             <Link
               href={item.moduleRoute}
-              style={{ minWidth: 0, color: "inherit", textDecoration: "none" }}
+              style={{
+                minWidth: 0,
+                color: "inherit",
+                textDecoration: "none",
+                textAlign: "center",
+              }}
             >
               {/* Card body simplified: dropped the [categoria + Sincronizada]
                   badge row, the duplicated description line, and the
@@ -826,6 +835,7 @@ export default function TasksPage() {
                     marginTop: 10,
                     display: "flex",
                     flexWrap: "wrap",
+                    justifyContent: "center",
                     gap: 6,
                   }}
                 >
@@ -856,12 +866,13 @@ export default function TasksPage() {
               onClick={() => toggleDetails(item.id)}
               style={{
                 minWidth: 0,
-                textAlign: "left",
+                textAlign: "center",
                 background: "transparent",
                 border: "none",
                 padding: 0,
                 color: "inherit",
                 cursor: "pointer",
+                width: "100%",
               }}
             >
               {/* Card body simplified: dropped the [categoria + Sincronizada]
@@ -876,6 +887,7 @@ export default function TasksPage() {
                     marginTop: 10,
                     display: "flex",
                     flexWrap: "wrap",
+                    justifyContent: "center",
                     gap: 6,
                   }}
                 >
@@ -905,7 +917,7 @@ export default function TasksPage() {
               </div>
             </button>
           ) : (
-            <div style={{ minWidth: 0 }}>
+            <div style={{ minWidth: 0, textAlign: "center" }}>
               {/* Card body simplified: dropped the [categoria + Sincronizada]
                   badge row, the duplicated description line, and the
                   sourceLabel hint. Title carries the info; time chip is on
