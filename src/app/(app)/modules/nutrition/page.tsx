@@ -1407,15 +1407,14 @@ export default function NutritionModulePage() {
     },
     {},
   );
-  // dietComparisonItems uses plannedDietTotals (sum of every item in the
-  // meal plan, regardless of completion) so adding food/recipes is
-  // reflected here as soon as it lands. consumedDietTotals is still used
-  // by the hero KPI strip + percent-of-day calculation where "what you
-  // actually ate today" is the right metric.
+  // dietComparisonItems is back to consumedDietTotals — user only wants
+  // the bars to fill after an item is actually marked as Concluído in
+  // Missões. plannedDietTotals stays defined above in case we want a
+  // separate "planned vs consumed" comparison view later.
   const dietComparisonItems = [
     {
       label: "Proteína",
-      current: plannedDietTotals.protein,
+      current: consumedDietTotals.protein,
       target: proteinTarget,
       unit: "g",
       decimals: 1,
@@ -1423,7 +1422,7 @@ export default function NutritionModulePage() {
     },
     {
       label: "Carboidratos",
-      current: plannedDietTotals.carbs,
+      current: consumedDietTotals.carbs,
       target: carbsTarget,
       unit: "g",
       decimals: 1,
@@ -1431,7 +1430,7 @@ export default function NutritionModulePage() {
     },
     {
       label: "Gorduras",
-      current: plannedDietTotals.fat,
+      current: consumedDietTotals.fat,
       target: fatTarget,
       unit: "g",
       decimals: 1,
@@ -1439,7 +1438,7 @@ export default function NutritionModulePage() {
     },
     {
       label: "Fibras",
-      current: plannedDietTotals.fiber,
+      current: consumedDietTotals.fiber,
       target: fiberTarget,
       unit: "g",
       decimals: 1,
@@ -1447,7 +1446,7 @@ export default function NutritionModulePage() {
     },
     {
       label: "Sódio",
-      current: plannedDietTotals.sodium,
+      current: consumedDietTotals.sodium,
       target: sodiumTarget,
       unit: "mg",
       decimals: 0,
@@ -1455,7 +1454,7 @@ export default function NutritionModulePage() {
     },
     {
       label: "Calorias",
-      current: plannedDietTotals.calories,
+      current: consumedDietTotals.calories,
       target: caloriesTarget,
       unit: "kcal",
       decimals: 0,
