@@ -1625,13 +1625,19 @@ export default function TasksPage() {
 
         {activeTimelineItems.length ? (
           <div style={{ display: "grid", gap: 16 }}>
+            {/* Phase buckets (Manhã / Tarde / Noite / Sem horário) show
+                ONLY pending items — completed ones move to a single
+                "Concluído" section pinned at the bottom of the panel
+                so done work doesn't sit between the user and what they
+                still need to act on. Phase count chip stays "X/Y" so
+                the user can tell at a glance how much of each block is
+                already done. */}
             {activeTimelineBuckets.map((phase) => {
               const accent = phaseAccent[phase.id];
+              const pendingItems = phase.items.filter((item) => !item.completed);
+              if (pendingItems.length === 0) return null;
               return (
                 <section key={phase.id}>
-                  {/* Compact bucket header: no border-bottom (was eating
-                      ~15px per bucket), no big padding. Just a tighter
-                      label + count row. */}
                   <div
                     style={{
                       display: "flex",
@@ -1662,7 +1668,7 @@ export default function TasksPage() {
                     </span>
                   </div>
                   <div style={{ display: "grid", gap: 10 }}>
-                    {phase.items.map((item) =>
+                    {pendingItems.map((item) =>
                       renderAgendaItemCard(item, {
                         featured: item.id === featuredAgendaItemId,
                       }),
@@ -1671,6 +1677,47 @@ export default function TasksPage() {
                 </section>
               );
             })}
+
+            {completedAgenda.length > 0 ? (
+              <section>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: 8,
+                    marginBottom: 8,
+                  }}
+                >
+                  <span
+                    className="badge badge-sm"
+                    style={{
+                      borderColor: "rgba(74,222,128,0.3)",
+                      background: "rgba(74,222,128,0.08)",
+                      color: "var(--ok)",
+                    }}
+                  >
+                    Concluído
+                  </span>
+                  <span
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: 10,
+                      color: "#71717a",
+                    }}
+                  >
+                    {completedAgenda.length}
+                  </span>
+                </div>
+                <div style={{ display: "grid", gap: 10 }}>
+                  {completedAgenda.map((item) =>
+                    renderAgendaItemCard(item, {
+                      featured: false,
+                    }),
+                  )}
+                </div>
+              </section>
+            ) : null}
           </div>
         ) : (
           <div
