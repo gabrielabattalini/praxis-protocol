@@ -2892,22 +2892,33 @@ export default function NutritionModulePage() {
                           {block.items.length > 0 ? (
                             <button
                               type="button"
-                              onClick={() =>
+                              // One-way mark: clicking always sets every
+                              // item in the block to completed for today.
+                              // It never unmarks — to undo specific
+                              // items the user opens the meal and uses
+                              // the individual "Concluir" toggle inside.
+                              // When the whole meal is already done the
+                              // button disables and reads as a status
+                              // chip instead of a destructive toggle.
+                              onClick={() => {
+                                if (blockAllCompletedToday) return;
                                 actions.setMealBlockItemsCompleted({
                                   blockId: block.id,
-                                  completed: !blockAllCompletedToday,
+                                  completed: true,
                                   dateKey: todayKey,
-                                })
-                              }
+                                });
+                              }}
+                              disabled={blockAllCompletedToday}
+                              aria-disabled={blockAllCompletedToday}
                               className={`inline-flex items-center gap-1 whitespace-nowrap rounded-sm border px-3 py-2 text-xs ${
                                 blockAllCompletedToday
-                                  ? "border-zinc-800 bg-[rgba(14,14,17,0.96)] text-zinc-300"
+                                  ? "cursor-default border-zinc-800 bg-[rgba(14,14,17,0.96)] text-zinc-500"
                                   : "border-[rgba(74,222,128,0.3)] bg-[rgba(74,222,128,0.12)] text-[#a7f3d0]"
                               }`}
                             >
                               <Check className="h-3.5 w-3.5" />
                               {blockAllCompletedToday
-                                ? "Desmarcar refeição"
+                                ? "Refeição concluída"
                                 : "Concluir refeição"}
                             </button>
                           ) : null}
