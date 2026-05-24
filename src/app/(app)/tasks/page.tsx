@@ -1036,6 +1036,11 @@ export default function TasksPage() {
                     actions.setMealBlockItemsCompleted({
                       blockId: detailBlockId!,
                       completed: !item.completed,
+                      // Stamp the completion against the calendar day
+                      // the user is viewing — without this, clicking
+                      // on a past day stamps it as today and the agenda
+                      // never reflects the change.
+                      dateKey: selectedDateKey,
                     })
                   }
                   className={`v2-btn v2-btn-sm ${
@@ -1144,6 +1149,7 @@ export default function TasksPage() {
                         actions.toggleMealItemCompleted({
                           blockId: detail.blockId!,
                           itemId: detail.mealItemId!,
+                          dateKey: selectedDateKey,
                         })
                       }
                       className={`v2-btn v2-btn-xs ${

@@ -348,10 +348,16 @@ type AppStoreValue = {
     toggleMealItemCompleted: (payload: {
       blockId: string;
       itemId: string;
+      /** Optional YYYY-MM-DD. When set, completedAt is stamped to this
+       *  date instead of "now", so retroactive marks on past calendar
+       *  days show as completed for the right day. */
+      dateKey?: string;
     }) => void;
     setMealBlockItemsCompleted: (payload: {
       blockId: string;
       completed: boolean;
+      /** Same per-date semantics as toggleMealItemCompleted. */
+      dateKey?: string;
     }) => void;
     updateMealItem: (payload: {
       blockId: string;
@@ -801,6 +807,7 @@ type Action =
       payload: {
         blockId: string;
         itemId: string;
+        dateKey?: string;
       };
     }
   | {
@@ -808,6 +815,7 @@ type Action =
       payload: {
         blockId: string;
         completed: boolean;
+        dateKey?: string;
       };
     }
   | {
@@ -2171,15 +2179,22 @@ function reducer(state: PersistedState, action: Action): PersistedState {
                 items: block.items.map((item) =>
                   item.id === action.payload.itemId
                     ? (() => {
+                        // When dateKey is passed we are toggling the
+                        // item's completion for that specific calendar
+                        // day (e.g. retroactively marking yesterday's
+                        // meal). Otherwise we operate on "today".
+                        const referenceDate = action.payload.dateKey
+                          ? new Date(`${action.payload.dateKey}T12:00:00`)
+                          : new Date();
                         const completedForCurrentDate = isMealItemCompletedForDate(
                           item,
-                          new Date(),
+                          referenceDate,
                         );
                         return {
                           ...item,
                           completed: !completedForCurrentDate,
                           completedAt: !completedForCurrentDate
-                            ? new Date().toISOString()
+                            ? referenceDate.toISOString()
                             : undefined,
                         };
                       })()
@@ -2200,7 +2215,9 @@ function reducer(state: PersistedState, action: Action): PersistedState {
                   ...item,
                   completed: action.payload.completed,
                   completedAt: action.payload.completed
-                    ? new Date().toISOString()
+                    ? (action.payload.dateKey
+                        ? new Date(`${action.payload.dateKey}T12:00:00`).toISOString()
+                        : new Date().toISOString())
                     : undefined,
                 })),
               }
