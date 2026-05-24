@@ -267,6 +267,7 @@ type AppStoreValue = {
       nutritionGoal: NutritionGoalId;
     }) => void;
     duplicateDietPlan: (planId: string) => void;
+    removeDietPlan: (planId: string) => void;
     updateDietPlan: (payload: {
       planId: string;
       patch: Partial<
@@ -709,6 +710,7 @@ type Action =
       };
     }
   | { type: "duplicate-diet-plan"; planId: string }
+  | { type: "remove-diet-plan"; planId: string }
   | { type: "activate-diet-plan"; planId: string }
   | {
       type: "save-current-workout-program";
@@ -1846,6 +1848,61 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         dietWorkoutLink: duplicatedPlan.workoutLinkSettings,
         foodSubstitutions: duplicatedPlan.foodSubstitutions,
         activeDietPlanId: duplicatedPlanId,
+      };
+    }
+    case "remove-diet-plan": {
+      const removedPlan = state.dietPlans.find(
+        (plan) => plan.id === action.planId,
+      );
+      if (!removedPlan) return state;
+
+      const nextPlans = state.dietPlans.filter(
+        (plan) => plan.id !== action.planId,
+      );
+      // Only re-hydrate the top-level slices (mealPlan, nutritionGoal,
+      // targets, etc.) when the active plan was deleted — otherwise the
+      // user is just removing an inactive copy and the live editing
+      // surfaces must stay untouched.
+      if (state.activeDietPlanId !== action.planId) {
+        return {
+          ...state,
+          dietPlans: nextPlans,
+        };
+      }
+
+      const fallbackPlan = nextPlans[0];
+      if (!fallbackPlan) {
+        // No diets left — wipe the editing surface back to empty.
+        return {
+          ...state,
+          dietPlans: nextPlans,
+          activeDietPlanId: emptyPersistedState.activeDietPlanId,
+          mealPlan: [],
+          nutritionGoal: emptyPersistedState.nutritionGoal,
+          dailyNutritionTargets: normalizeDailyNutritionTargets(
+            emptyPersistedState.dailyNutritionTargets,
+            getActivityMultiplierFromTrainingDaysForState(state),
+          ),
+          dietDayTypes: emptyPersistedState.dietDayTypes,
+          dietWorkoutLink: emptyPersistedState.dietWorkoutLink,
+          foodSubstitutions: [],
+        };
+      }
+
+      // Hand the live surface to the next plan in the list.
+      return {
+        ...state,
+        dietPlans: nextPlans,
+        activeDietPlanId: fallbackPlan.id,
+        mealPlan: clearMealPlanCompletion(fallbackPlan.mealPlan),
+        nutritionGoal: fallbackPlan.nutritionGoal,
+        dailyNutritionTargets: normalizeDailyNutritionTargets(
+          fallbackPlan.nutritionTargets,
+          getActivityMultiplierFromTrainingDaysForState(state),
+        ),
+        dietDayTypes: fallbackPlan.dayTypes,
+        dietWorkoutLink: fallbackPlan.workoutLinkSettings,
+        foodSubstitutions: fallbackPlan.foodSubstitutions,
       };
     }
     case "activate-diet-plan": {
@@ -5183,6 +5240,9 @@ export function AppStoreProvider({
       },
       duplicateDietPlan(planId) {
         dispatch({ type: "duplicate-diet-plan", planId });
+      },
+      removeDietPlan(planId) {
+        dispatch({ type: "remove-diet-plan", planId });
       },
       updateDietPlan(payload) {
         dispatch({ type: "update-diet-plan", payload });

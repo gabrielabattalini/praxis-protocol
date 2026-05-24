@@ -2434,6 +2434,23 @@ export default function NutritionModulePage() {
                 Duplicar
               </button>
             ) : null}
+            {activeDietPlan ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const confirmed = window.confirm(
+                    `Excluir a dieta "${activeDietPlan.name}"? Essa ação não pode ser desfeita.`,
+                  );
+                  if (!confirmed) return;
+                  actions.removeDietPlan(activeDietPlan.id);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-sm border border-[rgba(239,68,68,0.28)] bg-[rgba(239,68,68,0.08)] px-3 py-2 text-sm font-medium text-red-300 transition hover:border-[rgba(239,68,68,0.45)] hover:text-red-200"
+                title={`Excluir "${activeDietPlan.name}"`}
+              >
+                <Trash2 className="h-4 w-4" />
+                Excluir
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => setIsCreateDietPanelOpen((current) => !current)}
