@@ -2817,6 +2817,16 @@ export default function NutritionModulePage() {
                   const isEditingMealBlock = editingMealBlockId === block.id;
                   const mealItemsLabel =
                     block.items.length === 1 ? "1 item" : `${block.items.length} itens`;
+                  // Block-level "Concluir refeição" affordance: true only
+                  // when every item in the block is already marked done
+                  // for today. setMealBlockItemsCompleted toggles all in
+                  // one shot, stamping completedAt against today's date.
+                  const blockAllCompletedToday =
+                    block.items.length > 0 &&
+                    block.items.every(
+                      (item) =>
+                        item.completed && item.completedAt?.slice(0, 10) === todayKey,
+                    );
                   // linkedShoppingItems lookup removed — the "Itens vinculados
                   // de mercado e suplementos" panel that consumed it is gone.
                   const quantityScaling = selectedFood
@@ -2879,6 +2889,28 @@ export default function NutritionModulePage() {
                             )}
                             {isMealExpanded ? "Ocultar alimentos" : "Ver alimentos"}
                           </button>
+                          {block.items.length > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                actions.setMealBlockItemsCompleted({
+                                  blockId: block.id,
+                                  completed: !blockAllCompletedToday,
+                                  dateKey: todayKey,
+                                })
+                              }
+                              className={`inline-flex items-center gap-1 whitespace-nowrap rounded-sm border px-3 py-2 text-xs ${
+                                blockAllCompletedToday
+                                  ? "border-zinc-800 bg-[rgba(14,14,17,0.96)] text-zinc-300"
+                                  : "border-[rgba(74,222,128,0.3)] bg-[rgba(74,222,128,0.12)] text-[#a7f3d0]"
+                              }`}
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                              {blockAllCompletedToday
+                                ? "Desmarcar refeição"
+                                : "Concluir refeição"}
+                            </button>
+                          ) : null}
                         </div>
                         <div className="flex flex-wrap gap-2 text-xs text-[var(--accent)]">
                           <span className="rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] px-3 py-1">
