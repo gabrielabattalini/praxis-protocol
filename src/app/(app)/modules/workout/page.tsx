@@ -359,6 +359,9 @@ export default function WorkoutModulePage() {
   const [expandedExerciseKey, setExpandedExerciseKey] = useState<string | null>(
     null,
   );
+  const [selectedCurveExerciseId, setSelectedCurveExerciseId] = useState<
+    string | null
+  >(null);
   const [editingHistoryId, setEditingHistoryId] = useState<string | null>(null);
   const [historyEditDrafts, setHistoryEditDrafts] = useState<
     Record<string, WorkoutHistoryEditDraft>
@@ -421,9 +424,49 @@ export default function WorkoutModulePage() {
 
     return nextMap;
   }, [activeProgram, state.workoutLoadEntries, trainingDays]);
+  const dayExerciseIds = useMemo(
+    () => (activeDay?.exercises ?? []).map((exercise) => exercise.id),
+    [activeDay],
+  );
+  const dayExerciseIdsKey = dayExerciseIds.join("|");
+  const exerciseIdsWithHistory = useMemo(
+    () => new Set(activeProgramHistory.map((entry) => entry.exerciseId)),
+    [activeProgramHistory],
+  );
+  const resolvedCurveExerciseId = useMemo(() => {
+    if (
+      selectedCurveExerciseId &&
+      dayExerciseIds.includes(selectedCurveExerciseId)
+    ) {
+      return selectedCurveExerciseId;
+    }
+    const firstWithHistory = dayExerciseIds.find((id) =>
+      exerciseIdsWithHistory.has(id),
+    );
+    return firstWithHistory ?? dayExerciseIds[0] ?? null;
+  }, [dayExerciseIds, exerciseIdsWithHistory, selectedCurveExerciseId]);
+
+  useEffect(() => {
+    if (selectedCurveExerciseId && !dayExerciseIds.includes(selectedCurveExerciseId)) {
+      setSelectedCurveExerciseId(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayExerciseIdsKey]);
+
+  const selectedCurveExercise = useMemo(() => {
+    if (!resolvedCurveExerciseId) return null;
+    return (
+      activeDay?.exercises.find(
+        (exercise) => exercise.id === resolvedCurveExerciseId,
+      ) ?? null
+    );
+  }, [activeDay, resolvedCurveExerciseId]);
+
   const recentLoadCurve = useMemo(
-    () =>
-      activeProgramHistory
+    () => {
+      if (!resolvedCurveExerciseId) return [];
+      return activeProgramHistory
+        .filter((entry) => entry.exerciseId === resolvedCurveExerciseId)
         .slice(0, 6)
         .reverse()
         .map((entry) => {
@@ -435,10 +478,11 @@ export default function WorkoutModulePage() {
           return {
             label: formatWorkoutDate(entry.loggedAt).slice(0, 5),
             value: totalLoad,
-            helper: `${entry.exerciseName} • ${entry.sets.length} séries`,
+            helper: `${entry.sets.length} séries • ${Math.round(totalLoad)} kg`,
           };
-        }),
-    [activeProgramHistory],
+        });
+    },
+    [activeProgramHistory, resolvedCurveExerciseId],
   );
   const lastSevenDaysLoad = useMemo(() => {
     const referenceDate = new Date();
@@ -1413,24 +1457,70 @@ export default function WorkoutModulePage() {
 
               <div className="mb-8 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
                 <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
-                  <div className="mb-4 flex items-end justify-between gap-3">
+                  <div className="mb-3 flex items-end justify-between gap-3">
                     <div>
                       <p className="font-label text-[0.6rem] uppercase tracking-widest text-[var(--accent)]">
                         Evolução
                       </p>
                       <h4 className="mt-2 font-headline text-lg font-bold uppercase text-zinc-100">
-                        Curva das últimas execuções
+                        {selectedCurveExercise
+                          ? `Curva — ${selectedCurveExercise.name}`
+                          : "Curva das últimas execuções"}
                       </h4>
+                      {selectedCurveExercise ? (
+                        <p className="mt-1 text-xs text-zinc-500">
+                          Carga total (peso × reps) das últimas execuções deste exercício.
+                        </p>
+                      ) : null}
                     </div>
                     <span className="text-xs uppercase tracking-[0.18em] text-zinc-500">
                       {recentLoadCurve.length} pontos
                     </span>
                   </div>
 
+                  {activeDay?.exercises.length ? (
+                    <div className="mb-4 flex flex-wrap gap-2">
+                      {activeDay.exercises.map((exercise) => {
+                        const isActive =
+                          exercise.id === resolvedCurveExerciseId;
+                        const hasHistory = exerciseIdsWithHistory.has(
+                          exercise.id,
+                        );
+                        return (
+                          <button
+                            key={exercise.id}
+                            type="button"
+                            onClick={() =>
+                              setSelectedCurveExerciseId(exercise.id)
+                            }
+                            className={`rounded-sm border px-3 py-1.5 text-xs font-medium transition ${
+                              isActive
+                                ? "border-[rgba(251,146,60,0.45)] bg-[rgba(251,146,60,0.16)] text-[var(--accent)]"
+                                : hasHistory
+                                  ? "border-zinc-800 bg-black/40 text-zinc-200 hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"
+                                  : "border-dashed border-zinc-800 bg-black/30 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300"
+                            }`}
+                            title={
+                              hasHistory
+                                ? "Ver curva deste exercício"
+                                : "Sem histórico ainda"
+                            }
+                          >
+                            {exercise.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+
                   <ProgressCurveChart
                     points={recentLoadCurve}
                     valueFormatter={(value) => `${Math.round(value)} kg`}
-                    emptyLabel="Salve algumas séries para desenhar a curva de carga."
+                    emptyLabel={
+                      selectedCurveExercise
+                        ? `Sem histórico salvo para ${selectedCurveExercise.name}. Registre séries para desenhar a curva.`
+                        : "Salve algumas séries para desenhar a curva de carga."
+                    }
                   />
                 </div>
 
@@ -1490,21 +1580,41 @@ export default function WorkoutModulePage() {
                 {activeDay?.exercises.map((exercise, idx) => {
                   const isExpanded = expandedExerciseKey === exercise.id;
                   const latestEntry = latestExerciseLogMap.get(exercise.id);
+                  const isCurveSelected =
+                    resolvedCurveExerciseId === exercise.id;
 
                   return (
                     <div
                       key={exercise.id}
-                      className="rounded-sm border border-zinc-800 bg-black/40 p-4"
+                      className={`rounded-sm border bg-black/40 p-4 transition ${
+                        isCurveSelected
+                          ? "border-[rgba(251,146,60,0.4)]"
+                          : "border-zinc-800"
+                      }`}
                     >
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="flex min-w-0 gap-4">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedCurveExerciseId(exercise.id)
+                          }
+                          className="flex min-w-0 gap-4 text-left transition hover:opacity-90"
+                          title="Ver curva deste exercício"
+                        >
                           <div className="flex h-10 w-10 min-w-10 items-center justify-center border border-[rgba(251,146,60,0.2)] bg-black/50 font-headline text-[var(--accent)]">
                             {String(idx + 1).padStart(2, "0")}
                           </div>
                           <div className="min-w-0">
-                            <h4 className="font-headline text-sm font-bold uppercase text-zinc-100">
-                              {exercise.name}
-                            </h4>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="font-headline text-sm font-bold uppercase text-zinc-100">
+                                {exercise.name}
+                              </h4>
+                              {isCurveSelected ? (
+                                <span className="rounded-sm border border-[rgba(251,146,60,0.45)] bg-[rgba(251,146,60,0.16)] px-2 py-0.5 font-label text-[0.55rem] uppercase tracking-widest text-[var(--accent)]">
+                                  Curva ativa
+                                </span>
+                              ) : null}
+                            </div>
                             <p className="font-label text-[0.55rem] uppercase tracking-wider text-zinc-500">
                               {exercise.muscleGroup} / {exercise.bodyArea}
                             </p>
@@ -1522,7 +1632,7 @@ export default function WorkoutModulePage() {
                                 : "Ainda sem registro salvo para este exercício."}
                             </p>
                           </div>
-                        </div>
+                        </button>
 
                         <div className="flex w-full flex-col gap-2 lg:w-[220px]">
                           <button
