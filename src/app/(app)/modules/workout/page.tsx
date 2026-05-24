@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronUp,
   Check,
+  Clock,
   FolderPlus,
   History,
   Pencil,
@@ -508,6 +509,48 @@ export default function WorkoutModulePage() {
     activeProgramHistory.map((entry) => entry.exerciseId),
   ).size;
   const lastHistoryEntry = activeProgramHistory[0] ?? null;
+
+  const activeDayReminder = useMemo(() => {
+    if (!activeDay) return null;
+    return (
+      state.reminders.find(
+        (reminder) =>
+          reminder.entityType === "workout" && reminder.entityId === activeDay.id,
+      ) ?? null
+    );
+  }, [activeDay, state.reminders]);
+  const activeDayTime = activeDayReminder?.time ?? "";
+
+  function handleWorkoutTimeChange(value: string) {
+    if (!activeDay) return;
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+      if (activeDayReminder) {
+        actions.updateReminder({
+          reminderId: activeDayReminder.id,
+          patch: { time: "" },
+        });
+      }
+      return;
+    }
+
+    if (activeDayReminder) {
+      actions.updateReminder({
+        reminderId: activeDayReminder.id,
+        patch: { time: trimmed, enabled: true },
+      });
+      return;
+    }
+
+    actions.addReminder({
+      entityType: "workout",
+      entityId: activeDay.id,
+      title: activeDay.title,
+      time: trimmed,
+      weekdays: [activeDay.weekday],
+    });
+  }
 
   useEffect(() => {
     if (!draftSourceProgramId) {
@@ -1420,6 +1463,44 @@ export default function WorkoutModulePage() {
                     <p className="mt-3 font-label text-[0.6rem] uppercase tracking-widest text-[var(--accent)]">
                       Foco: {activeDay.focus}
                     </p>
+                  ) : null}
+
+                  {activeDay && !activeDay.isRestDay ? (
+                    <div className="mt-4 flex flex-wrap items-center gap-3 rounded-sm border border-zinc-800 bg-black/40 px-4 py-3">
+                      <div className="flex items-center gap-2 text-zinc-400">
+                        <Clock className="h-4 w-4 text-[var(--accent)]" />
+                        <p className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
+                          Horário do treino
+                        </p>
+                      </div>
+                      <input
+                        type="time"
+                        value={activeDayTime}
+                        onChange={(event) =>
+                          handleWorkoutTimeChange(event.target.value)
+                        }
+                        className="rounded-sm border border-zinc-700 bg-black/60 px-3 py-2 font-headline text-sm font-bold text-zinc-100 focus:border-[var(--accent)] focus:outline-none"
+                      />
+                      {activeDayTime ? (
+                        <>
+                          <span className="text-xs text-zinc-500">
+                            Aparece na agenda às {activeDayTime}.
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleWorkoutTimeChange("")}
+                            className="ml-auto inline-flex items-center gap-1 text-xs uppercase tracking-widest text-zinc-500 transition hover:text-red-300"
+                          >
+                            <X className="h-3 w-3" />
+                            Limpar
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-xs text-zinc-500">
+                          Defina o horário para sincronizar com a agenda do dia.
+                        </span>
+                      )}
+                    </div>
                   ) : null}
                 </div>
 
