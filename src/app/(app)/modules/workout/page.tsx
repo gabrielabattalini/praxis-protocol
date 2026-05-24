@@ -1857,42 +1857,6 @@ export default function WorkoutModulePage() {
         </aside>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 border-t border-zinc-800/60 pt-10 md:grid-cols-4">
-        <div className="space-y-1">
-          <p className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
-            Posição global
-          </p>
-          <p className="font-headline text-lg font-bold text-[var(--accent)]">
-            #{(user?.level || 1) * 34 + 1}
-          </p>
-        </div>
-        <div className="space-y-1">
-          <p className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
-            Sequência atual
-          </p>
-          <p className="font-headline text-lg font-bold text-zinc-300">
-            {user?.streak || 0} dias
-          </p>
-        </div>
-        <div className="space-y-1">
-          <p className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
-            Treinos salvos
-          </p>
-          <p className="font-headline text-lg font-bold text-zinc-100">
-            {state.workoutPrograms.length}
-          </p>
-        </div>
-        <div className="space-y-1">
-          <p className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
-            Status da sincronização
-          </p>
-          <p className="flex items-center gap-2 font-headline text-lg font-bold text-[var(--accent)]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[rgba(251,146,60,0.78)]" />
-            Criptografado
-          </p>
-        </div>
-      </div>
-
       {showSavedWorkouts ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 py-6 backdrop-blur-sm">
           <div className="flex max-h-[88vh] w-full max-w-5xl flex-col border border-[rgba(251,146,60,0.24)] bg-[#050505] shadow-[0_0_40px_rgba(0,0,0,0.65)]">
