@@ -1950,40 +1950,21 @@ export default function FinanceModulePage() {
             type="button"
             onClick={() =>
               requestFinanceConfirmation(
-                `Fechar o mês de ${selectedMonth.label}? Vamos zerar lançamentos, fatura do cartão e baixas deste mês. As linhas continuam ativas nos próximos meses (ex.: Salário fixo continua em ${selectedMonth.label === "Dezembro" ? "Janeiro" : "meses seguintes"}).`,
+                `Fechar o mês de ${selectedMonth.label}? Vamos zerar lançamentos variáveis, fatura do cartão e baixas deste mês. Linhas fixas (salário, internet, condomínio, etc.) continuam intactas em todos os meses.`,
                 () => {
-                  // 1. Zero out monthly values per line for the closed month.
-                  // 2. Clear any settlement state (settledAmounts / settledMonths)
-                  //    on credit-card lines so the "fatura" total drops back to 0.
-                  // 3. Wipe the manual cardInvoiceBase[month] entry — that's the
-                  //    standalone fatura value the user types in directly.
-                  for (const line of budget.lines) {
-                    if ((line.monthly[selectedMonthId] ?? 0) !== 0) {
-                      actions.updateFinanceMonthlyValue({
-                        lineId: line.id,
-                        month: selectedMonthId,
-                        value: 0,
-                      });
-                    }
-                    const hasSettlement =
-                      (line.settledAmounts?.[selectedMonthId] ?? 0) > 0 ||
-                      Boolean(line.settledMonths?.[selectedMonthId]);
-                    if (
-                      isFinanceCreditCardPaymentMethod(line.paymentMethod) &&
-                      hasSettlement
-                    ) {
-                      actions.clearFinanceSettlement({
-                        lineId: line.id,
-                        month: selectedMonthId,
-                      });
-                    }
-                  }
-                  if ((budget.cardInvoiceBase?.[selectedMonthId] ?? 0) !== 0) {
-                    actions.updateFinanceInvoiceBase({
-                      month: selectedMonthId,
-                      value: 0,
-                    });
-                  }
+                  // Atomic close-month: a dedicated reducer that only
+                  // touches `selectedMonthId` on variable lines, plus
+                  // clears settlement / cardInvoiceBase for the month.
+                  //
+                  // Why this replaced the per-line `updateFinanceMonthlyValue`
+                  // loop: that action's reducer fan-outs through ALL 12
+                  // months for `frequency: "fixed"` lines (so the user
+                  // could keep a uniform value with one keystroke), and
+                  // close-month was inadvertently triggering that
+                  // fan-out — wiping every month on every fixed line
+                  // (salário, internet, energia, etc.) instead of just
+                  // the month being closed.
+                  actions.closeFinanceMonth(selectedMonthId);
                 },
               )
             }

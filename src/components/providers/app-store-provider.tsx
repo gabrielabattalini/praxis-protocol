@@ -480,6 +480,7 @@ type AppStoreValue = {
       value: number;
     }) => void;
     removeFinanceLine: (lineId: string) => void;
+    closeFinanceMonth: (month: FinanceMonthId) => void;
   };
 };
 
@@ -952,7 +953,8 @@ type Action =
         value: number;
       };
     }
-  | { type: "remove-finance-line"; lineId: string };
+  | { type: "remove-finance-line"; lineId: string }
+  | { type: "close-finance-month"; month: FinanceMonthId };
 
 const AppStoreContext = createContext<AppStoreValue | null>(null);
 
@@ -2767,6 +2769,94 @@ function reducer(state: PersistedState, action: Action): PersistedState {
           ),
         },
       };
+    case "close-finance-month": {
+      // Atomic month-close so we don't accidentally trigger the
+      // fillFinanceMonths fan-out that update-finance-monthly-value
+      // does for frequency: "fixed" lines (that bug zeroed out ALL
+      // months on every fixed line when only one month should have
+      // been touched).
+      //
+      // Rules:
+      //  • Variable lines → zero the closed month, leave others alone.
+      //  • Fixed lines → leave entirely alone. A "fixed" line means
+      //    "same value every month", so wiping one month logically
+      //    would force all months to change — that's a destructive
+      //    side-effect the user never asked for. The closed month's
+      //    value stays as-is on the line; conceptually it's recorded
+      //    as a settled obligation.
+      //  • settledAmounts/settledMonths for the closed month: cleared
+      //    for credit-card lines.
+      //  • cardInvoiceBase[month] cleared (this is the manual fatura
+      //    total the user types in directly).
+      const month = action.month;
+      const nextLines = state.financeBudget.lines.map((line) => {
+        let nextLine = line;
+
+        // Zero out the month only for variable lines.
+        if (
+          line.frequency === "variable" &&
+          (line.monthly?.[month] ?? 0) !== 0
+        ) {
+          const monthly = {
+            ...line.monthly,
+            [month]: 0,
+          };
+          const settledAmounts = normalizeFinanceAmounts(
+            line.settledAmounts,
+            monthly,
+            line.settledMonths,
+          );
+          nextLine = {
+            ...nextLine,
+            monthly,
+            settledAmounts: financeMonthOrder.reduce(
+              (next, m) => {
+                next[m] = Math.min(settledAmounts[m] ?? 0, monthly[m] ?? 0);
+                return next;
+              },
+              {} as Record<FinanceMonthId, number>,
+            ),
+          };
+        }
+
+        // Clear settlement for the closed month on credit-card lines.
+        if (
+          isFinanceCreditCardPaymentMethod(line.paymentMethod) &&
+          ((line.settledAmounts?.[month] ?? 0) > 0 ||
+            Boolean(line.settledMonths?.[month]))
+        ) {
+          nextLine = {
+            ...nextLine,
+            settledAmounts: {
+              ...normalizeFinanceAmounts(
+                nextLine.settledAmounts,
+                nextLine.monthly,
+                nextLine.settledMonths,
+              ),
+              [month]: 0,
+            },
+            settledMonths: {
+              ...normalizeFinanceFlags(nextLine.settledMonths),
+              [month]: false,
+            },
+          };
+        }
+
+        return nextLine;
+      });
+
+      return {
+        ...state,
+        financeBudget: {
+          ...state.financeBudget,
+          lines: nextLines,
+          cardInvoiceBase: {
+            ...normalizeFinanceMonths(state.financeBudget.cardInvoiceBase),
+            [month]: 0,
+          },
+        },
+      };
+    }
     default:
       return state;
   }
@@ -5389,6 +5479,9 @@ export function AppStoreProvider({
       },
       removeFinanceLine(lineId) {
         dispatch({ type: "remove-finance-line", lineId });
+      },
+      closeFinanceMonth(month) {
+        dispatch({ type: "close-finance-month", month });
       },
     },
   };
