@@ -1202,16 +1202,30 @@ export default function NutritionModulePage() {
   const todayKey = new Date().toISOString().slice(0, 10);
   const todayWaterConsumed =
     waterEntries.find((entry) => entry.date === todayKey)?.consumedMl ?? 0;
-  const consumedDietTotals = mealPlan.reduce(
-    (total, block) =>
-      block.items.reduce(
-        (blockTotal, item) =>
-          item.completed && item.completedAt?.slice(0, 10) === todayKey
-            ? addMacros(blockTotal, item.macros)
-            : blockTotal,
-        total,
+  // Single source of truth for "is this item consumed today?". The reducer
+  // wipes both `completed` and `completedAt` on undo, but we trust the
+  // *completedAt* timestamp as the authoritative marker — if the date
+  // doesn't match today (or completedAt was cleared), the item does NOT
+  // contribute to today's consumption, regardless of any stale `completed`
+  // boolean. This lets the "Desfazer refeição" block-level action drop
+  // the macro percentages immediately.
+  const isMealItemConsumedToday = (item: { completed?: boolean; completedAt?: string }) =>
+    item.completedAt?.slice(0, 10) === todayKey;
+  const consumedDietTotals = useMemo(
+    () =>
+      mealPlan.reduce(
+        (total, block) =>
+          block.items.reduce(
+            (blockTotal, item) =>
+              isMealItemConsumedToday(item)
+                ? addMacros(blockTotal, item.macros)
+                : blockTotal,
+            total,
+          ),
+        emptyMacros(),
       ),
-    emptyMacros(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mealPlan, todayKey],
   );
   // Planned totals sum every item in the active meal plan, regardless of
   // completion state. The "Leitura detalhada da meta" panel uses these so
@@ -2819,13 +2833,15 @@ export default function NutritionModulePage() {
                     block.items.length === 1 ? "1 item" : `${block.items.length} itens`;
                   // Block-level "Concluir refeição" affordance: true only
                   // when every item in the block is already marked done
-                  // for today. setMealBlockItemsCompleted toggles all in
-                  // one shot, stamping completedAt against today's date.
+                  // for today. Uses the same `isMealItemConsumedToday`
+                  // helper that drives consumedDietTotals — so the button
+                  // state stays in lockstep with the macro percentages.
+                  // setMealBlockItemsCompleted toggles all in one shot,
+                  // stamping completedAt against today's date.
                   const blockAllCompletedToday =
                     block.items.length > 0 &&
-                    block.items.every(
-                      (item) =>
-                        item.completed && item.completedAt?.slice(0, 10) === todayKey,
+                    block.items.every((item) =>
+                      isMealItemConsumedToday(item),
                     );
                   // linkedShoppingItems lookup removed — the "Itens vinculados
                   // de mercado e suplementos" panel that consumed it is gone.
