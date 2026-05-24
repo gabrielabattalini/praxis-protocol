@@ -227,7 +227,6 @@ export const defaultModuleOrder = moduleCatalog.map((module) => module.id);
 
 export const defaultDashboardSectionOrder: DashboardSectionId[] = [
   "quick-actions",
-  "score",
   "timeline",
   "telemetry",
   "modules",
@@ -2465,7 +2464,6 @@ export const initialPersistedState: PersistedState = {
     moduleOrder: [...defaultModuleOrder],
     dashboardSectionOrder: [
       "quick-actions",
-      "score",
       "timeline",
       "telemetry",
       "modules",

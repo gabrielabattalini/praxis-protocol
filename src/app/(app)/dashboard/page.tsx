@@ -66,7 +66,6 @@ const moduleIcons: Record<ModuleId, LucideIcon> = {
 
 const dashboardSectionLabels: Record<DashboardSectionId, string> = {
   "quick-actions": "Hero HUD",
-  score: "Operações hoje",
   timeline: "Agenda · próximas 8h",
   telemetry: "Ritmo semanal",
   modules: "Módulos ativos",
@@ -324,22 +323,8 @@ export default function DashboardPage() {
     (sectionId) => !hiddenSections.has(sectionId),
   );
 
-  // 24h XP histogram bars — computed from completedItems where time exists
-  const histogramBars = useMemo(() => {
-    const buckets = Array.from({ length: 24 }, () => ({
-      done: 0,
-      pending: 0,
-    }));
-    for (const item of todayAgenda) {
-      if (!item.time) continue;
-      const [hh] = item.time.split(":").map(Number);
-      if (hh === undefined || Number.isNaN(hh)) continue;
-      const idx = Math.max(0, Math.min(23, hh));
-      if (item.completed) buckets[idx].done += (item.xp ?? 40) / 40;
-      else buckets[idx].pending += (item.xp ?? 40) / 40;
-    }
-    return buckets;
-  }, [todayAgenda]);
+  // histogramBars useMemo deleted — the only consumer (operationsPanel
+  // "XP por hora · 24h" visualization) was removed.
 
   const totalAgenda = todayAgenda.length;
   const executionPct = totalAgenda
@@ -611,115 +596,9 @@ export default function DashboardPage() {
     </div>
   );
 
-  const operationsPanel = (
-    <div className="glass">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 16,
-        }}
-      >
-        <div>
-          <div
-            className="praxis-label"
-            style={{ color: "var(--accent)", marginBottom: 8 }}
-          >
-            Operações · hoje
-          </div>
-          <h2 className="praxis-title" style={{ fontSize: 24 }}>
-            XP por hora · 24h
-          </h2>
-        </div>
-        <span className="badge badge-accent">
-          {completedItems.length}/{totalAgenda} · {executionPct}%
-        </span>
-      </div>
-
-      <svg
-        width="100%"
-        height="80"
-        viewBox="0 0 288 80"
-        style={{ marginBottom: 14 }}
-        aria-hidden
-      >
-        {histogramBars.map((bucket, i) => {
-          const total = bucket.done + bucket.pending;
-          const synthetic =
-            total > 0
-              ? Math.min(70, 10 + total * 14)
-              : 4 + Math.max(0, Math.sin(i * 0.7) * 4 + 3);
-          const h = synthetic;
-          const fill =
-            bucket.done > 0
-              ? "var(--accent)"
-              : bucket.pending > 0
-                ? "var(--warn)"
-                : "var(--line-bright)";
-          const opacity =
-            bucket.done > 0 ? 0.9 : bucket.pending > 0 ? 0.7 : 0.35;
-          return (
-            <rect
-              key={i}
-              x={i * 12}
-              y={80 - h}
-              width={8}
-              height={h}
-              fill={fill}
-              opacity={opacity}
-              rx={2}
-            />
-          );
-        })}
-      </svg>
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 10,
-        }}
-      >
-        <div className="item-card">
-          <div
-            className="praxis-label"
-            style={{ color: "var(--ok)" }}
-          >
-            ● Em dia
-          </div>
-          <div
-            style={{ fontSize: 13, color: "#a1a1aa", marginTop: 6 }}
-          >
-            {completedItems.length > 0
-              ? `${completedItems.length} ${
-                  completedItems.length === 1
-                    ? "missão fechada"
-                    : "missões fechadas"
-                }`
-              : "Inicie a primeira ação"}
-          </div>
-        </div>
-        <div className="item-card">
-          <div
-            className="praxis-label"
-            style={{
-              color: pendingItems.length > 0 ? "var(--warn)" : "#71717a",
-            }}
-          >
-            ◆ Pendentes
-          </div>
-          <div
-            style={{ fontSize: 13, color: "#a1a1aa", marginTop: 6 }}
-          >
-            {pendingItems.length > 0
-              ? `${pendingItems.length} · +${formatPoints(openXp)} XP`
-              : "Nada restante"}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  // operationsPanel JSX deleted — the "Operações · hoje / XP por hora ·
+  // 24h" panel was removed at the user's request. histogramBars is no
+  // longer rendered anywhere but still computed above; harmless to keep.
 
   const missionsSection = (
     <div className="glass">
@@ -1304,7 +1183,6 @@ export default function DashboardPage() {
 
   const sectionCards: Record<DashboardSectionId, React.ReactNode> = {
     "quick-actions": heroHud,
-    score: operationsPanel,
     timeline: agendaPanel,
     telemetry: telemetryPanel,
     modules: modulesPanel,

@@ -13,7 +13,9 @@ export type ThemeId =
 
 export type DashboardSectionId =
   | "quick-actions"
-  | "score"
+  // "score" (Operações · hoje / XP por hora · 24h panel) removed at
+  // the user's request. Legacy state entries get filtered by the
+  // normalize functions in the store provider.
   | "timeline"
   | "telemetry"
   | "modules"
