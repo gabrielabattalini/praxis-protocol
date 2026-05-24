@@ -2423,6 +2423,17 @@ export default function NutritionModulePage() {
                 ))}
               </select>
             ) : null}
+            {activeDietPlan ? (
+              <button
+                type="button"
+                onClick={() => actions.duplicateDietPlan(activeDietPlan.id)}
+                className="inline-flex items-center gap-1.5 rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2 text-sm font-medium text-zinc-200 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"
+                title={`Duplicar "${activeDietPlan.name}" como uma nova dieta`}
+              >
+                <Copy className="h-4 w-4" />
+                Duplicar
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => setIsCreateDietPanelOpen((current) => !current)}
