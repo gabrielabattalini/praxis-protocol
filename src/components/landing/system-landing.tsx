@@ -1457,6 +1457,18 @@ export function SystemLanding() {
               </div>
             ) : null}
           </div>
+
+          {/* Discreet skip hint anchored to the bottom edge of the
+              overlay. Hidden on the "idle" stage so the prompt only
+              shows up once the animation is actually playing. */}
+          {introStage !== "idle" ? (
+            <p
+              className="pointer-events-none absolute inset-x-0 bottom-4 text-center font-mono text-[0.62rem] uppercase tracking-[0.28em] text-zinc-500 sm:bottom-6 sm:text-[0.7rem]"
+              aria-hidden="true"
+            >
+              Toque na tela ou ESC para pular
+            </p>
+          ) : null}
         </div>
       ) : null}
 
