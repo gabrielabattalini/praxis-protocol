@@ -767,30 +767,89 @@ export default function RunModulePage() {
         </GlassPanel>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-        <GlassPanel className="space-y-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="praxis-label text-[var(--accent)]">Registro</p>
-              <h2 className="mt-1 font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100">Lançar cardio</h2>
-            </div>
-            <button type="button" onClick={() => setForm({ date: localDateKey(), distanceKm: "", minutes: "", seconds: "" })} className="inline-flex items-center gap-2 border border-zinc-800 bg-black/50 px-4 py-2 font-headline text-xs font-bold uppercase tracking-[0.25em] text-zinc-100 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"><TimerReset className="h-4 w-4" />Limpar</button>
+      {/* Lançar cardio — compact horizontal bar at the top, all fields
+          and the submit button in a single row on desktop, stacking
+          on phones. Sits above the "Meta por dia" block per the user's
+          layout request. */}
+      <GlassPanel className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-baseline gap-3">
+            <p className="praxis-label text-[var(--accent)]">Registro</p>
+            <h2 className="font-headline text-base font-bold uppercase tracking-tighter text-zinc-100">
+              Lançar cardio
+            </h2>
+            <span className="hidden items-center gap-1.5 text-[11px] text-zinc-500 sm:inline-flex">
+              <Clock3 className="h-3 w-3 text-[var(--accent)]" />
+              Ritmo calculado automaticamente
+            </span>
           </div>
+          <button
+            type="button"
+            onClick={() =>
+              setForm({ date: localDateKey(), distanceKm: "", minutes: "", seconds: "" })
+            }
+            className="inline-flex items-center gap-1.5 border border-zinc-800 bg-black/50 px-3 py-1.5 font-headline text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-100 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"
+          >
+            <TimerReset className="h-3.5 w-3.5" />
+            Limpar
+          </button>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-4">
-              <input type="date" value={form.date} onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} className="praxis-field px-4 py-3 text-sm text-white" />
-              <input type="number" min="0" step="0.01" value={form.distanceKm} onChange={(event) => setForm((current) => ({ ...current, distanceKm: event.target.value }))} placeholder="Distância (km)" className="praxis-field px-4 py-3 text-sm text-white placeholder:text-zinc-500" />
-              <input type="number" min="0" value={form.minutes} onChange={(event) => setForm((current) => ({ ...current, minutes: event.target.value }))} placeholder="Minutos" className="praxis-field px-4 py-3 text-sm text-white placeholder:text-zinc-500" />
-              <input type="number" min="0" max="59" value={form.seconds} onChange={(event) => setForm((current) => ({ ...current, seconds: event.target.value }))} placeholder="Segundos" className="praxis-field px-4 py-3 text-sm text-white placeholder:text-zinc-500" />
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <button type="submit" className="praxis-button px-5 py-3"><Plus className="h-4 w-4" />Registrar treino</button>
-              <div className="flex items-center gap-2 border border-zinc-800 bg-black/50 px-4 py-3 text-xs text-zinc-400"><Clock3 className="h-4 w-4 text-[var(--accent)]" />Ritmo calculado automaticamente</div>
-            </div>
-          </form>
-        </GlassPanel>
+        <form
+          onSubmit={handleSubmit}
+          className="grid gap-2 sm:grid-cols-[minmax(140px,1fr)_minmax(110px,1fr)_minmax(90px,0.9fr)_minmax(90px,0.9fr)_auto] sm:items-center"
+        >
+          <input
+            type="date"
+            value={form.date}
+            onChange={(event) =>
+              setForm((current) => ({ ...current, date: event.target.value }))
+            }
+            className="praxis-field px-3 py-2 text-sm text-white"
+          />
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={form.distanceKm}
+            onChange={(event) =>
+              setForm((current) => ({ ...current, distanceKm: event.target.value }))
+            }
+            placeholder="Distância (km)"
+            className="praxis-field px-3 py-2 text-sm text-white placeholder:text-zinc-500"
+          />
+          <input
+            type="number"
+            min="0"
+            value={form.minutes}
+            onChange={(event) =>
+              setForm((current) => ({ ...current, minutes: event.target.value }))
+            }
+            placeholder="Minutos"
+            className="praxis-field px-3 py-2 text-sm text-white placeholder:text-zinc-500"
+          />
+          <input
+            type="number"
+            min="0"
+            max="59"
+            value={form.seconds}
+            onChange={(event) =>
+              setForm((current) => ({ ...current, seconds: event.target.value }))
+            }
+            placeholder="Segundos"
+            className="praxis-field px-3 py-2 text-sm text-white placeholder:text-zinc-500"
+          />
+          <button
+            type="submit"
+            className="praxis-button inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm"
+          >
+            <Plus className="h-4 w-4" />
+            Registrar
+          </button>
+        </form>
+      </GlassPanel>
 
+      <div className="grid gap-6">
         <GlassPanel className="space-y-5">
           <div>
             <p className="praxis-label text-[var(--accent)]">Planejamento</p>
