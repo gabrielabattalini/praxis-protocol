@@ -3381,10 +3381,12 @@ function normalizeShoppingTrackedItem(
     purchaseMode,
     localStoreName:
       purchaseMode === "presential" ? item?.localStoreName?.trim() || undefined : undefined,
+    // Keep manualUnitPrice for BOTH modes. In presential it's the
+    // primary price; in online it's a fallback used when there's no
+    // saved search offer yet (so the imported xlsx prices stick even
+    // after the item is flipped to online).
     manualUnitPrice:
-      purchaseMode === "presential"
-        ? Math.max(0, Number(item?.manualUnitPrice) || 0) || undefined
-        : undefined,
+      Math.max(0, Number(item?.manualUnitPrice) || 0) || undefined,
     referenceUrl: item?.referenceUrl?.trim() || undefined,
     preferredResultId: item?.preferredResultId?.trim() || undefined,
     createdAt: item?.createdAt ?? new Date().toISOString(),
@@ -3580,8 +3582,12 @@ function getShoppingUnitPrice(
     return Math.max(0, Number(item.manualUnitPrice) || 0);
   }
 
+  // Online: prefer the chosen live offer; fall back to manualUnitPrice
+  // (which the import step may have populated from a spreadsheet) so
+  // the finance sync isn't 0 until the user clicks "Buscar".
   const preferredOffer = getShoppingPreferredOffer(moduleState, item);
-  return preferredOffer?.totalPrice ?? 0;
+  if (preferredOffer?.totalPrice) return preferredOffer.totalPrice;
+  return Math.max(0, Number(item.manualUnitPrice) || 0);
 }
 
 function getShoppingMonthlyTotal(moduleState: ShoppingModuleStoredState) {
