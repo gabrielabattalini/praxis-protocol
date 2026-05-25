@@ -3389,17 +3389,11 @@ function normalizeShoppingTrackedItem(
       Math.max(0, Number(item?.manualUnitPrice) || 0) || undefined,
     referenceUrl: item?.referenceUrl?.trim() || undefined,
     preferredResultId: item?.preferredResultId?.trim() || undefined,
-    // Purchase-frequency simulation fields:
-    //   • purchaseIntervalMonths: how often we buy this item (default 1).
-    //     Clamped to 1..24 so the math never explodes.
+    // Purchase-frequency stagger control:
     //   • nextPurchaseMonth: 1..12, the calendar month of the next
-    //     scheduled purchase. Used to stagger items so January isn't
-    //     artificially loaded.
-    purchaseIntervalMonths: (() => {
-      const raw = Number(item?.purchaseIntervalMonths);
-      if (!Number.isFinite(raw) || raw <= 0) return undefined;
-      return Math.min(24, Math.max(1, Math.round(raw)));
-    })(),
+    //     scheduled purchase. The interval between purchases is derived
+    //     from monthlyUnits (1/monthlyUnits rounded) in the forecast UI,
+    //     so no separate intervalMonths field is needed.
     nextPurchaseMonth: (() => {
       const raw = Number(item?.nextPurchaseMonth);
       if (!Number.isFinite(raw)) return undefined;

@@ -539,16 +539,26 @@ export function ShoppingModulePage({
 
   // Annual purchase forecast — only meaningful for the market scope.
   // For each calendar month (1-12), sum the cost of every item whose
-  // purchase schedule lands on that month. Each item generates its own
-  // set of purchase months by starting at nextPurchaseMonth and walking
-  // ±interval steps inside [1, 12]. Monthly items (interval=1) appear
-  // in every month; longer-interval items (4kg detergent at 8 months)
-  // appear in only one or two months, creating realistic spikes.
+  // purchase schedule lands on that month.
+  //
+  // Interval is derived from monthlyUnits (NOT a separate field):
+  //   monthlyUnits >= 1   → interval = 1 (buy every month, multiple units)
+  //   monthlyUnits = 0.5  → interval = 2 (buy 1 every 2 months)
+  //   monthlyUnits = 0.125 → interval = 8 (buy 1 every 8 months)
+  // Each item generates its set of purchase months by anchoring at
+  // nextPurchaseMonth and walking ±interval steps inside [1, 12], so the
+  // user can stagger when in the year the spikes land.
   const annualForecast = useMemo(() => {
     if (scope !== "market") return null;
 
+    function intervalFromMonthlyUnits(monthlyUnits: number) {
+      if (!Number.isFinite(monthlyUnits) || monthlyUnits <= 0) return 1;
+      if (monthlyUnits >= 1) return 1;
+      return Math.max(1, Math.round(1 / monthlyUnits));
+    }
+
     function purchaseMonthsFor(item: ShoppingTrackedItem) {
-      const interval = Math.max(1, item.purchaseIntervalMonths ?? 1);
+      const interval = intervalFromMonthlyUnits(item.monthlyUnits);
       const start =
         item.nextPurchaseMonth ?? new Date().getMonth() + 1;
       const months = new Set<number>();
@@ -589,7 +599,11 @@ export function ShoppingModulePage({
         if (unitPrice <= 0) continue;
         const purchaseMonths = purchaseMonthsFor(item);
         if (!purchaseMonths.has(monthIdx)) continue;
-        const interval = Math.max(1, item.purchaseIntervalMonths ?? 1);
+        const interval = intervalFromMonthlyUnits(item.monthlyUnits);
+        // Cost per purchase = enough units to cover the interval period.
+        // For monthlyUnits >= 1, that's monthlyUnits × 1 = monthlyUnits.
+        // For 0.5 over 2 months it's 0.5 × 2 = 1 unit. For 0.125 over
+        // 8 months it's 0.125 × 8 = 1 unit. Money out = unitPrice × that.
         const cost = unitPrice * item.monthlyUnits * interval;
         if (cost <= 0) continue;
         total += cost;
@@ -1297,59 +1311,30 @@ export function ShoppingModulePage({
                                 />
                               </label>
 
-                              {/* Purchase-frequency simulation (market only).
-                                  Lets the user mark items that last several
-                                  months (4kg detergent, 2L olive oil) so the
-                                  annual forecast knows to spike on the months
-                                  they actually buy, not spread thin over 12. */}
+                              {/* Stagger control for the annual forecast
+                                  (market only). The interval between
+                                  purchases is derived from monthlyUnits
+                                  (e.g. 0.5 = every 2 months, 0.125 = every
+                                  8 months) — see the "Simulação anual"
+                                  panel. nextPurchaseMonth controls WHERE
+                                  in the year the cycle anchors, so items
+                                  don't all spike in the same month. */}
                               {scope === "market" ? (
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                  <label className="block space-y-2">
-                                    <span className="praxis-label text-zinc-500">
-                                      Comprar a cada (meses)
-                                    </span>
-                                    <input
-                                      type="number"
-                                      min="1"
-                                      max="24"
-                                      step="1"
-                                      value={item.purchaseIntervalMonths ?? 1}
-                                      onChange={(event) => {
-                                        const raw = Number(event.target.value);
-                                        const next =
-                                          !Number.isFinite(raw) || raw <= 0
-                                            ? 1
-                                            : Math.min(24, Math.max(1, Math.round(raw)));
-                                        updateModuleState((current) => ({
-                                          ...current,
-                                          items: current.items.map((currentItem) =>
-                                            currentItem.id === item.id
-                                              ? {
-                                                  ...currentItem,
-                                                  purchaseIntervalMonths: next,
-                                                  updatedAt: new Date().toISOString(),
-                                                }
-                                              : currentItem,
-                                          ),
-                                        }));
-                                      }}
-                                      className={fieldClassName}
-                                    />
-                                  </label>
-                                  <label className="block space-y-2">
-                                    <span className="praxis-label text-zinc-500">
-                                      Próxima compra (mês)
-                                    </span>
-                                    <select
-                                      value={
-                                        item.nextPurchaseMonth ??
-                                        new Date().getMonth() + 1
-                                      }
-                                      onChange={(event) => {
-                                        const next = Number(event.target.value);
-                                        updateModuleState((current) => ({
-                                          ...current,
-                                          items: current.items.map((currentItem) =>
+                                <label className="block space-y-2">
+                                  <span className="praxis-label text-zinc-500">
+                                    Próxima compra (mês)
+                                  </span>
+                                  <select
+                                    value={
+                                      item.nextPurchaseMonth ??
+                                      new Date().getMonth() + 1
+                                    }
+                                    onChange={(event) => {
+                                      const next = Number(event.target.value);
+                                      updateModuleState((current) => ({
+                                        ...current,
+                                        items: current.items.map(
+                                          (currentItem) =>
                                             currentItem.id === item.id
                                               ? {
                                                   ...currentItem,
@@ -1359,35 +1344,35 @@ export function ShoppingModulePage({
                                                     next <= 12
                                                       ? next
                                                       : undefined,
-                                                  updatedAt: new Date().toISOString(),
+                                                  updatedAt:
+                                                    new Date().toISOString(),
                                                 }
                                               : currentItem,
-                                          ),
-                                        }));
-                                      }}
-                                      className={fieldClassName}
-                                    >
-                                      {[
-                                        "Janeiro",
-                                        "Fevereiro",
-                                        "Março",
-                                        "Abril",
-                                        "Maio",
-                                        "Junho",
-                                        "Julho",
-                                        "Agosto",
-                                        "Setembro",
-                                        "Outubro",
-                                        "Novembro",
-                                        "Dezembro",
-                                      ].map((label, idx) => (
-                                        <option key={label} value={idx + 1}>
-                                          {label}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </label>
-                                </div>
+                                        ),
+                                      }));
+                                    }}
+                                    className={fieldClassName}
+                                  >
+                                    {[
+                                      "Janeiro",
+                                      "Fevereiro",
+                                      "Março",
+                                      "Abril",
+                                      "Maio",
+                                      "Junho",
+                                      "Julho",
+                                      "Agosto",
+                                      "Setembro",
+                                      "Outubro",
+                                      "Novembro",
+                                      "Dezembro",
+                                    ].map((label, idx) => (
+                                      <option key={label} value={idx + 1}>
+                                        {label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
                               ) : null}
                             </div>
 
@@ -1480,9 +1465,12 @@ export function ShoppingModulePage({
                     Quanto vou gastar por mês
                   </h2>
                   <p className="mt-1 text-sm text-zinc-500">
-                    Cada barra é o custo real do mês considerando a frequência
-                    de compra (campo &quot;Comprar a cada X meses&quot;) de
-                    cada item.
+                    Cada barra é o custo real do mês. A frequência sai
+                    do campo <span className="text-zinc-300">Comprar por mês</span>:{" "}
+                    valores menores que 1 viram intervalos (ex.: 0,5 = a cada
+                    2 meses; 0,125 = a cada 8 meses). Use{" "}
+                    <span className="text-zinc-300">Próxima compra</span> em
+                    cada item pra escolher quando o ciclo começa.
                   </p>
                 </div>
                 <button
