@@ -363,8 +363,6 @@ export function ShoppingModulePage({
 
   const selectedSnapshot = selectedItem ? storedState.snapshots[selectedItem.id] : undefined;
   const bestOffer = getPricingOption(selectedSnapshot, selectedItem);
-  const visibleSourceNames = sourceNames.slice(0, 4);
-  const hiddenSourceCount = Math.max(0, sourceNames.length - visibleSourceNames.length);
 
   const estimatedMonthlyTotal = useMemo(
     () => storedState.items.reduce((sum, item) => {
@@ -818,21 +816,10 @@ export function ShoppingModulePage({
         eyebrow={introEyebrow}
         title={title}
         description={description}
-        actions={
-          <div className="flex flex-wrap gap-2">
-            {visibleSourceNames.map((source) => (
-              <span key={source} className="praxis-label border border-white/10 px-3 py-2 text-zinc-400">
-                {source}
-              </span>
-            ))}
-            {hiddenSourceCount ? (
-              <span className="praxis-label border border-white/10 px-3 py-2 text-zinc-500">
-                +{hiddenSourceCount} fontes
-              </span>
-            ) : null}
-          </div>
-        }
       />
+      {/* Source-name chips (Mercado Livre / Amazon / Shopee / Growth /
+          "+N fontes") removed at user's request — they were just static
+          labels and added no signal to the page header. */}
 
       {scope === "supplements" ? (
         <GlassPanel className="space-y-4">
