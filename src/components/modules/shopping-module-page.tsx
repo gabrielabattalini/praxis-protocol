@@ -537,6 +537,96 @@ export function ShoppingModulePage({
     [storedState.items, storedState.snapshots],
   );
 
+  // Annual purchase forecast — only meaningful for the market scope.
+  // For each calendar month (1-12), sum the cost of every item whose
+  // purchase schedule lands on that month. Each item generates its own
+  // set of purchase months by starting at nextPurchaseMonth and walking
+  // ±interval steps inside [1, 12]. Monthly items (interval=1) appear
+  // in every month; longer-interval items (4kg detergent at 8 months)
+  // appear in only one or two months, creating realistic spikes.
+  const annualForecast = useMemo(() => {
+    if (scope !== "market") return null;
+
+    function purchaseMonthsFor(item: ShoppingTrackedItem) {
+      const interval = Math.max(1, item.purchaseIntervalMonths ?? 1);
+      const start =
+        item.nextPurchaseMonth ?? new Date().getMonth() + 1;
+      const months = new Set<number>();
+      for (let k = -12; k <= 12; k++) {
+        const m = start + k * interval;
+        if (m >= 1 && m <= 12) months.add(m);
+      }
+      return months;
+    }
+
+    const monthLabels = [
+      "Jan",
+      "Fev",
+      "Mar",
+      "Abr",
+      "Mai",
+      "Jun",
+      "Jul",
+      "Ago",
+      "Set",
+      "Out",
+      "Nov",
+      "Dez",
+    ];
+
+    const months = monthLabels.map((label, idx) => {
+      const monthIdx = idx + 1;
+      let total = 0;
+      const items: Array<{ name: string; cost: number }> = [];
+
+      for (const item of storedState.items) {
+        if (!item.includeInFinance) continue;
+        const pricing = getPricingOption(
+          storedState.snapshots[item.id],
+          item,
+        );
+        const unitPrice = pricing?.totalPrice ?? 0;
+        if (unitPrice <= 0) continue;
+        const purchaseMonths = purchaseMonthsFor(item);
+        if (!purchaseMonths.has(monthIdx)) continue;
+        const interval = Math.max(1, item.purchaseIntervalMonths ?? 1);
+        const cost = unitPrice * item.monthlyUnits * interval;
+        if (cost <= 0) continue;
+        total += cost;
+        items.push({ name: item.name, cost });
+      }
+
+      return {
+        label,
+        monthIdx,
+        total: Math.round(total * 100) / 100,
+        items: items.sort((a, b) => b.cost - a.cost),
+      };
+    });
+
+    const totals = months.map((m) => m.total);
+    const annualTotal = totals.reduce((sum, value) => sum + value, 0);
+    const monthsWithSpend = totals.filter((value) => value > 0);
+    const averageMonth =
+      monthsWithSpend.length > 0 ? annualTotal / monthsWithSpend.length : 0;
+    const maxMonthTotal = Math.max(0, ...totals);
+    const minMonthTotal =
+      monthsWithSpend.length > 0 ? Math.min(...monthsWithSpend) : 0;
+
+    return {
+      months,
+      annualTotal: Math.round(annualTotal * 100) / 100,
+      averageMonth: Math.round(averageMonth * 100) / 100,
+      maxMonthTotal: Math.round(maxMonthTotal * 100) / 100,
+      minMonthTotal: Math.round(minMonthTotal * 100) / 100,
+    };
+  }, [scope, storedState.items, storedState.snapshots]);
+
+  const [forecastExpanded, setForecastExpanded] = useState(true);
+  const [forecastDetailMonth, setForecastDetailMonth] = useState<number | null>(
+    null,
+  );
+
   useEffect(() => {
     if (!selectedItem && storedState.items.length) {
       replaceModuleState({ ...storedState, selectedItemId: storedState.items[0]?.id });
@@ -1206,6 +1296,99 @@ export function ShoppingModulePage({
                                   className={fieldClassName}
                                 />
                               </label>
+
+                              {/* Purchase-frequency simulation (market only).
+                                  Lets the user mark items that last several
+                                  months (4kg detergent, 2L olive oil) so the
+                                  annual forecast knows to spike on the months
+                                  they actually buy, not spread thin over 12. */}
+                              {scope === "market" ? (
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  <label className="block space-y-2">
+                                    <span className="praxis-label text-zinc-500">
+                                      Comprar a cada (meses)
+                                    </span>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      max="24"
+                                      step="1"
+                                      value={item.purchaseIntervalMonths ?? 1}
+                                      onChange={(event) => {
+                                        const raw = Number(event.target.value);
+                                        const next =
+                                          !Number.isFinite(raw) || raw <= 0
+                                            ? 1
+                                            : Math.min(24, Math.max(1, Math.round(raw)));
+                                        updateModuleState((current) => ({
+                                          ...current,
+                                          items: current.items.map((currentItem) =>
+                                            currentItem.id === item.id
+                                              ? {
+                                                  ...currentItem,
+                                                  purchaseIntervalMonths: next,
+                                                  updatedAt: new Date().toISOString(),
+                                                }
+                                              : currentItem,
+                                          ),
+                                        }));
+                                      }}
+                                      className={fieldClassName}
+                                    />
+                                  </label>
+                                  <label className="block space-y-2">
+                                    <span className="praxis-label text-zinc-500">
+                                      Próxima compra (mês)
+                                    </span>
+                                    <select
+                                      value={
+                                        item.nextPurchaseMonth ??
+                                        new Date().getMonth() + 1
+                                      }
+                                      onChange={(event) => {
+                                        const next = Number(event.target.value);
+                                        updateModuleState((current) => ({
+                                          ...current,
+                                          items: current.items.map((currentItem) =>
+                                            currentItem.id === item.id
+                                              ? {
+                                                  ...currentItem,
+                                                  nextPurchaseMonth:
+                                                    Number.isFinite(next) &&
+                                                    next >= 1 &&
+                                                    next <= 12
+                                                      ? next
+                                                      : undefined,
+                                                  updatedAt: new Date().toISOString(),
+                                                }
+                                              : currentItem,
+                                          ),
+                                        }));
+                                      }}
+                                      className={fieldClassName}
+                                    >
+                                      {[
+                                        "Janeiro",
+                                        "Fevereiro",
+                                        "Março",
+                                        "Abril",
+                                        "Maio",
+                                        "Junho",
+                                        "Julho",
+                                        "Agosto",
+                                        "Setembro",
+                                        "Outubro",
+                                        "Novembro",
+                                        "Dezembro",
+                                      ].map((label, idx) => (
+                                        <option key={label} value={idx + 1}>
+                                          {label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                </div>
+                              ) : null}
                             </div>
 
                             <div className="grid gap-3 sm:grid-cols-2">
@@ -1285,6 +1468,180 @@ export function ShoppingModulePage({
               </div>
             )}
           </GlassPanel>
+
+          {annualForecast && storedState.items.length ? (
+            <GlassPanel className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="praxis-label text-[var(--accent)]">
+                    Simulação anual
+                  </p>
+                  <h2 className="praxis-title text-2xl">
+                    Quanto vou gastar por mês
+                  </h2>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    Cada barra é o custo real do mês considerando a frequência
+                    de compra (campo &quot;Comprar a cada X meses&quot;) de
+                    cada item.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setForecastExpanded((current) => !current)}
+                  className="praxis-button-ghost inline-flex items-center gap-2 px-4 py-3"
+                >
+                  {forecastExpanded ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                  {forecastExpanded ? "Ocultar simulação" : "Expandir simulação"}
+                </button>
+              </div>
+
+              {forecastExpanded ? (
+                <>
+                  {/* Summary stats */}
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-sm border border-white/10 bg-[#0d0d0f] px-4 py-3">
+                      <p className="praxis-label text-zinc-500">Ano</p>
+                      <p className="mt-2 font-headline text-xl font-bold text-[var(--accent)]">
+                        {formatCurrency(annualForecast.annualTotal)}
+                      </p>
+                    </div>
+                    <div className="rounded-sm border border-white/10 bg-[#0d0d0f] px-4 py-3">
+                      <p className="praxis-label text-zinc-500">Média/mês</p>
+                      <p className="mt-2 font-headline text-xl font-bold text-zinc-100">
+                        {formatCurrency(annualForecast.averageMonth)}
+                      </p>
+                    </div>
+                    <div className="rounded-sm border border-white/10 bg-[#0d0d0f] px-4 py-3">
+                      <p className="praxis-label text-zinc-500">Pico</p>
+                      <p className="mt-2 font-headline text-xl font-bold text-rose-300">
+                        {formatCurrency(annualForecast.maxMonthTotal)}
+                      </p>
+                    </div>
+                    <div className="rounded-sm border border-white/10 bg-[#0d0d0f] px-4 py-3">
+                      <p className="praxis-label text-zinc-500">Mínimo</p>
+                      <p className="mt-2 font-headline text-xl font-bold text-emerald-300">
+                        {formatCurrency(annualForecast.minMonthTotal)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Bar chart — 12 bars, one per month. Click a bar
+                      to see the itemized breakdown below. */}
+                  <div className="rounded-sm border border-white/10 bg-[#0d0d0f] p-4">
+                    <div className="flex items-end gap-2 h-48">
+                      {annualForecast.months.map((m) => {
+                        const ratio =
+                          annualForecast.maxMonthTotal > 0
+                            ? m.total / annualForecast.maxMonthTotal
+                            : 0;
+                        const heightPct = Math.max(ratio * 100, m.total > 0 ? 4 : 0);
+                        const isSelected = forecastDetailMonth === m.monthIdx;
+                        const isPeak =
+                          m.total === annualForecast.maxMonthTotal &&
+                          m.total > 0;
+                        return (
+                          <button
+                            key={m.monthIdx}
+                            type="button"
+                            onClick={() =>
+                              setForecastDetailMonth((current) =>
+                                current === m.monthIdx ? null : m.monthIdx,
+                              )
+                            }
+                            className="group flex flex-1 flex-col items-center justify-end h-full"
+                            title={`${m.label}: ${formatCurrency(m.total)}`}
+                          >
+                            <span
+                              className={cn(
+                                "mb-1 text-[10px] font-semibold",
+                                isSelected || isPeak
+                                  ? "text-[var(--accent)]"
+                                  : "text-zinc-500 group-hover:text-zinc-300",
+                              )}
+                            >
+                              {m.total > 0 ? formatCurrency(m.total) : "—"}
+                            </span>
+                            <div
+                              className={cn(
+                                "w-full rounded-sm transition",
+                                isSelected
+                                  ? "bg-[var(--accent)]"
+                                  : isPeak
+                                    ? "bg-rose-400/80 group-hover:bg-rose-400"
+                                    : "bg-[var(--accent)]/40 group-hover:bg-[var(--accent)]/70",
+                              )}
+                              style={{ height: `${heightPct}%` }}
+                            />
+                            <span
+                              className={cn(
+                                "mt-2 text-[11px] uppercase tracking-widest",
+                                isSelected
+                                  ? "text-[var(--accent)]"
+                                  : "text-zinc-500",
+                              )}
+                            >
+                              {m.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Itemized breakdown for the clicked month */}
+                  {forecastDetailMonth != null
+                    ? (() => {
+                        const detail = annualForecast.months.find(
+                          (m) => m.monthIdx === forecastDetailMonth,
+                        );
+                        if (!detail) return null;
+                        return (
+                          <div className="rounded-sm border border-[var(--accent)]/30 bg-[rgba(251,146,60,0.06)] p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="praxis-label text-[var(--accent)]">
+                                {detail.label} — {formatCurrency(detail.total)}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => setForecastDetailMonth(null)}
+                                className="text-xs text-zinc-500 transition hover:text-zinc-300"
+                              >
+                                fechar
+                              </button>
+                            </div>
+                            {detail.items.length ? (
+                              <ul className="mt-3 space-y-1.5 text-sm">
+                                {detail.items.map((line) => (
+                                  <li
+                                    key={line.name}
+                                    className="flex items-center justify-between gap-3 border-b border-white/5 pb-1.5 last:border-b-0"
+                                  >
+                                    <span className="truncate text-zinc-300">
+                                      {line.name}
+                                    </span>
+                                    <span className="font-semibold text-zinc-100">
+                                      {formatCurrency(line.cost)}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="mt-3 text-sm text-zinc-500">
+                                Nenhuma compra prevista nesse mês.
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })()
+                    : null}
+                </>
+              ) : null}
+            </GlassPanel>
+          ) : null}
 
           <GlassPanel className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">

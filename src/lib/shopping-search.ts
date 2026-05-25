@@ -32,6 +32,14 @@ export interface ShoppingTrackedItem {
   manualUnitPrice?: number;
   referenceUrl?: string;
   preferredResultId?: string;
+  /** How often this item is purchased, in months. Default 1 = monthly.
+   *  Items that last several months (4kg detergent, 2L olive oil)
+   *  carry higher numbers, so they appear in the annual forecast as
+   *  spikes only on the months they actually get bought. */
+  purchaseIntervalMonths?: number;
+  /** Calendar month (1-12) of the NEXT purchase. Lets the user stagger
+   *  purchases across the year so January isn't artificially loaded. */
+  nextPurchaseMonth?: number;
   createdAt: string;
   updatedAt: string;
 }
