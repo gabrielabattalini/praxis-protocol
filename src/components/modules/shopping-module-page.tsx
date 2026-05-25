@@ -281,9 +281,6 @@ export function ShoppingModulePage({
     useState<ShoppingSortOption>("monthly-cost-desc");
   const [filterOption, setFilterOption] =
     useState<ShoppingFilterOption>("all");
-  const [summaryCardsExpanded, setSummaryCardsExpanded] = useState(
-    () => scope !== "supplements",
-  );
   const mealBlocks = useMemo(
     () =>
       [...state.mealPlan].sort((left, right) =>
@@ -821,30 +818,21 @@ export function ShoppingModulePage({
           "+N fontes") removed at user's request — they were just static
           labels and added no signal to the page header. */}
 
+      {/* "Indicadores do módulo" is now always expanded — the collapse
+          toggle (Ocultar/Expandir resumo) was removed at the user's
+          request. Same 4-card grid renders for both scopes. */}
       {scope === "supplements" ? (
         <GlassPanel className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="praxis-label text-[var(--accent)]">Resumo</p>
-              <h2 className="praxis-title text-2xl">Indicadores do módulo</h2>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSummaryCardsExpanded((current) => !current)}
-              className="praxis-button-ghost inline-flex items-center gap-2 px-4 py-3"
-            >
-              {summaryCardsExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              {summaryCardsExpanded ? "Ocultar resumo" : "Expandir resumo"}
-            </button>
+          <div>
+            <p className="praxis-label text-[var(--accent)]">Resumo</p>
+            <h2 className="praxis-title text-2xl">Indicadores do módulo</h2>
           </div>
-          {summaryCardsExpanded ? (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <SheetStat label="Itens" value={String(storedState.items.length)} help={emptyLabel} />
-              <SheetStat label="Ativos" value={String(storedState.items.filter((item) => item.includeInFinance).length)} help="Entram no custo mensal" />
-              <SheetStat label="Custo mensal" value={formatCurrency(estimatedMonthlyTotal)} help="Soma da lista ativa" accent />
-              <SheetStat label="Custo semanal" value={formatCurrency(estimatedWeeklyTotal)} help="Media do mes dividida por 4" />
-            </div>
-          ) : null}
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <SheetStat label="Itens" value={String(storedState.items.length)} help={emptyLabel} />
+            <SheetStat label="Ativos" value={String(storedState.items.filter((item) => item.includeInFinance).length)} help="Entram no custo mensal" />
+            <SheetStat label="Custo mensal" value={formatCurrency(estimatedMonthlyTotal)} help="Soma da lista ativa" accent />
+            <SheetStat label="Custo semanal" value={formatCurrency(estimatedWeeklyTotal)} help="Media do mes dividida por 4" />
+          </div>
         </GlassPanel>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
