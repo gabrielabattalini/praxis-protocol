@@ -2770,33 +2770,33 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         },
       };
     case "close-finance-month": {
-      // Atomic month-close so we don't accidentally trigger the
-      // fillFinanceMonths fan-out that update-finance-monthly-value
-      // does for frequency: "fixed" lines (that bug zeroed out ALL
-      // months on every fixed line when only one month should have
-      // been touched).
+      // Atomic month-close. The key rule: every line (variable AND
+      // fixed) gets zeroed FOR THE CLOSED MONTH ONLY. Other months
+      // stay intact.
+      //
+      // We bypass update-finance-monthly-value on purpose: that
+      // action fan-outs a single write across all 12 months for
+      // frequency: "fixed" lines (the "type once, applies everywhere"
+      // UX). Close-month needs the opposite — surgical, per-month
+      // edits — so we manually spread `line.monthly` and override the
+      // single closed-month slot.
       //
       // Rules:
-      //  • Variable lines → zero the closed month, leave others alone.
-      //  • Fixed lines → leave entirely alone. A "fixed" line means
-      //    "same value every month", so wiping one month logically
-      //    would force all months to change — that's a destructive
-      //    side-effect the user never asked for. The closed month's
-      //    value stays as-is on the line; conceptually it's recorded
-      //    as a settled obligation.
-      //  • settledAmounts/settledMonths for the closed month: cleared
-      //    for credit-card lines.
-      //  • cardInvoiceBase[month] cleared (this is the manual fatura
-      //    total the user types in directly).
+      //  • Variable AND fixed lines → zero the closed month, leave
+      //    every other month untouched. Fixed lines effectively get a
+      //    one-month "hole" on the closed month; conceptually that
+      //    month was paid out and is no longer a forecast obligation.
+      //  • settledAmounts/settledMonths for the closed month → cleared
+      //    on credit-card lines.
+      //  • cardInvoiceBase[month] → cleared (manual fatura total).
       const month = action.month;
       const nextLines = state.financeBudget.lines.map((line) => {
         let nextLine = line;
 
-        // Zero out the month only for variable lines.
-        if (
-          line.frequency === "variable" &&
-          (line.monthly?.[month] ?? 0) !== 0
-        ) {
+        // Zero out the closed month on every line that has a non-zero
+        // value there — works for both variable and fixed without
+        // touching any other month.
+        if ((line.monthly?.[month] ?? 0) !== 0) {
           const monthly = {
             ...line.monthly,
             [month]: 0,

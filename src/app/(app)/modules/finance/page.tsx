@@ -1950,7 +1950,7 @@ export default function FinanceModulePage() {
             type="button"
             onClick={() =>
               requestFinanceConfirmation(
-                `Fechar o mês de ${selectedMonth.label}? Vamos zerar lançamentos variáveis, fatura do cartão e baixas deste mês. Linhas fixas (salário, internet, condomínio, etc.) continuam intactas em todos os meses.`,
+                `Fechar o mês de ${selectedMonth.label}? Todas as linhas (fixas e variáveis) ficam zeradas apenas neste mês — nenhum outro mês é alterado. Fatura do cartão e baixas do mês também são limpas.`,
                 () => {
                   // Atomic close-month: a dedicated reducer that only
                   // touches `selectedMonthId` on variable lines, plus
