@@ -1322,7 +1322,26 @@ export function SystemLanding() {
       </div>
 
       {introVisible ? (
-        <div className="fixed inset-0 z-[150] overflow-hidden bg-[#050505]">
+        <div
+          // Tap-to-skip mirrors the existing ESC handler so mobile users
+          // (no keyboard) can dismiss the animation. Suppressed during
+          // the "idle" stage so taps on the "Entrar no protocolo" button
+          // start the sequence instead of skipping the whole intro on
+          // first contact.
+          onClick={
+            introStage !== "idle"
+              ? (event) => {
+                  // Don't skip if the user clicked inside a button or
+                  // link inside the overlay (currently none past idle,
+                  // but keeps the handler safe if any get added later).
+                  const target = event.target as HTMLElement | null;
+                  if (target?.closest("button, a")) return;
+                  skipIntro();
+                }
+              : undefined
+          }
+          className="fixed inset-0 z-[150] overflow-hidden bg-[#050505]"
+        >
           <div
             className="praxis-intro-grid absolute inset-[-8%] opacity-[0.08]"
             style={{
