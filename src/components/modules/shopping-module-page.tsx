@@ -74,13 +74,11 @@ type ShoppingSortOption =
   | "monthly-use-desc"
   | "name-asc"
   | "name-desc"
-  | "monthly-units-desc"
-  | "linked-meals-desc";
+  | "monthly-units-desc";
 
 type ShoppingFilterOption =
   | "all"
   | "active"
-  | "linked"
   | "priced"
   | "online"
   | "presential"
@@ -441,8 +439,6 @@ export function ShoppingModulePage({
             return row.item.includeInFinance;
           case "inactive":
             return !row.item.includeInFinance;
-          case "linked":
-            return row.linkedMealBlocks.length > 0;
           case "priced":
             return Boolean(row.pricingOption);
           case "online":
@@ -468,8 +464,6 @@ export function ShoppingModulePage({
           return right.monthlyConsumption - left.monthlyConsumption;
         case "monthly-units-desc":
           return right.item.monthlyUnits - left.item.monthlyUnits;
-        case "linked-meals-desc":
-          return right.linkedMealBlocks.length - left.linkedMealBlocks.length;
         case "monthly-cost-asc":
           return left.estimatedItemMonthly - right.estimatedItemMonthly;
         case "monthly-cost-desc":
@@ -840,7 +834,6 @@ export function ShoppingModulePage({
                         <option value="base-price-asc">Menor preço base</option>
                         <option value="monthly-use-desc">Maior uso mensal</option>
                         <option value="monthly-units-desc">Maior compra mensal</option>
-                        <option value="linked-meals-desc">Mais refeições vinculadas</option>
                         <option value="name-asc">Ordem alfabética A-Z</option>
                         <option value="name-desc">Ordem alfabética Z-A</option>
                       </select>
@@ -858,7 +851,6 @@ export function ShoppingModulePage({
                     {[
                       { id: "all", label: "Todos" },
                       { id: "active", label: "Ativos" },
-                      { id: "linked", label: "Vinculados" },
                       { id: "priced", label: "Com preço" },
                       { id: "online", label: "Online" },
                       ...(scope === "market"
@@ -967,9 +959,6 @@ export function ShoppingModulePage({
                               scope === "supplements" ? item.scheduleLabel : item.localStoreName,
                             ].filter(Boolean).join(" • ")}
                           </p>
-                          {linkedMealsLabel ? (
-                            <p className="mt-1 text-xs text-zinc-400">Refeições: {linkedMealsLabel}</p>
-                          ) : null}
                         </button>
 
                         <div className="text-sm text-zinc-300">{item.quantity || "--"}</div>
@@ -1139,6 +1128,38 @@ export function ShoppingModulePage({
                                 </label>
                               ) : null}
 
+                              {item.purchaseMode === "online" ? (
+                                <label className="block space-y-2">
+                                  <span className="praxis-label text-zinc-500">
+                                    Link de compra
+                                  </span>
+                                  <input
+                                    type="url"
+                                    inputMode="url"
+                                    value={item.referenceUrl ?? ""}
+                                    onChange={(event) =>
+                                      updateModuleState((current) => ({
+                                        ...current,
+                                        items: current.items.map((currentItem) =>
+                                          currentItem.id === item.id
+                                            ? {
+                                                ...currentItem,
+                                                referenceUrl:
+                                                  event.target.value.trim() ||
+                                                  undefined,
+                                                updatedAt:
+                                                  new Date().toISOString(),
+                                              }
+                                            : currentItem,
+                                        ),
+                                      }))
+                                    }
+                                    placeholder="https://..."
+                                    className={fieldClassName}
+                                  />
+                                </label>
+                              ) : null}
+
                               <label className="block space-y-2">
                                 <span className="praxis-label text-zinc-500">Comprar por mes</span>
                                 <input
@@ -1160,27 +1181,6 @@ export function ShoppingModulePage({
                             </div>
 
                             <div className="space-y-3">
-                              <div className="rounded-sm border border-white/10 bg-[#111113] p-3">
-                                <p className="praxis-label text-zinc-500">Usar nas refeições</p>
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                  {linkedMealBlocks.length ? (
-                                    linkedMealBlocks.map((block) => (
-                                      <span
-                                        key={block.id}
-                                        className="rounded-sm border border-[var(--accent)]/20 bg-[rgba(251,146,60,0.08)] px-3 py-2 text-xs text-zinc-200"
-                                      >
-                                        {block.title}
-                                        {block.time ? ` • ${block.time}` : ""}
-                                      </span>
-                                    ))
-                                  ) : (
-                                    <span className="text-sm text-zinc-500">
-                                      Nenhuma refeição vinculada.
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
                               <button
                                 type="button"
                                 onClick={() => updateItemFinancePlan(item.id, { includeInFinance: !item.includeInFinance })}
@@ -1445,73 +1445,11 @@ export function ShoppingModulePage({
                 </section>
               ) : null}
 
-              {/* SECTION 4 — Refeições vinculadas */}
-              <section className="space-y-3">
-                <div className="praxis-label flex items-center justify-between gap-2 border-b border-white/5 pb-2 text-zinc-400">
-                  <span className="flex items-center gap-2">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
-                    Refeições vinculadas
-                  </span>
-                  <span className="rounded-sm border border-white/10 px-2 py-1 text-zinc-400">
-                    {draft.mealBlockIds.length
-                      ? `${draft.mealBlockIds.length} ${draft.mealBlockIds.length > 1 ? "refeições" : "refeição"}`
-                      : "Nenhuma"}
-                  </span>
-                </div>
-                <p className="text-sm leading-6 text-zinc-500">
-                  Selecione em quais refeições esse item entra na sua dieta.
-                </p>
-                {mealBlocks.length ? (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {mealBlocks.map((block) => {
-                      const selected = draft.mealBlockIds.includes(block.id);
-                      return (
-                        <button
-                          key={block.id}
-                          type="button"
-                          onClick={() =>
-                            setDraft((current) => ({
-                              ...current,
-                              mealBlockIds: current.mealBlockIds.includes(block.id)
-                                ? current.mealBlockIds.filter((mealBlockId) => mealBlockId !== block.id)
-                                : [...current.mealBlockIds, block.id],
-                            }))
-                          }
-                          className={cn(
-                            "rounded-sm border px-4 py-3 text-left transition",
-                            selected
-                              ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100"
-                              : "border-white/10 bg-[#0a0a0b] text-zinc-400",
-                          )}
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate font-medium">{block.title}</p>
-                              <p className="mt-1 text-sm text-zinc-500">
-                                {block.time || "Horário livre"}
-                              </p>
-                            </div>
-                            <span
-                              className={cn(
-                                "inline-flex h-7 min-w-7 items-center justify-center rounded-sm border px-2 text-[10px] uppercase tracking-[0.18em]",
-                                selected
-                                  ? "border-[var(--accent)]/30 bg-[rgba(251,146,60,0.12)] text-[var(--accent)]"
-                                  : "border-white/10 bg-[#111113] text-zinc-500",
-                              )}
-                            >
-                              {selected ? "OK" : "--"}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="rounded-sm border border-dashed border-white/10 p-4 text-sm leading-6 text-zinc-500">
-                    Crie primeiro suas refeições na dieta para vincular itens de mercado e suplementos.
-                  </div>
-                )}
-              </section>
+              {/* SECTION 4 — Refeições vinculadas removida a pedido do
+                  usuário (não queria mais cruzar item de mercado com
+                  refeição da dieta). mealBlockIds continua no schema
+                  pra retrocompatibilidade — vazio por padrão a partir
+                  daqui. */}
 
               {/* Submit */}
               <div className="flex flex-wrap gap-3 border-t border-white/10 pt-4">
