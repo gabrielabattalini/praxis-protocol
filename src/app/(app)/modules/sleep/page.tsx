@@ -503,7 +503,13 @@ export default function SleepModulePage() {
       const dayPlan = sleepPlan.days[item.id];
       const bedtimeKey = `sleep-plan-bedtime-${item.id}`;
       const wakeKey = `sleep-plan-wake-${item.id}`;
-      const wakeDay = getNextWeekday(item.id);
+      // The "wake" alarm fires on the SAME calendar day as the row —
+      // user's mental model. e.g. configuring Domingo wake=10:00 means
+      // "wake me at 10 on Sunday morning", NOT "wake me Monday morning
+      // after sleeping Sunday night". (Old code did getNextWeekday(item.id)
+      // and shoved Sunday's wake into Monday's agenda, displacing
+      // every day's wake by one.)
+      const wakeDay = item.id;
 
       if (!dayPlan.enabled) {
         return;
