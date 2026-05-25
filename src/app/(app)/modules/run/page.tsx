@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Clock3, Plus, TimerReset, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Clock3,
+  Plus,
+  TimerReset,
+  Trash2,
+} from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { ProgressCurveChart } from "@/components/ui/progress-curve-chart";
@@ -264,6 +271,10 @@ export default function RunModulePage() {
     seconds: "",
   });
   const [feedback, setFeedback] = useState("");
+  // Toggle for the "Recomendação da semana / Cardio guiado pelo perfil"
+  // panel — collapsed shows only the header so the user can hide the
+  // KPI grid + base usada + contexto when they don't need it.
+  const [recommendationExpanded, setRecommendationExpanded] = useState(true);
 
   const defaultTypeRef = useRef(defaultCardioType);
   defaultTypeRef.current = defaultCardioType;
@@ -594,56 +605,83 @@ export default function RunModulePage() {
               O Praxis usa idade, peso, altura, atividade e contexto de saúde para sugerir um ponto de partida em minutos, sessões e km estimados.
             </p>
           </div>
-          <Link href="/profile" className="inline-flex items-center border border-zinc-800 bg-black/50 px-4 py-3 font-headline text-xs font-bold uppercase tracking-[0.25em] text-zinc-100 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]">
-            Ajustar perfil
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/profile"
+              className="inline-flex items-center border border-zinc-800 bg-black/50 px-4 py-3 font-headline text-xs font-bold uppercase tracking-[0.25em] text-zinc-100 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"
+            >
+              Ajustar perfil
+            </Link>
+            <button
+              type="button"
+              onClick={() => setRecommendationExpanded((current) => !current)}
+              aria-expanded={recommendationExpanded}
+              aria-label={
+                recommendationExpanded
+                  ? "Ocultar recomendação"
+                  : "Expandir recomendação"
+              }
+              className="inline-flex items-center gap-2 border border-zinc-800 bg-black/50 px-4 py-3 font-headline text-xs font-bold uppercase tracking-[0.25em] text-zinc-100 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"
+            >
+              {recommendationExpanded ? (
+                <ChevronUp className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5" />
+              )}
+              {recommendationExpanded ? "Ocultar" : "Expandir"}
+            </button>
+          </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <div className="praxis-kpi p-4"><p className="praxis-label text-zinc-500">Meta inicial</p><p className="mt-2 font-title text-3xl font-bold text-[var(--accent)]">{recommendationMinutes} min</p></div>
-          <div className="praxis-kpi p-4"><p className="praxis-label text-zinc-500">Sessões</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{recommendationSessions}x</p></div>
-          <div className="praxis-kpi p-4"><p className="praxis-label text-zinc-500">Por sessão</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{Math.round(recommendationMinutes / recommendationSessions)} min</p></div>
-          <div className="praxis-kpi p-4"><p className="praxis-label text-zinc-500">Zona alvo</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{bpmLabel}</p></div>
-          <div className="praxis-kpi p-4"><p className="praxis-label text-zinc-500">Estimativa em km</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{recommendationKm} km</p></div>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
-            <p className="praxis-label text-[var(--accent)]">Base usada</p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {profileBaseSummary.map((item) => (
-                <div key={item.label} className="rounded-sm border border-zinc-800 bg-black/40 p-3">
-                  <p className="text-[0.68rem] uppercase tracking-[0.22em] text-zinc-500">{item.label}</p>
-                  <p className="mt-2 text-sm font-medium text-zinc-100">{item.value}</p>
-                </div>
-              ))}
+        {recommendationExpanded ? (
+          <>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              <div className="praxis-kpi p-4"><p className="praxis-label text-zinc-500">Meta inicial</p><p className="mt-2 font-title text-3xl font-bold text-[var(--accent)]">{recommendationMinutes} min</p></div>
+              <div className="praxis-kpi p-4"><p className="praxis-label text-zinc-500">Sessões</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{recommendationSessions}x</p></div>
+              <div className="praxis-kpi p-4"><p className="praxis-label text-zinc-500">Por sessão</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{Math.round(recommendationMinutes / recommendationSessions)} min</p></div>
+              <div className="praxis-kpi p-4"><p className="praxis-label text-zinc-500">Zona alvo</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{bpmLabel}</p></div>
+              <div className="praxis-kpi p-4"><p className="praxis-label text-zinc-500">Estimativa em km</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{recommendationKm} km</p></div>
             </div>
-          </div>
 
-          <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
-            <p className="praxis-label text-[var(--accent)]">Contexto aplicado</p>
-            <p className="mt-2 text-sm leading-6 text-zinc-300">
-              {profile.hasCardiovascularCondition
-                ? "A recomendação começa mais conservadora por conta do histórico cardiovascular."
-                : "Sem restrição cardiovascular informada, a faixa já entra no ponto de partida normal."}
-            </p>
-            <p className="mt-3 text-sm leading-6 text-zinc-300">
-              {profile.hasJointLimitation
-                ? "A limitação articular reduz o impacto sugerido nas sessões."
-                : "Sem limitação articular informada, cardio de impacto e caminhada seguem como base principal."}
-            </p>
-            <p className="mt-3 text-sm leading-6 text-zinc-300">
-              {profile.usesHeartRateMedication
-                ? "O BPM foi ocultado porque a medicação pode distorcer a leitura."
-                : `A zona alvo foi estimada em ${bpmLabel}.`}
-            </p>
-          </div>
-        </div>
+            <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+              <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
+                <p className="praxis-label text-[var(--accent)]">Base usada</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {profileBaseSummary.map((item) => (
+                    <div key={item.label} className="rounded-sm border border-zinc-800 bg-black/40 p-3">
+                      <p className="text-[0.68rem] uppercase tracking-[0.22em] text-zinc-500">{item.label}</p>
+                      <p className="mt-2 text-sm font-medium text-zinc-100">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <button type="button" onClick={applyRecommendation} className="praxis-button px-5 py-3">Aplicar sugestão na semana</button>
-          {feedback ? <span className="text-sm text-zinc-400">{feedback}</span> : null}
-        </div>
+              <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
+                <p className="praxis-label text-[var(--accent)]">Contexto aplicado</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-300">
+                  {profile.hasCardiovascularCondition
+                    ? "A recomendação começa mais conservadora por conta do histórico cardiovascular."
+                    : "Sem restrição cardiovascular informada, a faixa já entra no ponto de partida normal."}
+                </p>
+                <p className="mt-3 text-sm leading-6 text-zinc-300">
+                  {profile.hasJointLimitation
+                    ? "A limitação articular reduz o impacto sugerido nas sessões."
+                    : "Sem limitação articular informada, cardio de impacto e caminhada seguem como base principal."}
+                </p>
+                <p className="mt-3 text-sm leading-6 text-zinc-300">
+                  {profile.usesHeartRateMedication
+                    ? "O BPM foi ocultado porque a medicação pode distorcer a leitura."
+                    : `A zona alvo foi estimada em ${bpmLabel}.`}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="button" onClick={applyRecommendation} className="praxis-button px-5 py-3">Aplicar sugestão na semana</button>
+              {feedback ? <span className="text-sm text-zinc-400">{feedback}</span> : null}
+            </div>
+          </>
+        ) : null}
       </GlassPanel>
 
       <div className="grid gap-4 md:grid-cols-3">
