@@ -281,6 +281,7 @@ export function ShoppingModulePage({
     useState<ShoppingSortOption>("monthly-cost-desc");
   const [filterOption, setFilterOption] =
     useState<ShoppingFilterOption>("all");
+  const [offerPanelExpanded, setOfferPanelExpanded] = useState(true);
   const mealBlocks = useMemo(
     () =>
       [...state.mealPlan].sort((left, right) =>
@@ -1772,65 +1773,81 @@ export function ShoppingModulePage({
                 <p className="praxis-label text-[var(--accent)]">Oferta de referencia</p>
                 <h2 className="praxis-title text-2xl">{selectedItem ? buildShoppingQueryLabel(selectedItem) : "Selecione um item"}</h2>
               </div>
-              {selectedItem?.purchaseMode === "online" ? (
-                <button type="button" onClick={() => runSearch(selectedItem)} disabled={searchingItemId === selectedItem.id} className="praxis-button inline-flex items-center gap-2 px-4 py-3">
-                  {searchingItemId === selectedItem.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                  Buscar agora
+              <div className="flex items-center gap-2">
+                {selectedItem?.purchaseMode === "online" ? (
+                  <button type="button" onClick={() => runSearch(selectedItem)} disabled={searchingItemId === selectedItem.id} className="praxis-button inline-flex items-center gap-2 px-4 py-3">
+                    {searchingItemId === selectedItem.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    Buscar agora
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setOfferPanelExpanded((current) => !current)}
+                  className="praxis-button-ghost inline-flex items-center gap-2 px-4 py-3"
+                  aria-expanded={offerPanelExpanded}
+                  aria-label={offerPanelExpanded ? "Ocultar oferta" : "Expandir oferta"}
+                >
+                  {offerPanelExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  {offerPanelExpanded ? "Ocultar" : "Expandir"}
                 </button>
-              ) : null}
+              </div>
             </div>
 
-            {selectedItem?.purchaseMode === "online" && selectedSnapshot?.sources.length ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                {selectedSnapshot.sources.map((source) => (
-                  <div key={source.id} className="rounded-sm border border-white/10 bg-[#0a0a0b] p-3">
-                    <p className="font-medium text-zinc-100">{source.name}</p>
-                    <p className="mt-1 text-sm text-zinc-500">{source.status === "ok" ? `${source.count} ofertas` : source.status === "blocked" ? "Busca bloqueada" : "Sem resposta"}</p>
-                    {source.note ? <p className="mt-1 text-xs leading-5 text-zinc-500">{source.note}</p> : null}
+            {offerPanelExpanded ? (
+              <>
+                {selectedItem?.purchaseMode === "online" && selectedSnapshot?.sources.length ? (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {selectedSnapshot.sources.map((source) => (
+                      <div key={source.id} className="rounded-sm border border-white/10 bg-[#0a0a0b] p-3">
+                        <p className="font-medium text-zinc-100">{source.name}</p>
+                        <p className="mt-1 text-sm text-zinc-500">{source.status === "ok" ? `${source.count} ofertas` : source.status === "blocked" ? "Busca bloqueada" : "Sem resposta"}</p>
+                        {source.note ? <p className="mt-1 text-xs leading-5 text-zinc-500">{source.note}</p> : null}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            ) : null}
+                ) : null}
 
-            {selectedItem?.purchaseMode === "presential" ? (
-              <div className="grid gap-4 md:grid-cols-2">
-                <MetricCard label="Local da compra" value={selectedItem.localStoreName || "Compra presencial"} />
-                <MetricCard label="Preco informado" value={selectedItem.manualUnitPrice ? formatCurrency(selectedItem.manualUnitPrice) : "--"} highlight />
-                <MetricCard label="Quantidade base" value={selectedItem.quantity || "--"} />
-                <MetricCard label={bestOffer?.comparablePriceLabel ? `Preco / ${bestOffer.comparablePriceLabel}` : "Preco proporcional"} value={bestOffer?.comparablePrice ? formatCurrency(bestOffer.comparablePrice) : "--"} />
-              </div>
-            ) : selectedSnapshot?.results.length ? (
-              <div className="grid gap-4">
-                {selectedSnapshot.results.map((result) => (
-                  <ResultCard
-                    key={result.id}
-                    result={result}
-                    isPreferred={selectedItem?.preferredResultId === result.id || (!selectedItem?.preferredResultId && selectedSnapshot.results[0]?.id === result.id)}
-                    onChoose={() => {
-                      if (!selectedItem) return;
-                      updateModuleState((current) => ({
-                        ...current,
-                        items: current.items.map((item) =>
-                          item.id === selectedItem.id
-                            ? {
-                                ...item,
-                                preferredResultId: result.id,
-                                monthlyUnits: getMonthlyUnitsFromDose(result.quantityLabel || item.quantity, item.dailyDose, item.monthlyUnits),
-                                updatedAt: new Date().toISOString(),
-                              }
-                            : item,
-                        ),
-                      }));
-                      setFeedback(`Oferta de ${result.sourceName} definida no calculo mensal.`);
+                {selectedItem?.purchaseMode === "presential" ? (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <MetricCard label="Local da compra" value={selectedItem.localStoreName || "Compra presencial"} />
+                    <MetricCard label="Preco informado" value={selectedItem.manualUnitPrice ? formatCurrency(selectedItem.manualUnitPrice) : "--"} highlight />
+                    <MetricCard label="Quantidade base" value={selectedItem.quantity || "--"} />
+                    <MetricCard label={bestOffer?.comparablePriceLabel ? `Preco / ${bestOffer.comparablePriceLabel}` : "Preco proporcional"} value={bestOffer?.comparablePrice ? formatCurrency(bestOffer.comparablePrice) : "--"} />
+                  </div>
+                ) : selectedSnapshot?.results.length ? (
+                  <div className="grid gap-4">
+                    {selectedSnapshot.results.map((result) => (
+                      <ResultCard
+                        key={result.id}
+                        result={result}
+                        isPreferred={selectedItem?.preferredResultId === result.id || (!selectedItem?.preferredResultId && selectedSnapshot.results[0]?.id === result.id)}
+                        onChoose={() => {
+                          if (!selectedItem) return;
+                          updateModuleState((current) => ({
+                            ...current,
+                            items: current.items.map((item) =>
+                              item.id === selectedItem.id
+                                ? {
+                                    ...item,
+                                    preferredResultId: result.id,
+                                    monthlyUnits: getMonthlyUnitsFromDose(result.quantityLabel || item.quantity, item.dailyDose, item.monthlyUnits),
+                                    updatedAt: new Date().toISOString(),
+                                  }
+                                : item,
+                            ),
+                          }));
+                          setFeedback(`Oferta de ${result.sourceName} definida no calculo mensal.`);
                     }}
                   />
                 ))}
               </div>
-            ) : selectedItem ? (
-              <div className="rounded-sm border border-dashed border-white/10 p-5 text-sm leading-6 text-zinc-500">Rode a busca para comparar preco, frete e precisao entre as lojas do item selecionado.</div>
-            ) : (
-              <div className="rounded-sm border border-dashed border-white/10 p-5 text-sm leading-6 text-zinc-500">Selecione uma linha da tabela para ver a oferta usada no calculo.</div>
-            )}
+                ) : selectedItem ? (
+                  <div className="rounded-sm border border-dashed border-white/10 p-5 text-sm leading-6 text-zinc-500">Rode a busca para comparar preco, frete e precisao entre as lojas do item selecionado.</div>
+                ) : (
+                  <div className="rounded-sm border border-dashed border-white/10 p-5 text-sm leading-6 text-zinc-500">Selecione uma linha da tabela para ver a oferta usada no calculo.</div>
+                )}
+              </>
+            ) : null}
           </GlassPanel>
         </div>
       </div>
