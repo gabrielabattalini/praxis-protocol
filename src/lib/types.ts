@@ -746,6 +746,32 @@ export interface PersistedState {
   shoppingModules: ShoppingModulesState;
   financeBudget: FinanceYearBudget;
   financeCategories: FinanceCategory[];
+  sleepPlan: SleepWeeklyPlan;
+  sleepHistory: SleepLogEntry[];
+}
+
+/* ── Sleep ──────────────────────────────────────────────────────
+   Sleep weekly schedule + history. Persisted in KV so the user's
+   alarm targets + nightly logs survive across browser / device. */
+
+export interface SleepDayPlan {
+  enabled: boolean;
+  bedtime: string;
+  wakeTime: string;
+}
+
+export interface SleepWeeklyPlan {
+  recommendedHours: string;
+  days: Record<Weekday, SleepDayPlan>;
+}
+
+export interface SleepLogEntry {
+  id: string;
+  date: string;
+  bedtime: string;
+  wakeTime: string;
+  hours: number;
+  createdAt: string;
 }
 
 

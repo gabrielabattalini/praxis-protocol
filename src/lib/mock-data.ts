@@ -2585,6 +2585,19 @@ export const initialPersistedState: PersistedState = {
   },
   financeBudget: financeBudgetSeed,
   financeCategories: financeCategorySeed,
+  sleepPlan: {
+    recommendedHours: "",
+    days: {
+      monday: { enabled: false, bedtime: "", wakeTime: "" },
+      tuesday: { enabled: false, bedtime: "", wakeTime: "" },
+      wednesday: { enabled: false, bedtime: "", wakeTime: "" },
+      thursday: { enabled: false, bedtime: "", wakeTime: "" },
+      friday: { enabled: false, bedtime: "", wakeTime: "" },
+      saturday: { enabled: false, bedtime: "", wakeTime: "" },
+      sunday: { enabled: false, bedtime: "", wakeTime: "" },
+    },
+  },
+  sleepHistory: [],
 };
 
 export function getRankFromPoints(points: number) {

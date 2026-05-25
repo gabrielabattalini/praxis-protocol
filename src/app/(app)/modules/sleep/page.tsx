@@ -10,11 +10,18 @@ import {
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { ProgressCurveChart } from "@/components/ui/progress-curve-chart";
-import type { Weekday } from "@/lib/types";
+import type {
+  SleepLogEntry as PersistedSleepLogEntry,
+  SleepWeeklyPlan as PersistedSleepWeeklyPlan,
+  Weekday,
+} from "@/lib/types";
 import { weekdayLongLabel } from "@/lib/utils";
 
 const selectFieldClassName =
   "praxis-field w-full appearance-none bg-[#0b0b0d] px-4 py-3 text-sm text-zinc-100 [color-scheme:dark]";
+// Legacy localStorage keys — kept only so existing users get their
+// data migrated into the central KV store on first load. After the
+// migration, all sleep state lives in state.sleepPlan / state.sleepHistory.
 const sleepPlanStorageKey = "praxis-protocol-sleep-weekly-plan";
 const sleepHistoryStorageKey = "praxis-protocol-sleep-history-v1";
 const hourOptions = Array.from({ length: 24 }, (_, index) =>
@@ -225,12 +232,41 @@ export default function SleepModulePage() {
   const { state, actions } = useAppStore();
   const today = useMemo(() => new Date(), []);
   const todayWeekday = getTodayWeekday(today);
-  const [sleepPlan, setSleepPlan] = useState<SleepWeeklyPlan>(createDefaultSleepPlan);
+  // sleepPlan + sleepHistory now live in the central PersistedState
+  // (KV-backed, syncs across devices). The localStorage keys are
+  // ONLY consulted once for migration on first load.
+  const sleepPlan = state.sleepPlan as SleepWeeklyPlan;
+  const setSleepPlan = useCallback(
+    (next: SleepWeeklyPlan | ((current: SleepWeeklyPlan) => SleepWeeklyPlan)) => {
+      const resolved =
+        typeof next === "function"
+          ? (next as (current: SleepWeeklyPlan) => SleepWeeklyPlan)(sleepPlan)
+          : next;
+      actions.setSleepPlan(resolved as PersistedSleepWeeklyPlan);
+    },
+    [actions, sleepPlan],
+  );
+  const sleepHistory = state.sleepHistory as SleepLogEntry[];
+  const setSleepHistory = useCallback(
+    (
+      next:
+        | SleepLogEntry[]
+        | ((current: SleepLogEntry[]) => SleepLogEntry[]),
+    ) => {
+      const resolved =
+        typeof next === "function"
+          ? (next as (current: SleepLogEntry[]) => SleepLogEntry[])(
+              sleepHistory,
+            )
+          : next;
+      actions.setSleepHistory(resolved as PersistedSleepLogEntry[]);
+    },
+    [actions, sleepHistory],
+  );
   const [hasHydratedPlan, setHasHydratedPlan] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState("Carregando cronograma...");
   const [syncFeedback, setSyncFeedback] = useState("Sincronize o cronograma para gerar as tarefas do sono.");
   const [isSyncingTasks, setIsSyncingTasks] = useState(false);
-  const [sleepHistory, setSleepHistory] = useState<SleepLogEntry[]>([]);
   const [sleepDraft, setSleepDraft] = useState<SleepLogDraft>({
     date: localDateKey(),
     bedtime: "23:00",
@@ -247,61 +283,70 @@ export default function SleepModulePage() {
     })}.`;
   }
 
+  // One-time migration: if the central store has no plan/history yet
+  // but the old localStorage keys do, lift that data into the store
+  // (which will then sync to KV across devices). After migrating, we
+  // clean up the legacy keys so the user only ever has one source of
+  // truth. hasHydratedPlan flips true once we've considered the
+  // migration so the auto-save effects can fire.
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(sleepPlanStorageKey);
-      if (stored) {
-        const parsed = JSON.parse(stored) as Partial<SleepWeeklyPlan>;
-        setSleepPlan({
-          recommendedHours:
-            parsed.recommendedHours ?? createDefaultSleepPlan().recommendedHours,
-          days: {
-            ...createDefaultSleepPlan().days,
-            ...parsed.days,
-          },
-        });
+    const planIsEmpty =
+      !sleepPlan.recommendedHours &&
+      Object.values(sleepPlan.days ?? {}).every(
+        (day) => !day?.enabled && !day?.bedtime && !day?.wakeTime,
+      );
+
+    if (planIsEmpty) {
+      try {
+        const stored = window.localStorage.getItem(sleepPlanStorageKey);
+        if (stored) {
+          const parsed = JSON.parse(stored) as Partial<SleepWeeklyPlan>;
+          setSleepPlan({
+            recommendedHours:
+              parsed.recommendedHours ?? createDefaultSleepPlan().recommendedHours,
+            days: {
+              ...createDefaultSleepPlan().days,
+              ...parsed.days,
+            },
+          });
+        }
+      } catch {
+        // Ignore — defaults already apply.
       }
-    } catch {
-      setSleepPlan(createDefaultSleepPlan());
-    } finally {
-      setHasHydratedPlan(true);
-      setSaveFeedback("Cronograma pronto para salvar automaticamente.");
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!hasHydratedPlan) {
-      return;
     }
 
-    try {
-      window.localStorage.setItem(sleepPlanStorageKey, JSON.stringify(sleepPlan));
-      setSaveFeedback(buildSaveLabel());
-    } catch {
-      setSaveFeedback("Não foi possível salvar o cronograma agora.");
-    }
-  }, [hasHydratedPlan, sleepPlan]);
-
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(sleepHistoryStorageKey);
-      if (stored) {
-        const parsed = JSON.parse(stored) as SleepLogEntry[];
-        setSleepHistory(
-          parsed
+    if (sleepHistory.length === 0) {
+      try {
+        const stored = window.localStorage.getItem(sleepHistoryStorageKey);
+        if (stored) {
+          const parsed = JSON.parse(stored) as SleepLogEntry[];
+          const valid = parsed
             .filter((entry) => entry?.date && entry?.bedtime && entry?.wakeTime)
-            .sort((left, right) => right.date.localeCompare(left.date)),
-        );
-      }
+            .sort((left, right) => right.date.localeCompare(left.date));
+          if (valid.length) setSleepHistory(valid);
+        }
+      } catch {}
+    }
+
+    // Clean up the legacy keys whether or not we hit them — after the
+    // first migration pass we never need them again.
+    try {
+      window.localStorage.removeItem(sleepPlanStorageKey);
+      window.localStorage.removeItem(sleepHistoryStorageKey);
     } catch {}
+
+    setHasHydratedPlan(true);
+    setSaveFeedback(buildSaveLabel());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Every time the plan or history changes, the central store
+  // auto-debounces a save to KV (700ms). Surface a "Salvo às HH:MM"
+  // feedback to the user so they know the change is persisted.
   useEffect(() => {
-    window.localStorage.setItem(
-      sleepHistoryStorageKey,
-      JSON.stringify(sleepHistory),
-    );
-  }, [sleepHistory]);
+    if (!hasHydratedPlan) return;
+    setSaveFeedback(buildSaveLabel());
+  }, [hasHydratedPlan, sleepPlan, sleepHistory]);
 
   useEffect(() => {
     if (!hasHydratedPlan) return;

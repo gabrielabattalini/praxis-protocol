@@ -480,6 +480,8 @@ type AppStoreValue = {
     }) => void;
     removeFinanceLine: (lineId: string) => void;
     closeFinanceMonth: (month: FinanceMonthId) => void;
+    setSleepPlan: (plan: PersistedState["sleepPlan"]) => void;
+    setSleepHistory: (history: PersistedState["sleepHistory"]) => void;
   };
 };
 
@@ -953,7 +955,9 @@ type Action =
       };
     }
   | { type: "remove-finance-line"; lineId: string }
-  | { type: "close-finance-month"; month: FinanceMonthId };
+  | { type: "close-finance-month"; month: FinanceMonthId }
+  | { type: "set-sleep-plan"; payload: PersistedState["sleepPlan"] }
+  | { type: "set-sleep-history"; payload: PersistedState["sleepHistory"] };
 
 const AppStoreContext = createContext<AppStoreValue | null>(null);
 
@@ -2856,6 +2860,10 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         },
       };
     }
+    case "set-sleep-plan":
+      return { ...state, sleepPlan: action.payload };
+    case "set-sleep-history":
+      return { ...state, sleepHistory: action.payload };
     default:
       return state;
   }
@@ -4427,6 +4435,19 @@ const emptyPersistedState: PersistedState = {
     market: createEmptyShoppingModuleState(),
     supplements: createEmptyShoppingModuleState(),
   },
+  sleepPlan: {
+    recommendedHours: "",
+    days: {
+      monday: { enabled: false, bedtime: "", wakeTime: "" },
+      tuesday: { enabled: false, bedtime: "", wakeTime: "" },
+      wednesday: { enabled: false, bedtime: "", wakeTime: "" },
+      thursday: { enabled: false, bedtime: "", wakeTime: "" },
+      friday: { enabled: false, bedtime: "", wakeTime: "" },
+      saturday: { enabled: false, bedtime: "", wakeTime: "" },
+      sunday: { enabled: false, bedtime: "", wakeTime: "" },
+    },
+  },
+  sleepHistory: [],
 };
 
 function parseStateValue(
@@ -4688,6 +4709,34 @@ function parseStateValue(
         parsedState.financeCategories,
         financeBudget,
       ),
+      sleepPlan: (() => {
+        const base = emptyPersistedState.sleepPlan;
+        const incoming = parsedState.sleepPlan;
+        if (!incoming || typeof incoming !== "object") return base;
+        return {
+          recommendedHours:
+            typeof incoming.recommendedHours === "string"
+              ? incoming.recommendedHours
+              : base.recommendedHours,
+          days: {
+            ...base.days,
+            ...(incoming.days && typeof incoming.days === "object"
+              ? incoming.days
+              : {}),
+          },
+        };
+      })(),
+      sleepHistory: Array.isArray(parsedState.sleepHistory)
+        ? parsedState.sleepHistory.filter(
+            (entry) =>
+              entry &&
+              typeof entry === "object" &&
+              typeof entry.id === "string" &&
+              typeof entry.date === "string" &&
+              typeof entry.bedtime === "string" &&
+              typeof entry.wakeTime === "string",
+          )
+        : emptyPersistedState.sleepHistory,
     };
   } catch {
     return null;
@@ -5469,6 +5518,12 @@ export function AppStoreProvider({
       },
       closeFinanceMonth(month) {
         dispatch({ type: "close-finance-month", month });
+      },
+      setSleepPlan(plan) {
+        dispatch({ type: "set-sleep-plan", payload: plan });
+      },
+      setSleepHistory(history) {
+        dispatch({ type: "set-sleep-history", payload: history });
       },
     },
   };
