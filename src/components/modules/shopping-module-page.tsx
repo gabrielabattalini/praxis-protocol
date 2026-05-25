@@ -862,19 +862,23 @@ export function ShoppingModulePage({
           ) : null}
         </section>
 
-        {/* SECTION 3 — Compra (market only) */}
-        {scope === "market" ? (
-          <section className="space-y-4">
-            <div className="praxis-label flex items-center gap-2 border-b border-white/5 pb-2 text-zinc-400">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
-              Compra
-            </div>
+        {/* SECTION 3 — Compra
+            Available for BOTH scopes. Market keeps the online/presencial
+            toggle + local presencial input. Supplements are always
+            online (the store coerces purchaseMode to "online" for the
+            supplements scope in saveItem). Price always editable. */}
+        <section className="space-y-4">
+          <div className="praxis-label flex items-center gap-2 border-b border-white/5 pb-2 text-zinc-400">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+            Compra
+          </div>
+          {scope === "market" ? (
             <div className="space-y-3">
               <span className="praxis-label text-[var(--accent)]">Local da compra</span>
               <div className="grid gap-3 sm:grid-cols-2">
                 <button
                   type="button"
-                  onClick={() => setDraft((current) => ({ ...current, purchaseMode: "online", localStoreName: "", manualUnitPrice: "" }))}
+                  onClick={() => setDraft((current) => ({ ...current, purchaseMode: "online", localStoreName: "" }))}
                   className={cn("rounded-sm border px-4 py-3 text-left transition", draft.purchaseMode === "online" ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100" : "border-white/10 bg-[#0a0a0b] text-zinc-400")}
                 >
                   <p className="font-medium">Online</p>
@@ -890,41 +894,54 @@ export function ShoppingModulePage({
                 </button>
               </div>
             </div>
-            {draft.purchaseMode === "presential" ? (
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="block space-y-2">
-                  <span className="praxis-label text-[var(--accent)]">Local presencial</span>
-                  <input value={draft.localStoreName} onChange={(event) => setDraft((current) => ({ ...current, localStoreName: event.target.value }))} placeholder="Ex.: Açougue do bairro" className={fieldClassName} />
-                </label>
-                <label className="block space-y-2">
-                  <span className="praxis-label text-[var(--accent)]">Preço encontrado</span>
-                  <input value={draft.manualUnitPrice} onChange={(event) => setDraft((current) => ({ ...current, manualUnitPrice: event.target.value }))} type="number" min="0.01" step="0.01" placeholder="Ex.: 39.90" className={fieldClassName} />
-                </label>
-              </div>
-            ) : (
+          ) : null}
+
+          {/* Price input — always rendered. Label adapts to context. */}
+          <div className="grid gap-4 md:grid-cols-2">
+            {scope === "market" && draft.purchaseMode === "presential" ? (
               <label className="block space-y-2">
-                <span className="praxis-label text-[var(--accent)]">Preço de referência</span>
+                <span className="praxis-label text-[var(--accent)]">Local presencial</span>
                 <input
-                  value={draft.manualUnitPrice}
+                  value={draft.localStoreName}
                   onChange={(event) =>
                     setDraft((current) => ({
                       ...current,
-                      manualUnitPrice: event.target.value,
+                      localStoreName: event.target.value,
                     }))
                   }
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="Ex.: 39.90"
+                  placeholder="Ex.: Açougue do bairro"
                   className={fieldClassName}
                 />
-                <p className="text-xs leading-5 text-zinc-500">
-                  Usado como base até você rodar a busca online ao vivo.
-                </p>
               </label>
-            )}
-          </section>
-        ) : null}
+            ) : null}
+            <label className="block space-y-2">
+              <span className="praxis-label text-[var(--accent)]">
+                {scope === "market" && draft.purchaseMode === "presential"
+                  ? "Preço encontrado"
+                  : "Preço unitário"}
+              </span>
+              <input
+                value={draft.manualUnitPrice}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    manualUnitPrice: event.target.value,
+                  }))
+                }
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Ex.: 39.90"
+                className={fieldClassName}
+              />
+              <p className="text-xs leading-5 text-zinc-500">
+                {scope === "market" && draft.purchaseMode === "presential"
+                  ? "Preço principal do item (entra direto no custo mensal)."
+                  : "Preço de referência — usado como base até a busca online definir uma oferta."}
+              </p>
+            </label>
+          </div>
+        </section>
 
         {/* SECTION 4 — Ofertas online (edit mode only, online items)
             Buscar button + sources status + result picker. Was on the
