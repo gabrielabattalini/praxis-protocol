@@ -385,60 +385,8 @@ export default function FinanceModulePage() {
   const draftHasContent = Boolean(
     draft.name.trim() || draft.amount.trim() || draft.category.trim(),
   );
-  const shoppingSuggestions = useMemo(() => {
-    const configs = {
-      market: {
-        label: "Mercado",
-        category: "Alimentação",
-        paymentMethod: "debit-card" as FinancePaymentMethod,
-      },
-      supplements: {
-        label: "Suplementos",
-        category: "Saude",
-        paymentMethod: "pix" as FinancePaymentMethod,
-      },
-    };
-
-    return (["market", "supplements"] as const)
-      .flatMap((scope) => {
-        const moduleState = state.shoppingModules[scope];
-        if (!moduleState) return [];
-
-        return moduleState.items
-          .map((item) => {
-            const snapshot = moduleState.snapshots[item.id];
-            const preferredOffer =
-              snapshot?.results.find((result) => result.id === item.preferredResultId) ??
-              snapshot?.results[0];
-            const unitPrice =
-              item.purchaseMode === "presential"
-                ? Math.max(0, Number(item.manualUnitPrice) || 0)
-                : preferredOffer?.totalPrice ?? 0;
-            const sourceName =
-              item.purchaseMode === "presential"
-                ? item.localStoreName || "Compra presencial"
-                : preferredOffer?.sourceName || "";
-
-            if (unitPrice <= 0) return null;
-
-            return {
-              id: `${scope}:${item.id}`,
-              scope,
-              moduleLabel: configs[scope].label,
-              name: item.name,
-              brand: item.brand,
-              quantity: item.quantity,
-              category: configs[scope].category,
-              paymentMethod: configs[scope].paymentMethod,
-              unitPrice,
-              monthlyEstimate: unitPrice * item.monthlyUnits,
-              sourceName,
-            };
-          })
-          .filter((suggestion): suggestion is NonNullable<typeof suggestion> => Boolean(suggestion));
-      })
-      .sort((left, right) => left.unitPrice - right.unitPrice);
-  }, [state.shoppingModules]);
+  // shoppingSuggestions useMemo removed — the "Sugestões rápidas"
+  // panel that consumed it was deleted at the user's request.
 
   function addLine() {
     if (
@@ -471,21 +419,8 @@ export default function FinanceModulePage() {
     setCategoryPanelOpen(false);
   }
 
-  function applyShoppingSuggestion(suggestion: (typeof shoppingSuggestions)[number]) {
-    setDraft({
-      name: suggestion.brand
-        ? `${suggestion.name} - ${suggestion.brand}`
-        : suggestion.name,
-      amount: suggestion.unitPrice.toFixed(2),
-      kind: "expense",
-      category: suggestion.category,
-      frequency: "variable",
-      paymentMethod: suggestion.paymentMethod,
-      dueDay: "",
-    });
-    setCreatePanelOpen(true);
-    setCategoryPanelOpen(false);
-  }
+  // applyShoppingSuggestion removed alongside the "Sugestões rápidas"
+  // panel that called it.
 
   function addCategory() {
     if (!categoryDraftName.trim()) return;
@@ -1672,79 +1607,11 @@ export default function FinanceModulePage() {
               só no mês ativo e os próximos meses ficam zerados.
             </p>
 
-            {shoppingSuggestions.length ? (
-              <div className="rounded-sm border border-zinc-800 bg-black/40 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm text-zinc-500">Sugestões rápidas</p>
-                    <h3 className="text-lg font-semibold text-white">
-                      Itens vindos de Mercado e Suplementos
-                    </h3>
-                  </div>
-                  <div className="rounded-sm border border-zinc-800 bg-black/40 px-3 py-2 text-xs text-zinc-500">
-                    {shoppingSuggestions.length} sugestões prontas
-                  </div>
-                </div>
-
-                <div className="mt-4 grid gap-2 lg:grid-cols-2">
-                  {shoppingSuggestions.map((suggestion) => (
-                    <button
-                      key={suggestion.id}
-                      type="button"
-                      onClick={() => applyShoppingSuggestion(suggestion)}
-                      className="flex flex-col rounded-sm border border-zinc-800 bg-black/30 px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.04]"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
-                            {suggestion.moduleLabel}
-                          </p>
-                          <p className="mt-1 truncate font-medium text-white">
-                            {suggestion.brand
-                              ? `${suggestion.name} • ${suggestion.brand}`
-                              : suggestion.name}
-                          </p>
-                        </div>
-                        <p className="shrink-0 text-sm font-semibold text-white">
-                          {formatCurrency(suggestion.unitPrice)}
-                        </p>
-                      </div>
-                      <p className="mt-2 text-sm text-zinc-500">
-                        {suggestion.quantity || "Quantidade livre"} • {suggestion.sourceName}
-                      </p>
-                      <p className="mt-2 text-xs uppercase tracking-[0.18em] text-zinc-600">
-                        Estimativa mensal {formatCurrency(suggestion.monthlyEstimate)}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="rounded-sm border border-dashed border-zinc-800 bg-black/30 p-5">
-                <p className="praxis-label text-[var(--accent)]">Sugestões vazias</p>
-                <h3 className="mt-2 text-lg font-semibold text-white">
-                  Nenhum item pronto agora
-                </h3>
-                <p className="mt-2 text-sm leading-6 text-zinc-500">
-                  Quando Mercado e Suplementos tiverem itens monitorados, eles vão
-                  aparecer aqui para virar lançamento sem retrabalho.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <Link
-                    href="/modules/market"
-                    className="rounded-sm border border-zinc-800 bg-black/50 px-4 py-2.5 text-sm text-zinc-100 transition hover:border-[rgba(251,146,60,0.22)]"
-                  >
-                    Abrir Mercado
-                  </Link>
-                  <Link
-                    href="/modules/supplements"
-                    className="rounded-sm border border-zinc-800 bg-black/50 px-4 py-2.5 text-sm text-zinc-100 transition hover:border-[rgba(251,146,60,0.22)]"
-                  >
-                    Abrir Suplementos
-                  </Link>
-                </div>
-              </div>
-            )}
+            {/* "Sugestões rápidas · Itens vindos de Mercado e Suplementos"
+                bloco removido a pedido do usuário — Mercado/Suplementos
+                já sincronizam via as linhas Mercado/Suplementos
+                sincronizados em finanças, então o atalho duplicava
+                trabalho. */}
           </>
         ) : null}
       </GlassPanel>
