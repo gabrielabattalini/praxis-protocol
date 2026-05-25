@@ -12,6 +12,7 @@ import {
   Search,
   ShoppingBasket,
   Trash2,
+  X,
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
@@ -272,6 +273,11 @@ export function ShoppingModulePage({
   const storedState = state.shoppingModules[scope] ?? createEmptyState();
   const [draft, setDraft] = useState<ShoppingItemDraft>(() => defaultDraft());
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  // Controls the "new item" form visibility on the left column. The
+  // form panel is shown when isAddingNew is true OR editingItemId is
+  // set (edit mode). The right-side "Cadastro rápido" panel was
+  // removed at the user's request — single-flow editing now.
+  const [isAddingNew, setIsAddingNew] = useState(false);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [searchingItemId, setSearchingItemId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
@@ -621,10 +627,20 @@ export function ShoppingModulePage({
   function resetDraft() {
     setDraft(defaultDraft());
     setEditingItemId(null);
+    setIsAddingNew(false);
+  }
+
+  function openAddForm() {
+    setDraft(defaultDraft());
+    setEditingItemId(null);
+    setIsAddingNew(true);
+    setSearchError("");
+    setFeedback("");
   }
 
   function startEditing(item: ShoppingTrackedItem) {
     setEditingItemId(item.id);
+    setIsAddingNew(false);
     setExpandedItemId(item.id);
     setDraft({
       name: item.name,
@@ -738,6 +754,197 @@ export function ShoppingModulePage({
     if (editingItemId === itemId) resetDraft();
   }
 
+  /**
+   * The full draft form. Used both for "new item" (top-of-list card)
+   * and "edit existing" (same card, pre-populated by startEditing).
+   * Lives here so we have a single source of truth for every field —
+   * the right-side "Cadastro rápido" panel was removed to consolidate
+   * the editing flow at the user's request.
+   */
+  function renderDraftForm() {
+    return (
+      <form className="space-y-7" onSubmit={saveItem}>
+        {/* SECTION 1 — Identidade do produto */}
+        <section className="space-y-4">
+          <div className="praxis-label flex items-center gap-2 border-b border-white/5 pb-2 text-zinc-400">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+            Identidade do produto
+          </div>
+          <label className="block space-y-2">
+            <span className="praxis-label text-[var(--accent)]">Nome do produto</span>
+            <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder={examples[0] ?? "Ex.: detergente"} className={fieldClassName} />
+          </label>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="block space-y-2">
+              <span className="praxis-label text-[var(--accent)]">Marca</span>
+              <input value={draft.brand} onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))} placeholder={examples[1] ?? "Ex.: Growth"} className={fieldClassName} />
+            </label>
+            <label className="block space-y-2">
+              <span className="praxis-label text-[var(--accent)]">Quantidade</span>
+              <input value={draft.quantity} onChange={(event) => setDraft((current) => ({ ...current, quantity: event.target.value }))} placeholder={examples[2] ?? "Ex.: 900 g"} className={fieldClassName} />
+            </label>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="block space-y-2">
+              <span className="praxis-label text-[var(--accent)]">Categoria</span>
+              <input value={draft.categoryLabel} onChange={(event) => setDraft((current) => ({ ...current, categoryLabel: event.target.value }))} placeholder={scope === "supplements" ? "Ex.: massa muscular, sono, saúde" : "Ex.: carnes, higiene, limpeza"} className={fieldClassName} />
+            </label>
+            <label className="block space-y-2">
+              <span className="praxis-label text-[var(--accent)]">Link de referência</span>
+              <input value={draft.referenceUrl} onChange={(event) => setDraft((current) => ({ ...current, referenceUrl: event.target.value }))} placeholder="https://..." className={fieldClassName} />
+            </label>
+          </div>
+        </section>
+
+        {/* SECTION 2 — Dose & rotina */}
+        <section className="space-y-4">
+          <div className="praxis-label flex items-center gap-2 border-b border-white/5 pb-2 text-zinc-400">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+            Dose &amp; rotina
+          </div>
+          {scope === "supplements" ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block space-y-2">
+                <span className="praxis-label text-[var(--accent)]">{dailyLabel}</span>
+                <input value={draft.dailyDose} onChange={(event) => setDraft((current) => ({ ...current, dailyDose: event.target.value }))} type="number" min="0.01" step="0.01" placeholder="Ex.: 2 (cáps/dia)" className={fieldClassName} />
+                <p className="text-xs leading-5 text-zinc-500">{dailyHint}</p>
+              </label>
+              <label className="block space-y-2">
+                <span className="praxis-label text-[var(--accent)]">Hora de usar</span>
+                <input value={draft.scheduleLabel} onChange={(event) => setDraft((current) => ({ ...current, scheduleLabel: event.target.value }))} placeholder="Ex.: Café da manhã" className={fieldClassName} />
+              </label>
+            </div>
+          ) : (
+            <label className="block space-y-2">
+              <span className="praxis-label text-[var(--accent)]">{dailyLabel}</span>
+              <input value={draft.dailyDose} onChange={(event) => setDraft((current) => ({ ...current, dailyDose: event.target.value }))} type="number" min="0.01" step="0.01" placeholder="Use a mesma unidade da quantidade. Ex.: 30" className={fieldClassName} />
+              <p className="text-xs leading-5 text-zinc-500">{dailyHint}</p>
+            </label>
+          )}
+          {scope === "supplements" ? (
+            <label className="block space-y-2">
+              <span className="praxis-label text-[var(--accent)]">Dose alvo do dia (substância)</span>
+              <div className="flex gap-2">
+                <input
+                  value={draft.dailyDoseAmount}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      dailyDoseAmount: event.target.value,
+                    }))
+                  }
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Ex.: 1000"
+                  className={`${fieldClassName} flex-1`}
+                />
+                <select
+                  value={draft.dailyDoseUnit}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      dailyDoseUnit: event.target.value,
+                    }))
+                  }
+                  className={`${fieldClassName} w-28`}
+                >
+                  <option value="mg">mg</option>
+                  <option value="g">g</option>
+                  <option value="mcg">mcg</option>
+                  <option value="ml">ml</option>
+                  <option value="serving">por porção</option>
+                </select>
+              </div>
+              <p className="text-xs leading-5 text-zinc-500">
+                Ex.: <span className="text-zinc-300">1000&nbsp;mg de Vitamina&nbsp;C</span> por dia. Com isso o sistema lê a dose por cápsula direto do título do produto e calcula o <span className="text-[var(--accent)]">custo real por dia</span>.
+              </p>
+            </label>
+          ) : null}
+        </section>
+
+        {/* SECTION 3 — Compra (market only) */}
+        {scope === "market" ? (
+          <section className="space-y-4">
+            <div className="praxis-label flex items-center gap-2 border-b border-white/5 pb-2 text-zinc-400">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+              Compra
+            </div>
+            <div className="space-y-3">
+              <span className="praxis-label text-[var(--accent)]">Local da compra</span>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setDraft((current) => ({ ...current, purchaseMode: "online", localStoreName: "", manualUnitPrice: "" }))}
+                  className={cn("rounded-sm border px-4 py-3 text-left transition", draft.purchaseMode === "online" ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100" : "border-white/10 bg-[#0a0a0b] text-zinc-400")}
+                >
+                  <p className="font-medium">Online</p>
+                  <p className="mt-1 text-sm text-zinc-500">Busca ofertas e compara o custo nas lojas.</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDraft((current) => ({ ...current, purchaseMode: "presential" }))}
+                  className={cn("rounded-sm border px-4 py-3 text-left transition", draft.purchaseMode === "presential" ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100" : "border-white/10 bg-[#0a0a0b] text-zinc-400")}
+                >
+                  <p className="font-medium">Presencial</p>
+                  <p className="mt-1 text-sm text-zinc-500">Informe o local e o preço que você encontrou pessoalmente.</p>
+                </button>
+              </div>
+            </div>
+            {draft.purchaseMode === "presential" ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block space-y-2">
+                  <span className="praxis-label text-[var(--accent)]">Local presencial</span>
+                  <input value={draft.localStoreName} onChange={(event) => setDraft((current) => ({ ...current, localStoreName: event.target.value }))} placeholder="Ex.: Açougue do bairro" className={fieldClassName} />
+                </label>
+                <label className="block space-y-2">
+                  <span className="praxis-label text-[var(--accent)]">Preço encontrado</span>
+                  <input value={draft.manualUnitPrice} onChange={(event) => setDraft((current) => ({ ...current, manualUnitPrice: event.target.value }))} type="number" min="0.01" step="0.01" placeholder="Ex.: 39.90" className={fieldClassName} />
+                </label>
+              </div>
+            ) : (
+              <label className="block space-y-2">
+                <span className="praxis-label text-[var(--accent)]">Preço de referência</span>
+                <input
+                  value={draft.manualUnitPrice}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      manualUnitPrice: event.target.value,
+                    }))
+                  }
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Ex.: 39.90"
+                  className={fieldClassName}
+                />
+                <p className="text-xs leading-5 text-zinc-500">
+                  Usado como base até você rodar a busca online ao vivo.
+                </p>
+              </label>
+            )}
+          </section>
+        ) : null}
+
+        {/* Submit */}
+        <div className="flex flex-wrap gap-3 border-t border-white/10 pt-4">
+          <button type="submit" className="praxis-button inline-flex items-center gap-2 px-4 py-3">
+            <Plus className="h-4 w-4" />
+            {editingItemId ? "Salvar item" : "Adicionar item"}
+          </button>
+          <button type="button" onClick={resetDraft} className="praxis-button-ghost inline-flex items-center gap-2 px-4 py-3">
+            <Trash2 className="h-4 w-4" />
+            {editingItemId ? "Cancelar edição" : "Cancelar"}
+          </button>
+        </div>
+
+        {feedback ? <p className="text-sm leading-6 text-emerald-300">{feedback}</p> : null}
+        {searchError ? <p className="text-sm leading-6 text-rose-300">{searchError}</p> : null}
+      </form>
+    );
+  }
+
   async function runSearch(item: ShoppingTrackedItem) {
     if (item.purchaseMode === "presential") {
       setSearchError("Itens presenciais usam o preco informado manualmente.");
@@ -847,15 +1054,50 @@ export function ShoppingModulePage({
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
           <GlassPanel className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="praxis-label text-[var(--accent)]">Tabela principal</p>
                 <h2 className="praxis-title text-2xl">Itens monitorados</h2>
               </div>
-              <span className="praxis-label border border-white/10 px-3 py-2 text-zinc-400">
-                {scope === "supplements" ? "Biblioteca de suplementos" : "Biblioteca de compras"}
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={openAddForm}
+                  className="praxis-button inline-flex items-center gap-2 px-4 py-2 text-sm"
+                >
+                  <Plus className="h-4 w-4" />
+                  Adicionar item
+                </button>
+                <span className="praxis-label border border-white/10 px-3 py-2 text-zinc-400">
+                  {scope === "supplements" ? "Biblioteca de suplementos" : "Biblioteca de compras"}
+                </span>
+              </div>
             </div>
+
+            {/* Inline draft form — single-flow editing. Shows when the
+                user clicked "+ Adicionar item" (new mode) or "Editar"
+                on a row (edit mode). Right-side "Cadastro rápido"
+                panel was removed to consolidate everything here. */}
+            {isAddingNew || editingItemId !== null ? (
+              <div className="rounded-sm border border-[var(--accent)]/30 bg-[rgba(251,146,60,0.04)] p-4">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <p className="praxis-label text-[var(--accent)]">
+                    {editingItemId
+                      ? "Editando item"
+                      : `Novo ${scope === "supplements" ? "suplemento" : "item"}`}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={resetDraft}
+                    className="inline-flex items-center gap-1 text-xs uppercase tracking-widest text-zinc-500 transition hover:text-red-300"
+                  >
+                    <X className="h-3 w-3" />
+                    Fechar
+                  </button>
+                </div>
+                {renderDraftForm()}
+              </div>
+            ) : null}
 
             {storedState.items.length ? (
               <>
@@ -1586,6 +1828,11 @@ export function ShoppingModulePage({
               (custo real por mês considerando frequência de compra). */}
         </div>
         <div className="space-y-6">
+          {/* "Cadastro rápido · Adicionar ou editar item" GlassPanel
+              removed — single-flow editing now lives inline on the
+              items table (renderDraftForm). The "Oferta de
+              referência" panel below stays for live-search results. */}
+          {false && (
           <GlassPanel className="space-y-5">
             <div className="flex items-center gap-3">
               <ShoppingBasket className="h-6 w-6 text-[var(--accent)]" />
@@ -1766,6 +2013,7 @@ export function ShoppingModulePage({
             {feedback ? <p className="text-sm leading-6 text-emerald-300">{feedback}</p> : null}
             {searchError ? <p className="text-sm leading-6 text-rose-300">{searchError}</p> : null}
           </GlassPanel>
+          )}
 
           <GlassPanel className="space-y-5">
             <div className="flex items-start justify-between gap-3">
