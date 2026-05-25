@@ -82,7 +82,6 @@ import {
   financeMonthOrder,
   getAdjustedTaskXp,
   getTaskBaseXp,
-  isFinanceInvoiceBaseLine,
   isFinanceCreditCardPaymentMethod,
   isTaskCompletedForDate,
   makeId,
@@ -3902,31 +3901,10 @@ function inferFinancePaymentMethod(line: {
   return "cash";
 }
 
-function looksLikeLegacyFinanceSeed(
-  budget: Partial<FinanceYearBudget>,
-) {
-  const invoiceBase = normalizeFinanceMonths(budget.cardInvoiceBase);
-  return (
-    budget.year === 2026 &&
-    roundCurrencyValue(invoiceBase.april) === 6337.28 &&
-    roundCurrencyValue(invoiceBase.may) === 3344.8 &&
-    roundCurrencyValue(invoiceBase.june) === 2210.3
-  );
-}
-
-function correctedSeedInvoiceBase() {
-  return normalizeFinanceMonths({
-    april: 2387.59,
-    may: 1250,
-    june: 682.75,
-    july: 682.75,
-    august: 654.35,
-    september: 654.35,
-    october: 654.35,
-    november: 654.35,
-    december: 654.35,
-  });
-}
+// looksLikeLegacyFinanceSeed + correctedSeedInvoiceBase removed:
+// they were a one-off migration that detected a specific buggy seed
+// fingerprint (cardInvoiceBase[apr]=6337.28, may=3344.8, jun=2210.3)
+// and overwrote it. Long past useful — now they'd just hide real edits.
 
 function normalizeRecurringFinanceLine(line: FinanceBudgetLine): FinanceBudgetLine {
   const normalizedName = line.name.trim().toLowerCase();
@@ -3954,19 +3932,18 @@ function migrateFinanceBudget(
   }
 
   if (Array.isArray(budget.lines)) {
-    const invoiceBase = looksLikeLegacyFinanceSeed(budget)
-      ? correctedSeedInvoiceBase()
-      : normalizeFinanceMonths(budget.cardInvoiceBase);
-    const lines = budget.lines.reduce<FinanceBudgetLine[]>((accumulator, line) => {
-      if (isFinanceInvoiceBaseLine(line)) {
-        const monthly = normalizeFinanceMonths(line.monthly);
-        for (const month of financeMonthOrder) {
-          invoiceBase[month] += monthly[month] ?? 0;
-        }
-        return accumulator;
-      }
-
-      accumulator.push(normalizeRecurringFinanceLine({
+    // Past iterations of this code detected lines named "Inter" /
+    // "Resultado dos cartões" / "Fatura" + category "Cartão" +
+    // payment-method "credit-card" via isFinanceInvoiceBaseLine, then
+    // REMOVED them from the lines array and pushed their monthly
+    // values into cardInvoiceBase. That created an infinite loop with
+    // recovered/re-imported Inter lines: every hydrate stripped them
+    // out and accumulated values into the manual fatura. The user
+    // would re-add the values, save, hydrate again, lose them again.
+    // Removed — those lines now stay as regular budget lines.
+    const invoiceBase = normalizeFinanceMonths(budget.cardInvoiceBase);
+    const lines = budget.lines.map((line) =>
+      normalizeRecurringFinanceLine({
         ...line,
         category: normalizeFinanceCategory(line.category, line.kind),
         cardName: undefined,
@@ -3977,9 +3954,8 @@ function migrateFinanceBudget(
           normalizeFinanceMonths(line.monthly),
           line.settledMonths,
         ),
-      }));
-      return accumulator;
-    }, []);
+      }),
+    );
 
     return {
       year: budget.year ?? emptyPersistedState.financeBudget.year,
@@ -4027,20 +4003,13 @@ function migrateFinanceBudget(
       ),
     });
 
+  // Same migration as the modern branch above: no longer swallowing
+  // "Inter" / "Fatura" / "Resultado dos cartões" lines into
+  // cardInvoiceBase. Legacy budgets get an empty invoiceBase and keep
+  // every expense line untouched.
   const invoiceBase = normalizeFinanceMonths();
-  const expenseLines = (legacyBudget.expenseLines ?? []).reduce<FinanceBudgetLine[]>(
-    (accumulator, line) => {
-      const nextLine = toLine(line, "expense");
-      if (isFinanceInvoiceBaseLine(nextLine)) {
-        for (const month of financeMonthOrder) {
-          invoiceBase[month] += nextLine.monthly[month] ?? 0;
-        }
-        return accumulator;
-      }
-      accumulator.push(nextLine);
-      return accumulator;
-    },
-    [],
+  const expenseLines = (legacyBudget.expenseLines ?? []).map((line) =>
+    toLine(line, "expense"),
   );
 
   return {
