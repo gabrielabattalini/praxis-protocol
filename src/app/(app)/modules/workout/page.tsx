@@ -520,6 +520,19 @@ export default function WorkoutModulePage() {
     );
   }, [activeDay, state.reminders]);
   const activeDayTime = activeDayReminder?.time ?? "";
+  // Effective weekdays selection for the chip row. If the user has set
+  // reminder.weekdays, use that; otherwise fall back to the day's
+  // canonical weekday. agenda.ts uses the same precedence to decide
+  // which calendar days this workout fires on.
+  const activeDayWeekdays = useMemo<Weekday[]>(() => {
+    if (
+      Array.isArray(activeDayReminder?.weekdays) &&
+      activeDayReminder!.weekdays!.length > 0
+    ) {
+      return activeDayReminder!.weekdays!;
+    }
+    return activeDay ? [activeDay.weekday] : [];
+  }, [activeDay, activeDayReminder]);
 
   function handleWorkoutTimeChange(value: string) {
     if (!activeDay) return;
@@ -549,6 +562,37 @@ export default function WorkoutModulePage() {
       title: activeDay.title,
       time: trimmed,
       weekdays: [activeDay.weekday],
+    });
+  }
+
+  // Toggle a weekday in/out of the reminder.weekdays array. Creates the
+  // reminder if it doesn't exist yet (lets the user pick days even
+  // before setting a time — but agenda only fires if time is non-empty
+  // via the existing reminder flow).
+  function handleWorkoutWeekdayToggle(day: Weekday) {
+    if (!activeDay) return;
+    const current = activeDayWeekdays;
+    const isSelected = current.includes(day);
+    // Don't let the user clear ALL days — keep at least one selected.
+    const next = isSelected
+      ? current.filter((entry) => entry !== day)
+      : [...current, day];
+    const nextNormalized = next.length > 0 ? next : [activeDay.weekday];
+
+    if (activeDayReminder) {
+      actions.updateReminder({
+        reminderId: activeDayReminder.id,
+        patch: { weekdays: nextNormalized },
+      });
+      return;
+    }
+
+    actions.addReminder({
+      entityType: "workout",
+      entityId: activeDay.id,
+      title: activeDay.title,
+      time: "",
+      weekdays: nextNormalized,
     });
   }
 
@@ -1466,40 +1510,87 @@ export default function WorkoutModulePage() {
                   ) : null}
 
                   {activeDay && !activeDay.isRestDay ? (
-                    <div className="mt-4 flex flex-wrap items-center gap-3 rounded-sm border border-zinc-800 bg-black/40 px-4 py-3">
-                      <div className="flex items-center gap-2 text-zinc-400">
-                        <Clock className="h-4 w-4 text-[var(--accent)]" />
-                        <p className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
-                          Horário do treino
-                        </p>
-                      </div>
-                      <input
-                        type="time"
-                        value={activeDayTime}
-                        onChange={(event) =>
-                          handleWorkoutTimeChange(event.target.value)
-                        }
-                        className="rounded-sm border border-zinc-700 bg-black/60 px-3 py-2 font-headline text-sm font-bold text-zinc-100 focus:border-[var(--accent)] focus:outline-none"
-                      />
-                      {activeDayTime ? (
-                        <>
+                    <div className="mt-4 space-y-2 rounded-sm border border-zinc-800 bg-black/40 px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center gap-2 text-zinc-400">
+                          <Clock className="h-4 w-4 text-[var(--accent)]" />
+                          <p className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
+                            Horário do treino
+                          </p>
+                        </div>
+                        <input
+                          type="time"
+                          value={activeDayTime}
+                          onChange={(event) =>
+                            handleWorkoutTimeChange(event.target.value)
+                          }
+                          className="rounded-sm border border-zinc-700 bg-black/60 px-3 py-2 font-headline text-sm font-bold text-zinc-100 focus:border-[var(--accent)] focus:outline-none"
+                        />
+                        {activeDayTime ? (
+                          <>
+                            <span className="text-xs text-zinc-500">
+                              Aparece na agenda às {activeDayTime}.
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleWorkoutTimeChange("")}
+                              className="ml-auto inline-flex items-center gap-1 text-xs uppercase tracking-widest text-zinc-500 transition hover:text-red-300"
+                            >
+                              <X className="h-3 w-3" />
+                              Limpar
+                            </button>
+                          </>
+                        ) : (
                           <span className="text-xs text-zinc-500">
-                            Aparece na agenda às {activeDayTime}.
+                            Defina o horário para sincronizar com a agenda do dia.
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => handleWorkoutTimeChange("")}
-                            className="ml-auto inline-flex items-center gap-1 text-xs uppercase tracking-widest text-zinc-500 transition hover:text-red-300"
-                          >
-                            <X className="h-3 w-3" />
-                            Limpar
-                          </button>
-                        </>
-                      ) : (
+                        )}
+                      </div>
+
+                      {/* Multi-select weekday chips — clique pra ativar
+                          múltiplos dias da semana pro MESMO treino. A
+                          agenda usa reminder.weekdays como prioridade
+                          sobre o day.weekday canônico (ver agenda.ts). */}
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <p className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
+                          Dias na semana
+                        </p>
+                        {(
+                          [
+                            { id: "monday" as Weekday, label: "Seg" },
+                            { id: "tuesday" as Weekday, label: "Ter" },
+                            { id: "wednesday" as Weekday, label: "Qua" },
+                            { id: "thursday" as Weekday, label: "Qui" },
+                            { id: "friday" as Weekday, label: "Sex" },
+                            { id: "saturday" as Weekday, label: "Sáb" },
+                            { id: "sunday" as Weekday, label: "Dom" },
+                          ]
+                        ).map((item) => {
+                          const isActive = activeDayWeekdays.includes(item.id);
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() =>
+                                handleWorkoutWeekdayToggle(item.id)
+                              }
+                              className={`rounded-sm border px-3 py-1.5 font-headline text-[10px] font-bold uppercase tracking-[0.2em] transition ${
+                                isActive
+                                  ? "border-[rgba(251,146,60,0.5)] bg-[rgba(251,146,60,0.18)] text-[var(--accent)]"
+                                  : "border-zinc-800 bg-black/40 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300"
+                              }`}
+                              aria-pressed={isActive}
+                            >
+                              {item.label}
+                            </button>
+                          );
+                        })}
                         <span className="text-xs text-zinc-500">
-                          Defina o horário para sincronizar com a agenda do dia.
+                          {activeDayWeekdays.length === 1
+                            ? "Selecione mais dias pra repetir o treino na semana."
+                            : `${activeDayWeekdays.length} dias ativos`}
                         </span>
-                      )}
+                      </div>
                     </div>
                   ) : null}
                 </div>

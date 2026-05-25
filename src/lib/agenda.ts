@@ -181,7 +181,22 @@ export function buildAgendaEvents(
     });
 
   const workoutBlocks = activeWorkoutPlan
-    .filter((day) => day.weekday === weekday && !day.isRestDay)
+    .filter((day) => {
+      if (day.isRestDay) return false;
+      // Day fires on the current weekday if EITHER:
+      //  • it's the day's canonical assigned weekday, OR
+      //  • the user picked extra weekdays via the workout reminder's
+      //    multi-select (reminder.weekdays). The chip row in the
+      //    workout module writes them into reminder.weekdays.
+      const reminder = reminders.find(
+        (item) =>
+          item.entityType === "workout" && item.entityId === day.id,
+      );
+      if (Array.isArray(reminder?.weekdays) && reminder.weekdays.length > 0) {
+        return reminder.weekdays.includes(weekday);
+      }
+      return day.weekday === weekday;
+    })
     .map<AgendaEvent>((day) => {
       const reminder = reminders.find(
         (item) => item.entityId === day.id && item.entityType === "workout",
