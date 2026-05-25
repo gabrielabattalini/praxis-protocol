@@ -378,10 +378,7 @@ export default function DashboardPage() {
               <div className="praxis-label">Concluídas</div>
               <div className="kpi-value">{completedItems.length}</div>
             </div>
-            <div className="kpi">
-              <div className="praxis-label">XP em aberto</div>
-              <div className="kpi-value">{formatPoints(openXp)}</div>
-            </div>
+            {/* "XP em aberto" KPI removida a pedido do usuário. */}
           </div>
 
           {/* Hero level / XP */}
@@ -1002,108 +999,48 @@ export default function DashboardPage() {
 
   const rankingPanel = (
     <div className="glass">
+      {/* Bloco enxuto: só o rank do usuário (E Rank · #11/11) grande
+          no topo. Lista global de personagens removida a pedido do
+          usuário — era seed fake (Zenkichi, Kurama, Levi etc.) que
+          não trazia sinal. leaderboard.length continua sendo usado
+          como denominador da posição. */}
       <div
         style={{
           display: "flex",
+          alignItems: "center",
           justifyContent: "space-between",
-          alignItems: "flex-end",
-          marginBottom: 16,
+          gap: 12,
+          marginBottom: 6,
         }}
       >
-        <div>
-          <div
-            className="praxis-label"
-            style={{ color: "var(--accent)", marginBottom: 8 }}
-          >
-            Posição
-          </div>
-          <h2 className="praxis-title" style={{ fontSize: 24 }}>
-            Leitura global
-          </h2>
+        <div
+          className="praxis-label"
+          style={{ color: "var(--accent)" }}
+        >
+          Sua posição
         </div>
         <Medal className="h-4 w-4" style={{ color: "var(--accent)" }} />
       </div>
-      <div className="item-card" style={{ marginBottom: 16 }}>
-        <div className="praxis-label" style={{ marginBottom: 8 }}>
-          Você está em
-        </div>
-        <div
-          className="praxis-title"
-          style={{ fontSize: 32, color: "var(--accent)" }}
-        >
-          #{rankingPosition}
-        </div>
-        <div style={{ fontSize: 13, color: "#71717a", marginTop: 8 }}>
-          {formatPoints(user.totalXp)} XP · {user.rankTier} {user.rankLabel}
-        </div>
+      <div
+        className="praxis-title"
+        style={{
+          fontSize: 38,
+          color: "var(--accent)",
+          lineHeight: 1.05,
+          letterSpacing: "-0.01em",
+        }}
+      >
+        ◆ {user.rankTier} {user.rankLabel} · #{rankingPosition}/
+        {leaderboard.length}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {leaderboard.slice(0, 5).map((entry, index) => {
-          const isSelf = entry.id === "praxis-user";
-          return (
-            <div
-              key={entry.id}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: 12,
-                border: isSelf
-                  ? "1px solid rgba(251,146,60,.25)"
-                  : "1px solid rgba(39,39,42,.6)",
-                borderRadius: 12,
-                background: isSelf ? "rgba(251,146,60,.06)" : undefined,
-              }}
-            >
-              <div
-                className="lb-pos"
-                style={{
-                  color: isSelf ? "var(--accent)" : undefined,
-                  minWidth: 32,
-                }}
-              >
-                #{index + 1}
-              </div>
-              <div
-                className="avatar-v2"
-                style={{ width: 32, height: 32, fontSize: 12, borderRadius: 8 }}
-              >
-                {squareInitials(entry.name)}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: "#f4f4f5",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {entry.name}
-                </div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: isSelf ? "var(--accent)" : "#71717a",
-                  }}
-                >
-                  {isSelf ? "Você" : `@${entry.username}`}
-                </div>
-              </div>
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#f4f4f5",
-                }}
-              >
-                {formatPoints(entry.totalXp)} XP
-              </div>
-            </div>
-          );
-        })}
+      <div
+        style={{
+          marginTop: 10,
+          fontSize: 13,
+          color: "#71717a",
+        }}
+      >
+        {formatPoints(user.totalXp)} XP acumulados
       </div>
     </div>
   );
