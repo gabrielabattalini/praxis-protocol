@@ -284,9 +284,6 @@ export function ShoppingModulePage({
   const [summaryCardsExpanded, setSummaryCardsExpanded] = useState(
     () => scope !== "supplements",
   );
-  const [purchaseSummaryExpanded, setPurchaseSummaryExpanded] = useState(
-    () => scope !== "supplements",
-  );
   const mealBlocks = useMemo(
     () =>
       [...state.mealPlan].sort((left, right) =>
@@ -516,26 +513,6 @@ export function ShoppingModulePage({
       ...onlineRows,
     ];
   }, [monitoredRows, scope]);
-
-  const purchaseList = useMemo(
-    () => storedState.items
-      .map((item) => {
-        const pricingOption = getPricingOption(storedState.snapshots[item.id], item);
-        if (!pricingOption) return null;
-        const weeklyUnits = getWeeklyUnits(item.monthlyUnits);
-        return {
-          item,
-          pricingOption,
-          weeklyUnits,
-          monthlyConsumption: getMonthlyConsumption(item.dailyDose),
-          weeklyTotal: Number((pricingOption.totalPrice * weeklyUnits).toFixed(2)),
-          monthlyTotal: Number((pricingOption.totalPrice * item.monthlyUnits).toFixed(2)),
-        };
-      })
-      .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
-      .sort((left, right) => left.item.name.localeCompare(right.item.name)),
-    [storedState.items, storedState.snapshots],
-  );
 
   // Annual purchase forecast — only meaningful for the market scope.
   // For each calendar month (1-12), sum the cost of every item whose
@@ -1631,48 +1608,9 @@ export function ShoppingModulePage({
             </GlassPanel>
           ) : null}
 
-          <GlassPanel className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="praxis-label text-[var(--accent)]">Lista de compra</p>
-                <h2 className="praxis-title text-2xl">Resumo semanal e mensal</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPurchaseSummaryExpanded((current) => !current)}
-                className="praxis-button-ghost inline-flex items-center gap-2 px-4 py-3"
-              >
-                {purchaseSummaryExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                {purchaseSummaryExpanded ? "Ocultar resumo" : "Expandir resumo"}
-              </button>
-            </div>
-
-            {purchaseSummaryExpanded && purchaseList.length ? (
-              <div className="overflow-hidden rounded-sm border border-white/10">
-                <div className="grid grid-cols-[minmax(180px,1.8fr)_minmax(90px,0.8fr)_minmax(90px,0.8fr)_minmax(110px,0.9fr)_minmax(110px,0.9fr)] gap-3 border-b border-white/10 bg-[#0d0d0f] px-4 py-3 text-[11px] uppercase tracking-[0.22em] text-zinc-500">
-                  <span>Item</span><span>Uso/mes</span><span>Compra</span><span>Semanal</span><span>Mensal</span>
-                </div>
-                {purchaseList.map(({ item, pricingOption, monthlyConsumption, weeklyTotal, monthlyTotal }) => (
-                  <div key={item.id} className="grid grid-cols-[minmax(180px,1.8fr)_minmax(90px,0.8fr)_minmax(90px,0.8fr)_minmax(110px,0.9fr)_minmax(110px,0.9fr)] gap-3 border-t border-white/10 px-4 py-4 text-sm text-zinc-300 first:border-t-0">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-zinc-100">{item.name}</p>
-                      <p className="mt-1 truncate text-xs text-zinc-500">
-                        {[pricingOption.sourceName, scope === "supplements" ? item.scheduleLabel : item.localStoreName].filter(Boolean).join(" • ")}
-                      </p>
-                    </div>
-                    <span>{formatUnits(monthlyConsumption)}</span>
-                    <span>{formatUnits(item.monthlyUnits)}</span>
-                    <span>{formatCurrency(weeklyTotal)}</span>
-                    <span className="font-semibold text-zinc-100">{formatCurrency(monthlyTotal)}</span>
-                  </div>
-                ))}
-              </div>
-            ) : purchaseSummaryExpanded ? (
-              <div className="rounded-sm border border-dashed border-white/10 p-5 text-sm leading-6 text-zinc-500">
-                Busque e selecione uma oferta para cada item. O resumo de compra aparece aqui.
-              </div>
-            ) : null}
-          </GlassPanel>
+          {/* "Lista de compra · Resumo semanal e mensal" panel removed —
+              the Simulação anual cobre essa info de forma mais útil
+              (custo real por mês considerando frequência de compra). */}
         </div>
         <div className="space-y-6">
           <GlassPanel className="space-y-5">
