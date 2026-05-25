@@ -21,7 +21,11 @@ import {
 } from "@/lib/utils";
 
 const fieldClassName = "praxis-field w-full px-4 py-3 text-sm";
+// Legacy key — migrated into state.moduleState["health-history"] on
+// first load and then removed. Kept here only so the migration step
+// can read it once.
 const healthHistoryStorageKey = "praxis-protocol-health-history-v1";
+const healthHistoryModuleKey = "health-history";
 
 const weekdayOptions: Weekday[] = [
   "monday",
@@ -227,23 +231,38 @@ export default function HealthModulePage() {
   const { state, actions } = useAppStore();
   const today = useMemo(() => new Date(), []);
   const todayWeekday = getTodayWeekday(today);
-  const [persistedHealthHistory] = useState<HealthHistoryEntry[]>(() => {
-    if (typeof window === "undefined") return [];
-
+  // Migration: on first mount, if state.moduleState[health-history]
+  // is empty AND the legacy localStorage key has data, lift it into
+  // the central KV-backed bucket. After that, the localStorage key is
+  // deleted so KV is the only source of truth.
+  useEffect(() => {
+    const existing = state.moduleState?.[healthHistoryModuleKey];
+    if (Array.isArray(existing) && existing.length > 0) return;
+    if (typeof window === "undefined") return;
     try {
       const stored = window.localStorage.getItem(healthHistoryStorageKey);
-      if (!stored) return [];
-      return (JSON.parse(stored) as HealthHistoryEntry[])
-        .filter((entry) => entry?.taskId && entry?.completedAt)
-        .sort(
-          (left, right) =>
-            new Date(right.completedAt).getTime() -
-            new Date(left.completedAt).getTime(),
-        );
-    } catch {
-      return [];
-    }
-  });
+      if (stored) {
+        const parsed = JSON.parse(stored) as HealthHistoryEntry[];
+        const valid = parsed
+          .filter((entry) => entry?.taskId && entry?.completedAt)
+          .sort(
+            (left, right) =>
+              new Date(right.completedAt).getTime() -
+              new Date(left.completedAt).getTime(),
+          );
+        if (valid.length) actions.setModuleState(healthHistoryModuleKey, valid);
+      }
+    } catch {}
+    try {
+      window.localStorage.removeItem(healthHistoryStorageKey);
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const persistedHealthHistory = useMemo<HealthHistoryEntry[]>(() => {
+    const raw = state.moduleState?.[healthHistoryModuleKey];
+    if (!Array.isArray(raw)) return [];
+    return raw as HealthHistoryEntry[];
+  }, [state.moduleState]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [scheduledTime, setScheduledTime] = useState("08:30");
@@ -350,11 +369,24 @@ export default function HealthModulePage() {
     });
   }, [healthHistory, today]);
 
+  // Mirror the merged healthHistory into state.moduleState so the
+  // KV envelope picks it up. Only fires when the value actually
+  // changes from what's already in the store (avoid render loops).
   useEffect(() => {
-    window.localStorage.setItem(
-      healthHistoryStorageKey,
-      JSON.stringify(healthHistory),
-    );
+    const prev = state.moduleState?.[healthHistoryModuleKey];
+    const next = healthHistory;
+    if (Array.isArray(prev) && prev.length === next.length) {
+      let allSame = true;
+      for (let i = 0; i < next.length; i++) {
+        if ((prev[i] as HealthHistoryEntry).id !== next[i].id) {
+          allSame = false;
+          break;
+        }
+      }
+      if (allSame) return;
+    }
+    actions.setModuleState(healthHistoryModuleKey, next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [healthHistory]);
 
   function applyPreset(presetId: string) {

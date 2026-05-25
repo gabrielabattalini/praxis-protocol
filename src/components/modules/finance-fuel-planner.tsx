@@ -97,47 +97,62 @@ const DEFAULT_STATE: FuelPlannerState = {
   },
 };
 
+// Legacy localStorage key — migrated into state.moduleState[fuelModuleKey]
+// on first load, then cleaned up so KV is the only source of truth.
 const STORAGE_KEY = "praxis-fuel-plan-v1";
+const fuelModuleKey = "fuel-planner-v1";
 
-function loadFromStorage(): FuelPlannerState | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<FuelPlannerState>;
-    if (
-      !parsed?.etanol ||
-      !parsed?.gasolina ||
-      typeof parsed.activeFuelType !== "string"
-    ) {
-      return null;
-    }
-    return parsed as FuelPlannerState;
-  } catch {
+function normalizeFuelState(raw: unknown): FuelPlannerState | null {
+  if (!raw || typeof raw !== "object") return null;
+  const parsed = raw as Partial<FuelPlannerState>;
+  if (
+    !parsed.etanol ||
+    !parsed.gasolina ||
+    typeof parsed.activeFuelType !== "string"
+  ) {
     return null;
   }
-}
-
-function saveToStorage(state: FuelPlannerState) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    /* ignore storage quota / disabled errors */
-  }
+  return parsed as FuelPlannerState;
 }
 
 /* ── Component ────────────────────────────────────────────────── */
 
 export function FinanceFuelPlanner() {
   const { state: appState, actions } = useAppStore();
-  const [state, setState] = useState<FuelPlannerState>(
-    () => loadFromStorage() ?? DEFAULT_STATE,
-  );
+  const [state, setState] = useState<FuelPlannerState>(() => {
+    const fromStore = normalizeFuelState(appState.moduleState?.[fuelModuleKey]);
+    if (fromStore) return fromStore;
+    if (typeof window !== "undefined") {
+      try {
+        const raw = window.localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = normalizeFuelState(JSON.parse(raw));
+          if (parsed) return parsed;
+        }
+      } catch {}
+    }
+    return DEFAULT_STATE;
+  });
+  const [hydrated, setHydrated] = useState(false);
 
+  // On mount, migrate any legacy localStorage data into KV and clean up.
   useEffect(() => {
-    saveToStorage(state);
-  }, [state]);
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem(STORAGE_KEY);
+      } catch {}
+    }
+    setHydrated(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Mirror every state change into the central KV bucket (debounced
+  // save fires automatically). Skip until hydrated to avoid clobbering
+  // remote data with our initial-state default.
+  useEffect(() => {
+    if (!hydrated) return;
+    actions.setModuleState(fuelModuleKey, state);
+  }, [actions, hydrated, state]);
 
   const active = state[state.activeFuelType];
 

@@ -748,6 +748,13 @@ export interface PersistedState {
   financeCategories: FinanceCategory[];
   sleepPlan: SleepWeeklyPlan;
   sleepHistory: SleepLogEntry[];
+  /* Generic per-module KV bucket. Modules that historically stored
+     their own state in window.localStorage (run, health, fuel
+     planner, quick diary, countdown timers, etc.) now serialize
+     their full state under a key here so it syncs across devices
+     via the central account-state envelope. Each module owns its
+     own shape inside its slot. */
+  moduleState: Record<string, unknown>;
 }
 
 /* ── Sleep ──────────────────────────────────────────────────────

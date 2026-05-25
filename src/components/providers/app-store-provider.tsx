@@ -482,6 +482,9 @@ type AppStoreValue = {
     closeFinanceMonth: (month: FinanceMonthId) => void;
     setSleepPlan: (plan: PersistedState["sleepPlan"]) => void;
     setSleepHistory: (history: PersistedState["sleepHistory"]) => void;
+    /* Per-module KV bucket setter. Pass null/undefined value to clear
+       a module's slot. See PersistedState.moduleState for the rationale. */
+    setModuleState: (key: string, value: unknown) => void;
   };
 };
 
@@ -957,7 +960,8 @@ type Action =
   | { type: "remove-finance-line"; lineId: string }
   | { type: "close-finance-month"; month: FinanceMonthId }
   | { type: "set-sleep-plan"; payload: PersistedState["sleepPlan"] }
-  | { type: "set-sleep-history"; payload: PersistedState["sleepHistory"] };
+  | { type: "set-sleep-history"; payload: PersistedState["sleepHistory"] }
+  | { type: "set-module-state"; key: string; value: unknown };
 
 const AppStoreContext = createContext<AppStoreValue | null>(null);
 
@@ -2864,6 +2868,17 @@ function reducer(state: PersistedState, action: Action): PersistedState {
       return { ...state, sleepPlan: action.payload };
     case "set-sleep-history":
       return { ...state, sleepHistory: action.payload };
+    case "set-module-state": {
+      const nextBucket = {
+        ...(state.moduleState ?? {}),
+        [action.key]: action.value,
+      };
+      // Drop slots whose value is null/undefined so the bucket stays tidy.
+      if (action.value === null || action.value === undefined) {
+        delete nextBucket[action.key];
+      }
+      return { ...state, moduleState: nextBucket };
+    }
     default:
       return state;
   }
@@ -4448,6 +4463,7 @@ const emptyPersistedState: PersistedState = {
     },
   },
   sleepHistory: [],
+  moduleState: {},
 };
 
 function parseStateValue(
@@ -4737,6 +4753,12 @@ function parseStateValue(
               typeof entry.wakeTime === "string",
           )
         : emptyPersistedState.sleepHistory,
+      moduleState:
+        parsedState.moduleState &&
+        typeof parsedState.moduleState === "object" &&
+        !Array.isArray(parsedState.moduleState)
+          ? (parsedState.moduleState as Record<string, unknown>)
+          : {},
     };
   } catch {
     return null;
@@ -5524,6 +5546,9 @@ export function AppStoreProvider({
       },
       setSleepHistory(history) {
         dispatch({ type: "set-sleep-history", payload: history });
+      },
+      setModuleState(key, value) {
+        dispatch({ type: "set-module-state", key, value });
       },
     },
   };

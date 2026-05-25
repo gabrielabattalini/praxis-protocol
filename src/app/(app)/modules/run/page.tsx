@@ -58,7 +58,10 @@ const cardioTypeItems: Array<{ id: CardioType; label: string }> = [
 
 const CARDIO_TYPES: CardioType[] = cardioTypeItems.map((item) => item.id);
 
+// Legacy localStorage key; migrated into state.moduleState[runModuleKey]
+// on first load, then cleaned up.
 const runStorageKey = "praxis-protocol:run-module-v2";
+const runModuleKey = "run-module-v2";
 
 function createEmptyTargets(defaultType: CardioType = "running") {
   return weekdayItems.reduce(
@@ -271,25 +274,43 @@ export default function RunModulePage() {
   const actionsRef = useRef(actions);
   actionsRef.current = actions;
 
+  // Hydrate from the central KV-backed moduleState bucket. Falls back
+  // to the legacy localStorage key once (for users who already had run
+  // data before this migration), then clears the legacy key.
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       try {
-        const stored = window.localStorage.getItem(runStorageKey);
-        if (stored) {
-          setState(
-            normalizeRunState(JSON.parse(stored), defaultTypeRef.current),
-          );
+        const fromStore = appState.moduleState?.[runModuleKey];
+        if (fromStore) {
+          setState(normalizeRunState(fromStore, defaultTypeRef.current));
+        } else {
+          const stored =
+            typeof window !== "undefined"
+              ? window.localStorage.getItem(runStorageKey)
+              : null;
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            const normalized = normalizeRunState(parsed, defaultTypeRef.current);
+            setState(normalized);
+            actionsRef.current.setModuleState(runModuleKey, normalized);
+          }
         }
+      } catch {}
+      try {
+        window.localStorage.removeItem(runStorageKey);
       } catch {}
       setHydrated(true);
     }, 0);
 
     return () => window.clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Mirror the local state back to the KV bucket. The central store
+  // debounces a 700ms KV save so multi-device sync is automatic.
   useEffect(() => {
     if (!hydrated) return;
-    window.localStorage.setItem(runStorageKey, JSON.stringify(state));
+    actionsRef.current.setModuleState(runModuleKey, state);
   }, [hydrated, state]);
 
   // Auto-sync the daily cardio plan into real account tasks so each

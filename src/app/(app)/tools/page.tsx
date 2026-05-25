@@ -334,7 +334,8 @@ function SidePanel({ Icon, label, children }: { Icon: typeof Clock3; label: stri
 }
 
 export default function ToolsPage() {
-  const { state } = useAppStore();
+  const { state: appState, actions } = useAppStore();
+  const state = appState;
   const [activeAppId, setActiveAppId] = useState<ToolAppId>("focus-timer");
   const [toast, setToast] = useState("");
   const [focusState, setFocusState] = useState<FocusState>(() => defaultFocus());
@@ -392,22 +393,56 @@ export default function ToolsPage() {
   useEffect(() => { if (typeof window !== "undefined") window.localStorage.setItem(skey("white-noise", userId), JSON.stringify(noiseState)); }, [noiseState, userId]);
   useEffect(() => { if (typeof window !== "undefined") window.localStorage.setItem(skey("breathing-reset", userId), JSON.stringify(breathState)); }, [breathState, userId]);
 
+  // Quick-diary + countdown now live in the central KV-backed bucket
+  // (state.moduleState) so they sync across devices. The userId scope
+  // is preserved inside the module key. First load migrates from the
+  // legacy localStorage key once, then clears it.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const rawDiary = window.localStorage.getItem(skey("quick-diary", userId));
-    const rawCountdown = window.localStorage.getItem(skey("countdown", userId));
-    const frame = window.requestAnimationFrame(() => {
+    const diaryKey = `quick-diary-${userId}`;
+    const countdownKey = `countdown-${userId}`;
+    const storeDiary = appState.moduleState?.[diaryKey];
+    const storeCountdown = appState.moduleState?.[countdownKey];
+
+    if (storeDiary) {
+      try { setDiaryState(normalizeDiary(storeDiary)); } catch {}
+    } else {
+      const rawDiary = window.localStorage.getItem(skey("quick-diary", userId));
       if (rawDiary) {
-        try { setDiaryState(normalizeDiary(JSON.parse(rawDiary))); } catch { setDiaryState(defaultDiary()); }
+        try {
+          const parsed = normalizeDiary(JSON.parse(rawDiary));
+          setDiaryState(parsed);
+          actions.setModuleState(diaryKey, parsed);
+        } catch {}
       }
+    }
+    if (storeCountdown) {
+      try { setCountdownState(normalizeCountdown(storeCountdown)); } catch {}
+    } else {
+      const rawCountdown = window.localStorage.getItem(skey("countdown", userId));
       if (rawCountdown) {
-        try { setCountdownState(normalizeCountdown(JSON.parse(rawCountdown))); } catch { setCountdownState(defaultCountdown()); }
+        try {
+          const parsed = normalizeCountdown(JSON.parse(rawCountdown));
+          setCountdownState(parsed);
+          actions.setModuleState(countdownKey, parsed);
+        } catch {}
       }
-    });
-    return () => window.cancelAnimationFrame(frame);
+    }
+    try {
+      window.localStorage.removeItem(skey("quick-diary", userId));
+      window.localStorage.removeItem(skey("countdown", userId));
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
-  useEffect(() => { if (typeof window !== "undefined") window.localStorage.setItem(skey("quick-diary", userId), JSON.stringify(diaryState)); }, [diaryState, userId]);
-  useEffect(() => { if (typeof window !== "undefined") window.localStorage.setItem(skey("countdown", userId), JSON.stringify(countdownState)); }, [countdownState, userId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    actions.setModuleState(`quick-diary-${userId}`, diaryState);
+  }, [actions, diaryState, userId]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    actions.setModuleState(`countdown-${userId}`, countdownState);
+  }, [actions, countdownState, userId]);
 
   useEffect(() => {
     if (activeAppId !== "countdown") return;
