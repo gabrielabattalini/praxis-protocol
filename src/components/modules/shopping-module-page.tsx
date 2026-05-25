@@ -1362,44 +1362,50 @@ export function ShoppingModulePage({
                     <p className="text-xs leading-5 text-zinc-500">{dailyHint}</p>
                   </label>
                 )}
-                <label className="block space-y-2">
-                  <span className="praxis-label text-[var(--accent)]">Dose alvo do dia (substância)</span>
-                  <div className="flex gap-2">
-                    <input
-                      value={draft.dailyDoseAmount}
-                      onChange={(event) =>
-                        setDraft((current) => ({
-                          ...current,
-                          dailyDoseAmount: event.target.value,
-                        }))
-                      }
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="Ex.: 1000"
-                      className={`${fieldClassName} flex-1`}
-                    />
-                    <select
-                      value={draft.dailyDoseUnit}
-                      onChange={(event) =>
-                        setDraft((current) => ({
-                          ...current,
-                          dailyDoseUnit: event.target.value,
-                        }))
-                      }
-                      className={`${fieldClassName} w-28`}
-                    >
-                      <option value="mg">mg</option>
-                      <option value="g">g</option>
-                      <option value="mcg">mcg</option>
-                      <option value="ml">ml</option>
-                      <option value="serving">por porção</option>
-                    </select>
-                  </div>
-                  <p className="text-xs leading-5 text-zinc-500">
-                    Ex.: <span className="text-zinc-300">1000&nbsp;mg de Vitamina&nbsp;C</span> por dia. Com isso o sistema lê a dose por cápsula direto do título do produto e calcula o <span className="text-[var(--accent)]">custo real por dia</span> — não cai mais na pegadinha de &quot;1000&nbsp;mg em 4&nbsp;cápsulas&quot;.
-                  </p>
-                </label>
+                {/* "Dose alvo do dia (substância)" — supplements only.
+                    User asked to drop it from the market scope: groceries
+                    don't have a per-capsule substance to anchor a cost-
+                    per-day calculation. */}
+                {scope === "supplements" ? (
+                  <label className="block space-y-2">
+                    <span className="praxis-label text-[var(--accent)]">Dose alvo do dia (substância)</span>
+                    <div className="flex gap-2">
+                      <input
+                        value={draft.dailyDoseAmount}
+                        onChange={(event) =>
+                          setDraft((current) => ({
+                            ...current,
+                            dailyDoseAmount: event.target.value,
+                          }))
+                        }
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Ex.: 1000"
+                        className={`${fieldClassName} flex-1`}
+                      />
+                      <select
+                        value={draft.dailyDoseUnit}
+                        onChange={(event) =>
+                          setDraft((current) => ({
+                            ...current,
+                            dailyDoseUnit: event.target.value,
+                          }))
+                        }
+                        className={`${fieldClassName} w-28`}
+                      >
+                        <option value="mg">mg</option>
+                        <option value="g">g</option>
+                        <option value="mcg">mcg</option>
+                        <option value="ml">ml</option>
+                        <option value="serving">por porção</option>
+                      </select>
+                    </div>
+                    <p className="text-xs leading-5 text-zinc-500">
+                      Ex.: <span className="text-zinc-300">1000&nbsp;mg de Vitamina&nbsp;C</span> por dia. Com isso o sistema lê a dose por cápsula direto do título do produto e calcula o <span className="text-[var(--accent)]">custo real por dia</span> — não cai mais na pegadinha de &quot;1000&nbsp;mg em 4&nbsp;cápsulas&quot;.
+                    </p>
+                  </label>
+                ) : null}
               </section>
 
               {/* SECTION 3 — Compra (market only) */}
