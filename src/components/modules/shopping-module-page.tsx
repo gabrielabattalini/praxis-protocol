@@ -941,25 +941,60 @@ export function ShoppingModulePage({
                     return (
                       <div key={item.id} className="border-t border-white/10 first:border-t-0">
                       <div className={cn("grid gap-3 px-4 py-4 transition md:grid-cols-[minmax(220px,1.8fr)_minmax(90px,0.75fr)_minmax(90px,0.75fr)_minmax(100px,0.8fr)_minmax(100px,0.8fr)_minmax(110px,0.85fr)_minmax(105px,0.65fr)] md:items-center", active ? "bg-[rgba(251,146,60,0.06)]" : "bg-[#09090b]") }>
-                        <button
-                          type="button"
-                          onClick={() => replaceModuleState({ ...storedState, selectedItemId: item.id })}
-                          className="min-w-0 text-left"
-                        >
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="truncate font-medium text-zinc-100">{item.name}</p>
-                            <span className={cn("rounded-sm border px-2 py-1 text-[10px] uppercase tracking-[0.18em]", item.includeInFinance ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200" : "border-white/10 bg-[#111113] text-zinc-500") }>
-                              {item.includeInFinance ? "Ativo" : "Inativo"}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-sm text-zinc-500">
-                            {[
-                              item.brand || (item.purchaseMode === "presential" ? "Compra presencial" : "Compra online"),
-                              item.categoryLabel,
-                              scope === "supplements" ? item.scheduleLabel : item.localStoreName,
-                            ].filter(Boolean).join(" • ")}
-                          </p>
-                        </button>
+                        <div className="flex min-w-0 items-start gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              replaceModuleState({
+                                ...storedState,
+                                selectedItemId: item.id,
+                              })
+                            }
+                            className="min-w-0 flex-1 text-left"
+                          >
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="truncate font-medium text-zinc-100">
+                                {item.name}
+                              </p>
+                              <span
+                                className={cn(
+                                  "rounded-sm border px-2 py-1 text-[10px] uppercase tracking-[0.18em]",
+                                  item.includeInFinance
+                                    ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                                    : "border-white/10 bg-[#111113] text-zinc-500",
+                                )}
+                              >
+                                {item.includeInFinance ? "Ativo" : "Inativo"}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-sm text-zinc-500">
+                              {[
+                                item.brand ||
+                                  (item.purchaseMode === "presential"
+                                    ? "Compra presencial"
+                                    : "Compra online"),
+                                item.categoryLabel,
+                                scope === "supplements"
+                                  ? item.scheduleLabel
+                                  : item.localStoreName,
+                              ]
+                                .filter(Boolean)
+                                .join(" • ")}
+                            </p>
+                          </button>
+                          {item.referenceUrl ? (
+                            <a
+                              href={item.referenceUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              title={`Abrir link de ${item.name}`}
+                              aria-label={`Abrir link de ${item.name}`}
+                              className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border border-white/10 bg-[#111113] text-zinc-400 transition hover:border-[var(--accent)]/40 hover:text-[var(--accent)]"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          ) : null}
+                        </div>
 
                         <div className="text-sm text-zinc-300">{item.quantity || "--"}</div>
                         <div className="text-sm text-zinc-300">{formatUnits(item.dailyDose)}</div>
