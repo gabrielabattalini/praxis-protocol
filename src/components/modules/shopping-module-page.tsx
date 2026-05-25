@@ -488,6 +488,41 @@ export function ShoppingModulePage({
     storedState.snapshots,
   ]);
 
+  // When scope === "market", the user wants the list visually split
+  // into two physical blocks (presencial vs online). We inject section
+  // marker entries between the two groups so the existing .map() can
+  // emit a divider row without us extracting the 300-line row body.
+  const monitoredRowsWithSections = useMemo<
+    Array<
+      | (typeof monitoredRows)[number]
+      | { __sectionMarker: true; mode: ShoppingPurchaseMode; count: number }
+    >
+  >(() => {
+    if (scope !== "market") return monitoredRows;
+
+    const presentialRows = monitoredRows.filter(
+      (row) => row.item.purchaseMode === "presential",
+    );
+    const onlineRows = monitoredRows.filter(
+      (row) => row.item.purchaseMode === "online",
+    );
+
+    return [
+      {
+        __sectionMarker: true as const,
+        mode: "presential" as ShoppingPurchaseMode,
+        count: presentialRows.length,
+      },
+      ...presentialRows,
+      {
+        __sectionMarker: true as const,
+        mode: "online" as ShoppingPurchaseMode,
+        count: onlineRows.length,
+      },
+      ...onlineRows,
+    ];
+  }, [monitoredRows, scope]);
+
   const purchaseList = useMemo(
     () => storedState.items
       .map((item) => {
@@ -865,7 +900,49 @@ export function ShoppingModulePage({
                 </div>
 
                 {monitoredRows.length ? (
-                  monitoredRows.map(({ item, pricingOption, estimatedItemMonthly, linkedMealBlocks, linkedMealsLabel }) => {
+                  monitoredRowsWithSections.map((entry) => {
+                    if ("__sectionMarker" in entry) {
+                      // Visual separator between presencial and online
+                      // groups (market scope only). Reads as a header
+                      // band sitting between the rows above and below.
+                      const isPresential = entry.mode === "presential";
+                      return (
+                        <div
+                          key={`section-${entry.mode}`}
+                          className={cn(
+                            "flex items-center justify-between gap-3 border-t bg-[#0d0d0f] px-4 py-3",
+                            isPresential
+                              ? "border-white/10 first:border-t-0"
+                              : "border-t-2 border-[var(--accent)]/30",
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            {isPresential ? (
+                              <ShoppingBasket className="h-3.5 w-3.5 text-[var(--accent)]" />
+                            ) : (
+                              <ExternalLink className="h-3.5 w-3.5 text-[var(--accent)]" />
+                            )}
+                            <span className="praxis-label text-[var(--accent)]">
+                              {isPresential
+                                ? "Compras presenciais"
+                                : "Compras online"}
+                            </span>
+                          </div>
+                          <span className="praxis-label text-zinc-500">
+                            {entry.count}{" "}
+                            {entry.count === 1 ? "item" : "itens"}
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    const {
+                      item,
+                      pricingOption,
+                      estimatedItemMonthly,
+                      linkedMealBlocks,
+                      linkedMealsLabel,
+                    } = entry;
                     const active = item.id === selectedItem?.id;
                     const isExpanded = expandedItemId === item.id;
 
