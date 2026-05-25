@@ -287,7 +287,6 @@ export function ShoppingModulePage({
     useState<ShoppingSortOption>("monthly-cost-desc");
   const [filterOption, setFilterOption] =
     useState<ShoppingFilterOption>("all");
-  const [offerPanelExpanded, setOfferPanelExpanded] = useState(true);
   const mealBlocks = useMemo(
     () =>
       [...state.mealPlan].sort((left, right) =>
@@ -927,6 +926,108 @@ export function ShoppingModulePage({
           </section>
         ) : null}
 
+        {/* SECTION 4 — Ofertas online (edit mode only, online items)
+            Buscar button + sources status + result picker. Was on the
+            right column ("Oferta de referência"); moved here so the
+            whole editing flow lives in one place. Only rendered when
+            we have a real item to search against (editingItemId set
+            AND the draft / item is online). */}
+        {(() => {
+          if (!editingItemId) return null;
+          const currentItem = storedState.items.find(
+            (item) => item.id === editingItemId,
+          );
+          if (!currentItem || currentItem.purchaseMode !== "online") return null;
+          const snapshot = storedState.snapshots[currentItem.id];
+          return (
+            <section className="space-y-4">
+              <div className="praxis-label flex items-center gap-2 border-b border-white/5 pb-2 text-zinc-400">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+                Ofertas online
+              </div>
+
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  runSearch(currentItem);
+                }}
+                disabled={searchingItemId === currentItem.id}
+                className="praxis-button inline-flex items-center gap-2 px-4 py-3"
+              >
+                {searchingItemId === currentItem.id ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+                Buscar agora
+              </button>
+
+              {snapshot?.sources.length ? (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {snapshot.sources.map((source) => (
+                    <div key={source.id} className="rounded-sm border border-white/10 bg-[#0a0a0b] p-3">
+                      <p className="font-medium text-zinc-100">{source.name}</p>
+                      <p className="mt-1 text-sm text-zinc-500">
+                        {source.status === "ok"
+                          ? `${source.count} ofertas`
+                          : source.status === "blocked"
+                            ? "Busca bloqueada"
+                            : "Sem resposta"}
+                      </p>
+                      {source.note ? (
+                        <p className="mt-1 text-xs leading-5 text-zinc-500">{source.note}</p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              {snapshot?.results.length ? (
+                <div className="grid gap-4">
+                  {snapshot.results.map((result) => (
+                    <ResultCard
+                      key={result.id}
+                      result={result}
+                      isPreferred={
+                        currentItem.preferredResultId === result.id ||
+                        (!currentItem.preferredResultId &&
+                          snapshot.results[0]?.id === result.id)
+                      }
+                      onChoose={() => {
+                        updateModuleState((current) => ({
+                          ...current,
+                          items: current.items.map((item) =>
+                            item.id === currentItem.id
+                              ? {
+                                  ...item,
+                                  preferredResultId: result.id,
+                                  monthlyUnits: getMonthlyUnitsFromDose(
+                                    result.quantityLabel || item.quantity,
+                                    item.dailyDose,
+                                    item.monthlyUnits,
+                                  ),
+                                  updatedAt: new Date().toISOString(),
+                                }
+                              : item,
+                          ),
+                        }));
+                        setFeedback(
+                          `Oferta de ${result.sourceName} definida no calculo mensal.`,
+                        );
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-sm border border-dashed border-white/10 p-5 text-sm leading-6 text-zinc-500">
+                  Rode a busca para comparar preço, frete e precisão entre as lojas.
+                </div>
+              )}
+            </section>
+          );
+        })()}
+
         {/* Submit */}
         <div className="flex flex-wrap gap-3 border-t border-white/10 pt-4">
           <button type="submit" className="praxis-button inline-flex items-center gap-2 px-4 py-3">
@@ -1051,8 +1152,12 @@ export function ShoppingModulePage({
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
+      {/* Single-column layout — user removed the right side entirely
+          ("Cadastro rápido" + "Oferta de referência" both consolidated
+          into the inline draft form on the left). Table gets all the
+          width now. */}
+      <div className="space-y-6">
+        <div className="space-y-6">
           <GlassPanel className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -1312,262 +1417,8 @@ export function ShoppingModulePage({
 
                       {isExpanded ? (
                         <div className="border-t border-white/10 bg-[#0d0d0f] px-4 py-4">
-                          <div className="grid gap-4 xl:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_minmax(240px,1.15fr)]">
-                            <div className="space-y-3">
-                              {scope === "market" ? (
-                                <div className="rounded-sm border border-white/10 bg-[#111113] p-3">
-                                  <p className="praxis-label text-zinc-500">Forma de compra</p>
-                                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        updateModuleState((current) => ({
-                                          ...current,
-                                          items: current.items.map((currentItem) =>
-                                            currentItem.id === item.id
-                                              ? {
-                                                  ...currentItem,
-                                                  purchaseMode: "online",
-                                                  localStoreName: undefined,
-                                                  updatedAt: new Date().toISOString(),
-                                                }
-                                              : currentItem,
-                                          ),
-                                        }))
-                                      }
-                                      className={cn(
-                                        "rounded-sm border px-3 py-3 text-left transition",
-                                        item.purchaseMode === "online"
-                                          ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100"
-                                          : "border-white/10 bg-[#0a0a0b] text-zinc-400",
-                                      )}
-                                    >
-                                      <p className="font-medium">Online</p>
-                                      <p className="mt-1 text-xs text-zinc-500">Usa busca e comparação de ofertas.</p>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        updateModuleState((current) => ({
-                                          ...current,
-                                          items: current.items.map((currentItem) =>
-                                            currentItem.id === item.id
-                                              ? {
-                                                  ...currentItem,
-                                                  purchaseMode: "presential",
-                                                  updatedAt: new Date().toISOString(),
-                                                }
-                                              : currentItem,
-                                          ),
-                                        }))
-                                      }
-                                      className={cn(
-                                        "rounded-sm border px-3 py-3 text-left transition",
-                                        item.purchaseMode === "presential"
-                                          ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100"
-                                          : "border-white/10 bg-[#0a0a0b] text-zinc-400",
-                                      )}
-                                    >
-                                      <p className="font-medium">Presencial</p>
-                                      <p className="mt-1 text-xs text-zinc-500">Usa local e preço digitados por você.</p>
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : null}
-
-                              <label className="block space-y-2">
-                                <span className="praxis-label text-zinc-500">{dailyLabel}</span>
-                                <input
-                                  type="number"
-                                  min="0.01"
-                                  step="0.01"
-                                  value={item.dailyDose}
-                                  onChange={(event) => {
-                                    const dailyDose = Math.max(0.01, Number(event.target.value) || 0.01);
-                                    updateModuleState((current) => ({
-                                      ...current,
-                                      items: current.items.map((currentItem) =>
-                                        currentItem.id === item.id
-                                          ? {
-                                              ...currentItem,
-                                              dailyDose,
-                                              monthlyUnits: getMonthlyUnitsFromDose(((current.snapshots[currentItem.id]?.results.find((result) => result.id === currentItem.preferredResultId)) ?? current.snapshots[currentItem.id]?.results[0])?.quantityLabel || currentItem.quantity, dailyDose, currentItem.monthlyUnits),
-                                              updatedAt: new Date().toISOString(),
-                                            }
-                                          : currentItem,
-                                      ),
-                                    }));
-                                  }}
-                                  className={fieldClassName}
-                                />
-                              </label>
-
-                              <label className="block space-y-2">
-                                <span className="praxis-label text-zinc-500">Preço manual</span>
-                                <input
-                                  type="number"
-                                  min="0.01"
-                                  step="0.01"
-                                  value={item.manualUnitPrice ?? ""}
-                                  onChange={(event) => {
-                                    const rawValue = event.target.value;
-                                    updateModuleState((current) => ({
-                                      ...current,
-                                      items: current.items.map((currentItem) =>
-                                        currentItem.id === item.id
-                                          ? {
-                                              ...currentItem,
-                                              manualUnitPrice:
-                                                rawValue.trim() === ""
-                                                  ? undefined
-                                                  : Math.max(0, Number(rawValue) || 0),
-                                              updatedAt: new Date().toISOString(),
-                                            }
-                                          : currentItem,
-                                      ),
-                                    }));
-                                  }}
-                                  placeholder="Ex.: 39.90"
-                                  className={fieldClassName}
-                                />
-                                <p className="text-xs leading-5 text-zinc-500">
-                                  No online, serve como preço base manual. No presencial, vira o preço principal do item.
-                                </p>
-                              </label>
-
-                              {scope === "market" && item.purchaseMode === "presential" ? (
-                                <label className="block space-y-2">
-                                  <span className="praxis-label text-zinc-500">Local presencial</span>
-                                  <input
-                                    value={item.localStoreName ?? ""}
-                                    onChange={(event) =>
-                                      updateModuleState((current) => ({
-                                        ...current,
-                                        items: current.items.map((currentItem) =>
-                                          currentItem.id === item.id
-                                            ? {
-                                                ...currentItem,
-                                                localStoreName: event.target.value.trim() || undefined,
-                                                updatedAt: new Date().toISOString(),
-                                              }
-                                            : currentItem,
-                                        ),
-                                      }))
-                                    }
-                                    placeholder="Ex.: açougue do bairro"
-                                    className={fieldClassName}
-                                  />
-                                </label>
-                              ) : null}
-
-                              {item.purchaseMode === "online" ? (
-                                <label className="block space-y-2">
-                                  <span className="praxis-label text-zinc-500">
-                                    Link de compra
-                                  </span>
-                                  <input
-                                    type="url"
-                                    inputMode="url"
-                                    value={item.referenceUrl ?? ""}
-                                    onChange={(event) =>
-                                      updateModuleState((current) => ({
-                                        ...current,
-                                        items: current.items.map((currentItem) =>
-                                          currentItem.id === item.id
-                                            ? {
-                                                ...currentItem,
-                                                referenceUrl:
-                                                  event.target.value.trim() ||
-                                                  undefined,
-                                                updatedAt:
-                                                  new Date().toISOString(),
-                                              }
-                                            : currentItem,
-                                        ),
-                                      }))
-                                    }
-                                    placeholder="https://..."
-                                    className={fieldClassName}
-                                  />
-                                </label>
-                              ) : null}
-
-                              <label className="block space-y-2">
-                                <span className="praxis-label text-zinc-500">Comprar por mes</span>
-                                <input
-                                  type="number"
-                                  min="0.01"
-                                  step="0.01"
-                                  value={item.monthlyUnits}
-                                  onChange={(event) => updateItemFinancePlan(item.id, { monthlyUnits: Number(event.target.value) || 1 })}
-                                  className={fieldClassName}
-                                />
-                              </label>
-
-                              {/* Stagger control for the annual forecast.
-                                  Available for both market and supplements
-                                  scopes. The interval between purchases is
-                                  derived from monthlyUnits (e.g. 0.5 = every
-                                  2 months, 0.125 = every 8 months) — see
-                                  the "Simulação anual" panel.
-                                  nextPurchaseMonth controls WHERE in the
-                                  year the cycle anchors, so items don't
-                                  all spike in the same month. */}
-                              <label className="block space-y-2">
-                                <span className="praxis-label text-zinc-500">
-                                  Próxima compra (mês)
-                                </span>
-                                <select
-                                  value={
-                                    item.nextPurchaseMonth ??
-                                    new Date().getMonth() + 1
-                                  }
-                                  onChange={(event) => {
-                                    const next = Number(event.target.value);
-                                    updateModuleState((current) => ({
-                                      ...current,
-                                      items: current.items.map(
-                                        (currentItem) =>
-                                          currentItem.id === item.id
-                                            ? {
-                                                ...currentItem,
-                                                nextPurchaseMonth:
-                                                  Number.isFinite(next) &&
-                                                  next >= 1 &&
-                                                  next <= 12
-                                                    ? next
-                                                    : undefined,
-                                                updatedAt:
-                                                  new Date().toISOString(),
-                                              }
-                                            : currentItem,
-                                      ),
-                                    }));
-                                  }}
-                                  className={fieldClassName}
-                                >
-                                  {[
-                                    "Janeiro",
-                                    "Fevereiro",
-                                    "Março",
-                                    "Abril",
-                                    "Maio",
-                                    "Junho",
-                                    "Julho",
-                                    "Agosto",
-                                    "Setembro",
-                                    "Outubro",
-                                    "Novembro",
-                                    "Dezembro",
-                                  ].map((label, idx) => (
-                                    <option key={label} value={idx + 1}>
-                                      {label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                            </div>
-
+                          <div className="grid gap-4 xl:grid-cols-[minmax(220px,1fr)_minmax(240px,1.15fr)]">
+                            {/* Editable fields column removed — all editing now happens through the top-of-list Edit form (renderDraftForm). The expanded row keeps only the metrics column + action buttons for quick reference. */}
                             <div className="grid gap-3 sm:grid-cols-2">
                               <MetricCard label="Uso mensal" value={formatUnits(getMonthlyConsumption(item.dailyDose))} />
                               <MetricCard label="Media semanal" value={formatUnits(getWeeklyUnits(item.monthlyUnits))} />
@@ -1827,277 +1678,12 @@ export function ShoppingModulePage({
               the Simulação anual cobre essa info de forma mais útil
               (custo real por mês considerando frequência de compra). */}
         </div>
-        <div className="space-y-6">
-          {/* "Cadastro rápido · Adicionar ou editar item" GlassPanel
-              removed — single-flow editing now lives inline on the
-              items table (renderDraftForm). The "Oferta de
-              referência" panel below stays for live-search results. */}
-          {false && (
-          <GlassPanel className="space-y-5">
-            <div className="flex items-center gap-3">
-              <ShoppingBasket className="h-6 w-6 text-[var(--accent)]" />
-              <div>
-                <p className="praxis-label text-[var(--accent)]">Cadastro rapido</p>
-                <h2 className="praxis-title text-2xl">Adicionar ou editar item</h2>
-              </div>
-            </div>
-
-            <form className="space-y-7" onSubmit={saveItem}>
-              {/* SECTION 1 — Identidade do produto */}
-              <section className="space-y-4">
-                <div className="praxis-label flex items-center gap-2 border-b border-white/5 pb-2 text-zinc-400">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
-                  Identidade do produto
-                </div>
-                <label className="block space-y-2">
-                  <span className="praxis-label text-[var(--accent)]">Nome do produto</span>
-                  <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder={examples[0] ?? "Ex.: detergente"} className={fieldClassName} />
-                </label>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="block space-y-2">
-                    <span className="praxis-label text-[var(--accent)]">Marca</span>
-                    <input value={draft.brand} onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))} placeholder={examples[1] ?? "Ex.: Growth"} className={fieldClassName} />
-                  </label>
-                  <label className="block space-y-2">
-                    <span className="praxis-label text-[var(--accent)]">Quantidade</span>
-                    <input value={draft.quantity} onChange={(event) => setDraft((current) => ({ ...current, quantity: event.target.value }))} placeholder={examples[2] ?? "Ex.: 900 g"} className={fieldClassName} />
-                  </label>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="block space-y-2">
-                    <span className="praxis-label text-[var(--accent)]">Categoria</span>
-                    <input value={draft.categoryLabel} onChange={(event) => setDraft((current) => ({ ...current, categoryLabel: event.target.value }))} placeholder={scope === "supplements" ? "Ex.: massa muscular, sono, saúde" : "Ex.: carnes, higiene, limpeza"} className={fieldClassName} />
-                  </label>
-                  <label className="block space-y-2">
-                    <span className="praxis-label text-[var(--accent)]">Link de referência</span>
-                    <input value={draft.referenceUrl} onChange={(event) => setDraft((current) => ({ ...current, referenceUrl: event.target.value }))} placeholder="https://..." className={fieldClassName} />
-                  </label>
-                </div>
-              </section>
-
-              {/* SECTION 2 — Dose & rotina */}
-              <section className="space-y-4">
-                <div className="praxis-label flex items-center gap-2 border-b border-white/5 pb-2 text-zinc-400">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
-                  Dose &amp; rotina
-                </div>
-                {scope === "supplements" ? (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <label className="block space-y-2">
-                      <span className="praxis-label text-[var(--accent)]">{dailyLabel}</span>
-                      <input value={draft.dailyDose} onChange={(event) => setDraft((current) => ({ ...current, dailyDose: event.target.value }))} type="number" min="0.01" step="0.01" placeholder="Ex.: 2 (cáps/dia)" className={fieldClassName} />
-                      <p className="text-xs leading-5 text-zinc-500">{dailyHint}</p>
-                    </label>
-                    <label className="block space-y-2">
-                      <span className="praxis-label text-[var(--accent)]">Hora de usar</span>
-                      <input value={draft.scheduleLabel} onChange={(event) => setDraft((current) => ({ ...current, scheduleLabel: event.target.value }))} placeholder="Ex.: Café da manhã" className={fieldClassName} />
-                    </label>
-                  </div>
-                ) : (
-                  <label className="block space-y-2">
-                    <span className="praxis-label text-[var(--accent)]">{dailyLabel}</span>
-                    <input value={draft.dailyDose} onChange={(event) => setDraft((current) => ({ ...current, dailyDose: event.target.value }))} type="number" min="0.01" step="0.01" placeholder="Use a mesma unidade da quantidade. Ex.: 30" className={fieldClassName} />
-                    <p className="text-xs leading-5 text-zinc-500">{dailyHint}</p>
-                  </label>
-                )}
-                {/* "Dose alvo do dia (substância)" — supplements only.
-                    User asked to drop it from the market scope: groceries
-                    don't have a per-capsule substance to anchor a cost-
-                    per-day calculation. */}
-                {scope === "supplements" ? (
-                  <label className="block space-y-2">
-                    <span className="praxis-label text-[var(--accent)]">Dose alvo do dia (substância)</span>
-                    <div className="flex gap-2">
-                      <input
-                        value={draft.dailyDoseAmount}
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            dailyDoseAmount: event.target.value,
-                          }))
-                        }
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="Ex.: 1000"
-                        className={`${fieldClassName} flex-1`}
-                      />
-                      <select
-                        value={draft.dailyDoseUnit}
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            dailyDoseUnit: event.target.value,
-                          }))
-                        }
-                        className={`${fieldClassName} w-28`}
-                      >
-                        <option value="mg">mg</option>
-                        <option value="g">g</option>
-                        <option value="mcg">mcg</option>
-                        <option value="ml">ml</option>
-                        <option value="serving">por porção</option>
-                      </select>
-                    </div>
-                    <p className="text-xs leading-5 text-zinc-500">
-                      Ex.: <span className="text-zinc-300">1000&nbsp;mg de Vitamina&nbsp;C</span> por dia. Com isso o sistema lê a dose por cápsula direto do título do produto e calcula o <span className="text-[var(--accent)]">custo real por dia</span> — não cai mais na pegadinha de &quot;1000&nbsp;mg em 4&nbsp;cápsulas&quot;.
-                    </p>
-                  </label>
-                ) : null}
-              </section>
-
-              {/* SECTION 3 — Compra (market only) */}
-              {scope === "market" ? (
-                <section className="space-y-4">
-                  <div className="praxis-label flex items-center gap-2 border-b border-white/5 pb-2 text-zinc-400">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
-                    Compra
-                  </div>
-                  <div className="space-y-3">
-                    <span className="praxis-label text-[var(--accent)]">Local da compra</span>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <button
-                        type="button"
-                        onClick={() => setDraft((current) => ({ ...current, purchaseMode: "online", localStoreName: "", manualUnitPrice: "" }))}
-                        className={cn("rounded-sm border px-4 py-3 text-left transition", draft.purchaseMode === "online" ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100" : "border-white/10 bg-[#0a0a0b] text-zinc-400")}
-                      >
-                        <p className="font-medium">Online</p>
-                        <p className="mt-1 text-sm text-zinc-500">Busca ofertas e compara o custo nas lojas.</p>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDraft((current) => ({ ...current, purchaseMode: "presential" }))}
-                        className={cn("rounded-sm border px-4 py-3 text-left transition", draft.purchaseMode === "presential" ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100" : "border-white/10 bg-[#0a0a0b] text-zinc-400")}
-                      >
-                        <p className="font-medium">Presencial</p>
-                        <p className="mt-1 text-sm text-zinc-500">Informe o local e o preço que você encontrou pessoalmente.</p>
-                      </button>
-                    </div>
-                  </div>
-                  {draft.purchaseMode === "presential" ? (
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <label className="block space-y-2">
-                        <span className="praxis-label text-[var(--accent)]">Local presencial</span>
-                        <input value={draft.localStoreName} onChange={(event) => setDraft((current) => ({ ...current, localStoreName: event.target.value }))} placeholder="Ex.: Açougue do bairro" className={fieldClassName} />
-                      </label>
-                      <label className="block space-y-2">
-                        <span className="praxis-label text-[var(--accent)]">Preço encontrado</span>
-                        <input value={draft.manualUnitPrice} onChange={(event) => setDraft((current) => ({ ...current, manualUnitPrice: event.target.value }))} type="number" min="0.01" step="0.01" placeholder="Ex.: 39.90" className={fieldClassName} />
-                      </label>
-                    </div>
-                  ) : null}
-                </section>
-              ) : null}
-
-              {/* SECTION 4 — Refeições vinculadas removida a pedido do
-                  usuário (não queria mais cruzar item de mercado com
-                  refeição da dieta). mealBlockIds continua no schema
-                  pra retrocompatibilidade — vazio por padrão a partir
-                  daqui. */}
-
-              {/* Submit */}
-              <div className="flex flex-wrap gap-3 border-t border-white/10 pt-4">
-                <button type="submit" className="praxis-button inline-flex items-center gap-2 px-4 py-3">
-                  <Plus className="h-4 w-4" />
-                  {editingItemId ? "Salvar item" : "Adicionar item"}
-                </button>
-                {editingItemId ? (
-                  <button type="button" onClick={resetDraft} className="praxis-button-ghost inline-flex items-center gap-2 px-4 py-3">
-                    <Trash2 className="h-4 w-4" />
-                    Cancelar edição
-                  </button>
-                ) : null}
-              </div>
-            </form>
-
-            {feedback ? <p className="text-sm leading-6 text-emerald-300">{feedback}</p> : null}
-            {searchError ? <p className="text-sm leading-6 text-rose-300">{searchError}</p> : null}
-          </GlassPanel>
-          )}
-
-          <GlassPanel className="space-y-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="praxis-label text-[var(--accent)]">Oferta de referencia</p>
-                <h2 className="praxis-title text-2xl">{selectedItem ? buildShoppingQueryLabel(selectedItem) : "Selecione um item"}</h2>
-              </div>
-              <div className="flex items-center gap-2">
-                {selectedItem?.purchaseMode === "online" ? (
-                  <button type="button" onClick={() => runSearch(selectedItem)} disabled={searchingItemId === selectedItem.id} className="praxis-button inline-flex items-center gap-2 px-4 py-3">
-                    {searchingItemId === selectedItem.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                    Buscar agora
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => setOfferPanelExpanded((current) => !current)}
-                  className="praxis-button-ghost inline-flex items-center gap-2 px-4 py-3"
-                  aria-expanded={offerPanelExpanded}
-                  aria-label={offerPanelExpanded ? "Ocultar oferta" : "Expandir oferta"}
-                >
-                  {offerPanelExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  {offerPanelExpanded ? "Ocultar" : "Expandir"}
-                </button>
-              </div>
-            </div>
-
-            {offerPanelExpanded ? (
-              <>
-                {selectedItem?.purchaseMode === "online" && selectedSnapshot?.sources.length ? (
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {selectedSnapshot.sources.map((source) => (
-                      <div key={source.id} className="rounded-sm border border-white/10 bg-[#0a0a0b] p-3">
-                        <p className="font-medium text-zinc-100">{source.name}</p>
-                        <p className="mt-1 text-sm text-zinc-500">{source.status === "ok" ? `${source.count} ofertas` : source.status === "blocked" ? "Busca bloqueada" : "Sem resposta"}</p>
-                        {source.note ? <p className="mt-1 text-xs leading-5 text-zinc-500">{source.note}</p> : null}
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-
-                {selectedItem?.purchaseMode === "presential" ? (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <MetricCard label="Local da compra" value={selectedItem.localStoreName || "Compra presencial"} />
-                    <MetricCard label="Preco informado" value={selectedItem.manualUnitPrice ? formatCurrency(selectedItem.manualUnitPrice) : "--"} highlight />
-                    <MetricCard label="Quantidade base" value={selectedItem.quantity || "--"} />
-                    <MetricCard label={bestOffer?.comparablePriceLabel ? `Preco / ${bestOffer.comparablePriceLabel}` : "Preco proporcional"} value={bestOffer?.comparablePrice ? formatCurrency(bestOffer.comparablePrice) : "--"} />
-                  </div>
-                ) : selectedSnapshot?.results.length ? (
-                  <div className="grid gap-4">
-                    {selectedSnapshot.results.map((result) => (
-                      <ResultCard
-                        key={result.id}
-                        result={result}
-                        isPreferred={selectedItem?.preferredResultId === result.id || (!selectedItem?.preferredResultId && selectedSnapshot.results[0]?.id === result.id)}
-                        onChoose={() => {
-                          if (!selectedItem) return;
-                          updateModuleState((current) => ({
-                            ...current,
-                            items: current.items.map((item) =>
-                              item.id === selectedItem.id
-                                ? {
-                                    ...item,
-                                    preferredResultId: result.id,
-                                    monthlyUnits: getMonthlyUnitsFromDose(result.quantityLabel || item.quantity, item.dailyDose, item.monthlyUnits),
-                                    updatedAt: new Date().toISOString(),
-                                  }
-                                : item,
-                            ),
-                          }));
-                          setFeedback(`Oferta de ${result.sourceName} definida no calculo mensal.`);
-                    }}
-                  />
-                ))}
-              </div>
-                ) : selectedItem ? (
-                  <div className="rounded-sm border border-dashed border-white/10 p-5 text-sm leading-6 text-zinc-500">Rode a busca para comparar preco, frete e precisao entre as lojas do item selecionado.</div>
-                ) : (
-                  <div className="rounded-sm border border-dashed border-white/10 p-5 text-sm leading-6 text-zinc-500">Selecione uma linha da tabela para ver a oferta usada no calculo.</div>
-                )}
-              </>
-            ) : null}
-          </GlassPanel>
-        </div>
+        {/* Entire right column (Cadastro rápido + Oferta de referência)
+            removed at user's request. All editing (including the
+            online "Buscar ofertas" + result picker) now lives inline
+            in renderDraftForm at the top of the items table. */}
+        {/* Right-column dead JSX block removed — Cadastro rápido +
+            Oferta de referência both lived here. */}
       </div>
     </div>
   );
