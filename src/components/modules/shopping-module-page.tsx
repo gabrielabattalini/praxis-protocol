@@ -514,9 +514,9 @@ export function ShoppingModulePage({
     ];
   }, [monitoredRows, scope]);
 
-  // Annual purchase forecast — only meaningful for the market scope.
-  // For each calendar month (1-12), sum the cost of every item whose
-  // purchase schedule lands on that month.
+  // Annual purchase forecast — available for BOTH scopes (market and
+  // supplements). For each calendar month (1-12), sum the cost of every
+  // item whose purchase schedule lands on that month.
   //
   // Interval is derived from monthlyUnits (NOT a separate field):
   //   monthlyUnits >= 1   → interval = 1 (buy every month, multiple units)
@@ -526,8 +526,6 @@ export function ShoppingModulePage({
   // nextPurchaseMonth and walking ±interval steps inside [1, 12], so the
   // user can stagger when in the year the spikes land.
   const annualForecast = useMemo(() => {
-    if (scope !== "market") return null;
-
     function intervalFromMonthlyUnits(monthlyUnits: number) {
       if (!Number.isFinite(monthlyUnits) || monthlyUnits <= 0) return 1;
       if (monthlyUnits >= 1) return 1;
@@ -611,7 +609,7 @@ export function ShoppingModulePage({
       maxMonthTotal: Math.round(maxMonthTotal * 100) / 100,
       minMonthTotal: Math.round(minMonthTotal * 100) / 100,
     };
-  }, [scope, storedState.items, storedState.snapshots]);
+  }, [storedState.items, storedState.snapshots]);
 
   const [forecastExpanded, setForecastExpanded] = useState(true);
   const [forecastDetailMonth, setForecastDetailMonth] = useState<number | null>(
@@ -1288,69 +1286,68 @@ export function ShoppingModulePage({
                                 />
                               </label>
 
-                              {/* Stagger control for the annual forecast
-                                  (market only). The interval between
-                                  purchases is derived from monthlyUnits
-                                  (e.g. 0.5 = every 2 months, 0.125 = every
-                                  8 months) — see the "Simulação anual"
-                                  panel. nextPurchaseMonth controls WHERE
-                                  in the year the cycle anchors, so items
-                                  don't all spike in the same month. */}
-                              {scope === "market" ? (
-                                <label className="block space-y-2">
-                                  <span className="praxis-label text-zinc-500">
-                                    Próxima compra (mês)
-                                  </span>
-                                  <select
-                                    value={
-                                      item.nextPurchaseMonth ??
-                                      new Date().getMonth() + 1
-                                    }
-                                    onChange={(event) => {
-                                      const next = Number(event.target.value);
-                                      updateModuleState((current) => ({
-                                        ...current,
-                                        items: current.items.map(
-                                          (currentItem) =>
-                                            currentItem.id === item.id
-                                              ? {
-                                                  ...currentItem,
-                                                  nextPurchaseMonth:
-                                                    Number.isFinite(next) &&
-                                                    next >= 1 &&
-                                                    next <= 12
-                                                      ? next
-                                                      : undefined,
-                                                  updatedAt:
-                                                    new Date().toISOString(),
-                                                }
-                                              : currentItem,
-                                        ),
-                                      }));
-                                    }}
-                                    className={fieldClassName}
-                                  >
-                                    {[
-                                      "Janeiro",
-                                      "Fevereiro",
-                                      "Março",
-                                      "Abril",
-                                      "Maio",
-                                      "Junho",
-                                      "Julho",
-                                      "Agosto",
-                                      "Setembro",
-                                      "Outubro",
-                                      "Novembro",
-                                      "Dezembro",
-                                    ].map((label, idx) => (
-                                      <option key={label} value={idx + 1}>
-                                        {label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </label>
-                              ) : null}
+                              {/* Stagger control for the annual forecast.
+                                  Available for both market and supplements
+                                  scopes. The interval between purchases is
+                                  derived from monthlyUnits (e.g. 0.5 = every
+                                  2 months, 0.125 = every 8 months) — see
+                                  the "Simulação anual" panel.
+                                  nextPurchaseMonth controls WHERE in the
+                                  year the cycle anchors, so items don't
+                                  all spike in the same month. */}
+                              <label className="block space-y-2">
+                                <span className="praxis-label text-zinc-500">
+                                  Próxima compra (mês)
+                                </span>
+                                <select
+                                  value={
+                                    item.nextPurchaseMonth ??
+                                    new Date().getMonth() + 1
+                                  }
+                                  onChange={(event) => {
+                                    const next = Number(event.target.value);
+                                    updateModuleState((current) => ({
+                                      ...current,
+                                      items: current.items.map(
+                                        (currentItem) =>
+                                          currentItem.id === item.id
+                                            ? {
+                                                ...currentItem,
+                                                nextPurchaseMonth:
+                                                  Number.isFinite(next) &&
+                                                  next >= 1 &&
+                                                  next <= 12
+                                                    ? next
+                                                    : undefined,
+                                                updatedAt:
+                                                  new Date().toISOString(),
+                                              }
+                                            : currentItem,
+                                      ),
+                                    }));
+                                  }}
+                                  className={fieldClassName}
+                                >
+                                  {[
+                                    "Janeiro",
+                                    "Fevereiro",
+                                    "Março",
+                                    "Abril",
+                                    "Maio",
+                                    "Junho",
+                                    "Julho",
+                                    "Agosto",
+                                    "Setembro",
+                                    "Outubro",
+                                    "Novembro",
+                                    "Dezembro",
+                                  ].map((label, idx) => (
+                                    <option key={label} value={idx + 1}>
+                                      {label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
                             </div>
 
                             <div className="grid gap-3 sm:grid-cols-2">
