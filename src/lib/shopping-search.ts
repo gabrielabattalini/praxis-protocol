@@ -27,6 +27,20 @@ export interface ShoppingTrackedItem {
   dailyDoseUnit?: DoseUnit;
   monthlyUnits: number;
   includeInFinance: boolean;
+  /** Decomposed daily dose ("Opção 2"): the user inputs
+   *  how many times/day they take this AND how much per intake;
+   *  dailyDose / dailyDoseAmount on the item are derived from the
+   *  product so the existing cost-per-day math keeps working.
+   *
+   *  Examples:
+   *    Whey 80g/dia em 2 doses  → servingsPerDay 2, servingAmount 40, dailyDoseUnit "g"
+   *    Vit. C 1500mg em 3 caps  → servingsPerDay 3, servingAmount 500, dailyDoseUnit "mg"
+   *    Voextor 10mg 1 cap       → servingsPerDay 1, servingAmount 10, dailyDoseUnit "mg"
+   *
+   *  Both optional for backwards-compat with items that only have
+   *  dailyDose / dailyDoseAmount filled in. */
+  servingsPerDay?: number;
+  servingAmount?: number;
   purchaseMode: ShoppingPurchaseMode;
   localStoreName?: string;
   manualUnitPrice?: number;

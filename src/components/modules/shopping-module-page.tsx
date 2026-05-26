@@ -44,10 +44,15 @@ type ShoppingItemDraft = {
   name: string;
   brand: string;
   quantity: string;
+  /** Legacy total daily dose. Kept so existing items still load.
+   *  saveItem now derives this from servingsPerDay × servingAmount. */
   dailyDose: string;
-  /** Substance-anchored daily dose (e.g. "1000" of "mg"). */
+  /** Substance-anchored daily total. saveItem also derives this. */
   dailyDoseAmount: string;
   dailyDoseUnit: string;
+  /** New "Opção 2" decomposition — tomadas/dia × dose por tomada. */
+  servingsPerDay: string;
+  servingAmount: string;
   mealBlockIds: string[];
   scheduleLabel: string;
   categoryLabel: string;
@@ -116,10 +121,10 @@ function defaultDraft(): ShoppingItemDraft {
     quantity: "",
     dailyDose: "",
     dailyDoseAmount: "",
-    // User pediu pra "g" virar o padrão da Dose alvo (substância) —
-    // a maioria dos suplementos que ele acompanha são doses em gramas
-    // (whey, creatina, dextrose etc.), só os mais raros usam mg.
     dailyDoseUnit: "g",
+    // 1 tomada/dia por padrão — o caso simples (Voextor, vitamina D etc.).
+    servingsPerDay: "1",
+    servingAmount: "",
     mealBlockIds: [],
     scheduleLabel: "",
     categoryLabel: "",
@@ -652,6 +657,11 @@ export function ShoppingModulePage({
     setEditingItemId(fresh.id);
     setIsAddingNew(false);
     setExpandedItemId(fresh.id);
+    // Backwards-compat: items saved before the Opção 2 split only have
+    // dailyDose. Treat them as 1 serving/day with the dose = total.
+    const inferredServings = fresh.servingsPerDay ?? 1;
+    const inferredServingAmount =
+      fresh.servingAmount ?? fresh.dailyDoseAmount ?? fresh.dailyDose;
     setDraft({
       name: fresh.name,
       brand: fresh.brand,
@@ -660,6 +670,11 @@ export function ShoppingModulePage({
       dailyDoseAmount:
         fresh.dailyDoseAmount !== undefined ? String(fresh.dailyDoseAmount) : "",
       dailyDoseUnit: fresh.dailyDoseUnit ?? "g",
+      servingsPerDay: String(inferredServings),
+      servingAmount:
+        inferredServingAmount && inferredServingAmount > 0
+          ? String(inferredServingAmount)
+          : "",
       mealBlockIds: fresh.mealBlockIds ?? [],
       scheduleLabel: fresh.scheduleLabel ?? "",
       categoryLabel: fresh.categoryLabel ?? "",
@@ -675,7 +690,16 @@ export function ShoppingModulePage({
   function saveItem(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = draft.name.trim();
-    const dailyDose = Math.max(0.01, Number(draft.dailyDose) || 0);
+    // Opção 2: dose diária TOTAL é derivada de tomadas × dose-por-tomada.
+    // Compatibilidade: se servingAmount estiver vazio (item antigo
+    // que só preenche dailyDose direto), cai no campo legacy.
+    const servingsPerDay = Math.max(1, Math.round(Number(draft.servingsPerDay) || 1));
+    const servingAmount = Math.max(0, Number(draft.servingAmount) || 0);
+    const fallbackDailyDose = Math.max(0, Number(draft.dailyDose) || 0);
+    const dailyDose =
+      servingAmount > 0
+        ? servingsPerDay * servingAmount
+        : fallbackDailyDose;
     const purchaseMode = scope === "market" ? draft.purchaseMode : "online";
     const manualUnitPrice = Math.max(0, Number(draft.manualUnitPrice) || 0);
 
@@ -694,10 +718,8 @@ export function ShoppingModulePage({
       scheduleLabel: draft.scheduleLabel.trim() || undefined,
       categoryLabel: draft.categoryLabel.trim() || undefined,
       dailyDose,
-      // Dose alvo (substância) foi colapsada na Dose diária — a UI
-      // só mostra um input. Pra manter os cálculos de custo-por-dia
-      // funcionando (que dependem de dailyDoseAmount + dailyDoseUnit),
-      // espelhamos dailyDose → dailyDoseAmount aqui no save.
+      // dailyDoseAmount + dailyDoseUnit ficam espelhados pra alimentar
+      // os cálculos de custo-por-dia-da-substância no search engine.
       dailyDoseAmount: dailyDose > 0 ? dailyDose : undefined,
       dailyDoseUnit: (() => {
         const valid = ["mg", "g", "mcg", "ml", "serving"];
@@ -705,6 +727,9 @@ export function ShoppingModulePage({
           ? (draft.dailyDoseUnit as ShoppingTrackedItem["dailyDoseUnit"])
           : undefined;
       })(),
+      // Novos campos da Opção 2 — fonte da verdade pra edição.
+      servingsPerDay: servingsPerDay,
+      servingAmount: servingAmount > 0 ? servingAmount : undefined,
       monthlyUnits: getMonthlyUnitsFromDose(draft.quantity.trim(), dailyDose, currentEditingItem?.monthlyUnits ?? 1),
       includeInFinance: currentEditingItem?.includeInFinance ?? true,
       purchaseMode,
@@ -791,7 +816,7 @@ export function ShoppingModulePage({
             <span className="inline-block h-1 w-1 rounded-full bg-[var(--accent)]" />
             Item
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.9fr)]">
+          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.6fr)_minmax(0,0.9fr)_minmax(0,1.3fr)_minmax(0,1.7fr)_minmax(0,0.8fr)]">
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">Nome</span>
               <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder={examples[0] ?? "Ex.: detergente"} className={fieldClassName} />
@@ -813,18 +838,42 @@ export function ShoppingModulePage({
               <input value={draft.referenceUrl} onChange={(event) => setDraft((current) => ({ ...current, referenceUrl: event.target.value }))} placeholder="https://..." className={fieldClassName} />
             </label>
             <label className="block space-y-1 min-w-0">
-              <span className="praxis-label text-[var(--accent)]">Dose/dia</span>
-              <div className="grid grid-cols-[1fr_4rem] gap-1">
+              <span className="praxis-label text-[var(--accent)]">Tomadas × dose</span>
+              {/* Opção 2: tomadas/dia × dose-por-tomada. Total
+                  diário aparece embaixo. Whey: 2 × 40 g = 80 g/dia.
+                  Vit. C: 3 × 500 mg = 1500 mg/dia. Caso simples
+                  (1 dose/dia) — usuário só preenche dose-por-tomada. */}
+              <div className="grid grid-cols-[2.8rem_auto_1fr_3.6rem] gap-1 items-center">
                 <input
-                  value={draft.dailyDose}
+                  value={draft.servingsPerDay}
                   onChange={(event) =>
-                    setDraft((current) => ({ ...current, dailyDose: event.target.value }))
+                    setDraft((current) => ({
+                      ...current,
+                      servingsPerDay: event.target.value,
+                    }))
                   }
                   type="number"
-                  min="0.01"
-                  step="0.01"
-                  placeholder={scope === "supplements" ? "Ex.: 80" : "Ex.: 30"}
+                  min="1"
+                  step="1"
+                  placeholder="1"
                   className={fieldClassName}
+                  aria-label="Tomadas por dia"
+                />
+                <span className="px-0.5 text-center text-xs text-zinc-500">×</span>
+                <input
+                  value={draft.servingAmount}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      servingAmount: event.target.value,
+                    }))
+                  }
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder={scope === "supplements" ? "Ex.: 40" : "Ex.: 30"}
+                  className={fieldClassName}
+                  aria-label="Dose por tomada"
                 />
                 <select
                   value={draft.dailyDoseUnit}
@@ -835,14 +884,30 @@ export function ShoppingModulePage({
                     }))
                   }
                   className={fieldClassName}
+                  aria-label="Unidade da dose"
                 >
                   <option value="g">g</option>
                   <option value="mg">mg</option>
                   <option value="mcg">mcg</option>
                   <option value="ml">ml</option>
-                  <option value="serving">porção</option>
+                  <option value="serving">por.</option>
                 </select>
               </div>
+              {(() => {
+                const sv = Math.max(1, Math.round(Number(draft.servingsPerDay) || 1));
+                const am = Number(draft.servingAmount) || 0;
+                if (am <= 0) return null;
+                const total = sv * am;
+                const unitLabel =
+                  draft.dailyDoseUnit === "serving"
+                    ? `${total === 1 ? "porção" : "porções"}`
+                    : `${draft.dailyDoseUnit}/dia`;
+                return (
+                  <p className="text-[10px] leading-4 text-zinc-500">
+                    total: <span className="text-zinc-300">{total}</span> {unitLabel}
+                  </p>
+                );
+              })()}
             </label>
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">

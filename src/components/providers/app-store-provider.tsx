@@ -3398,6 +3398,18 @@ function normalizeShoppingTrackedItem(
     scheduleLabel: item?.scheduleLabel?.trim() || undefined,
     categoryLabel: item?.categoryLabel?.trim() || undefined,
     dailyDose: Math.max(0.01, Number(item?.dailyDose) || 1),
+    // "Opção 2" — decomposed daily dose. Optional, but parsed/clamped
+    // when present so the UI gets sane defaults.
+    servingsPerDay: (() => {
+      const raw = Number(item?.servingsPerDay);
+      if (!Number.isFinite(raw) || raw <= 0) return undefined;
+      return Math.max(1, Math.round(raw));
+    })(),
+    servingAmount: (() => {
+      const raw = Number(item?.servingAmount);
+      if (!Number.isFinite(raw) || raw <= 0) return undefined;
+      return raw;
+    })(),
     monthlyUnits: Math.max(0.01, Number(item?.monthlyUnits) || 1),
     includeInFinance: item?.includeInFinance ?? true,
     purchaseMode,
