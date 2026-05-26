@@ -2840,10 +2840,10 @@ export default function NutritionModulePage() {
                       block: "start",
                     });
                   }}
-                  className="praxis-button px-3 py-2 text-xs"
+                  className="praxis-button px-3 py-2 text-xs uppercase tracking-wider"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Adicionar extra
+                  Adicionar alimento extra
                 </button>
                 <span className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2 text-xs text-zinc-300">
                   {mealBlocksCount} refeições
