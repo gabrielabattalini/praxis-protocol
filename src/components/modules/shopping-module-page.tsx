@@ -116,7 +116,10 @@ function defaultDraft(): ShoppingItemDraft {
     quantity: "",
     dailyDose: "",
     dailyDoseAmount: "",
-    dailyDoseUnit: "mg",
+    // User pediu pra "g" virar o padrão da Dose alvo (substância) —
+    // a maioria dos suplementos que ele acompanha são doses em gramas
+    // (whey, creatina, dextrose etc.), só os mais raros usam mg.
+    dailyDoseUnit: "g",
     mealBlockIds: [],
     scheduleLabel: "",
     categoryLabel: "",
@@ -656,7 +659,7 @@ export function ShoppingModulePage({
       dailyDose: fresh.dailyDose.toString(),
       dailyDoseAmount:
         fresh.dailyDoseAmount !== undefined ? String(fresh.dailyDoseAmount) : "",
-      dailyDoseUnit: fresh.dailyDoseUnit ?? "mg",
+      dailyDoseUnit: fresh.dailyDoseUnit ?? "g",
       mealBlockIds: fresh.mealBlockIds ?? [],
       scheduleLabel: fresh.scheduleLabel ?? "",
       categoryLabel: fresh.categoryLabel ?? "",
@@ -869,8 +872,10 @@ export function ShoppingModulePage({
                     }
                     className={fieldClassName}
                   >
-                    <option value="mg">mg</option>
+                    {/* "g" no topo já que é o padrão dos suplementos
+                        principais (whey, creatina etc.). */}
                     <option value="g">g</option>
+                    <option value="mg">mg</option>
                     <option value="mcg">mcg</option>
                     <option value="ml">ml</option>
                     <option value="serving">porção</option>
