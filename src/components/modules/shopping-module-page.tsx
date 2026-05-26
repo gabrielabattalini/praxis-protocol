@@ -43,7 +43,12 @@ type ShoppingModulePageProps = {
 type ShoppingItemDraft = {
   name: string;
   brand: string;
+  /** Quantidade composta (número + unidade). O `quantity` string fica
+   *  derivado de `quantityAmount + " " + quantityUnit` em todo change
+   *  pra não quebrar o engine de parsing/preço que lê `quantity` cru. */
   quantity: string;
+  quantityAmount: string;
+  quantityUnit: string;
   /** Legacy total daily dose. Kept so existing items still load.
    *  saveItem now derives this from servingsPerDay × servingAmount. */
   dailyDose: string;
@@ -116,11 +121,41 @@ function normalizeSeedName(value: string) {
     .toLowerCase();
 }
 
+/** Lista das unidades suportadas no dropdown de Qtd. — em ordem de
+ *  frequência de uso pro contexto mercado/suplementos. */
+const QUANTITY_UNITS = ["g", "kg", "mg", "ml", "l", "un"] as const;
+
+/** Quebra uma string "500 g" / "1.5 kg" / "200ml" em { amount, unit }
+ *  pra repopular o draft quando editar um item existente. Se não
+ *  conseguir parsear (string vazia, formato esquisito), volta amount
+ *  vazio + unit "g" como fallback seguro. */
+function parseQuantityToParts(value: string): {
+  amount: string;
+  unit: string;
+} {
+  const normalized = value
+    .trim()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(",", ".");
+  const match = normalized.match(
+    /^(\d+(?:\.\d+)?)\s*(kg|g|mg|l|lt|ml|un|unid|unidade|unidades)$/,
+  );
+  if (!match) return { amount: "", unit: "g" };
+  let unit = match[2];
+  if (unit === "lt") unit = "l";
+  if (unit === "unid" || unit === "unidade" || unit === "unidades") unit = "un";
+  return { amount: match[1], unit };
+}
+
 function defaultDraft(): ShoppingItemDraft {
   return {
     name: "",
     brand: "",
     quantity: "",
+    quantityAmount: "",
+    quantityUnit: "g",
     dailyDose: "",
     dailyDoseAmount: "",
     dailyDoseUnit: "g",
@@ -665,10 +700,17 @@ export function ShoppingModulePage({
     const inferredServings = fresh.servingsPerDay ?? 1;
     const inferredServingAmount =
       fresh.servingAmount ?? fresh.dailyDoseAmount ?? fresh.dailyDose;
+    // Quantidade legada vem como string ("500 g" / "1.5 kg" / "200ml"…).
+    // Quebra em amount + unit pra alimentar os dois inputs do form. Se
+    // o formato for esquisito, fica com amount vazio e unit "g" (parts
+    // entrega esse fallback), aí o user re-digita.
+    const quantityParts = parseQuantityToParts(fresh.quantity);
     setDraft({
       name: fresh.name,
       brand: fresh.brand,
       quantity: fresh.quantity,
+      quantityAmount: quantityParts.amount,
+      quantityUnit: quantityParts.unit,
       dailyDose: fresh.dailyDose.toString(),
       dailyDoseAmount:
         fresh.dailyDoseAmount !== undefined ? String(fresh.dailyDoseAmount) : "",
@@ -843,7 +885,50 @@ export function ShoppingModulePage({
             </label>
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">Qtd.</span>
-              <input value={draft.quantity} onChange={(event) => setDraft((current) => ({ ...current, quantity: event.target.value }))} placeholder={examples[2] ?? "Ex.: 900 g"} className={fieldClassName} />
+              {/* Qtd. agora é composta: [número] + [unidade]. Mantém o
+                  draft.quantity sincronizado como string "X unit" pra
+                  não quebrar o engine de parsing/preço que lê esse
+                  campo cru (parseTrackedQuantity / getMonthlyUnits). */}
+              <div className="grid grid-cols-[minmax(0,1fr)_3.6rem] items-center gap-1">
+                <input
+                  value={draft.quantityAmount}
+                  onChange={(event) =>
+                    setDraft((current) => {
+                      const amount = event.target.value;
+                      const quantity = amount.trim()
+                        ? `${amount.trim()} ${current.quantityUnit}`
+                        : "";
+                      return { ...current, quantityAmount: amount, quantity };
+                    })
+                  }
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder={examples[2]?.replace(/\s*(kg|g|mg|ml|l|un|unidade|unidades)\s*$/i, "").trim() || "Ex.: 500"}
+                  className={fieldClassName}
+                  aria-label="Quantidade do pacote"
+                />
+                <select
+                  value={draft.quantityUnit}
+                  onChange={(event) =>
+                    setDraft((current) => {
+                      const unit = event.target.value;
+                      const quantity = current.quantityAmount.trim()
+                        ? `${current.quantityAmount.trim()} ${unit}`
+                        : "";
+                      return { ...current, quantityUnit: unit, quantity };
+                    })
+                  }
+                  className={fieldClassName}
+                  aria-label="Unidade da quantidade"
+                >
+                  {QUANTITY_UNITS.map((unit) => (
+                    <option key={unit} value={unit}>
+                      {unit}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </label>
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">Categoria</span>
