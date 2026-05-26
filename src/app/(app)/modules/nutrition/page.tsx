@@ -2424,15 +2424,6 @@ export default function NutritionModulePage() {
             <div className="praxis-label" style={{ color: "var(--accent)", marginBottom: 4 }}>▸ MÓDULO · NUTRIÇÃO</div>
             <div className="praxis-title" style={{ fontSize: 26 }}>Dieta</div>
           </div>
-          <div className="mod-hero-side" style={{ display: "flex", gap: 16, alignItems: "center" }}>
-            <div className="mod-hero-side-stat" style={{ textAlign: "right", borderLeft: "1px solid rgba(39,39,42,0.6)", paddingLeft: 16 }}>
-              <div className="praxis-label" style={{ fontSize: 9 }}>HOJE</div>
-              <div style={{ fontSize: 18, fontWeight: 600, fontFamily: "var(--font-space-grotesk), sans-serif", marginTop: 2 }}>
-                {consumedDietTotals.calories.toFixed(0)}/{caloriesTarget.toFixed(0)}
-                <span style={{ fontSize: 11, color: "var(--fg-3)", marginLeft: 4 }}>kcal</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
