@@ -741,7 +741,11 @@ export function ShoppingModulePage({
     // servingFrequency "weekly" ou "monthly". A divisão pra "por dia"
     // mantém o restante do engine (custo mensal, busca, etc.)
     // funcionando sem ramificações.
-    const servingsPerDay = Math.max(1, Math.round(Number(draft.servingsPerDay) || 1));
+    // Aceita fracionário (0.5, 0.25 etc.) — caso de "1 cápsula a cada 2
+    // dias" = 0.5 tomadas/dia, ou "meio comprimido por dia" = 0.5. O
+    // Math.round antigo travava qualquer valor < 1 em 1 e mandava
+    // saída inteira, então 0.5 ficava 1 e dobrava o consumo calculado.
+    const servingsPerDay = Math.max(0.01, Number(draft.servingsPerDay) || 1);
     const servingAmount = Math.max(0, Number(draft.servingAmount) || 0);
     const fallbackDailyDose = Math.max(0, Number(draft.dailyDose) || 0);
     const frequencyToDailyMultiplier: Record<typeof draft.servingFrequency, number> = {
@@ -995,8 +999,8 @@ export function ShoppingModulePage({
                     }))
                   }
                   type="number"
-                  min="1"
-                  step="1"
+                  min="0.01"
+                  step="0.5"
                   placeholder="1"
                   className={fieldClassName}
                   aria-label="Número de tomadas"
@@ -1051,7 +1055,8 @@ export function ShoppingModulePage({
                 </select>
               </div>
               {(() => {
-                const sv = Math.max(1, Math.round(Number(draft.servingsPerDay) || 1));
+                // Igual ao saveItem — aceita fracionário, sem Math.round.
+                const sv = Math.max(0.01, Number(draft.servingsPerDay) || 1);
                 const am = Number(draft.servingAmount) || 0;
                 if (am <= 0) return null;
                 const perPeriod = sv * am;
