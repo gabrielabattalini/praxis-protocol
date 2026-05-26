@@ -876,13 +876,13 @@ export function ShoppingModulePage({
             <span className="inline-block h-1 w-1 rounded-full bg-[var(--accent)]" />
             Item
           </div>
-          {/* Rebalanceamento (quinto passe): "Compra" (Online/Presencial)
-              entrou no row pra ficar tudo na mesma linha. Local
-              presencial foi removido ("não serve pra nada"). Link e
-              Preço encolheram porque estavam sobrando espaço. 7 cols
-              em xl: Nome 1.2fr / Marca / Qtd / Preço 0.7fr / Link 0.7fr
-              / Compra 1.2fr / Tomadas × dose 1.8fr. */}
-          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.2fr)_minmax(0,1.8fr)]">
+          {/* Rebalanceamento (sexto passe): Compra foi pro canto
+              direito a pedido do user — Tomadas × dose volta pra
+              antes dele. 7 cols em xl:
+                Nome 1.2 / Marca / Qtd / Preço 0.7 / Link 0.7 /
+                Tomadas × dose 1.8 / Compra 1.2
+              Os outros campos continuam mais à esquerda como pedido. */}
+          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.8fr)_minmax(0,1.2fr)]">
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">Nome</span>
               <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder={examples[0] ?? "Ex.: detergente"} className={fieldClassName} />
@@ -969,45 +969,6 @@ export function ShoppingModulePage({
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">Link</span>
               <input value={draft.referenceUrl} onChange={(event) => setDraft((current) => ({ ...current, referenceUrl: event.target.value }))} placeholder="https://..." className={fieldClassName} />
-            </label>
-            {/* Compra subiu pra cá (era SECTION 3 embaixo). Pra
-                supplements fica trancado em Online (sempre online,
-                não tem toggle). Local presencial foi removido a
-                pedido do user. */}
-            <label className="block space-y-1 min-w-0">
-              <span className="praxis-label text-[var(--accent)]">Compra</span>
-              {scope === "market" ? (
-                <div className="grid grid-cols-2 gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setDraft((current) => ({ ...current, purchaseMode: "online", localStoreName: "" }))}
-                    className={cn(
-                      "rounded-sm border px-2 py-1.5 text-xs transition",
-                      draft.purchaseMode === "online"
-                        ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100"
-                        : "border-white/10 bg-[#0a0a0b] text-zinc-400",
-                    )}
-                  >
-                    Online
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDraft((current) => ({ ...current, purchaseMode: "presential" }))}
-                    className={cn(
-                      "rounded-sm border px-2 py-1.5 text-xs transition",
-                      draft.purchaseMode === "presential"
-                        ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100"
-                        : "border-white/10 bg-[#0a0a0b] text-zinc-400",
-                    )}
-                  >
-                    Presencial
-                  </button>
-                </div>
-              ) : (
-                <div className="rounded-sm border border-white/10 bg-[#0a0a0b] px-3 py-1.5 text-xs text-zinc-400">
-                  Online
-                </div>
-              )}
             </label>
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">
@@ -1128,8 +1089,46 @@ export function ShoppingModulePage({
                 );
               })()}
             </label>
-            {/* Preço original (última coluna) removido — movido pro
-                slot que era da Categoria, ali em cima. */}
+            {/* Compra (Online/Presencial) ficou na última coluna a
+                pedido do user — outros campos mais à esquerda, este
+                fica no canto direito. Pra supplements fica trancado
+                em Online (sempre online, não tem toggle). Local
+                presencial removido. */}
+            <label className="block space-y-1 min-w-0">
+              <span className="praxis-label text-[var(--accent)]">Compra</span>
+              {scope === "market" ? (
+                <div className="grid grid-cols-2 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setDraft((current) => ({ ...current, purchaseMode: "online", localStoreName: "" }))}
+                    className={cn(
+                      "rounded-sm border px-2 py-1.5 text-xs transition",
+                      draft.purchaseMode === "online"
+                        ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100"
+                        : "border-white/10 bg-[#0a0a0b] text-zinc-400",
+                    )}
+                  >
+                    Online
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDraft((current) => ({ ...current, purchaseMode: "presential" }))}
+                    className={cn(
+                      "rounded-sm border px-2 py-1.5 text-xs transition",
+                      draft.purchaseMode === "presential"
+                        ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100"
+                        : "border-white/10 bg-[#0a0a0b] text-zinc-400",
+                    )}
+                  >
+                    Presencial
+                  </button>
+                </div>
+              ) : (
+                <div className="rounded-sm border border-white/10 bg-[#0a0a0b] px-3 py-1.5 text-xs text-zinc-400">
+                  Online
+                </div>
+              )}
+            </label>
           </div>
         </section>
 
