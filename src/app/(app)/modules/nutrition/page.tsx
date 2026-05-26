@@ -3982,308 +3982,9 @@ export default function NutritionModulePage() {
         </div>
       </GlassPanel>
 
-      {/* Extras do dia — alimentos consumidos hoje fora do plano regular.
-          Útil pra registrar "comi um pão de queijo a mais" sem editar o
-          cardápio-padrão. Soma no consumo do dia + entra no histórico.
-          id="extras-esporadicos" é alvo do botão "Adicionar extra" no
-          header da seção "Estrutura do dia". scroll-mt-24 dá folga pro
-          header sticky não cobrir o título. */}
-      <GlassPanel id="extras-esporadicos" className="scroll-mt-24 space-y-4">
-        <div>
-          <p className="text-sm text-zinc-500">Consumo extra de hoje</p>
-          <h2 className="mt-1 text-2xl font-semibold text-white">
-            Extras esporádicos
-          </h2>
-          <p className="mt-2 text-sm text-zinc-500">
-            Adicione aqui qualquer coisa que comeu HOJE fora do plano. Não vira
-            parte do cardápio-padrão, mas conta no consumo do dia e fica no
-            histórico.
-          </p>
-        </div>
-
-        {extrasTodayList.length > 0 ? (
-          <div className="space-y-2">
-            {extrasTodayList.map((extra) => (
-              <div
-                key={extra.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-4 py-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-white">
-                    {extra.label}{" "}
-                    <span className="font-normal text-zinc-500">
-                      · {extra.quantityLabel}
-                    </span>
-                  </p>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    {extra.macros.protein.toFixed(1)}P · {extra.macros.carbs.toFixed(1)}C · {extra.macros.fat.toFixed(1)}F · {extra.macros.calories.toFixed(0)} kcal
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="praxis-button-ghost px-3 py-1.5 text-xs text-red-300 hover:text-red-100"
-                  onClick={() => actions.removeNutritionDailyExtra(extra.id)}
-                >
-                  Remover
-                </button>
-              </div>
-            ))}
-            <div className="rounded-sm border border-[var(--accent)]/30 bg-[var(--accent)]/5 px-4 py-3 text-sm text-zinc-200">
-              <span className="text-zinc-500">Subtotal extras: </span>
-              <span className="font-semibold text-white">
-                {extrasTodayTotals.protein.toFixed(1)}P · {extrasTodayTotals.carbs.toFixed(1)}C · {extrasTodayTotals.fat.toFixed(1)}F · {extrasTodayTotals.calories.toFixed(0)} kcal
-              </span>
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-zinc-500">
-            Nenhum extra adicionado hoje.
-          </p>
-        )}
-
-        <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] p-4 space-y-3">
-          <p className="text-sm font-semibold text-zinc-300">
-            Adicionar extra ao dia
-          </p>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="space-y-1">
-              <span className="text-[10px] uppercase tracking-wider text-zinc-500">Nome</span>
-              <input
-                type="text"
-                placeholder="Ex: Pão de queijo"
-                value={extraDraft.label}
-                onChange={(e) => setExtraDraft({ ...extraDraft, label: e.target.value })}
-                className="praxis-field w-full px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-[10px] uppercase tracking-wider text-zinc-500">Quantidade</span>
-              <input
-                type="text"
-                placeholder="Ex: 1 unidade · 40g"
-                value={extraDraft.quantityLabel}
-                onChange={(e) => setExtraDraft({ ...extraDraft, quantityLabel: e.target.value })}
-                className="praxis-field w-full px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-[10px] uppercase tracking-wider text-zinc-500">Calorias (kcal)</span>
-              <input
-                type="number"
-                step="1"
-                placeholder="0"
-                value={extraDraft.calories}
-                onChange={(e) => setExtraDraft({ ...extraDraft, calories: e.target.value })}
-                className="praxis-field w-full px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-[10px] uppercase tracking-wider text-zinc-500">Proteína (g)</span>
-              <input
-                type="number"
-                step="0.1"
-                placeholder="0"
-                value={extraDraft.protein}
-                onChange={(e) => setExtraDraft({ ...extraDraft, protein: e.target.value })}
-                className="praxis-field w-full px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-[10px] uppercase tracking-wider text-zinc-500">Carbo (g)</span>
-              <input
-                type="number"
-                step="0.1"
-                placeholder="0"
-                value={extraDraft.carbs}
-                onChange={(e) => setExtraDraft({ ...extraDraft, carbs: e.target.value })}
-                className="praxis-field w-full px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-[10px] uppercase tracking-wider text-zinc-500">Gordura (g)</span>
-              <input
-                type="number"
-                step="0.1"
-                placeholder="0"
-                value={extraDraft.fat}
-                onChange={(e) => setExtraDraft({ ...extraDraft, fat: e.target.value })}
-                className="praxis-field w-full px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-[10px] uppercase tracking-wider text-zinc-500">Fibra (g)</span>
-              <input
-                type="number"
-                step="0.1"
-                placeholder="0"
-                value={extraDraft.fiber}
-                onChange={(e) => setExtraDraft({ ...extraDraft, fiber: e.target.value })}
-                className="praxis-field w-full px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-[10px] uppercase tracking-wider text-zinc-500">Sódio (mg)</span>
-              <input
-                type="number"
-                step="1"
-                placeholder="0"
-                value={extraDraft.sodium}
-                onChange={(e) => setExtraDraft({ ...extraDraft, sodium: e.target.value })}
-                className="praxis-field w-full px-3 py-2 text-sm"
-              />
-            </label>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
-            <button
-              type="button"
-              className="praxis-button-ghost px-3 py-1.5 text-xs"
-              onClick={() =>
-                setExtraDraft({
-                  label: "",
-                  quantityLabel: "",
-                  protein: "",
-                  carbs: "",
-                  fat: "",
-                  fiber: "",
-                  sodium: "",
-                  calories: "",
-                })
-              }
-            >
-              Limpar
-            </button>
-            <button
-              type="button"
-              className="praxis-button px-4 py-2"
-              disabled={!extraDraft.label.trim()}
-              onClick={() => {
-                if (!extraDraft.label.trim()) return;
-                actions.addNutritionDailyExtra({
-                  label: extraDraft.label.trim(),
-                  quantityLabel: extraDraft.quantityLabel.trim() || "1 unidade",
-                  kind: "food",
-                  macros: {
-                    protein: Number(extraDraft.protein) || 0,
-                    carbs: Number(extraDraft.carbs) || 0,
-                    fat: Number(extraDraft.fat) || 0,
-                    fiber: Number(extraDraft.fiber) || 0,
-                    sodium: Number(extraDraft.sodium) || 0,
-                    calories: Number(extraDraft.calories) || 0,
-                  },
-                });
-                setExtraDraft({
-                  label: "",
-                  quantityLabel: "",
-                  protein: "",
-                  carbs: "",
-                  fat: "",
-                  fiber: "",
-                  sodium: "",
-                  calories: "",
-                });
-              }}
-            >
-              Adicionar ao dia
-            </button>
-          </div>
-        </div>
-
-        <div className="rounded-sm border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-4 py-3">
-          <p className="text-sm font-semibold text-white">
-            Consumo total do dia (plano completado + extras)
-          </p>
-          <p className="mt-2 text-sm text-zinc-200">
-            {consumedTodayTotalsIncludingExtras.protein.toFixed(1)}P · {consumedTodayTotalsIncludingExtras.carbs.toFixed(1)}C · {consumedTodayTotalsIncludingExtras.fat.toFixed(1)}F · {consumedTodayTotalsIncludingExtras.fiber.toFixed(1)} fibra · {consumedTodayTotalsIncludingExtras.calories.toFixed(0)} kcal
-          </p>
-        </div>
-      </GlassPanel>
-
-      {/* Histórico de consumo — agrega items completados + extras por data.
-          Permite ver consumo médio ao longo do tempo. */}
-      <GlassPanel className="space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm text-zinc-500">Histórico</p>
-            <h2 className="mt-1 text-2xl font-semibold text-white">
-              Consumo por dia
-            </h2>
-            <p className="mt-2 text-sm text-zinc-500">
-              Cada linha agrega itens marcados como concluídos naquele dia + extras adicionados na mesma data.
-            </p>
-          </div>
-          <button
-            type="button"
-            className="praxis-button-ghost shrink-0 px-3 py-1.5 text-xs"
-            onClick={() => setIsHistoryCollapsed((current) => !current)}
-          >
-            {isHistoryCollapsed ? "Mostrar" : "Ocultar"}
-          </button>
-        </div>
-        {!isHistoryCollapsed ? (
-          nutritionDailyHistory.length === 0 ? (
-            <p className="text-sm text-zinc-500">
-              Sem registros ainda. Marque refeições como concluídas ou adicione extras pra construir o histórico.
-            </p>
-          ) : (
-            <div className="overflow-x-auto rounded-sm border border-zinc-800">
-              <table className="min-w-full border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-700 bg-zinc-900 text-left text-[11px] uppercase tracking-wider text-zinc-400">
-                    <th className="px-3 py-2">Data</th>
-                    <th className="px-3 py-2 text-right">P (g)</th>
-                    <th className="px-3 py-2 text-right">C (g)</th>
-                    <th className="px-3 py-2 text-right">F (g)</th>
-                    <th className="px-3 py-2 text-right">Fibra</th>
-                    <th className="px-3 py-2 text-right">kcal</th>
-                    <th className="px-3 py-2 text-right">Itens · Extras</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {nutritionDailyHistory.map((entry) => {
-                    const targetCal = dailyNutritionTargets.totals.calories || 1;
-                    const pct = (entry.totals.calories / targetCal) * 100;
-                    const tone =
-                      Math.abs(pct - 100) <= 8
-                        ? "text-emerald-300"
-                        : pct < 92
-                          ? "text-amber-300"
-                          : "text-orange-300";
-                    return (
-                      <tr
-                        key={entry.date}
-                        className="border-b border-zinc-800/60 hover:bg-zinc-900/40"
-                      >
-                        <td className="px-3 py-2 font-semibold text-zinc-100">
-                          {(() => {
-                            const date = new Date(`${entry.date}T00:00:00`);
-                            return new Intl.DateTimeFormat("pt-BR", {
-                              day: "2-digit",
-                              month: "2-digit",
-                              year: "numeric",
-                              weekday: "short",
-                            }).format(date);
-                          })()}
-                        </td>
-                        <td className="px-3 py-2 text-right text-zinc-200">{entry.totals.protein.toFixed(1)}</td>
-                        <td className="px-3 py-2 text-right text-zinc-200">{entry.totals.carbs.toFixed(1)}</td>
-                        <td className="px-3 py-2 text-right text-zinc-200">{entry.totals.fat.toFixed(1)}</td>
-                        <td className="px-3 py-2 text-right text-zinc-200">{entry.totals.fiber.toFixed(1)}</td>
-                        <td className={`px-3 py-2 text-right font-semibold ${tone}`}>
-                          {entry.totals.calories.toFixed(0)}{" "}
-                          <span className="text-[10px] text-zinc-500">({pct.toFixed(0)}%)</span>
-                        </td>
-                        <td className="px-3 py-2 text-right text-xs text-zinc-400">
-                          {entry.itemsCount} · {entry.extrasCount}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )
-        ) : null}
-      </GlassPanel>
+      {/* "Extras esporádicos" + "Histórico da dieta" (era "Consumo por
+          dia") foram movidos pra DEPOIS do bloco "Meta ativa · Referência
+          diária" a pedido do usuário. Ver fim do arquivo. */}
 
       {/* Unified "Meta ativa + Referência diária" panel — both halves
           used to live in their own GlassPanels inside a 2-col grid.
@@ -4536,6 +4237,308 @@ export default function NutritionModulePage() {
             </div>
           </>
         )}
+      </GlassPanel>
+
+      {/* Extras esporádicos — vem DEPOIS do painel "Meta ativa" a
+          pedido do usuário. id="extras-esporadicos" é alvo do botão
+          "Adicionar extra" no header da seção "Estrutura do dia".
+          scroll-mt-24 dá folga pro header sticky não cobrir o título. */}
+      <GlassPanel id="extras-esporadicos" className="scroll-mt-24 space-y-4">
+        <div>
+          <p className="text-sm text-zinc-500">Consumo extra de hoje</p>
+          <h2 className="mt-1 text-2xl font-semibold text-white">
+            Extras esporádicos
+          </h2>
+          <p className="mt-2 text-sm text-zinc-500">
+            Adicione aqui qualquer coisa que comeu HOJE fora do plano. Não vira
+            parte do cardápio-padrão, mas conta no consumo do dia e fica no
+            histórico.
+          </p>
+        </div>
+
+        {extrasTodayList.length > 0 ? (
+          <div className="space-y-2">
+            {extrasTodayList.map((extra) => (
+              <div
+                key={extra.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-4 py-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-white">
+                    {extra.label}{" "}
+                    <span className="font-normal text-zinc-500">
+                      · {extra.quantityLabel}
+                    </span>
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {extra.macros.protein.toFixed(1)}P · {extra.macros.carbs.toFixed(1)}C · {extra.macros.fat.toFixed(1)}F · {extra.macros.calories.toFixed(0)} kcal
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="praxis-button-ghost px-3 py-1.5 text-xs text-red-300 hover:text-red-100"
+                  onClick={() => actions.removeNutritionDailyExtra(extra.id)}
+                >
+                  Remover
+                </button>
+              </div>
+            ))}
+            <div className="rounded-sm border border-[var(--accent)]/30 bg-[var(--accent)]/5 px-4 py-3 text-sm text-zinc-200">
+              <span className="text-zinc-500">Subtotal extras: </span>
+              <span className="font-semibold text-white">
+                {extrasTodayTotals.protein.toFixed(1)}P · {extrasTodayTotals.carbs.toFixed(1)}C · {extrasTodayTotals.fat.toFixed(1)}F · {extrasTodayTotals.calories.toFixed(0)} kcal
+              </span>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-zinc-500">
+            Nenhum extra adicionado hoje.
+          </p>
+        )}
+
+        <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] p-4 space-y-3">
+          <p className="text-sm font-semibold text-zinc-300">
+            Adicionar extra ao dia
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="space-y-1">
+              <span className="text-[10px] uppercase tracking-wider text-zinc-500">Nome</span>
+              <input
+                type="text"
+                placeholder="Ex: Pão de queijo"
+                value={extraDraft.label}
+                onChange={(e) => setExtraDraft({ ...extraDraft, label: e.target.value })}
+                className="praxis-field w-full px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-[10px] uppercase tracking-wider text-zinc-500">Quantidade</span>
+              <input
+                type="text"
+                placeholder="Ex: 1 unidade · 40g"
+                value={extraDraft.quantityLabel}
+                onChange={(e) => setExtraDraft({ ...extraDraft, quantityLabel: e.target.value })}
+                className="praxis-field w-full px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-[10px] uppercase tracking-wider text-zinc-500">Calorias (kcal)</span>
+              <input
+                type="number"
+                step="1"
+                placeholder="0"
+                value={extraDraft.calories}
+                onChange={(e) => setExtraDraft({ ...extraDraft, calories: e.target.value })}
+                className="praxis-field w-full px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-[10px] uppercase tracking-wider text-zinc-500">Proteína (g)</span>
+              <input
+                type="number"
+                step="0.1"
+                placeholder="0"
+                value={extraDraft.protein}
+                onChange={(e) => setExtraDraft({ ...extraDraft, protein: e.target.value })}
+                className="praxis-field w-full px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-[10px] uppercase tracking-wider text-zinc-500">Carbo (g)</span>
+              <input
+                type="number"
+                step="0.1"
+                placeholder="0"
+                value={extraDraft.carbs}
+                onChange={(e) => setExtraDraft({ ...extraDraft, carbs: e.target.value })}
+                className="praxis-field w-full px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-[10px] uppercase tracking-wider text-zinc-500">Gordura (g)</span>
+              <input
+                type="number"
+                step="0.1"
+                placeholder="0"
+                value={extraDraft.fat}
+                onChange={(e) => setExtraDraft({ ...extraDraft, fat: e.target.value })}
+                className="praxis-field w-full px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-[10px] uppercase tracking-wider text-zinc-500">Fibra (g)</span>
+              <input
+                type="number"
+                step="0.1"
+                placeholder="0"
+                value={extraDraft.fiber}
+                onChange={(e) => setExtraDraft({ ...extraDraft, fiber: e.target.value })}
+                className="praxis-field w-full px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-[10px] uppercase tracking-wider text-zinc-500">Sódio (mg)</span>
+              <input
+                type="number"
+                step="1"
+                placeholder="0"
+                value={extraDraft.sodium}
+                onChange={(e) => setExtraDraft({ ...extraDraft, sodium: e.target.value })}
+                className="praxis-field w-full px-3 py-2 text-sm"
+              />
+            </label>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+            <button
+              type="button"
+              className="praxis-button-ghost px-3 py-1.5 text-xs"
+              onClick={() =>
+                setExtraDraft({
+                  label: "",
+                  quantityLabel: "",
+                  protein: "",
+                  carbs: "",
+                  fat: "",
+                  fiber: "",
+                  sodium: "",
+                  calories: "",
+                })
+              }
+            >
+              Limpar
+            </button>
+            <button
+              type="button"
+              className="praxis-button px-4 py-2"
+              disabled={!extraDraft.label.trim()}
+              onClick={() => {
+                if (!extraDraft.label.trim()) return;
+                actions.addNutritionDailyExtra({
+                  label: extraDraft.label.trim(),
+                  quantityLabel: extraDraft.quantityLabel.trim() || "1 unidade",
+                  kind: "food",
+                  macros: {
+                    protein: Number(extraDraft.protein) || 0,
+                    carbs: Number(extraDraft.carbs) || 0,
+                    fat: Number(extraDraft.fat) || 0,
+                    fiber: Number(extraDraft.fiber) || 0,
+                    sodium: Number(extraDraft.sodium) || 0,
+                    calories: Number(extraDraft.calories) || 0,
+                  },
+                });
+                setExtraDraft({
+                  label: "",
+                  quantityLabel: "",
+                  protein: "",
+                  carbs: "",
+                  fat: "",
+                  fiber: "",
+                  sodium: "",
+                  calories: "",
+                });
+              }}
+            >
+              Adicionar ao dia
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-sm border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-4 py-3">
+          <p className="text-sm font-semibold text-white">
+            Consumo total do dia (plano completado + extras)
+          </p>
+          <p className="mt-2 text-sm text-zinc-200">
+            {consumedTodayTotalsIncludingExtras.protein.toFixed(1)}P · {consumedTodayTotalsIncludingExtras.carbs.toFixed(1)}C · {consumedTodayTotalsIncludingExtras.fat.toFixed(1)}F · {consumedTodayTotalsIncludingExtras.fiber.toFixed(1)} fibra · {consumedTodayTotalsIncludingExtras.calories.toFixed(0)} kcal
+          </p>
+        </div>
+      </GlassPanel>
+
+      {/* Histórico da dieta — agrega items completados + extras por
+          data. Renomeado de "Consumo por dia" e movido pra última
+          posição da página. */}
+      <GlassPanel className="space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm text-zinc-500">Consumo por dia</p>
+            <h2 className="mt-1 text-2xl font-semibold text-white">
+              Histórico da dieta
+            </h2>
+            <p className="mt-2 text-sm text-zinc-500">
+              Cada linha agrega itens marcados como concluídos naquele dia + extras adicionados na mesma data.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="praxis-button-ghost shrink-0 px-3 py-1.5 text-xs"
+            onClick={() => setIsHistoryCollapsed((current) => !current)}
+          >
+            {isHistoryCollapsed ? "Mostrar" : "Ocultar"}
+          </button>
+        </div>
+        {!isHistoryCollapsed ? (
+          nutritionDailyHistory.length === 0 ? (
+            <p className="text-sm text-zinc-500">
+              Sem registros ainda. Marque refeições como concluídas ou adicione extras pra construir o histórico.
+            </p>
+          ) : (
+            <div className="overflow-x-auto rounded-sm border border-zinc-800">
+              <table className="min-w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-700 bg-zinc-900 text-left text-[11px] uppercase tracking-wider text-zinc-400">
+                    <th className="px-3 py-2">Data</th>
+                    <th className="px-3 py-2 text-right">P (g)</th>
+                    <th className="px-3 py-2 text-right">C (g)</th>
+                    <th className="px-3 py-2 text-right">F (g)</th>
+                    <th className="px-3 py-2 text-right">Fibra</th>
+                    <th className="px-3 py-2 text-right">kcal</th>
+                    <th className="px-3 py-2 text-right">Itens · Extras</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {nutritionDailyHistory.map((entry) => {
+                    const targetCal = dailyNutritionTargets.totals.calories || 1;
+                    const pct = (entry.totals.calories / targetCal) * 100;
+                    const tone =
+                      Math.abs(pct - 100) <= 8
+                        ? "text-emerald-300"
+                        : pct < 92
+                          ? "text-amber-300"
+                          : "text-orange-300";
+                    return (
+                      <tr
+                        key={entry.date}
+                        className="border-b border-zinc-800/60 hover:bg-zinc-900/40"
+                      >
+                        <td className="px-3 py-2 font-semibold text-zinc-100">
+                          {(() => {
+                            const date = new Date(`${entry.date}T00:00:00`);
+                            return new Intl.DateTimeFormat("pt-BR", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              weekday: "short",
+                            }).format(date);
+                          })()}
+                        </td>
+                        <td className="px-3 py-2 text-right text-zinc-200">{entry.totals.protein.toFixed(1)}</td>
+                        <td className="px-3 py-2 text-right text-zinc-200">{entry.totals.carbs.toFixed(1)}</td>
+                        <td className="px-3 py-2 text-right text-zinc-200">{entry.totals.fat.toFixed(1)}</td>
+                        <td className="px-3 py-2 text-right text-zinc-200">{entry.totals.fiber.toFixed(1)}</td>
+                        <td className={`px-3 py-2 text-right font-semibold ${tone}`}>
+                          {entry.totals.calories.toFixed(0)}{" "}
+                          <span className="text-[10px] text-zinc-500">({pct.toFixed(0)}%)</span>
+                        </td>
+                        <td className="px-3 py-2 text-right text-xs text-zinc-400">
+                          {entry.itemsCount} · {entry.extrasCount}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )
+        ) : null}
       </GlassPanel>
     </div>
   );
