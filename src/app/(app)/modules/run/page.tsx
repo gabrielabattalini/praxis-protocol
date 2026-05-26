@@ -271,9 +271,9 @@ export default function RunModulePage() {
     seconds: "",
   });
   const [feedback, setFeedback] = useState("");
-  // Toggle for the "Recomendação da semana / Cardio guiado pelo perfil"
-  // panel — collapsed shows only the header so the user can hide the
-  // KPI grid + base usada + contexto when they don't need it.
+  // Toggle for the "Recomendação semanal de cardio" panel — collapsed
+  // shows only the header so the user can hide the KPI grid + base
+  // usada + contexto when they don't need it.
   const [recommendationExpanded, setRecommendationExpanded] = useState(true);
 
   const defaultTypeRef = useRef(defaultCardioType);
@@ -580,7 +580,7 @@ export default function RunModulePage() {
           <div className="mod-icon" style={{ width: 56, height: 56, borderRadius: 14, fontSize: 24 }}>🏃</div>
           <div style={{ flex: 1, minWidth: 200 }}>
             <div className="praxis-label" style={{ color: "var(--accent)", marginBottom: 4 }}>▸ MÓDULO · CARDIO</div>
-            <div className="praxis-title" style={{ fontSize: 26 }}>Cardio guiado pelo perfil</div>
+            <div className="praxis-title" style={{ fontSize: 26 }}>Recomendação semanal de cardio</div>
             <div style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 4 }}>
               Idade, peso, altura e contexto de saúde viram um ponto de partida em minutos, sessões e km.
             </div>
@@ -599,8 +599,8 @@ export default function RunModulePage() {
       <GlassPanel className="space-y-5 border-l-2 border-l-[var(--accent)]">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="praxis-label text-[var(--accent)]">Recomendação da semana</p>
-            <h2 className="mt-1 font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100">Cardio guiado pelo perfil</h2>
+            <p className="praxis-label text-[var(--accent)]">Baseado no perfil</p>
+            <h2 className="mt-1 font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100">Recomendação semanal de cardio</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
               O Praxis usa idade, peso, altura, atividade e contexto de saúde para sugerir um ponto de partida em minutos, sessões e km estimados.
             </p>
