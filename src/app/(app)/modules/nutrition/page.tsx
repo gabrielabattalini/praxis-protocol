@@ -2835,9 +2835,29 @@ export default function NutritionModulePage() {
                   Monte a dieta, ajuste refeições e só expanda o que estiver usando.
                 </p>
               </div>
-              <span className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2 text-xs text-zinc-300">
-                {mealBlocksCount} refeições
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  title="Ir para Extras esporádicos (alimentos comidos hoje fora do plano)"
+                  onClick={() => {
+                    const target =
+                      typeof document !== "undefined"
+                        ? document.getElementById("extras-esporadicos")
+                        : null;
+                    target?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "start",
+                    });
+                  }}
+                  className="praxis-button px-3 py-2 text-xs"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Adicionar extra
+                </button>
+                <span className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2 text-xs text-zinc-300">
+                  {mealBlocksCount} refeições
+                </span>
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -3949,8 +3969,11 @@ export default function NutritionModulePage() {
 
       {/* Extras do dia — alimentos consumidos hoje fora do plano regular.
           Útil pra registrar "comi um pão de queijo a mais" sem editar o
-          cardápio-padrão. Soma no consumo do dia + entra no histórico. */}
-      <GlassPanel className="space-y-4">
+          cardápio-padrão. Soma no consumo do dia + entra no histórico.
+          id="extras-esporadicos" é alvo do botão "Adicionar extra" no
+          header da seção "Estrutura do dia". scroll-mt-24 dá folga pro
+          header sticky não cobrir o título. */}
+      <GlassPanel id="extras-esporadicos" className="scroll-mt-24 space-y-4">
         <div>
           <p className="text-sm text-zinc-500">Consumo extra de hoje</p>
           <h2 className="mt-1 text-2xl font-semibold text-white">

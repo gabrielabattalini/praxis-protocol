@@ -7,12 +7,18 @@ import { cn } from "@/lib/utils";
 export function GlassPanel({
   children,
   className,
+  id,
 }: {
   children: ReactNode;
   className?: string;
+  id?: string;
 }) {
   return (
-    <section className={cn("rx-panel relative", className)} style={{ padding: 20 }}>
+    <section
+      id={id}
+      className={cn("rx-panel relative", className)}
+      style={{ padding: 20 }}
+    >
       {children}
     </section>
   );
