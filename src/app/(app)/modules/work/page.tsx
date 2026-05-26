@@ -1167,9 +1167,29 @@ export default function WorkModulePage() {
                           },
                         )
                       }
-                      className="absolute right-[-4px] top-0 z-20 flex h-full w-2 cursor-col-resize items-center justify-center hover:bg-[var(--accent)]/30"
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        bottom: 0,
+                        right: -6,
+                        width: 12,
+                        zIndex: 30,
+                        cursor: "col-resize",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                      className="hover:bg-[var(--accent)]/30"
                     >
-                      <span className="h-3/5 w-[2px] bg-zinc-500 group-hover:bg-[var(--accent)]" />
+                      <span
+                        style={{
+                          display: "block",
+                          height: "60%",
+                          width: 2,
+                          background: "var(--accent)",
+                          opacity: 0.55,
+                        }}
+                      />
                     </div>
                   </th>
                   );
