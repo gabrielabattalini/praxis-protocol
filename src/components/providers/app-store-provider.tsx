@@ -25,9 +25,11 @@ import {
   createDefaultLifeAreaProfile,
   defaultDashboardSectionOrder,
   defaultModuleOrder,
+  foodDatabaseSeed,
   getScopedStorageKey,
   initialPersistedState,
   legacyStorageKey,
+  mealPlanSeed,
   nutritionGoals,
   storageKey,
 } from "@/lib/mock-data";
@@ -277,6 +279,10 @@ type AppStoreValue = {
       >;
     }) => void;
     activateDietPlan: (planId: string) => void;
+    /** Replace the live meal plan with the default seed (IF 16:8 cutting plan)
+     *  and merge any missing foods from the seed into the food database.
+     *  Use when the user wiped their plan and wants the default back. */
+    restoreDefaultMealPlan: () => void;
     saveCurrentWorkoutProgram: (payload: {
       programId?: string;
       name: string;
@@ -717,6 +723,7 @@ type Action =
   | { type: "duplicate-diet-plan"; planId: string }
   | { type: "remove-diet-plan"; planId: string }
   | { type: "activate-diet-plan"; planId: string }
+  | { type: "restore-default-meal-plan" }
   | {
       type: "save-current-workout-program";
       payload: {
@@ -1930,6 +1937,31 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         dietWorkoutLink: nextPlan.workoutLinkSettings,
         foodSubstitutions: nextPlan.foodSubstitutions,
         activeDietPlanId: nextPlan.id,
+      };
+    }
+    case "restore-default-meal-plan": {
+      // Merge missing seed foods (by id) into the user's food database, then
+      // replace the live meal plan with the seed. Preserves existing custom
+      // foods. Does not touch dailyNutritionTargets — user's macro config
+      // stays as is.
+      const existingFoodIds = new Set(
+        state.foodDatabase.map((food) => food.id),
+      );
+      const missingFoods = foodDatabaseSeed.filter(
+        (food) => !existingFoodIds.has(food.id),
+      );
+      return {
+        ...state,
+        mealPlan: clearMealPlanCompletion(
+          mealPlanSeed.map((block) => ({
+            ...block,
+            items: block.items.map((item) => ({ ...item })),
+          })),
+        ),
+        foodDatabase:
+          missingFoods.length > 0
+            ? [...missingFoods, ...state.foodDatabase]
+            : state.foodDatabase,
       };
     }
     case "save-current-workout-program": {
@@ -5414,6 +5446,9 @@ export function AppStoreProvider({
       },
       activateDietPlan(planId) {
         dispatch({ type: "activate-diet-plan", planId });
+      },
+      restoreDefaultMealPlan() {
+        dispatch({ type: "restore-default-meal-plan" });
       },
       saveCurrentWorkoutProgram(payload) {
         dispatch({ type: "save-current-workout-program", payload });

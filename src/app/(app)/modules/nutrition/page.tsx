@@ -2225,16 +2225,41 @@ export default function NutritionModulePage() {
 
   return (
     <div className="space-y-6 pb-32 px-4 max-w-7xl mx-auto pt-4 hud-scanline">
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
+      {state.mealPlan.length === 0 ? (
+        <GlassPanel className="border border-[var(--accent)]/30 bg-[var(--accent)]/5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="praxis-label text-[var(--accent)]">Plano vazio</p>
+              <h3 className="praxis-title mt-1 text-xl">
+                Aplicar plano IF 16:8 padrão?
+              </h3>
+              <p className="mt-1 text-sm leading-6 text-zinc-300">
+                Restaura o cardápio base de Cutting Low Carb com Jejum
+                Intermitente: Jejum 08h (termogênicos) · Almoço 12h · Pré-treino
+                16h · Intra 18:15 · Jantar 19:30 · Pré-sono 19:50. Mantém suas
+                metas configuradas e adiciona ao banco os alimentos novos (pão
+                de forma, azeite, banana, panqueca) se faltarem.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="praxis-button shrink-0 px-4 py-2"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Aplicar o plano IF 16:8 padrão? Isso substitui completamente seu cardápio atual.",
+                  )
+                ) {
+                  actions.restoreDefaultMealPlan();
+                }
+              }}
+            >
+              Aplicar plano
+            </button>
+          </div>
+        </GlassPanel>
+      ) : null}
+
 
       {/* 
         <GlassPanel>
