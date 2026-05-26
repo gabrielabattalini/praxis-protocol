@@ -1,1054 +1,966 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  BriefcaseBusiness,
-  ChevronDown,
-  ChevronUp,
   Clock3,
+  GripVertical,
+  MoreHorizontal,
   Plus,
-  Search,
+  Settings2,
   Trash2,
-  TriangleAlert,
+  X,
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
-import type { Weekday, WorkControlEntry, WorkControlStatus } from "@/lib/types";
-import { isTaskCompletedForDate } from "@/lib/utils";
 import {
-  getWorkControlRemainingDays,
-  getWorkControlStatus,
-  isWorkControlCompleted,
-} from "@/lib/work-control";
+  CELL_TYPE_HINTS,
+  CELL_TYPE_LABELS,
+  WORK_SHEET_MODULE_KEY,
+  type WorkCellType,
+  type WorkCellValue,
+  type WorkColumn,
+  type WorkRow,
+  type WorkSheet,
+  computeRemainingDays,
+  computeUrgencyLabel,
+  findFirstDeadlineColumn,
+  formatDateBR,
+  formatRemainingLabel,
+  getUrgencyClasses,
+  loadWorkSheetFromModuleState,
+  makeColumnId,
+  makeRowId,
+} from "@/lib/work-sheet";
 
-const fieldClassName = "praxis-field w-full min-w-0 px-3 py-2.5 text-sm";
-const compactFieldClassName = "praxis-field w-full min-w-0 px-3 py-2 text-sm";
+const FIELD = "praxis-field w-full min-w-0 px-3 py-2.5 text-sm";
+const FIELD_COMPACT = "praxis-field w-full min-w-0 px-2.5 py-2 text-sm";
 
-const entryTypeOptions = [
-  "Peti\u00e7\u00e3o",
-  "Relat\u00f3rio",
-  "Manifesta\u00e7\u00e3o",
-  "An\u00e1lise",
-  "Revis\u00e3o",
-  "Audi\u00eancia",
-  "Prazo interno",
+const CELL_TYPE_ORDER: WorkCellType[] = [
+  "text",
+  "longtext",
+  "date",
+  "number",
+  "select",
+  "checkbox",
+  "deadline",
+  "computed-remaining",
+  "computed-urgency",
 ];
 
-const progressOptions = [
-  "Pendente",
-  "Em andamento",
-  "Aguardando",
-  "Corre\u00e7\u00e3o",
-  "Conclu\u00eddo",
-];
-
-type SortOption =
-  | "urgency"
-  | "deadline-asc"
-  | "deadline-desc"
-  | "client"
-  | "type";
-
-type EntryDraft = Omit<WorkControlEntry, "id">;
-
-type WorkSheetRow = {
-  entry: WorkControlEntry;
-  remainingDays: number | null;
-  status: WorkControlStatus;
-  completed: boolean;
-};
-
-const statusOptions: Array<WorkControlStatus | "Todos"> = [
-  "Todos",
-  "Vencido",
-  "Hoje",
-  "Urgente",
-  "Atenção",
-  "Normal",
-  "Sem prazo",
-];
-
-const statusWeight: Record<WorkControlStatus, number> = {
-  Vencido: 0,
-  Hoje: 1,
-  Urgente: 2,
-  Atenção: 3,
-  Normal: 4,
-  "Sem prazo": 5,
-};
-
-function repairText(value?: string) {
-  if (!value) return "";
-  let nextValue = value;
-
-  for (let index = 0; index < 3; index += 1) {
-    if (!(nextValue.includes("\u00c3") || nextValue.includes("\u00e2"))) break;
-    try {
-      nextValue = decodeURIComponent(escape(nextValue));
-    } catch {
-      break;
-    }
-  }
-
-  return nextValue;
-}
-
-function getTodayWeekday(date = new Date()): Weekday {
-  const mapping: Record<number, Weekday> = {
-    0: "sunday",
-    1: "monday",
-    2: "tuesday",
-    3: "wednesday",
-    4: "thursday",
-    5: "friday",
-    6: "saturday",
-  };
-
-  return mapping[date.getDay()];
-}
-
-function isTaskDueOnDate(
-  recurrence: {
-    kind: string;
-    weekdays?: Weekday[];
-    weekday?: Weekday;
-    dayOfMonth?: number;
-  },
-  date: Date,
-  weekday: Weekday,
-) {
-  switch (recurrence.kind) {
-    case "daily":
-      return true;
-    case "selected-weekdays":
-      return recurrence.weekdays?.includes(weekday) ?? false;
-    case "weekly-fixed":
-      return recurrence.weekday === weekday;
-    case "monthly":
-      return recurrence.dayOfMonth === date.getDate();
-    case "times-per-week":
-      return true;
-    case "one-time":
-    default:
-      return true;
-  }
-}
-
-function formatDateLabel(value?: string) {
-  if (!value) return "\u2014";
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return "\u2014";
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(date);
-}
-
-function formatRemainingLabel(value: number | null) {
-  if (value === null) return "Sem prazo";
-  if (value < 0) return `${Math.abs(value)}d atrasado`;
-  if (value === 0) return "Hoje";
-  if (value === 1) return "1 dia";
-  return `${value} dias`;
-}
-
-function getStatusClasses(status: WorkControlStatus) {
-  switch (repairText(status)) {
-    case "Vencido":
-      return "border-red-500/30 bg-red-500/10 text-red-300";
-    case "Hoje":
-      return "border-amber-500/30 bg-amber-500/10 text-amber-200";
-    case "Urgente":
-      return "border-orange-500/30 bg-orange-500/10 text-orange-200";
-    case "Atenção":
-      return "border-yellow-500/30 bg-yellow-500/10 text-yellow-200";
-    case "Sem prazo":
-      return "border-zinc-700 bg-zinc-900/70 text-zinc-400";
-    case "Normal":
-    default:
-      return "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
-  }
-}
-
-function createEmptyEntryDraft(): EntryDraft {
-  const today = new Date().toISOString().slice(0, 10);
-
+function cloneSheet(sheet: WorkSheet): WorkSheet {
   return {
-    clientName: "",
-    referenceNumber: "",
-    entryType: "Peti\u00e7\u00e3o",
-    startDate: today,
-    fatalDeadline: today,
-    progressLabel: "Pendente",
-    notes: "",
+    columns: sheet.columns.map((column) => ({
+      ...column,
+      options: column.options ? [...column.options] : undefined,
+    })),
+    rows: sheet.rows.map((row) => ({
+      id: row.id,
+      cells: { ...row.cells },
+    })),
   };
 }
 
-function buildRowSummary(row: WorkSheetRow) {
-  return `${repairText(row.entry.entryType)} \u2022 ${formatDateLabel(
-    row.entry.fatalDeadline,
-  )} \u2022 ${formatRemainingLabel(row.remainingDays)}`;
+function makeEmptyRow(columns: WorkColumn[]): WorkRow {
+  const cells: Record<string, WorkCellValue> = {};
+  for (const column of columns) {
+    cells[column.id] =
+      column.type === "checkbox"
+        ? false
+        : column.type === "number"
+          ? null
+          : "";
+  }
+  return { id: makeRowId(), cells };
 }
 
-function EditableField({
+function toText(value: WorkCellValue): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "boolean") return value ? "true" : "";
+  return String(value);
+}
+
+function CellEditor({
+  column,
   value,
   onCommit,
-  className = compactFieldClassName,
-  placeholder,
-  type = "text",
-  list,
 }: {
-  value?: string;
-  onCommit: (value: string) => void;
-  className?: string;
-  placeholder?: string;
-  type?: "text" | "date";
-  list?: string;
+  column: WorkColumn;
+  value: WorkCellValue;
+  onCommit: (next: WorkCellValue) => void;
 }) {
-  const [draft, setDraft] = useState(value ?? "");
+  const [draft, setDraft] = useState<WorkCellValue>(value);
+  useEffect(() => setDraft(value), [value]);
 
-  function commit() {
-    const nextValue = draft.trim();
-    const currentValue = (value ?? "").trim();
-    if (nextValue !== currentValue) {
-      onCommit(nextValue);
-    }
+  function commit(next: WorkCellValue) {
+    if (next !== value) onCommit(next);
   }
 
+  if (column.type === "longtext") {
+    const text = toText(draft);
+    return (
+      <textarea
+        value={text}
+        rows={2}
+        className="praxis-field min-h-[60px] w-full resize-y px-2.5 py-2 text-sm leading-5"
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => commit(toText(draft).trim())}
+      />
+    );
+  }
+
+  if (column.type === "date" || column.type === "deadline") {
+    const text = toText(draft);
+    return (
+      <input
+        type="date"
+        value={text}
+        className={FIELD_COMPACT}
+        onChange={(event) => {
+          setDraft(event.target.value);
+          commit(event.target.value);
+        }}
+      />
+    );
+  }
+
+  if (column.type === "number") {
+    const text =
+      draft === null || draft === undefined || draft === ""
+        ? ""
+        : String(draft);
+    return (
+      <input
+        type="number"
+        value={text}
+        className={FIELD_COMPACT}
+        onChange={(event) => {
+          const raw = event.target.value;
+          setDraft(raw === "" ? null : Number(raw));
+        }}
+        onBlur={() => commit(draft)}
+      />
+    );
+  }
+
+  if (column.type === "select") {
+    const options = column.options ?? [];
+    const text = toText(draft);
+    return (
+      <select
+        value={text}
+        className={FIELD_COMPACT}
+        onChange={(event) => {
+          setDraft(event.target.value);
+          commit(event.target.value);
+        }}
+      >
+        <option value="">—</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  if (column.type === "checkbox") {
+    return (
+      <label className="flex h-full items-center justify-center">
+        <input
+          type="checkbox"
+          checked={Boolean(draft)}
+          className="h-4 w-4 accent-[var(--accent)]"
+          onChange={(event) => {
+            setDraft(event.target.checked);
+            commit(event.target.checked);
+          }}
+        />
+      </label>
+    );
+  }
+
+  const text = toText(draft);
   return (
     <input
-      type={type}
-      value={draft}
-      list={list}
-      placeholder={placeholder}
-      className={className}
+      type="text"
+      value={text}
+      className={FIELD_COMPACT}
       onChange={(event) => setDraft(event.target.value)}
-      onBlur={commit}
+      onBlur={() => commit(toText(draft).trim())}
       onKeyDown={(event) => {
-        if (event.key === "Enter") {
-          event.currentTarget.blur();
-        }
+        if (event.key === "Enter") event.currentTarget.blur();
       }}
     />
   );
 }
 
-function EditableTextarea({
-  value,
-  onCommit,
-  placeholder,
+function ColumnHeaderMenu({
+  column,
+  columns,
+  index,
+  onUpdate,
+  onRemove,
+  onMove,
+  onClose,
 }: {
-  value?: string;
-  onCommit: (value: string) => void;
-  placeholder?: string;
+  column: WorkColumn;
+  columns: WorkColumn[];
+  index: number;
+  onUpdate: (patch: Partial<WorkColumn>) => void;
+  onRemove: () => void;
+  onMove: (direction: -1 | 1) => void;
+  onClose: () => void;
 }) {
-  const [draft, setDraft] = useState(value ?? "");
+  const [optionDraft, setOptionDraft] = useState("");
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
-  function commit() {
-    const nextValue = draft.trim();
-    const currentValue = (value ?? "").trim();
-    if (nextValue !== currentValue) {
-      onCommit(nextValue);
+  useEffect(() => {
+    function handleClick(event: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        onClose();
+      }
     }
-  }
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("mousedown", handleClick);
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      window.removeEventListener("mousedown", handleClick);
+      window.removeEventListener("keydown", handleKey);
+    };
+  }, [onClose]);
 
   return (
-    <textarea
-      value={draft}
-      placeholder={placeholder}
-      rows={4}
-      className="praxis-field min-h-[108px] w-full resize-y px-3 py-3 text-sm leading-6"
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={commit}
-    />
+    <div
+      ref={containerRef}
+      className="absolute left-0 top-full z-30 mt-2 w-72 rounded-sm border border-zinc-700 bg-zinc-950/95 p-3 shadow-xl backdrop-blur"
+    >
+      <div className="flex items-center justify-between">
+        <span className="praxis-label text-[var(--accent)]">Coluna</span>
+        <button
+          type="button"
+          className="text-zinc-500 hover:text-zinc-200"
+          onClick={onClose}
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <label className="mt-3 block space-y-1">
+        <span className="text-xs text-zinc-400">Nome</span>
+        <input
+          value={column.label}
+          onChange={(event) => onUpdate({ label: event.target.value })}
+          className={FIELD_COMPACT}
+        />
+      </label>
+
+      <label className="mt-3 block space-y-1">
+        <span className="text-xs text-zinc-400">Tipo</span>
+        <select
+          value={column.type}
+          onChange={(event) =>
+            onUpdate({ type: event.target.value as WorkCellType })
+          }
+          className={FIELD_COMPACT}
+        >
+          {CELL_TYPE_ORDER.map((type) => (
+            <option key={type} value={type}>
+              {CELL_TYPE_LABELS[type]}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-[11px] leading-4 text-zinc-500">
+          {CELL_TYPE_HINTS[column.type]}
+        </p>
+      </label>
+
+      {column.type === "select" ? (
+        <div className="mt-3 space-y-2">
+          <span className="text-xs text-zinc-400">Opções</span>
+          <div className="flex flex-wrap gap-1.5">
+            {(column.options ?? []).map((option) => (
+              <span
+                key={option}
+                className="inline-flex items-center gap-1 rounded-sm border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-200"
+              >
+                {option}
+                <button
+                  type="button"
+                  className="text-zinc-500 hover:text-red-300"
+                  onClick={() =>
+                    onUpdate({
+                      options: (column.options ?? []).filter(
+                        (current) => current !== option,
+                      ),
+                    })
+                  }
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input
+              value={optionDraft}
+              placeholder="Nova opção"
+              className={FIELD_COMPACT}
+              onChange={(event) => setOptionDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && optionDraft.trim()) {
+                  onUpdate({
+                    options: [...(column.options ?? []), optionDraft.trim()],
+                  });
+                  setOptionDraft("");
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="praxis-button-ghost px-2 py-1 text-xs"
+              onClick={() => {
+                if (!optionDraft.trim()) return;
+                onUpdate({
+                  options: [...(column.options ?? []), optionDraft.trim()],
+                });
+                setOptionDraft("");
+              }}
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="praxis-button-ghost px-2 py-1 text-xs disabled:opacity-40"
+          disabled={index === 0}
+          onClick={() => onMove(-1)}
+        >
+          ← Mover
+        </button>
+        <button
+          type="button"
+          className="praxis-button-ghost px-2 py-1 text-xs disabled:opacity-40"
+          disabled={index === columns.length - 1}
+          onClick={() => onMove(1)}
+        >
+          Mover →
+        </button>
+        <button
+          type="button"
+          className="praxis-button-ghost ml-auto px-2 py-1 text-xs text-red-300 hover:text-red-100"
+          onClick={() => {
+            onRemove();
+            onClose();
+          }}
+        >
+          <Trash2 className="h-3 w-3" />
+          Excluir
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RowActionsMenu({
+  onDelete,
+  onDuplicate,
+  onClose,
+}: {
+  onDelete: () => void;
+  onDuplicate: () => void;
+  onClose: () => void;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    function handleClick(event: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        onClose();
+      }
+    }
+    window.addEventListener("mousedown", handleClick);
+    return () => window.removeEventListener("mousedown", handleClick);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="absolute right-0 top-full z-30 mt-2 w-44 rounded-sm border border-zinc-700 bg-zinc-950/95 p-1.5 shadow-xl backdrop-blur"
+    >
+      <button
+        type="button"
+        className="praxis-button-ghost flex w-full items-center justify-start gap-2 px-2 py-1.5 text-xs"
+        onClick={() => {
+          onDuplicate();
+          onClose();
+        }}
+      >
+        <Plus className="h-3 w-3" />
+        Duplicar linha
+      </button>
+      <button
+        type="button"
+        className="praxis-button-ghost flex w-full items-center justify-start gap-2 px-2 py-1.5 text-xs text-red-300 hover:text-red-100"
+        onClick={() => {
+          onDelete();
+          onClose();
+        }}
+      >
+        <Trash2 className="h-3 w-3" />
+        Excluir linha
+      </button>
+    </div>
   );
 }
 
 export default function WorkModulePage() {
   const { state, actions } = useAppStore();
   const today = useMemo(() => new Date(), []);
-  const todayWeekday = getTodayWeekday(today);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<WorkControlStatus | "Todos">(
-    "Todos",
+
+  const sheet = useMemo<WorkSheet>(
+    () =>
+      loadWorkSheetFromModuleState(state.moduleState, state.workControlEntries),
+    [state.moduleState, state.workControlEntries],
   );
-  const [sortBy, setSortBy] = useState<SortOption>("urgency");
-  const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
-  const [showNewRow, setShowNewRow] = useState(false);
-  const [draft, setDraft] = useState<EntryDraft>(createEmptyEntryDraft);
 
-  const workSheetRows = useMemo<WorkSheetRow[]>(() => {
-    return state.workControlEntries.map((entry) => {
-      const remainingDays = getWorkControlRemainingDays(entry.fatalDeadline, today);
-      const status = getWorkControlStatus(entry, today);
-      const completed = isWorkControlCompleted(entry.progressLabel);
+  const [openColumnMenu, setOpenColumnMenu] = useState<string | null>(null);
+  const [openRowMenu, setOpenRowMenu] = useState<string | null>(null);
+  const [showColumnPicker, setShowColumnPicker] = useState(false);
 
-      return {
-        entry,
-        remainingDays,
-        status,
-        completed,
-      };
+  const persistSheet = useCallback(
+    (mutator: (draft: WorkSheet) => WorkSheet) => {
+      const next = mutator(cloneSheet(sheet));
+      actions.setModuleState(WORK_SHEET_MODULE_KEY, next);
+    },
+    [actions, sheet],
+  );
+
+  const updateCell = useCallback(
+    (rowId: string, columnId: string, value: WorkCellValue) => {
+      persistSheet((draft) => {
+        draft.rows = draft.rows.map((row) =>
+          row.id === rowId
+            ? { ...row, cells: { ...row.cells, [columnId]: value } }
+            : row,
+        );
+        return draft;
+      });
+    },
+    [persistSheet],
+  );
+
+  const addColumn = useCallback(
+    (type: WorkCellType) => {
+      persistSheet((draft) => {
+        const column: WorkColumn = {
+          id: makeColumnId(),
+          label: CELL_TYPE_LABELS[type],
+          type,
+          options: type === "select" ? ["Opção A", "Opção B"] : undefined,
+          width: 180,
+        };
+        draft.columns = [...draft.columns, column];
+        draft.rows = draft.rows.map((row) => ({
+          ...row,
+          cells: {
+            ...row.cells,
+            [column.id]:
+              type === "checkbox" ? false : type === "number" ? null : "",
+          },
+        }));
+        return draft;
+      });
+      setShowColumnPicker(false);
+    },
+    [persistSheet],
+  );
+
+  const updateColumn = useCallback(
+    (columnId: string, patch: Partial<WorkColumn>) => {
+      persistSheet((draft) => {
+        draft.columns = draft.columns.map((column) =>
+          column.id === columnId ? { ...column, ...patch } : column,
+        );
+        return draft;
+      });
+    },
+    [persistSheet],
+  );
+
+  const removeColumn = useCallback(
+    (columnId: string) => {
+      persistSheet((draft) => {
+        draft.columns = draft.columns.filter(
+          (column) => column.id !== columnId,
+        );
+        draft.rows = draft.rows.map((row) => {
+          const next = { ...row.cells };
+          delete next[columnId];
+          return { ...row, cells: next };
+        });
+        return draft;
+      });
+    },
+    [persistSheet],
+  );
+
+  const moveColumn = useCallback(
+    (columnId: string, direction: -1 | 1) => {
+      persistSheet((draft) => {
+        const index = draft.columns.findIndex(
+          (column) => column.id === columnId,
+        );
+        if (index === -1) return draft;
+        const target = index + direction;
+        if (target < 0 || target >= draft.columns.length) return draft;
+        const next = [...draft.columns];
+        const [removed] = next.splice(index, 1);
+        next.splice(target, 0, removed);
+        draft.columns = next;
+        return draft;
+      });
+    },
+    [persistSheet],
+  );
+
+  const addRow = useCallback(() => {
+    persistSheet((draft) => {
+      draft.rows = [...draft.rows, makeEmptyRow(draft.columns)];
+      return draft;
     });
-  }, [state.workControlEntries, today]);
+  }, [persistSheet]);
 
-  const filteredRows = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
+  const removeRow = useCallback(
+    (rowId: string) => {
+      persistSheet((draft) => {
+        draft.rows = draft.rows.filter((row) => row.id !== rowId);
+        return draft;
+      });
+    },
+    [persistSheet],
+  );
 
-    const nextRows = workSheetRows.filter((row) => {
-      const matchesStatus =
-        statusFilter === "Todos" ? true : row.status === statusFilter;
-      const matchesSearch = normalizedSearch
-        ? [
-            repairText(row.entry.clientName),
-            repairText(row.entry.referenceNumber),
-            repairText(row.entry.entryType),
-            repairText(row.entry.progressLabel),
-            repairText(row.entry.notes),
-          ]
-            .join(" ")
-            .toLowerCase()
-            .includes(normalizedSearch)
-        : true;
+  const duplicateRow = useCallback(
+    (rowId: string) => {
+      persistSheet((draft) => {
+        const source = draft.rows.find((row) => row.id === rowId);
+        if (!source) return draft;
+        const index = draft.rows.indexOf(source);
+        const copy: WorkRow = { id: makeRowId(), cells: { ...source.cells } };
+        draft.rows = [
+          ...draft.rows.slice(0, index + 1),
+          copy,
+          ...draft.rows.slice(index + 1),
+        ];
+        return draft;
+      });
+    },
+    [persistSheet],
+  );
 
-      return matchesStatus && matchesSearch;
-    });
+  const deadlineColumn = findFirstDeadlineColumn(sheet.columns);
 
-    return [...nextRows].sort((left, right) => {
-      if (sortBy === "client") {
-        return left.entry.clientName.localeCompare(right.entry.clientName, "pt-BR");
-      }
-      if (sortBy === "type") {
-        return left.entry.entryType.localeCompare(right.entry.entryType, "pt-BR");
-      }
-      if (sortBy === "deadline-asc" || sortBy === "deadline-desc") {
-        const leftValue = left.remainingDays ?? Number.POSITIVE_INFINITY;
-        const rightValue = right.remainingDays ?? Number.POSITIVE_INFINITY;
-        return sortBy === "deadline-asc"
-          ? leftValue - rightValue
-          : rightValue - leftValue;
-      }
-
-      const urgencyDelta = statusWeight[left.status] - statusWeight[right.status];
-      if (urgencyDelta !== 0) return urgencyDelta;
-
-      const leftValue = left.remainingDays ?? Number.POSITIVE_INFINITY;
-      const rightValue = right.remainingDays ?? Number.POSITIVE_INFINITY;
-      if (leftValue !== rightValue) return leftValue - rightValue;
-
-      return left.entry.clientName.localeCompare(right.entry.clientName, "pt-BR");
-    });
-  }, [search, sortBy, statusFilter, workSheetRows]);
-
-  const nextDeadlines = useMemo(() => {
-    return [...workSheetRows]
-      .filter((row) => !row.completed && row.remainingDays !== null)
-      .sort((left, right) => {
-        return (left.remainingDays ?? Number.POSITIVE_INFINITY) -
-          (right.remainingDays ?? Number.POSITIVE_INFINITY);
+  const radarRows = useMemo(() => {
+    if (!deadlineColumn) return [];
+    return sheet.rows
+      .map((row) => {
+        const deadlineValue = row.cells[deadlineColumn.id] as
+          | string
+          | null
+          | undefined;
+        const remaining = computeRemainingDays(deadlineValue, today);
+        const urgency = computeUrgencyLabel(remaining);
+        return { row, remaining, urgency, deadlineValue };
       })
+      .filter((entry) => entry.remaining !== null)
+      .sort(
+        (left, right) =>
+          (left.remaining ?? Number.POSITIVE_INFINITY) -
+          (right.remaining ?? Number.POSITIVE_INFINITY),
+      )
       .slice(0, 6);
-  }, [workSheetRows]);
-
-  const todayTasks = useMemo(() => {
-    return state.tasks.filter((task) => {
-      if (task.moduleId !== "work") return false;
-      const dueToday = isTaskDueOnDate(task.recurrence, today, todayWeekday);
-      if (!dueToday) return false;
-      return !isTaskCompletedForDate(task, today);
-    });
-  }, [state.tasks, today, todayWeekday]);
+  }, [deadlineColumn, sheet.rows, today]);
 
   const summary = useMemo(() => {
-    const overdueOrUrgent = workSheetRows.filter((row) =>
-      ["Vencido", "Hoje", "Urgente"].includes(row.status),
-    ).length;
-    const completed = workSheetRows.filter((row) => row.completed).length;
-    const nextDeadline = nextDeadlines[0];
-
-    return {
-      total: workSheetRows.length,
-      overdueOrUrgent,
-      completed,
-      nextDeadline,
-    };
-  }, [nextDeadlines, workSheetRows]);
-
-  const draftRemainingDays = getWorkControlRemainingDays(draft.fatalDeadline, today);
-  const draftStatus = getWorkControlStatus(
-    { fatalDeadline: draft.fatalDeadline },
-    today,
-  );
-
-  function updateDraftField<Key extends keyof EntryDraft>(
-    key: Key,
-    value: EntryDraft[Key],
-  ) {
-    setDraft((current) => ({
-      ...current,
-      [key]: value,
-    }));
-  }
-
-  function resetDraft() {
-    setDraft(createEmptyEntryDraft());
-  }
-
-  function handleAddEntry() {
-    if (!draft.clientName.trim() || !draft.entryType.trim()) return;
-
-    actions.addWorkControlEntry({
-      clientName: draft.clientName.trim(),
-      referenceNumber: draft.referenceNumber.trim() || "n.a.",
-      entryType: draft.entryType.trim(),
-      startDate: draft.startDate || undefined,
-      fatalDeadline: draft.fatalDeadline || undefined,
-      progressLabel: draft.progressLabel.trim() || "Pendente",
-      notes: draft.notes.trim(),
-    });
-
-    resetDraft();
-    setShowNewRow(false);
-  }
-
-  function updateEntry(entryId: string, patch: Partial<WorkControlEntry>) {
-    actions.updateWorkControlEntry({ entryId, patch });
-  }
+    const total = sheet.rows.length;
+    let urgent = 0;
+    if (deadlineColumn) {
+      for (const row of sheet.rows) {
+        const remaining = computeRemainingDays(
+          row.cells[deadlineColumn.id] as string | null | undefined,
+          today,
+        );
+        const urgency = computeUrgencyLabel(remaining);
+        if (["Vencido", "Hoje", "Urgente"].includes(urgency)) urgent += 1;
+      }
+    }
+    return { total, urgent, next: radarRows[0] };
+  }, [deadlineColumn, radarRows, sheet.rows, today]);
 
   return (
     <div className="space-y-6">
       <div className="mod-hero">
-        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          <div className="mod-icon" style={{ width: 56, height: 56, borderRadius: 14, fontSize: 24 }}>💼</div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
+          }}
+        >
+          <div
+            className="mod-icon"
+            style={{ width: 56, height: 56, borderRadius: 14, fontSize: 24 }}
+          >
+            💼
+          </div>
           <div style={{ flex: 1, minWidth: 200 }}>
-            <div className="praxis-label" style={{ color: "var(--accent)", marginBottom: 4 }}>▸ MÓDULO · TRABALHO</div>
-            <div className="praxis-title" style={{ fontSize: 26 }}>Controle vivo</div>
-            <div style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 4 }}>
-              Planilha operacional editável: prazo, cliente, andamento e urgência.
+            <div
+              className="praxis-label"
+              style={{ color: "var(--accent)", marginBottom: 4 }}
+            >
+              ▸ MÓDULO · TRABALHO
+            </div>
+            <div className="praxis-title" style={{ fontSize: 26 }}>
+              Planilha modular
+            </div>
+            <div
+              style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 4 }}
+            >
+              Monte do seu jeito: adicione colunas, escolha o tipo, edite tudo
+              célula a célula.
             </div>
           </div>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <button
               type="button"
+              className="v2-btn"
+              onClick={() => setShowColumnPicker((current) => !current)}
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              Coluna
+            </button>
+            <button
+              type="button"
               className="v2-btn v2-btn-primary"
-              onClick={() => setShowNewRow((current) => !current)}
+              onClick={addRow}
             >
               <Plus className="h-3.5 w-3.5" />
-              {showNewRow ? "Fechar" : "Nova linha"}
+              Nova linha
             </button>
           </div>
         </div>
+
+        {showColumnPicker ? (
+          <div className="mt-4 grid gap-2 rounded-sm border border-zinc-800 bg-black/40 p-3 sm:grid-cols-3">
+            {CELL_TYPE_ORDER.map((type) => (
+              <button
+                key={type}
+                type="button"
+                className="praxis-button-ghost flex flex-col items-start gap-1 px-3 py-2 text-left"
+                onClick={() => addColumn(type)}
+              >
+                <span className="text-sm font-medium text-zinc-100">
+                  {CELL_TYPE_LABELS[type]}
+                </span>
+                <span className="text-[11px] leading-4 text-zinc-500">
+                  {CELL_TYPE_HINTS[type]}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-3">
         <GlassPanel className="praxis-panel-active">
           <p className="praxis-label text-[var(--accent)]">Linhas ativas</p>
           <p className="praxis-title mt-3 text-4xl">{summary.total}</p>
-          <p className="mt-2 text-sm text-zinc-400">Tudo o que está em controle hoje.</p>
+          <p className="mt-2 text-sm text-zinc-400">
+            Cada linha é um item editável da sua planilha.
+          </p>
         </GlassPanel>
         <GlassPanel>
           <p className="praxis-label text-[var(--accent)]">Urgência</p>
-          <p className="praxis-title mt-3 text-4xl">{summary.overdueOrUrgent}</p>
-          <p className="mt-2 text-sm text-zinc-400">Vencidos, hoje ou urgentes.</p>
-        </GlassPanel>
-        <GlassPanel>
-          <p className="praxis-label text-[var(--accent)]">Concluídos</p>
-          <p className="praxis-title mt-3 text-4xl">{summary.completed}</p>
-          <p className="mt-2 text-sm text-zinc-400">Itens já encerrados dentro da base.</p>
+          <p className="praxis-title mt-3 text-4xl">{summary.urgent}</p>
+          <p className="mt-2 text-sm text-zinc-400">
+            Vencidos, hoje ou urgentes (com base no Prazo fatal).
+          </p>
         </GlassPanel>
         <GlassPanel>
           <p className="praxis-label text-[var(--accent)]">Próximo prazo</p>
           <p className="praxis-title mt-3 text-2xl">
-            {summary.nextDeadline
-              ? formatRemainingLabel(summary.nextDeadline.remainingDays)
+            {summary.next
+              ? formatRemainingLabel(summary.next.remaining)
               : "Sem prazo"}
           </p>
           <p className="mt-2 text-sm text-zinc-400">
-            {summary.nextDeadline
-              ? `${repairText(summary.nextDeadline.entry.clientName)} • ${formatDateLabel(
-                  summary.nextDeadline.entry.fatalDeadline,
-                )}`
-              : "Nenhum item pendente com prazo fatal."}
+            {summary.next && deadlineColumn
+              ? formatDateBR(
+                  summary.next.row.cells[deadlineColumn.id] as string,
+                )
+              : "Adicione uma coluna Prazo fatal e preencha datas."}
           </p>
         </GlassPanel>
       </section>
 
-      <GlassPanel className="space-y-5">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="space-y-2">
-            <p className="praxis-label text-[var(--accent)]">Planilha operacional</p>
-            <h2 className="praxis-title text-3xl">Controle principal</h2>
-            <p className="max-w-3xl text-sm leading-6 text-zinc-400">
-              Cliente, número, tipo, datas, andamento e observação ficam editáveis.
-              O sistema calcula a urgência automaticamente.
+      <GlassPanel className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="praxis-label text-[var(--accent)]">Planilha</p>
+            <h2 className="praxis-title text-2xl">Sua estrutura</h2>
+            <p className="mt-1 max-w-2xl text-sm text-zinc-400">
+              Clique no nome da coluna para renomear, mudar o tipo, reordenar ou
+              excluir. Cada célula edita-se direto na grade.
             </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[760px]">
-            <label className="block space-y-2">
-              <span className="praxis-label">Busca</span>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Cliente, número, tipo ou observação"
-                  className="praxis-field w-full py-3 pl-10 pr-3 text-sm"
-                />
-              </div>
-            </label>
-            <label className="block space-y-2">
-              <span className="praxis-label">Urgência</span>
-              <select
-                value={statusFilter}
-                onChange={(event) =>
-                  setStatusFilter(event.target.value as WorkControlStatus | "Todos")
-                }
-                className="praxis-field w-full appearance-none px-3 py-3 text-sm"
-              >
-                {statusOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {repairText(option)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block space-y-2">
-              <span className="praxis-label">Ordenar por</span>
-              <select
-                value={sortBy}
-                onChange={(event) => setSortBy(event.target.value as SortOption)}
-                className="praxis-field w-full appearance-none px-3 py-3 text-sm"
-              >
-                <option value="urgency">Urgência</option>
-                <option value="deadline-asc">Prazo mais próximo</option>
-                <option value="deadline-desc">Prazo mais distante</option>
-                <option value="client">Cliente</option>
-                <option value="type">Tipo</option>
-              </select>
-            </label>
-          </div>
         </div>
 
-        {showNewRow ? (
-          <div className="rounded-sm border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-4">
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="praxis-label text-[var(--accent)]">Nova linha</p>
-                  <p className="mt-1 text-sm text-zinc-400">
-                    Cadastre um novo item e ele entra direto no controle.
-                  </p>
-                </div>
-                <div
-                  className={`rounded-sm border px-3 py-2 text-xs font-medium ${getStatusClasses(
-                    draftStatus,
-                  )}`}
-                >
-                  {draftStatus} • {formatRemainingLabel(draftRemainingDays)}
-                </div>
-              </div>
-              <div className="grid gap-3 xl:grid-cols-[1.4fr_1.2fr_0.9fr_0.9fr_0.9fr_1fr]">
-                <input
-                  value={draft.clientName}
-                  onChange={(event) => updateDraftField("clientName", event.target.value)}
-                  placeholder="Cliente"
-                  className={fieldClassName}
-                />
-                <input
-                  value={draft.referenceNumber}
-                  onChange={(event) =>
-                    updateDraftField("referenceNumber", event.target.value)
-                  }
-                  placeholder="Número"
-                  className={fieldClassName}
-                />
-                <input
-                  value={draft.entryType}
-                  onChange={(event) => updateDraftField("entryType", event.target.value)}
-                  placeholder="Tipo"
-                  list="work-entry-types"
-                  className={fieldClassName}
-                />
-                <input
-                  type="date"
-                  value={draft.startDate ?? ""}
-                  onChange={(event) => updateDraftField("startDate", event.target.value)}
-                  className={fieldClassName}
-                />
-                <input
-                  type="date"
-                  value={draft.fatalDeadline ?? ""}
-                  onChange={(event) =>
-                    updateDraftField("fatalDeadline", event.target.value)
-                  }
-                  className={fieldClassName}
-                />
-                <input
-                  value={draft.progressLabel}
-                  onChange={(event) =>
-                    updateDraftField("progressLabel", event.target.value)
-                  }
-                  placeholder="Andamento"
-                  list="work-progress-options"
-                  className={fieldClassName}
-                />
-              </div>
-              <textarea
-                value={draft.notes}
-                onChange={(event) => updateDraftField("notes", event.target.value)}
-                placeholder="Observação"
-                rows={3}
-                className="praxis-field w-full resize-y px-3 py-3 text-sm"
-              />
-              <div className="flex flex-wrap justify-end gap-3">
-                <button
-                  type="button"
-                  className="praxis-button-ghost px-4 py-3"
-                  onClick={() => {
-                    resetDraft();
-                    setShowNewRow(false);
-                  }}
-                >
-                  Fechar
-                </button>
-                <button
-                  type="button"
-                  className="praxis-button px-4 py-3"
-                  onClick={handleAddEntry}
-                >
-                  <Plus className="h-4 w-4" />
-                  Adicionar linha
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="hidden xl:block">
-          <div className="overflow-x-auto rounded-sm border border-zinc-800 bg-black/25">
-            <table className="min-w-[1500px] table-fixed border-collapse">
-              <thead>
-                <tr className="border-b border-zinc-800 bg-zinc-950/90 text-left">
-                  <th className="w-[21rem] px-4 py-3 praxis-label">Cliente</th>
-                  <th className="w-[16rem] px-4 py-3 praxis-label">Número</th>
-                  <th className="w-[12rem] px-4 py-3 praxis-label">Tipo</th>
-                  <th className="w-[10rem] px-4 py-3 praxis-label">Data inicial</th>
-                  <th className="w-[10rem] px-4 py-3 praxis-label">Prazo fatal</th>
-                  <th className="w-[10rem] px-4 py-3 praxis-label">Dias restantes</th>
-                  <th className="w-[12rem] px-4 py-3 praxis-label">Andamento</th>
-                  <th className="w-[20rem] px-4 py-3 praxis-label">Observação</th>
-                  <th className="w-[10rem] px-4 py-3 praxis-label">Urgência</th>
-                  <th className="w-[8rem] px-4 py-3 praxis-label">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.map((row) => {
-                  const expanded = expandedEntryId === row.entry.id;
-                  return (
-                    <tr
-                      key={row.entry.id}
-                      className={`align-top border-b border-zinc-900/80 ${
-                        expanded ? "bg-[var(--accent)]/5" : "bg-transparent"
-                      }`}
-                    >
-                      <td className="px-4 py-4">
-                        <EditableField
-                          key={`${row.entry.id}-client-${row.entry.clientName}`}
-                          value={repairText(row.entry.clientName)}
-                          onCommit={(value) =>
-                            updateEntry(row.entry.id, { clientName: value })
-                          }
-                          placeholder="Cliente"
-                        />
-                      </td>
-                      <td className="px-4 py-4">
-                        <EditableField
-                          key={`${row.entry.id}-number-${row.entry.referenceNumber}`}
-                          value={repairText(row.entry.referenceNumber)}
-                          onCommit={(value) =>
-                            updateEntry(row.entry.id, { referenceNumber: value || "n.a." })
-                          }
-                          placeholder="Número"
-                        />
-                      </td>
-                      <td className="px-4 py-4">
-                        <EditableField
-                          key={`${row.entry.id}-type-${row.entry.entryType}`}
-                          value={repairText(row.entry.entryType)}
-                          list="work-entry-types"
-                          onCommit={(value) =>
-                            updateEntry(row.entry.id, { entryType: value || "Petição" })
-                          }
-                          placeholder="Tipo"
-                        />
-                      </td>
-                      <td className="px-4 py-4">
-                        <EditableField
-                          key={`${row.entry.id}-start-${row.entry.startDate ?? ""}`}
-                          type="date"
-                          value={row.entry.startDate ?? ""}
-                          onCommit={(value) =>
-                            updateEntry(row.entry.id, {
-                              startDate: value || undefined,
-                            })
-                          }
-                        />
-                      </td>
-                      <td className="px-4 py-4">
-                        <EditableField
-                          key={`${row.entry.id}-deadline-${row.entry.fatalDeadline ?? ""}`}
-                          type="date"
-                          value={row.entry.fatalDeadline ?? ""}
-                          onCommit={(value) =>
-                            updateEntry(row.entry.id, {
-                              fatalDeadline: value || undefined,
-                            })
-                          }
-                        />
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="rounded-sm border border-zinc-800 bg-zinc-950/70 px-3 py-3">
-                          <p className="text-sm font-medium text-zinc-100">
-                            {formatRemainingLabel(row.remainingDays)}
-                          </p>
-                          <p className="mt-1 text-xs text-zinc-500">
-                            {formatDateLabel(row.entry.fatalDeadline)}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <EditableField
-                          key={`${row.entry.id}-progress-${row.entry.progressLabel}`}
-                          value={repairText(row.entry.progressLabel)}
-                          list="work-progress-options"
-                          onCommit={(value) =>
-                            updateEntry(row.entry.id, {
-                              progressLabel: value || "Pendente",
-                            })
-                          }
-                          placeholder="Andamento"
-                        />
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="space-y-2">
-                          {expanded ? (
-                            <EditableTextarea
-                              key={`${row.entry.id}-notes-${row.entry.notes}`}
-                              value={repairText(row.entry.notes)}
-                              onCommit={(value) =>
-                                updateEntry(row.entry.id, { notes: value })
-                              }
-                              placeholder="Observação"
-                            />
-                          ) : (
-                            <button
-                              type="button"
-                              className="w-full rounded-sm border border-zinc-800 bg-zinc-950/70 px-3 py-3 text-left text-sm leading-6 text-zinc-300"
-                              onClick={() => setExpandedEntryId(row.entry.id)}
-                            >
-                              <span className="line-clamp-3">
-                                {repairText(row.entry.notes) || "Adicionar observação"}
-                              </span>
-                            </button>
-                          )}
-                          <p className="text-xs text-zinc-500">
-                            {buildRowSummary(row)}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <span
-                          className={`inline-flex rounded-sm border px-3 py-2 text-xs font-semibold ${getStatusClasses(
-                            row.status,
-                          )}`}
-                        >
-                          {repairText(row.status)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-col gap-2">
-                          <button
-                            type="button"
-                            className="praxis-button-ghost px-3 py-2"
-                            onClick={() =>
-                              setExpandedEntryId((current) =>
-                                current === row.entry.id ? null : row.entry.id,
-                              )
-                            }
-                          >
-                            {expanded ? (
-                              <>
-                                <ChevronUp className="h-4 w-4" />
-                                Recolher
-                              </>
-                            ) : (
-                              <>
-                                <ChevronDown className="h-4 w-4" />
-                                Detalhes
-                              </>
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            className="praxis-button-ghost px-3 py-2 text-red-300 hover:text-red-100"
-                            onClick={() => actions.removeWorkControlEntry(row.entry.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Remover
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="grid gap-4 xl:hidden">
-          {filteredRows.map((row) => {
-            const expanded = expandedEntryId === row.entry.id;
-            return (
-              <div
-                key={row.entry.id}
-                className={`rounded-sm border p-4 ${
-                  expanded
-                    ? "border-[var(--accent)]/30 bg-[var(--accent)]/5"
-                    : "border-zinc-800 bg-black/30"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0 space-y-1">
-                    <p className="text-base font-semibold text-zinc-100">
-                      {repairText(row.entry.clientName) || "Sem cliente"}
-                    </p>
-                    <p className="text-sm text-zinc-500">{buildRowSummary(row)}</p>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-sm border px-3 py-2 text-xs font-semibold ${getStatusClasses(
-                      row.status,
-                    )}`}
+        <div className="overflow-x-auto rounded-sm border border-zinc-800 bg-black/30">
+          <table className="min-w-full table-fixed border-collapse">
+            <thead>
+              <tr className="border-b border-zinc-800 bg-zinc-950/90 text-left">
+                <th className="w-10 px-2 py-2"></th>
+                {sheet.columns.map((column, index) => (
+                  <th
+                    key={column.id}
+                    className="relative px-3 py-2"
+                    style={{ minWidth: column.width ?? 160 }}
                   >
-                    {repairText(row.status)}
-                  </span>
-                </div>
-
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <EditableField
-                    key={`${row.entry.id}-mobile-client-${row.entry.clientName}`}
-                    value={repairText(row.entry.clientName)}
-                    onCommit={(value) =>
-                      updateEntry(row.entry.id, { clientName: value })
-                    }
-                    placeholder="Cliente"
-                  />
-                  <EditableField
-                    key={`${row.entry.id}-mobile-number-${row.entry.referenceNumber}`}
-                    value={repairText(row.entry.referenceNumber)}
-                    onCommit={(value) =>
-                      updateEntry(row.entry.id, { referenceNumber: value || "n.a." })
-                    }
-                    placeholder="Número"
-                  />
-                  <EditableField
-                    key={`${row.entry.id}-mobile-type-${row.entry.entryType}`}
-                    value={repairText(row.entry.entryType)}
-                    list="work-entry-types"
-                    onCommit={(value) =>
-                      updateEntry(row.entry.id, { entryType: value || "Petição" })
-                    }
-                    placeholder="Tipo"
-                  />
-                  <EditableField
-                    key={`${row.entry.id}-mobile-progress-${row.entry.progressLabel}`}
-                    value={repairText(row.entry.progressLabel)}
-                    list="work-progress-options"
-                    onCommit={(value) =>
-                      updateEntry(row.entry.id, {
-                        progressLabel: value || "Pendente",
-                      })
-                    }
-                    placeholder="Andamento"
-                  />
-                  <EditableField
-                    key={`${row.entry.id}-mobile-start-${row.entry.startDate ?? ""}`}
-                    type="date"
-                    value={row.entry.startDate ?? ""}
-                    onCommit={(value) =>
-                      updateEntry(row.entry.id, {
-                        startDate: value || undefined,
-                      })
-                    }
-                  />
-                  <EditableField
-                    key={`${row.entry.id}-mobile-deadline-${row.entry.fatalDeadline ?? ""}`}
-                    type="date"
-                    value={row.entry.fatalDeadline ?? ""}
-                    onCommit={(value) =>
-                      updateEntry(row.entry.id, {
-                        fatalDeadline: value || undefined,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  {expanded ? (
-                    <EditableTextarea
-                      key={`${row.entry.id}-mobile-notes-${row.entry.notes}`}
-                      value={repairText(row.entry.notes)}
-                      onCommit={(value) => updateEntry(row.entry.id, { notes: value })}
-                      placeholder="Observação"
-                    />
-                  ) : (
                     <button
                       type="button"
-                      className="w-full rounded-sm border border-zinc-800 bg-zinc-950/70 px-3 py-3 text-left text-sm leading-6 text-zinc-300"
-                      onClick={() => setExpandedEntryId(row.entry.id)}
-                    >
-                      <span className="line-clamp-3">
-                        {repairText(row.entry.notes) || "Adicionar observação"}
-                      </span>
-                    </button>
-                  )}
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="praxis-button-ghost px-3 py-2"
+                      className="group flex w-full items-center justify-between gap-2 rounded-sm border border-transparent px-1 py-1 text-left hover:border-zinc-700 hover:bg-zinc-900/60"
                       onClick={() =>
-                        setExpandedEntryId((current) =>
-                          current === row.entry.id ? null : row.entry.id,
+                        setOpenColumnMenu((current) =>
+                          current === column.id ? null : column.id,
                         )
                       }
                     >
-                      {expanded ? "Recolher" : "Detalhes"}
+                      <div className="min-w-0">
+                        <p className="praxis-label truncate">
+                          {column.label || "Sem nome"}
+                        </p>
+                        <p className="mt-0.5 text-[10px] uppercase tracking-wider text-zinc-500">
+                          {CELL_TYPE_LABELS[column.type]}
+                        </p>
+                      </div>
+                      <Settings2 className="h-3.5 w-3.5 text-zinc-500 group-hover:text-zinc-200" />
                     </button>
-                    <button
-                      type="button"
-                      className="praxis-button-ghost px-3 py-2 text-red-300 hover:text-red-100"
-                      onClick={() => actions.removeWorkControlEntry(row.entry.id)}
-                    >
-                      Remover
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                    {openColumnMenu === column.id ? (
+                      <ColumnHeaderMenu
+                        column={column}
+                        columns={sheet.columns}
+                        index={index}
+                        onUpdate={(patch) => updateColumn(column.id, patch)}
+                        onRemove={() => removeColumn(column.id)}
+                        onMove={(direction) => moveColumn(column.id, direction)}
+                        onClose={() => setOpenColumnMenu(null)}
+                      />
+                    ) : null}
+                  </th>
+                ))}
+                <th className="w-12 px-2 py-2 text-right">
+                  <button
+                    type="button"
+                    title="Adicionar coluna"
+                    className="praxis-button-ghost p-1.5"
+                    onClick={() => setShowColumnPicker(true)}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {sheet.rows.map((row) => {
+                const computed = deadlineColumn
+                  ? (() => {
+                      const deadlineValue = row.cells[deadlineColumn.id] as
+                        | string
+                        | null
+                        | undefined;
+                      const remaining = computeRemainingDays(
+                        deadlineValue,
+                        today,
+                      );
+                      return {
+                        remaining,
+                        urgency: computeUrgencyLabel(remaining),
+                      };
+                    })()
+                  : { remaining: null, urgency: "Sem prazo" };
+
+                return (
+                  <tr
+                    key={row.id}
+                    className="border-b border-zinc-900/80 align-top"
+                  >
+                    <td className="px-2 py-2 text-center text-zinc-600">
+                      <GripVertical className="mx-auto h-3.5 w-3.5" />
+                    </td>
+                    {sheet.columns.map((column) => {
+                      if (column.type === "computed-remaining") {
+                        return (
+                          <td key={column.id} className="px-3 py-2">
+                            <div className="rounded-sm border border-zinc-800 bg-zinc-950/70 px-2 py-1.5 text-xs">
+                              <p className="font-medium text-zinc-100">
+                                {formatRemainingLabel(computed.remaining)}
+                              </p>
+                              {deadlineColumn ? (
+                                <p className="text-[10px] text-zinc-500">
+                                  {formatDateBR(
+                                    row.cells[deadlineColumn.id] as string,
+                                  )}
+                                </p>
+                              ) : null}
+                            </div>
+                          </td>
+                        );
+                      }
+                      if (column.type === "computed-urgency") {
+                        return (
+                          <td key={column.id} className="px-3 py-2">
+                            <span
+                              className={`inline-flex rounded-sm border px-2 py-1 text-xs font-semibold ${getUrgencyClasses(
+                                computed.urgency,
+                              )}`}
+                            >
+                              {computed.urgency}
+                            </span>
+                          </td>
+                        );
+                      }
+                      return (
+                        <td key={column.id} className="px-3 py-2">
+                          <CellEditor
+                            column={column}
+                            value={row.cells[column.id] ?? ""}
+                            onCommit={(next) =>
+                              updateCell(row.id, column.id, next)
+                            }
+                          />
+                        </td>
+                      );
+                    })}
+                    <td className="relative px-2 py-2 text-right">
+                      <button
+                        type="button"
+                        className="praxis-button-ghost p-1.5"
+                        onClick={() =>
+                          setOpenRowMenu((current) =>
+                            current === row.id ? null : row.id,
+                          )
+                        }
+                      >
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </button>
+                      {openRowMenu === row.id ? (
+                        <RowActionsMenu
+                          onDelete={() => removeRow(row.id)}
+                          onDuplicate={() => duplicateRow(row.id)}
+                          onClose={() => setOpenRowMenu(null)}
+                        />
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
 
-        {filteredRows.length === 0 ? (
+        {sheet.rows.length === 0 ? (
           <div className="rounded-sm border border-dashed border-zinc-800 px-4 py-10 text-center text-sm text-zinc-500">
-            Nenhuma linha encontrada com os filtros atuais.
+            Sua planilha está vazia. Use{" "}
+            <button
+              type="button"
+              className="underline underline-offset-2"
+              onClick={addRow}
+            >
+              Nova linha
+            </button>{" "}
+            para começar.
           </div>
         ) : null}
+
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
+          <p>
+            {sheet.columns.length} colunas · {sheet.rows.length} linhas
+          </p>
+          <button
+            type="button"
+            className="praxis-button-ghost px-2 py-1"
+            onClick={addRow}
+          >
+            <Plus className="h-3 w-3" />
+            Adicionar linha
+          </button>
+        </div>
       </GlassPanel>
 
-      <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <GlassPanel>
-          <div className="flex items-center gap-3">
-            <Clock3 className="h-4 w-4 text-[var(--accent)]" />
-            <div>
-              <p className="praxis-label text-[var(--accent)]">Radar</p>
-              <h2 className="praxis-title mt-1 text-2xl">Próximos prazos</h2>
-            </div>
+      <GlassPanel>
+        <div className="flex items-center gap-3">
+          <Clock3 className="h-4 w-4 text-[var(--accent)]" />
+          <div>
+            <p className="praxis-label text-[var(--accent)]">Radar</p>
+            <h2 className="praxis-title mt-1 text-2xl">Próximos prazos</h2>
           </div>
-          <div className="mt-5 space-y-3">
-            {nextDeadlines.length > 0 ? (
-              nextDeadlines.map((row) => (
+        </div>
+        <div className="mt-5 space-y-3">
+          {radarRows.length > 0 && deadlineColumn ? (
+            radarRows.map(({ row, remaining, urgency, deadlineValue }) => {
+              const firstTextColumn = sheet.columns.find(
+                (column) =>
+                  column.type === "text" || column.type === "longtext",
+              );
+              const headline = firstTextColumn
+                ? (row.cells[firstTextColumn.id] as string) || "Sem rótulo"
+                : "Sem rótulo";
+              return (
                 <div
-                  key={row.entry.id}
-                  className="rounded-sm border border-zinc-800 bg-black/30 px-4 py-4"
+                  key={row.id}
+                  className="rounded-sm border border-zinc-800 bg-black/30 px-4 py-3"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-zinc-100">
-                        {repairText(row.entry.clientName)}
-                      </p>
-                      <p className="mt-1 text-sm text-zinc-500">
-                        {repairText(row.entry.entryType)} • {repairText(row.entry.referenceNumber)}
-                      </p>
-                    </div>
+                    <p className="text-sm font-semibold text-zinc-100">
+                      {headline}
+                    </p>
                     <span
-                      className={`shrink-0 rounded-sm border px-3 py-2 text-xs font-semibold ${getStatusClasses(
-                        row.status,
+                      className={`shrink-0 rounded-sm border px-2 py-1 text-[11px] font-semibold ${getUrgencyClasses(
+                        urgency,
                       )}`}
                     >
-                    {repairText(row.status)}
+                      {urgency}
                     </span>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-3 text-sm text-zinc-400">
-                    <span>{formatDateLabel(row.entry.fatalDeadline)}</span>
-                    <span>{formatRemainingLabel(row.remainingDays)}</span>
+                  <div className="mt-2 flex flex-wrap gap-3 text-xs text-zinc-400">
+                    <span>{formatDateBR(deadlineValue)}</span>
+                    <span>{formatRemainingLabel(remaining)}</span>
                   </div>
                 </div>
-              ))
-            ) : (
-              <p className="text-sm text-zinc-500">Sem prazos pendentes no momento.</p>
-            )}
-          </div>
-        </GlassPanel>
-
-        <GlassPanel>
-          <div className="flex items-center gap-3">
-            <BriefcaseBusiness className="h-4 w-4 text-[var(--accent)]" />
-            <div>
-              <p className="praxis-label text-[var(--accent)]">Hoje</p>
-              <h2 className="praxis-title mt-1 text-2xl">Hoje no trabalho</h2>
-            </div>
-          </div>
-          <div className="mt-5 space-y-3">
-            {todayTasks.length > 0 ? (
-              todayTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="rounded-sm border border-zinc-800 bg-black/30 px-4 py-4"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-zinc-100">{task.title}</p>
-                      <p className="mt-1 text-sm text-zinc-500">{task.description}</p>
-                    </div>
-                    <span className="rounded-sm border border-zinc-800 px-3 py-2 text-xs text-zinc-400">
-                      {task.scheduledTime || "Sem hora"}
-                    </span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-sm border border-dashed border-zinc-800 px-4 py-8 text-sm text-zinc-500">
-                Nenhuma tarefa do trabalho pendente para hoje.
-              </div>
-            )}
-
-            <div className="rounded-sm border border-zinc-800 bg-black/30 px-4 py-4">
-              <div className="flex items-start gap-3">
-                <TriangleAlert className="mt-0.5 h-4 w-4 text-[var(--accent)]" />
-                <div>
-                  <p className="praxis-label text-[var(--accent)]">Leitura</p>
-                  <p className="mt-1 text-sm leading-6 text-zinc-400">
-                    Os campos principais ficam editáveis direto na grade. A urgência
-                    continua automática para não depender de preenchimento manual.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </GlassPanel>
-      </section>
-
-      <datalist id="work-entry-types">
-        {entryTypeOptions.map((option) => (
-          <option key={option} value={repairText(option)} />
-        ))}
-      </datalist>
-      <datalist id="work-progress-options">
-        {progressOptions.map((option) => (
-          <option key={option} value={repairText(option)} />
-        ))}
-      </datalist>
+              );
+            })
+          ) : (
+            <p className="text-sm text-zinc-500">
+              Adicione uma coluna de tipo{" "}
+              <strong className="text-zinc-300">Prazo fatal</strong> e
+              preencha datas para ver o radar.
+            </p>
+          )}
+        </div>
+      </GlassPanel>
     </div>
   );
 }
