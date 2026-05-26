@@ -694,10 +694,11 @@ export function ShoppingModulePage({
       scheduleLabel: draft.scheduleLabel.trim() || undefined,
       categoryLabel: draft.categoryLabel.trim() || undefined,
       dailyDose,
-      dailyDoseAmount: (() => {
-        const parsed = Number(String(draft.dailyDoseAmount).replace(",", "."));
-        return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
-      })(),
+      // Dose alvo (substância) foi colapsada na Dose diária — a UI
+      // só mostra um input. Pra manter os cálculos de custo-por-dia
+      // funcionando (que dependem de dailyDoseAmount + dailyDoseUnit),
+      // espelhamos dailyDose → dailyDoseAmount aqui no save.
+      dailyDoseAmount: dailyDose > 0 ? dailyDose : undefined,
       dailyDoseUnit: (() => {
         const valid = ["mg", "g", "mcg", "ml", "serving"];
         return valid.includes(draft.dailyDoseUnit)
@@ -774,17 +775,23 @@ export function ShoppingModulePage({
   function renderDraftForm() {
     return (
       <form className="space-y-4" onSubmit={saveItem}>
-        {/* SECTION 1 — Identidade do produto */}
+        {/* SECTION 1 — Identidade + Dose + Preço (TUDO em uma linha em telas grandes)
+            User pediu pra colapsar dose alvo na dose diária (são a
+            mesma coisa) e jogar tudo numa linha só. saveItem espelha
+            dailyDose → dailyDoseAmount pra manter os cálculos de
+            custo-por-dia/dose-substância funcionando.
+            Layout responsivo:
+              mobile (default) → 1 col
+              sm (≥640) → 2 cols
+              md (≥768) → 3 cols
+              lg (≥1024) → 4 cols
+              xl (≥1280) → todos os 7 numa linha só */}
         <section className="space-y-2">
           <div className="praxis-label flex items-center gap-2 border-b border-white/5 pb-1 text-[10px] text-zinc-400">
             <span className="inline-block h-1 w-1 rounded-full bg-[var(--accent)]" />
-            Identidade
+            Item
           </div>
-          {/* Nome · Marca · Quantidade · Categoria · Link — todos na
-              mesma linha em telas grandes. Stack progressivo no
-              responsivo: mobile 1 col, sm 2, md 3, lg 5. Link é o
-              mais largo (URLs longas), Quantidade é o mais estreito. */}
-          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1.6fr)]">
+          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.9fr)]">
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">Nome</span>
               <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder={examples[0] ?? "Ex.: detergente"} className={fieldClassName} />
@@ -805,40 +812,9 @@ export function ShoppingModulePage({
               <span className="praxis-label text-[var(--accent)]">Link</span>
               <input value={draft.referenceUrl} onChange={(event) => setDraft((current) => ({ ...current, referenceUrl: event.target.value }))} placeholder="https://..." className={fieldClassName} />
             </label>
-          </div>
-        </section>
-
-        {/* SECTION 2 — Dose & preço
-            User asked to put dose diária + dose alvo + preço on the
-            same row. Supplements get all three columns; market skips
-            dose alvo (substance-anchored daily dose only makes sense
-            for capsule-style suplementos). The price input is up here
-            now — used to live in the Compra section, but it's the
-            primary editable value and reads more naturally beside
-            the dose inputs. The Compra section below keeps only the
-            payment-mode toggle + local presencial for market. */}
-        <section className="space-y-2">
-          <div className="praxis-label flex items-center gap-2 border-b border-white/5 pb-1 text-[10px] text-zinc-400">
-            <span className="inline-block h-1 w-1 rounded-full bg-[var(--accent)]" />
-            {scope === "supplements" ? "Dose & preço" : "Dose & preço"}
-          </div>
-          <div
-            className={cn(
-              "grid gap-2",
-              scope === "supplements"
-                ? "sm:grid-cols-2 lg:grid-cols-[1fr_minmax(0,1.4fr)_1fr]"
-                : "sm:grid-cols-2",
-            )}
-          >
             <label className="block space-y-1 min-w-0">
-              <span className="praxis-label text-[var(--accent)]">{dailyLabel}</span>
-              {/* Input + unit dropdown lado a lado (espelha o layout
-                  da Dose alvo). O select aqui compartilha o
-                  draft.dailyDoseUnit com a Dose alvo abaixo —
-                  geralmente a unidade é a mesma (whey 80 g/dia +
-                  vitamina C 1000 mg/dia descrevem itens diferentes,
-                  cada item tem sua unidade própria). */}
-              <div className="grid grid-cols-[1fr_4.5rem] gap-1">
+              <span className="praxis-label text-[var(--accent)]">Dose/dia</span>
+              <div className="grid grid-cols-[1fr_4rem] gap-1">
                 <input
                   value={draft.dailyDose}
                   onChange={(event) =>
@@ -868,56 +844,14 @@ export function ShoppingModulePage({
                 </select>
               </div>
             </label>
-            {scope === "supplements" ? (
-              <label className="block space-y-1 min-w-0">
-                <span className="praxis-label text-[var(--accent)]">Dose alvo (subst.)</span>
-                <div className="grid grid-cols-[1fr_4.5rem] gap-1">
-                  <input
-                    value={draft.dailyDoseAmount}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        dailyDoseAmount: event.target.value,
-                      }))
-                    }
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="Ex.: 1000"
-                    className={fieldClassName}
-                  />
-                  <select
-                    value={draft.dailyDoseUnit}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        dailyDoseUnit: event.target.value,
-                      }))
-                    }
-                    className={fieldClassName}
-                  >
-                    {/* "g" no topo já que é o padrão dos suplementos
-                        principais (whey, creatina etc.). */}
-                    <option value="g">g</option>
-                    <option value="mg">mg</option>
-                    <option value="mcg">mcg</option>
-                    <option value="ml">ml</option>
-                    <option value="serving">porção</option>
-                  </select>
-                </div>
-              </label>
-            ) : null}
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">
                 {scope === "market" && draft.purchaseMode === "presential"
-                  ? "Preço encontrado (R$)"
-                  : "Preço unitário (R$)"}
+                  ? "Preço (R$)"
+                  : "Preço (R$)"}
               </span>
-              {/* Visual "R$" prefix dentro do input. pl-9 abre espaço pro
-                  span absolute. text-zinc-400 deixa o R$ discreto pra
-                  não competir com o valor digitado. */}
               <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-zinc-400">
+                <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-medium text-zinc-400">
                   R$
                 </span>
                 <input
@@ -932,7 +866,7 @@ export function ShoppingModulePage({
                   min="0"
                   step="0.01"
                   placeholder="39,90"
-                  className={`${fieldClassName} pl-9`}
+                  className={`${fieldClassName} pl-8`}
                 />
               </div>
             </label>
