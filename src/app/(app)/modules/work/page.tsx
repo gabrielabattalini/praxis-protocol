@@ -93,7 +93,7 @@ function toText(value: WorkCellValue): string {
 }
 
 const DISPLAY_CELL =
-  "min-h-[100px] w-full cursor-text whitespace-pre-wrap break-words rounded-sm border border-transparent px-2 py-2 text-sm leading-6 text-zinc-100 hover:border-zinc-700 hover:bg-zinc-900/50";
+  "min-h-[100px] w-full cursor-text whitespace-pre-wrap break-words rounded-sm border border-zinc-700/70 bg-zinc-950/40 px-2 py-2 text-sm leading-6 text-zinc-100 hover:border-[var(--accent)]/40 hover:bg-zinc-900/70";
 
 function CellDisplay({
   column,
@@ -132,7 +132,7 @@ function CellDisplay({
         {text ? (
           formatDateBR(text)
         ) : (
-          <span className="italic text-zinc-600">duplo clique…</span>
+          <span className="italic text-zinc-400">duplo clique…</span>
         )}
       </div>
     );
@@ -145,7 +145,7 @@ function CellDisplay({
       onDoubleClick={onActivate}
       title="Duplo clique para editar"
     >
-      {text || <span className="italic text-zinc-600">duplo clique…</span>}
+      {text || <span className="italic text-zinc-400">duplo clique…</span>}
     </div>
   );
 }
@@ -915,20 +915,20 @@ export default function WorkModulePage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-sm border border-zinc-800 bg-black/30">
+        <div className="overflow-x-auto rounded-sm border border-zinc-600 bg-black/30">
           <table className="min-w-full table-fixed border-collapse">
             <thead>
-              <tr className="border-b border-zinc-800 bg-zinc-950/90 text-left">
-                <th className="w-12 border-r border-zinc-800 px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+              <tr className="border-b-2 border-zinc-600 bg-zinc-900 text-left">
+                <th className="w-12 border-r border-zinc-600 px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-300">
                   #
                 </th>
                 {sheet.columns.map((column, index) => (
                   <th
                     key={column.id}
-                    className="relative px-2 py-2 align-bottom"
+                    className="relative border-r border-zinc-700 px-2 py-2 align-bottom last:border-r-0"
                     style={{ minWidth: column.width ?? 160 }}
                   >
-                    <div className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                    <div className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-300">
                       {getColumnLetter(index)}
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -939,13 +939,13 @@ export default function WorkModulePage() {
                         onChange={(event) =>
                           updateColumn(column.id, { label: event.target.value })
                         }
-                        className="praxis-label min-w-0 flex-1 rounded-sm border border-transparent bg-transparent px-1 py-1 hover:border-zinc-700 hover:bg-zinc-900/60 focus:border-[var(--accent)]/40 focus:bg-zinc-900/70 focus:outline-none"
+                        className="praxis-label min-w-0 flex-1 rounded-sm border border-transparent bg-transparent px-1 py-1 text-zinc-100 hover:border-zinc-600 hover:bg-zinc-900/80 focus:border-[var(--accent)]/60 focus:bg-zinc-900 focus:outline-none"
                       />
                       <button
                         type="button"
                         title="Mais opções"
                         aria-label="Mais opções da coluna"
-                        className="shrink-0 rounded-sm border border-transparent p-1 text-zinc-500 hover:border-zinc-700 hover:text-zinc-200"
+                        className="shrink-0 rounded-sm border border-transparent p-1 text-zinc-400 hover:border-zinc-600 hover:text-zinc-100"
                         onClick={(event) => {
                           const rect =
                             event.currentTarget.getBoundingClientRect();
@@ -990,9 +990,9 @@ export default function WorkModulePage() {
                 return (
                   <tr
                     key={row.id}
-                    className="border-b border-zinc-900/80 align-top"
+                    className="border-b border-zinc-700/80 align-top hover:bg-zinc-900/30"
                   >
-                    <td className="border-r border-zinc-800 bg-zinc-950/60 px-2 py-2 text-center text-xs font-semibold text-zinc-400">
+                    <td className="border-r border-zinc-600 bg-zinc-900/70 px-2 py-2 text-center text-xs font-semibold text-zinc-200">
                       {rowIndex + 1}
                     </td>
                     {sheet.columns.map((column) => {
@@ -1011,13 +1011,13 @@ export default function WorkModulePage() {
                           ? (row.cells[endColumn.id] as string | undefined)
                           : undefined;
                         return (
-                          <td key={column.id} className="px-3 py-2">
-                            <div className="rounded-sm border border-zinc-800 bg-zinc-950/70 px-2 py-1.5 text-xs">
+                          <td key={column.id} className="border-r border-zinc-700/60 px-3 py-2">
+                            <div className="rounded-sm border border-zinc-600 bg-zinc-900/80 px-2 py-1.5 text-xs">
                               <p className="font-medium text-zinc-100">
                                 {formatRemainingLabel(remaining)}
                               </p>
                               {endValue ? (
-                                <p className="text-[10px] text-zinc-500">
+                                <p className="text-[10px] text-zinc-300">
                                   {formatDateBR(endValue)}
                                 </p>
                               ) : null}
@@ -1034,7 +1034,7 @@ export default function WorkModulePage() {
                         );
                         const urgency = computeUrgencyLabel(remaining);
                         return (
-                          <td key={column.id} className="px-3 py-2">
+                          <td key={column.id} className="border-r border-zinc-700/60 px-3 py-2">
                             <span
                               className={`inline-flex rounded-sm border px-2 py-1 text-xs font-semibold ${getUrgencyClasses(
                                 urgency,
@@ -1046,7 +1046,7 @@ export default function WorkModulePage() {
                         );
                       }
                       return (
-                        <td key={column.id} className="px-3 py-2">
+                        <td key={column.id} className="border-r border-zinc-700/60 px-3 py-2">
                           <CellEditor
                             column={column}
                             value={row.cells[column.id] ?? ""}
@@ -1090,15 +1090,15 @@ export default function WorkModulePage() {
               }).map((_, phantomIndex) => (
                 <tr
                   key={`phantom-${phantomIndex}`}
-                  className="border-b border-zinc-900/80 align-top"
+                  className="border-b border-zinc-700/80 align-top"
                   aria-hidden="true"
                 >
-                  <td className="border-r border-zinc-800 bg-zinc-950/40 px-2 py-2 text-center text-xs font-semibold text-zinc-600">
+                  <td className="border-r border-zinc-600 bg-zinc-900/40 px-2 py-2 text-center text-xs font-semibold text-zinc-500">
                     {sheet.rows.length + phantomIndex + 1}
                   </td>
                   {sheet.columns.map((column) => (
-                    <td key={column.id} className="px-3 py-2">
-                      <div className="min-h-[100px] w-full rounded-sm border border-transparent px-2 py-2 text-sm text-zinc-700">
+                    <td key={column.id} className="border-r border-zinc-700/60 px-3 py-2">
+                      <div className="min-h-[100px] w-full rounded-sm border border-zinc-800/60 bg-zinc-950/30 px-2 py-2 text-sm text-zinc-700">
                         &nbsp;
                       </div>
                     </td>
