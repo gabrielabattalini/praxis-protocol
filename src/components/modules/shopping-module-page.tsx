@@ -832,17 +832,41 @@ export function ShoppingModulePage({
           >
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">{dailyLabel}</span>
-              <input
-                value={draft.dailyDose}
-                onChange={(event) =>
-                  setDraft((current) => ({ ...current, dailyDose: event.target.value }))
-                }
-                type="number"
-                min="0.01"
-                step="0.01"
-                placeholder={scope === "supplements" ? "Ex.: 2" : "Ex.: 30"}
-                className={fieldClassName}
-              />
+              {/* Input + unit dropdown lado a lado (espelha o layout
+                  da Dose alvo). O select aqui compartilha o
+                  draft.dailyDoseUnit com a Dose alvo abaixo —
+                  geralmente a unidade é a mesma (whey 80 g/dia +
+                  vitamina C 1000 mg/dia descrevem itens diferentes,
+                  cada item tem sua unidade própria). */}
+              <div className="grid grid-cols-[1fr_4.5rem] gap-1">
+                <input
+                  value={draft.dailyDose}
+                  onChange={(event) =>
+                    setDraft((current) => ({ ...current, dailyDose: event.target.value }))
+                  }
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  placeholder={scope === "supplements" ? "Ex.: 80" : "Ex.: 30"}
+                  className={fieldClassName}
+                />
+                <select
+                  value={draft.dailyDoseUnit}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      dailyDoseUnit: event.target.value,
+                    }))
+                  }
+                  className={fieldClassName}
+                >
+                  <option value="g">g</option>
+                  <option value="mg">mg</option>
+                  <option value="mcg">mcg</option>
+                  <option value="ml">ml</option>
+                  <option value="serving">porção</option>
+                </select>
+              </div>
             </label>
             {scope === "supplements" ? (
               <label className="block space-y-1 min-w-0">
