@@ -828,7 +828,11 @@ export function ShoppingModulePage({
             <span className="inline-block h-1 w-1 rounded-full bg-[var(--accent)]" />
             Item
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.7fr)_minmax(0,0.6fr)_minmax(0,0.85fr)_minmax(0,1.2fr)_minmax(0,2.2fr)_minmax(0,0.75fr)]">
+          {/* Rebalanceei os tracks: Link encolheu (ele só precisa
+              mostrar o início da URL e o usuário consegue rolar dentro
+              do input), Tomadas × dose ganhou MUITO mais espaço pra
+              caber tomadas/freq × dose/unit sem sumir os inputs. */}
+          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.75fr)_minmax(0,0.5fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,2.6fr)_minmax(0,0.75fr)]">
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">Nome</span>
               <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder={examples[0] ?? "Ex.: detergente"} className={fieldClassName} />
@@ -858,7 +862,10 @@ export function ShoppingModulePage({
                   Frequência cobre itens não-diários (IPVA mensal,
                   alergia 2×/semana, etc.). saveItem normaliza tudo
                   pra dailyDose interno (× 1, ÷ 7 ou ÷ 30). */}
-              <div className="grid grid-cols-[2.4rem_3.6rem_auto_1fr_3.4rem] items-center gap-1">
+              {/* Sub-grid de 5 células. Tomadas/freq/×/dose/unit.
+                  Tomadas com 3rem fixo (2 dígitos cabem),
+                  freq com 4rem (cabe "/sem"), unit com 3.6rem. */}
+              <div className="grid grid-cols-[3rem_4rem_auto_minmax(0,1fr)_3.6rem] items-center gap-1">
                 <input
                   value={draft.servingsPerDay}
                   onChange={(event) =>
