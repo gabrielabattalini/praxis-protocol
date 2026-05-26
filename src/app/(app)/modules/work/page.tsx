@@ -85,20 +85,24 @@ function cloneSheet(sheet: WorkSheet): WorkSheet {
 function startColumnDrag(
   event: React.MouseEvent,
   startWidth: number,
-  onUpdate: (width: number) => void,
+  onPreview: (width: number) => void,
+  onCommit: (width: number) => void,
 ) {
   event.preventDefault();
   event.stopPropagation();
   const startX = event.clientX;
+  let lastWidth = startWidth;
   const handleMove = (moveEvent: MouseEvent) => {
     const delta = moveEvent.clientX - startX;
-    onUpdate(startWidth + delta);
+    lastWidth = clampColumnWidth(startWidth + delta);
+    onPreview(lastWidth);
   };
   const handleUp = () => {
     window.removeEventListener("mousemove", handleMove);
     window.removeEventListener("mouseup", handleUp);
     document.body.style.userSelect = "";
     document.body.style.cursor = "";
+    onCommit(lastWidth);
   };
   window.addEventListener("mousemove", handleMove);
   window.addEventListener("mouseup", handleUp);
@@ -109,20 +113,24 @@ function startColumnDrag(
 function startRowDrag(
   event: React.MouseEvent,
   startHeight: number,
-  onUpdate: (height: number) => void,
+  onPreview: (height: number) => void,
+  onCommit: (height: number) => void,
 ) {
   event.preventDefault();
   event.stopPropagation();
   const startY = event.clientY;
+  let lastHeight = startHeight;
   const handleMove = (moveEvent: MouseEvent) => {
     const delta = moveEvent.clientY - startY;
-    onUpdate(startHeight + delta);
+    lastHeight = clampRowHeight(startHeight + delta);
+    onPreview(lastHeight);
   };
   const handleUp = () => {
     window.removeEventListener("mousemove", handleMove);
     window.removeEventListener("mouseup", handleUp);
     document.body.style.userSelect = "";
     document.body.style.cursor = "";
+    onCommit(lastHeight);
   };
   window.addEventListener("mousemove", handleMove);
   window.addEventListener("mouseup", handleUp);
@@ -717,6 +725,14 @@ export default function WorkModulePage() {
     { id: string; rect: DOMRect } | null
   >(null);
   const [showColumnPicker, setShowColumnPicker] = useState(false);
+  const [columnPreviewWidth, setColumnPreviewWidth] = useState<{
+    id: string;
+    width: number;
+  } | null>(null);
+  const [rowPreviewHeight, setRowPreviewHeight] = useState<{
+    id: string;
+    height: number;
+  } | null>(null);
 
   const persistSheet = useCallback(
     (mutator: (draft: WorkSheet) => WorkSheet) => {
@@ -972,24 +988,60 @@ export default function WorkModulePage() {
           </div>
         </div>
 
-        {showColumnPicker ? (
-          <div className="mt-4 grid gap-2 rounded-sm border border-zinc-800 bg-black/40 p-3 sm:grid-cols-3">
-            {CELL_TYPE_ORDER.map((type) => (
-              <button
-                key={type}
-                type="button"
-                title={CELL_TYPE_HINTS[type]}
-                className="praxis-button-ghost flex items-center justify-start gap-2 px-3 py-2 text-left"
-                onClick={() => addColumn(type)}
-              >
-                <span className="text-sm font-medium text-zinc-100">
-                  {CELL_TYPE_LABELS[type]}
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : null}
       </div>
+
+      {showColumnPicker
+        ? createPortal(
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Adicionar nova coluna"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+              onClick={() => setShowColumnPicker(false)}
+            >
+              <div
+                className="w-full max-w-lg rounded-sm border border-zinc-600 bg-zinc-950 p-5 shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="praxis-label text-[var(--accent)]">
+                      Nova coluna
+                    </p>
+                    <h3 className="praxis-title mt-1 text-xl">
+                      Escolha o tipo
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    className="text-zinc-400 hover:text-zinc-100"
+                    onClick={() => setShowColumnPicker(false)}
+                    aria-label="Fechar"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  {CELL_TYPE_ORDER.map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      title={CELL_TYPE_HINTS[type]}
+                      className="praxis-button-ghost flex items-center justify-start gap-2 px-3 py-2.5 text-left"
+                      onClick={() => addColumn(type)}
+                    >
+                      <Plus className="h-3.5 w-3.5 text-[var(--accent)]" />
+                      <span className="text-sm font-medium text-zinc-100">
+                        {CELL_TYPE_LABELS[type]}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
 
       <section className="grid gap-4 sm:grid-cols-3">
         <GlassPanel className="praxis-panel-active">
@@ -1042,13 +1094,18 @@ export default function WorkModulePage() {
                 <th className="w-12 border-r border-zinc-600 px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-300">
                   #
                 </th>
-                {sheet.columns.map((column, index) => (
+                {sheet.columns.map((column, index) => {
+                  const displayWidth =
+                    columnPreviewWidth?.id === column.id
+                      ? columnPreviewWidth.width
+                      : column.width ?? DEFAULT_COLUMN_WIDTH;
+                  return (
                   <th
                     key={column.id}
                     className="relative border-r border-zinc-700 px-2 py-2 align-bottom"
                     style={{
-                      width: column.width ?? DEFAULT_COLUMN_WIDTH,
-                      minWidth: column.width ?? DEFAULT_COLUMN_WIDTH,
+                      width: displayWidth,
+                      minWidth: displayWidth,
                     }}
                   >
                     <div className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-300">
@@ -1102,13 +1159,21 @@ export default function WorkModulePage() {
                         startColumnDrag(
                           event,
                           column.width ?? DEFAULT_COLUMN_WIDTH,
-                          (next) => setColumnWidth(column.id, next),
+                          (next) =>
+                            setColumnPreviewWidth({ id: column.id, width: next }),
+                          (next) => {
+                            setColumnWidth(column.id, next);
+                            setColumnPreviewWidth(null);
+                          },
                         )
                       }
-                      className="absolute right-[-3px] top-0 z-10 h-full w-1.5 cursor-col-resize hover:bg-[var(--accent)]/60"
-                    />
+                      className="absolute right-[-4px] top-0 z-20 flex h-full w-2 cursor-col-resize items-center justify-center hover:bg-[var(--accent)]/30"
+                    >
+                      <span className="h-3/5 w-[2px] bg-zinc-500 group-hover:bg-[var(--accent)]" />
+                    </div>
                   </th>
-                ))}
+                  );
+                })}
                 <th className="w-12 px-2 py-2 text-right">
                   <button
                     type="button"
@@ -1123,7 +1188,11 @@ export default function WorkModulePage() {
             </thead>
             <tbody>
               {sheet.rows.map((row, rowIndex) => {
-                const rowHeight = row.height ?? DEFAULT_ROW_HEIGHT;
+                const baseHeight = row.height ?? DEFAULT_ROW_HEIGHT;
+                const rowHeight =
+                  rowPreviewHeight?.id === row.id
+                    ? rowPreviewHeight.height
+                    : baseHeight;
                 const heightStyle = { height: rowHeight } as const;
                 return (
                   <tr
@@ -1140,12 +1209,21 @@ export default function WorkModulePage() {
                         aria-label="Redimensionar linha"
                         title="Arraste para redimensionar a linha"
                         onMouseDown={(event) =>
-                          startRowDrag(event, rowHeight, (next) =>
-                            setRowHeight(row.id, next),
+                          startRowDrag(
+                            event,
+                            baseHeight,
+                            (next) =>
+                              setRowPreviewHeight({ id: row.id, height: next }),
+                            (next) => {
+                              setRowHeight(row.id, next);
+                              setRowPreviewHeight(null);
+                            },
                           )
                         }
-                        className="absolute bottom-[-3px] left-0 z-10 h-1.5 w-full cursor-row-resize hover:bg-[var(--accent)]/60"
-                      />
+                        className="absolute bottom-[-4px] left-0 z-20 flex h-2 w-full cursor-row-resize items-center justify-center hover:bg-[var(--accent)]/30"
+                      >
+                        <span className="h-[2px] w-3/5 bg-zinc-500" />
+                      </div>
                     </td>
                     {sheet.columns.map((column) => {
                       if (column.type === "computed-remaining") {
