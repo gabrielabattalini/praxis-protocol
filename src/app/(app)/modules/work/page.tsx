@@ -26,6 +26,8 @@ import {
   findFirstDeadlineColumn,
   formatDateBR,
   formatRemainingLabel,
+  getComputedRemainingForColumn,
+  getDateLikeColumns,
   getUrgencyClasses,
   loadWorkSheetFromModuleState,
   makeColumnId,
@@ -390,6 +392,55 @@ function ColumnHeaderMenu({
           ))}
         </select>
       </label>
+
+      {column.type === "computed-remaining" ||
+      column.type === "computed-urgency" ? (
+        <div className="mt-3 space-y-2">
+          <label className="block space-y-1">
+            <span className="text-xs text-zinc-400">Início</span>
+            <select
+              value={column.startColumnId ?? ""}
+              onChange={(event) =>
+                onUpdate({
+                  startColumnId: event.target.value || undefined,
+                })
+              }
+              className={FIELD_COMPACT}
+            >
+              <option value="">Hoje (padrão)</option>
+              {getDateLikeColumns(columns).map((source) => (
+                <option key={source.id} value={source.id}>
+                  {source.label || "Sem nome"}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block space-y-1">
+            <span className="text-xs text-zinc-400">Término</span>
+            <select
+              value={column.endColumnId ?? ""}
+              onChange={(event) =>
+                onUpdate({
+                  endColumnId: event.target.value || undefined,
+                })
+              }
+              className={FIELD_COMPACT}
+            >
+              <option value="">Auto (primeiro Prazo fatal)</option>
+              {getDateLikeColumns(columns).map((source) => (
+                <option key={source.id} value={source.id}>
+                  {source.label || "Sem nome"}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="text-[11px] leading-4 text-zinc-500">
+            Calcula <strong className="text-zinc-300">Término − Início</strong>.
+            Se Início ficar em &quot;Hoje&quot;, mostra dias restantes até o
+            término.
+          </p>
+        </div>
+      ) : null}
 
       {column.type === "select" ? (
         <div className="mt-3 space-y-2">
@@ -936,23 +987,6 @@ export default function WorkModulePage() {
             </thead>
             <tbody>
               {sheet.rows.map((row, rowIndex) => {
-                const computed = deadlineColumn
-                  ? (() => {
-                      const deadlineValue = row.cells[deadlineColumn.id] as
-                        | string
-                        | null
-                        | undefined;
-                      const remaining = computeRemainingDays(
-                        deadlineValue,
-                        today,
-                      );
-                      return {
-                        remaining,
-                        urgency: computeUrgencyLabel(remaining),
-                      };
-                    })()
-                  : { remaining: null, urgency: "Sem prazo" };
-
                 return (
                   <tr
                     key={row.id}
@@ -963,17 +997,28 @@ export default function WorkModulePage() {
                     </td>
                     {sheet.columns.map((column) => {
                       if (column.type === "computed-remaining") {
+                        const remaining = getComputedRemainingForColumn(
+                          column,
+                          row,
+                          sheet.columns,
+                          today,
+                        );
+                        const endColumn =
+                          sheet.columns.find(
+                            (c) => c.id === column.endColumnId,
+                          ) ?? deadlineColumn;
+                        const endValue = endColumn
+                          ? (row.cells[endColumn.id] as string | undefined)
+                          : undefined;
                         return (
                           <td key={column.id} className="px-3 py-2">
                             <div className="rounded-sm border border-zinc-800 bg-zinc-950/70 px-2 py-1.5 text-xs">
                               <p className="font-medium text-zinc-100">
-                                {formatRemainingLabel(computed.remaining)}
+                                {formatRemainingLabel(remaining)}
                               </p>
-                              {deadlineColumn ? (
+                              {endValue ? (
                                 <p className="text-[10px] text-zinc-500">
-                                  {formatDateBR(
-                                    row.cells[deadlineColumn.id] as string,
-                                  )}
+                                  {formatDateBR(endValue)}
                                 </p>
                               ) : null}
                             </div>
@@ -981,14 +1026,21 @@ export default function WorkModulePage() {
                         );
                       }
                       if (column.type === "computed-urgency") {
+                        const remaining = getComputedRemainingForColumn(
+                          column,
+                          row,
+                          sheet.columns,
+                          today,
+                        );
+                        const urgency = computeUrgencyLabel(remaining);
                         return (
                           <td key={column.id} className="px-3 py-2">
                             <span
                               className={`inline-flex rounded-sm border px-2 py-1 text-xs font-semibold ${getUrgencyClasses(
-                                computed.urgency,
+                                urgency,
                               )}`}
                             >
-                              {computed.urgency}
+                              {urgency}
                             </span>
                           </td>
                         );
@@ -1072,14 +1124,24 @@ export default function WorkModulePage() {
           <p>
             {sheet.columns.length} colunas · {sheet.rows.length} linhas
           </p>
-          <button
-            type="button"
-            className="praxis-button-ghost px-2 py-1"
-            onClick={addRow}
-          >
-            <Plus className="h-3 w-3" />
-            Adicionar linha
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="praxis-button-ghost px-2 py-1"
+              onClick={() => setShowColumnPicker(true)}
+            >
+              <Plus className="h-3 w-3" />
+              Adicionar coluna
+            </button>
+            <button
+              type="button"
+              className="praxis-button-ghost px-2 py-1"
+              onClick={addRow}
+            >
+              <Plus className="h-3 w-3" />
+              Adicionar linha
+            </button>
+          </div>
         </div>
       </GlassPanel>
 

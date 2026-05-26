@@ -19,6 +19,11 @@ export interface WorkColumn {
   type: WorkCellType;
   options?: string[];
   width?: number;
+  /* When type is computed-remaining or computed-urgency:
+     - startColumnId: source date column for the start (undefined = today)
+     - endColumnId:   source date column for the end (undefined = first deadline column auto-detected) */
+  startColumnId?: string;
+  endColumnId?: string;
 }
 
 export interface WorkRow {
@@ -136,17 +141,74 @@ export function findFirstDeadlineColumn(
   return columns.find((column) => column.type === "deadline");
 }
 
+export function getDateLikeColumns(columns: WorkColumn[]): WorkColumn[] {
+  return columns.filter(
+    (column) => column.type === "date" || column.type === "deadline",
+  );
+}
+
+function readDateCell(
+  row: WorkRow,
+  columnId: string | undefined,
+): string | null {
+  if (!columnId) return null;
+  const value = row.cells[columnId];
+  if (typeof value !== "string") return null;
+  return value.trim() || null;
+}
+
+function parseISODate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
+function startOfDayLocal(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+export function getComputedRemainingForColumn(
+  column: WorkColumn,
+  row: WorkRow,
+  columns: WorkColumn[],
+  referenceDate: Date = new Date(),
+): number | null {
+  // Resolve end source: explicit endColumnId > first deadline column (auto)
+  const endColumn =
+    columns.find((current) => current.id === column.endColumnId) ??
+    findFirstDeadlineColumn(columns);
+  if (!endColumn) return null;
+  const endDate = parseISODate(readDateCell(row, endColumn.id));
+  if (!endDate) return null;
+
+  // Resolve start source: explicit startColumnId > today
+  const startColumn = column.startColumnId
+    ? columns.find((current) => current.id === column.startColumnId)
+    : undefined;
+  const startDate = startColumn
+    ? parseISODate(readDateCell(row, startColumn.id)) ?? referenceDate
+    : referenceDate;
+
+  return Math.round(
+    (startOfDayLocal(endDate).getTime() -
+      startOfDayLocal(startDate).getTime()) /
+      DAY_IN_MS,
+  );
+}
+
 export function getComputedCellValue(
   column: WorkColumn,
   row: WorkRow,
   columns: WorkColumn[],
   referenceDate: Date = new Date(),
 ): { remainingDays: number | null; urgency: string } {
-  const deadlineColumn = findFirstDeadlineColumn(columns);
-  const deadlineValue = deadlineColumn
-    ? (row.cells[deadlineColumn.id] as string | null | undefined)
-    : null;
-  const remainingDays = computeRemainingDays(deadlineValue, referenceDate);
+  const remainingDays = getComputedRemainingForColumn(
+    column,
+    row,
+    columns,
+    referenceDate,
+  );
   const urgency = computeUrgencyLabel(remainingDays);
   return { remainingDays, urgency };
 }
