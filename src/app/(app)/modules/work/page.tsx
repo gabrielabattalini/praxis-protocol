@@ -1052,7 +1052,7 @@ export default function WorkModulePage() {
           <p className="praxis-label text-[var(--accent)]">Urgência</p>
           <p className="praxis-title mt-3 text-4xl">{summary.urgent}</p>
           <p className="mt-2 text-sm text-zinc-400">
-            Vencidos, hoje ou urgentes (com base no Prazo fatal).
+            Vencidos, hoje ou urgentes.
           </p>
         </GlassPanel>
         <GlassPanel>
