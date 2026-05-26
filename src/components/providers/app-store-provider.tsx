@@ -50,6 +50,7 @@ import type {
   FoodSubstitutionGroup,
   HouseholdSupplyItem,
   MealCategory,
+  NutritionDailyExtra,
   NutritionDayType,
   NutritionMacros,
   ReminderEntityType,
@@ -283,6 +284,18 @@ type AppStoreValue = {
      *  and merge any missing foods from the seed into the food database.
      *  Use when the user wiped their plan and wants the default back. */
     restoreDefaultMealPlan: () => void;
+    /** Registra um item consumido fora do plano (ex: comi um pão de queijo a
+     *  mais hoje). Soma nos totais do dia e fica salvo no histórico. */
+    addNutritionDailyExtra: (payload: {
+      date?: string;
+      label: string;
+      quantityLabel: string;
+      macros: NutritionMacros;
+      kind: FoodKind;
+      foodId?: string;
+      notes?: string;
+    }) => void;
+    removeNutritionDailyExtra: (extraId: string) => void;
     saveCurrentWorkoutProgram: (payload: {
       programId?: string;
       name: string;
@@ -724,6 +737,19 @@ type Action =
   | { type: "remove-diet-plan"; planId: string }
   | { type: "activate-diet-plan"; planId: string }
   | { type: "restore-default-meal-plan" }
+  | {
+      type: "add-nutrition-daily-extra";
+      payload: {
+        date: string;
+        label: string;
+        quantityLabel: string;
+        macros: NutritionMacros;
+        kind: FoodKind;
+        foodId?: string;
+        notes?: string;
+      };
+    }
+  | { type: "remove-nutrition-daily-extra"; extraId: string }
   | {
       type: "save-current-workout-program";
       payload: {
@@ -1962,6 +1988,31 @@ function reducer(state: PersistedState, action: Action): PersistedState {
           missingFoods.length > 0
             ? [...missingFoods, ...state.foodDatabase]
             : state.foodDatabase,
+      };
+    }
+    case "add-nutrition-daily-extra": {
+      const extra: NutritionDailyExtra = {
+        id: makeId("extra"),
+        date: action.payload.date,
+        label: action.payload.label,
+        quantityLabel: action.payload.quantityLabel,
+        macros: action.payload.macros,
+        kind: action.payload.kind,
+        foodId: action.payload.foodId,
+        notes: action.payload.notes,
+        addedAt: new Date().toISOString(),
+      };
+      return {
+        ...state,
+        nutritionDailyExtras: [extra, ...(state.nutritionDailyExtras ?? [])],
+      };
+    }
+    case "remove-nutrition-daily-extra": {
+      return {
+        ...state,
+        nutritionDailyExtras: (state.nutritionDailyExtras ?? []).filter(
+          (extra) => extra.id !== action.extraId,
+        ),
       };
     }
     case "save-current-workout-program": {
@@ -4449,6 +4500,7 @@ const emptyPersistedState: PersistedState = {
   workoutLoadEntries: [],
   workoutDayCompletions: [],
   mealPlan: [],
+  nutritionDailyExtras: [],
   foodDatabase: [],
   dailyNutritionTargets: {
     ...initialPersistedState.dailyNutritionTargets,
@@ -4736,6 +4788,9 @@ function parseStateValue(
       workoutLoadEntries,
       workoutDayCompletions,
       mealPlan,
+      nutritionDailyExtras:
+        parsedState.nutritionDailyExtras ??
+        emptyPersistedState.nutritionDailyExtras,
       foodDatabase: (parsedState.foodDatabase ?? emptyPersistedState.foodDatabase).map(
         (food) => ({
           ...food,
@@ -5449,6 +5504,24 @@ export function AppStoreProvider({
       },
       restoreDefaultMealPlan() {
         dispatch({ type: "restore-default-meal-plan" });
+      },
+      addNutritionDailyExtra(payload) {
+        const today = new Date().toISOString().slice(0, 10);
+        dispatch({
+          type: "add-nutrition-daily-extra",
+          payload: {
+            date: payload.date ?? today,
+            label: payload.label,
+            quantityLabel: payload.quantityLabel,
+            macros: payload.macros,
+            kind: payload.kind,
+            foodId: payload.foodId,
+            notes: payload.notes,
+          },
+        });
+      },
+      removeNutritionDailyExtra(extraId) {
+        dispatch({ type: "remove-nutrition-daily-extra", extraId });
       },
       saveCurrentWorkoutProgram(payload) {
         dispatch({ type: "save-current-workout-program", payload });

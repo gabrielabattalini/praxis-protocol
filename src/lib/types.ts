@@ -435,6 +435,24 @@ export interface MealPlanBlock {
   notes?: string;
 }
 
+/* Itens consumidos fora do plano regular ("comi um pão de queijo a mais hoje").
+   Não entram no cardápio-padrão, mas contam no consumo do dia e ficam
+   registrados no histórico. */
+export interface NutritionDailyExtra {
+  id: string;
+  /** YYYY-MM-DD */
+  date: string;
+  label: string;
+  quantityLabel: string;
+  macros: NutritionMacros;
+  kind: FoodKind;
+  /** ISO timestamp do momento em que foi adicionado. */
+  addedAt: string;
+  /** Vínculo opcional com um FoodDatabaseItem existente. */
+  foodId?: string;
+  notes?: string;
+}
+
 export interface NutritionWeightGoal {
   targetWeightKg: number;
   weeklyChangeKg: number;
@@ -724,6 +742,10 @@ export interface PersistedState {
   workoutLoadEntries: WorkoutLoadEntry[];
   workoutDayCompletions: WorkoutDayCompletion[];
   mealPlan: MealPlanBlock[];
+  /** Lista plana de extras esporádicos do dia a dia. Cada entry guarda
+   *  date (YYYY-MM-DD) e os macros — usada para somar consumo do dia e
+   *  para gerar o histórico de consumo ao longo do tempo. */
+  nutritionDailyExtras: NutritionDailyExtra[];
   foodDatabase: FoodDatabaseItem[];
   dailyNutritionTargets: DailyNutritionTargets;
   weightEntries: NutritionWeightEntry[];

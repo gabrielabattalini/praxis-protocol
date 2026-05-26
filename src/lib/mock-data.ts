@@ -2552,6 +2552,7 @@ export const initialPersistedState: PersistedState = {
   ],
   workoutDayCompletions: [],
   mealPlan: mealPlanSeed,
+  nutritionDailyExtras: [],
   foodDatabase: foodDatabaseSeed,
   dailyNutritionTargets: dailyNutritionTargetsSeed,
   weightEntries: nutritionWeightEntriesSeed,
