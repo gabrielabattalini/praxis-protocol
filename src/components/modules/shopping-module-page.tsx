@@ -638,24 +638,29 @@ export function ShoppingModulePage({
   }
 
   function startEditing(item: ShoppingTrackedItem) {
-    setEditingItemId(item.id);
+    // Re-read the item from the live store. Without this, the form
+    // could populate from a captured stale closure (the row card binds
+    // `item` from its map render) and the user would see the OLD price
+    // when reopening Editar after a recent change. fresh > param.
+    const fresh = storedState.items.find((entry) => entry.id === item.id) ?? item;
+    setEditingItemId(fresh.id);
     setIsAddingNew(false);
-    setExpandedItemId(item.id);
+    setExpandedItemId(fresh.id);
     setDraft({
-      name: item.name,
-      brand: item.brand,
-      quantity: item.quantity,
-      dailyDose: item.dailyDose.toString(),
+      name: fresh.name,
+      brand: fresh.brand,
+      quantity: fresh.quantity,
+      dailyDose: fresh.dailyDose.toString(),
       dailyDoseAmount:
-        item.dailyDoseAmount !== undefined ? String(item.dailyDoseAmount) : "",
-      dailyDoseUnit: item.dailyDoseUnit ?? "mg",
-      mealBlockIds: item.mealBlockIds ?? [],
-      scheduleLabel: item.scheduleLabel ?? "",
-      categoryLabel: item.categoryLabel ?? "",
-      referenceUrl: item.referenceUrl ?? "",
-      purchaseMode: item.purchaseMode,
-      localStoreName: item.localStoreName ?? "",
-      manualUnitPrice: item.manualUnitPrice !== undefined ? item.manualUnitPrice.toString() : "",
+        fresh.dailyDoseAmount !== undefined ? String(fresh.dailyDoseAmount) : "",
+      dailyDoseUnit: fresh.dailyDoseUnit ?? "mg",
+      mealBlockIds: fresh.mealBlockIds ?? [],
+      scheduleLabel: fresh.scheduleLabel ?? "",
+      categoryLabel: fresh.categoryLabel ?? "",
+      referenceUrl: fresh.referenceUrl ?? "",
+      purchaseMode: fresh.purchaseMode,
+      localStoreName: fresh.localStoreName ?? "",
+      manualUnitPrice: fresh.manualUnitPrice !== undefined ? fresh.manualUnitPrice.toString() : "",
     });
     setSearchError("");
     setFeedback("");
@@ -825,7 +830,10 @@ export function ShoppingModulePage({
           {scope === "supplements" ? (
             <label className="block space-y-1">
               <span className="praxis-label text-[var(--accent)]">Dose alvo (substância)</span>
-              <div className="flex gap-2">
+              {/* Grid pra evitar o bug do flex-1 colidir com w-full do
+                  fieldClassName e deixar o input minúsculo. 1fr pro
+                  input + largura fixa pro select. */}
+              <div className="grid grid-cols-[1fr_5.5rem] gap-2">
                 <input
                   value={draft.dailyDoseAmount}
                   onChange={(event) =>
@@ -838,7 +846,7 @@ export function ShoppingModulePage({
                   min="0"
                   step="0.01"
                   placeholder="Ex.: 1000"
-                  className={`${fieldClassName} flex-1`}
+                  className={fieldClassName}
                 />
                 <select
                   value={draft.dailyDoseUnit}
@@ -848,13 +856,13 @@ export function ShoppingModulePage({
                       dailyDoseUnit: event.target.value,
                     }))
                   }
-                  className={`${fieldClassName} w-24`}
+                  className={fieldClassName}
                 >
                   <option value="mg">mg</option>
                   <option value="g">g</option>
                   <option value="mcg">mcg</option>
                   <option value="ml">ml</option>
-                  <option value="serving">por porção</option>
+                  <option value="serving">porção</option>
                 </select>
               </div>
               <p className="text-[11px] leading-4 text-zinc-500">
