@@ -876,14 +876,14 @@ export function ShoppingModulePage({
             <span className="inline-block h-1 w-1 rounded-full bg-[var(--accent)]" />
             Item
           </div>
-          {/* Rebalanceamento (segundo passe): a Qtd virou número +
-              unidade (2 sub-células), e estava espremida em 0.5fr —
-              user reportou que não conseguia digitar. Subiu pra
-              0.85fr. Em troca, "Tomadas × dose" desceu de 3fr pra
-              1.7fr (estava bloating o input "200"). O dose number
-              também ganhou cap interno pra não inflar de volta. Link
-              continua compacto. */}
-          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.85fr)_minmax(0,0.75fr)_minmax(0,0.65fr)_minmax(0,1.7fr)_minmax(0,0.75fr)]">
+          {/* Rebalanceamento (terceiro passe): user pediu pra
+              uniformizar mais ainda. Antes a razão maior/menor era
+              1.7/0.65 = 2.6×. Agora simples (Marca/Qtd/Categoria/Link/
+              Preço) todos em 1fr, Nome 1.2fr (nome do produto é o que
+              mais varia), Tomadas × dose fica em 1.8fr (necessário por
+              ter 5 sub-células). Razão maior/menor = 1.8×, bem mais
+              equilibrado visualmente. */}
+          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.8fr)_minmax(0,1fr)]">
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">Nome</span>
               <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder={examples[0] ?? "Ex.: detergente"} className={fieldClassName} />
@@ -1432,17 +1432,15 @@ export function ShoppingModulePage({
               </div>
             </div>
 
-            {/* Inline draft form — single-flow editing. Shows when the
-                user clicked "+ Adicionar item" (new mode) or "Editar"
-                on a row (edit mode). Right-side "Cadastro rápido"
-                panel was removed to consolidate everything here. */}
-            {isAddingNew || editingItemId !== null ? (
+            {/* Form do topo: agora SÓ pra "Adicionar novo item". A
+                edição inline ficou logo abaixo do item clicado em
+                Editar (ver no map abaixo), pra dar a sensação de fluxo
+                contínuo em vez de levar o usuário pro topo da página. */}
+            {isAddingNew ? (
               <div className="rounded-sm border border-[var(--accent)]/30 bg-[rgba(251,146,60,0.04)] p-4">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <p className="praxis-label text-[var(--accent)]">
-                    {editingItemId
-                      ? "Editando item"
-                      : `Novo ${scope === "supplements" ? "suplemento" : "item"}`}
+                    Novo {scope === "supplements" ? "suplemento" : "item"}
                   </p>
                   <button
                     type="button"
@@ -1731,6 +1729,30 @@ export function ShoppingModulePage({
                               </div>
                             </div>
                           </div>
+                        </div>
+                      ) : null}
+                      {/* Edição inline — quando o user clica "Editar"
+                          neste item, o form aparece logo abaixo do
+                          card (não sobe pro topo da página). Mantém
+                          o contexto visual de qual item está sendo
+                          editado. Usa o mesmo renderDraftForm() do
+                          fluxo de novo cadastro. */}
+                      {editingItemId === item.id ? (
+                        <div className="border-t border-[var(--accent)]/30 bg-[rgba(251,146,60,0.04)] px-4 py-4">
+                          <div className="mb-3 flex items-center justify-between gap-2">
+                            <p className="praxis-label text-[var(--accent)]">
+                              Editando · {item.name}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={resetDraft}
+                              className="inline-flex items-center gap-1 text-xs uppercase tracking-widest text-zinc-500 transition hover:text-red-300"
+                            >
+                              <X className="h-3 w-3" />
+                              Fechar
+                            </button>
+                          </div>
+                          {renderDraftForm()}
                         </div>
                       ) : null}
                       </div>
