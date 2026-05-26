@@ -801,85 +801,114 @@ export function ShoppingModulePage({
           </div>
         </section>
 
-        {/* SECTION 2 — Dose & rotina */}
+        {/* SECTION 2 — Dose & preço
+            User asked to put dose diária + dose alvo + preço on the
+            same row. Supplements get all three columns; market skips
+            dose alvo (substance-anchored daily dose only makes sense
+            for capsule-style suplementos). The price input is up here
+            now — used to live in the Compra section, but it's the
+            primary editable value and reads more naturally beside
+            the dose inputs. The Compra section below keeps only the
+            payment-mode toggle + local presencial for market. */}
         <section className="space-y-2">
           <div className="praxis-label flex items-center gap-2 border-b border-white/5 pb-1 text-[10px] text-zinc-400">
             <span className="inline-block h-1 w-1 rounded-full bg-[var(--accent)]" />
-            Dose &amp; rotina
+            {scope === "supplements" ? "Dose & preço" : "Dose & preço"}
           </div>
-          {/* "Hora de usar" (scheduleLabel) removido a pedido do usuário —
-              não era usado em nenhum cálculo, só nota visual. */}
-          <label className="block space-y-1">
-            <span className="praxis-label text-[var(--accent)]">{dailyLabel}</span>
-            <input
-              value={draft.dailyDose}
-              onChange={(event) =>
-                setDraft((current) => ({ ...current, dailyDose: event.target.value }))
-              }
-              type="number"
-              min="0.01"
-              step="0.01"
-              placeholder={
-                scope === "supplements"
-                  ? "Ex.: 2 (cáps/dia)"
-                  : "Use a mesma unidade da quantidade. Ex.: 30"
-              }
-              className={fieldClassName}
-            />
-            <p className="text-[11px] leading-4 text-zinc-500">{dailyHint}</p>
-          </label>
-          {scope === "supplements" ? (
-            <label className="block space-y-1">
-              <span className="praxis-label text-[var(--accent)]">Dose alvo (substância)</span>
-              {/* Grid pra evitar o bug do flex-1 colidir com w-full do
-                  fieldClassName e deixar o input minúsculo. 1fr pro
-                  input + largura fixa pro select. */}
-              <div className="grid grid-cols-[1fr_5.5rem] gap-2">
-                <input
-                  value={draft.dailyDoseAmount}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      dailyDoseAmount: event.target.value,
-                    }))
-                  }
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="Ex.: 1000"
-                  className={fieldClassName}
-                />
-                <select
-                  value={draft.dailyDoseUnit}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      dailyDoseUnit: event.target.value,
-                    }))
-                  }
-                  className={fieldClassName}
-                >
-                  <option value="mg">mg</option>
-                  <option value="g">g</option>
-                  <option value="mcg">mcg</option>
-                  <option value="ml">ml</option>
-                  <option value="serving">porção</option>
-                </select>
-              </div>
-              <p className="text-[11px] leading-4 text-zinc-500">
-                Ex.: <span className="text-zinc-300">1000&nbsp;mg de Vitamina&nbsp;C</span> por dia → custo real por dia.
-              </p>
+          <div
+            className={cn(
+              "grid gap-2",
+              scope === "supplements"
+                ? "sm:grid-cols-2 lg:grid-cols-[1fr_minmax(0,1.4fr)_1fr]"
+                : "sm:grid-cols-2",
+            )}
+          >
+            <label className="block space-y-1 min-w-0">
+              <span className="praxis-label text-[var(--accent)]">{dailyLabel}</span>
+              <input
+                value={draft.dailyDose}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, dailyDose: event.target.value }))
+                }
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder={scope === "supplements" ? "Ex.: 2" : "Ex.: 30"}
+                className={fieldClassName}
+              />
             </label>
-          ) : null}
+            {scope === "supplements" ? (
+              <label className="block space-y-1 min-w-0">
+                <span className="praxis-label text-[var(--accent)]">Dose alvo (subst.)</span>
+                <div className="grid grid-cols-[1fr_4.5rem] gap-1">
+                  <input
+                    value={draft.dailyDoseAmount}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        dailyDoseAmount: event.target.value,
+                      }))
+                    }
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Ex.: 1000"
+                    className={fieldClassName}
+                  />
+                  <select
+                    value={draft.dailyDoseUnit}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        dailyDoseUnit: event.target.value,
+                      }))
+                    }
+                    className={fieldClassName}
+                  >
+                    <option value="mg">mg</option>
+                    <option value="g">g</option>
+                    <option value="mcg">mcg</option>
+                    <option value="ml">ml</option>
+                    <option value="serving">porção</option>
+                  </select>
+                </div>
+              </label>
+            ) : null}
+            <label className="block space-y-1 min-w-0">
+              <span className="praxis-label text-[var(--accent)]">
+                {scope === "market" && draft.purchaseMode === "presential"
+                  ? "Preço encontrado"
+                  : "Preço unitário"}
+              </span>
+              <input
+                value={draft.manualUnitPrice}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    manualUnitPrice: event.target.value,
+                  }))
+                }
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Ex.: 39.90"
+                className={fieldClassName}
+              />
+            </label>
+          </div>
         </section>
 
-        {/* SECTION 3 — Compra */}
-        <section className="space-y-2">
-          <div className="praxis-label flex items-center gap-2 border-b border-white/5 pb-1 text-[10px] text-zinc-400">
-            <span className="inline-block h-1 w-1 rounded-full bg-[var(--accent)]" />
-            Compra
-          </div>
-          {scope === "market" ? (
+        {/* SECTION 3 — Compra (market only)
+            Just the online/presencial toggle + local presencial
+            input. Price moved up to "Dose & preço". Whole section
+            hidden for supplements (they're always online and don't
+            need a local store field). */}
+        {scope === "market" ? (
+          <section className="space-y-2">
+            <div className="praxis-label flex items-center gap-2 border-b border-white/5 pb-1 text-[10px] text-zinc-400">
+              <span className="inline-block h-1 w-1 rounded-full bg-[var(--accent)]" />
+              Compra
+            </div>
             <div className="grid gap-2 sm:grid-cols-2">
               <button
                 type="button"
@@ -906,11 +935,7 @@ export function ShoppingModulePage({
                 Presencial
               </button>
             </div>
-          ) : null}
-
-          {/* Price input — always rendered. Label adapts to context. */}
-          <div className="grid gap-2 md:grid-cols-2">
-            {scope === "market" && draft.purchaseMode === "presential" ? (
+            {draft.purchaseMode === "presential" ? (
               <label className="block space-y-1">
                 <span className="praxis-label text-[var(--accent)]">Local presencial</span>
                 <input
@@ -926,29 +951,8 @@ export function ShoppingModulePage({
                 />
               </label>
             ) : null}
-            <label className="block space-y-1">
-              <span className="praxis-label text-[var(--accent)]">
-                {scope === "market" && draft.purchaseMode === "presential"
-                  ? "Preço encontrado"
-                  : "Preço unitário"}
-              </span>
-              <input
-                value={draft.manualUnitPrice}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    manualUnitPrice: event.target.value,
-                  }))
-                }
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="Ex.: 39.90"
-                className={fieldClassName}
-              />
-            </label>
-          </div>
-        </section>
+          </section>
+        ) : null}
 
         {/* SECTION 4 — Ofertas online (edit mode only, online items)
             Buscar button + sources status + result picker. Was on the
