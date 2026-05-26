@@ -271,10 +271,11 @@ export default function RunModulePage() {
     seconds: "",
   });
   const [feedback, setFeedback] = useState("");
-  // Toggle for the "Recomendação semanal de cardio" panel — collapsed
-  // shows only the header so the user can hide the KPI grid + base
-  // usada + contexto when they don't need it.
-  const [recommendationExpanded, setRecommendationExpanded] = useState(true);
+  // Toggle for the "Recomendação semanal de cardio" panel — começa
+  // COLAPSADO por padrão a pedido do usuário (só o header visível com
+  // o botão "Expandir"). Quando aberto mostra KPI grid + base usada +
+  // contexto + botão "Aplicar sugestão na semana".
+  const [recommendationExpanded, setRecommendationExpanded] = useState(false);
 
   const defaultTypeRef = useRef(defaultCardioType);
   defaultTypeRef.current = defaultCardioType;
