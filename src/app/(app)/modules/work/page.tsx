@@ -1352,7 +1352,7 @@ export default function WorkModulePage() {
                 );
               })}
               {Array.from({
-                length: Math.max(0, 5 - sheet.rows.length),
+                length: Math.max(0, 3 - sheet.rows.length),
               }).map((_, phantomIndex) => (
                 <tr
                   key={`phantom-${phantomIndex}`}
