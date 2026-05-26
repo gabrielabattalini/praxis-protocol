@@ -50,9 +50,11 @@ type ShoppingItemDraft = {
   /** Substance-anchored daily total. saveItem also derives this. */
   dailyDoseAmount: string;
   dailyDoseUnit: string;
-  /** New "Opção 2" decomposition — tomadas/dia × dose por tomada. */
+  /** New "Opção 2" decomposition — tomadas × dose por tomada,
+   *  com frequência configurável pra cobrir itens não-diários. */
   servingsPerDay: string;
   servingAmount: string;
+  servingFrequency: "daily" | "weekly" | "monthly";
   mealBlockIds: string[];
   scheduleLabel: string;
   categoryLabel: string;
@@ -125,6 +127,7 @@ function defaultDraft(): ShoppingItemDraft {
     // 1 tomada/dia por padrão — o caso simples (Voextor, vitamina D etc.).
     servingsPerDay: "1",
     servingAmount: "",
+    servingFrequency: "daily",
     mealBlockIds: [],
     scheduleLabel: "",
     categoryLabel: "",
@@ -675,6 +678,7 @@ export function ShoppingModulePage({
         inferredServingAmount && inferredServingAmount > 0
           ? String(inferredServingAmount)
           : "",
+      servingFrequency: fresh.servingFrequency ?? "daily",
       mealBlockIds: fresh.mealBlockIds ?? [],
       scheduleLabel: fresh.scheduleLabel ?? "",
       categoryLabel: fresh.categoryLabel ?? "",
@@ -690,15 +694,22 @@ export function ShoppingModulePage({
   function saveItem(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = draft.name.trim();
-    // Opção 2: dose diária TOTAL é derivada de tomadas × dose-por-tomada.
-    // Compatibilidade: se servingAmount estiver vazio (item antigo
-    // que só preenche dailyDose direto), cai no campo legacy.
+    // Opção 2: tomadas × dose × frequência → dose diária total.
+    // Itens não-diários (alergia esporádica, IPVA, etc.) usam
+    // servingFrequency "weekly" ou "monthly". A divisão pra "por dia"
+    // mantém o restante do engine (custo mensal, busca, etc.)
+    // funcionando sem ramificações.
     const servingsPerDay = Math.max(1, Math.round(Number(draft.servingsPerDay) || 1));
     const servingAmount = Math.max(0, Number(draft.servingAmount) || 0);
     const fallbackDailyDose = Math.max(0, Number(draft.dailyDose) || 0);
+    const frequencyToDailyMultiplier: Record<typeof draft.servingFrequency, number> = {
+      daily: 1,
+      weekly: 1 / 7,
+      monthly: 1 / 30,
+    };
     const dailyDose =
       servingAmount > 0
-        ? servingsPerDay * servingAmount
+        ? servingsPerDay * servingAmount * frequencyToDailyMultiplier[draft.servingFrequency]
         : fallbackDailyDose;
     const purchaseMode = scope === "market" ? draft.purchaseMode : "online";
     const manualUnitPrice = Math.max(0, Number(draft.manualUnitPrice) || 0);
@@ -730,6 +741,7 @@ export function ShoppingModulePage({
       // Novos campos da Opção 2 — fonte da verdade pra edição.
       servingsPerDay: servingsPerDay,
       servingAmount: servingAmount > 0 ? servingAmount : undefined,
+      servingFrequency: draft.servingFrequency,
       monthlyUnits: getMonthlyUnitsFromDose(draft.quantity.trim(), dailyDose, currentEditingItem?.monthlyUnits ?? 1),
       includeInFinance: currentEditingItem?.includeInFinance ?? true,
       purchaseMode,
@@ -816,7 +828,7 @@ export function ShoppingModulePage({
             <span className="inline-block h-1 w-1 rounded-full bg-[var(--accent)]" />
             Item
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.6fr)_minmax(0,0.9fr)_minmax(0,1.3fr)_minmax(0,1.7fr)_minmax(0,0.8fr)]">
+          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.7fr)_minmax(0,0.6fr)_minmax(0,0.85fr)_minmax(0,1.2fr)_minmax(0,2.2fr)_minmax(0,0.75fr)]">
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">Nome</span>
               <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder={examples[0] ?? "Ex.: detergente"} className={fieldClassName} />
@@ -838,12 +850,15 @@ export function ShoppingModulePage({
               <input value={draft.referenceUrl} onChange={(event) => setDraft((current) => ({ ...current, referenceUrl: event.target.value }))} placeholder="https://..." className={fieldClassName} />
             </label>
             <label className="block space-y-1 min-w-0">
-              <span className="praxis-label text-[var(--accent)]">Tomadas × dose</span>
-              {/* Opção 2: tomadas/dia × dose-por-tomada. Total
-                  diário aparece embaixo. Whey: 2 × 40 g = 80 g/dia.
-                  Vit. C: 3 × 500 mg = 1500 mg/dia. Caso simples
-                  (1 dose/dia) — usuário só preenche dose-por-tomada. */}
-              <div className="grid grid-cols-[2.8rem_auto_1fr_3.6rem] gap-1 items-center">
+              <span className="praxis-label text-[var(--accent)]">
+                Tomadas × dose
+              </span>
+              {/* Opção 2 + frequência. Layout (5 sub-células):
+                  [tomadas] / [freq] × [dose] [unit]
+                  Frequência cobre itens não-diários (IPVA mensal,
+                  alergia 2×/semana, etc.). saveItem normaliza tudo
+                  pra dailyDose interno (× 1, ÷ 7 ou ÷ 30). */}
+              <div className="grid grid-cols-[2.4rem_3.6rem_auto_1fr_3.4rem] items-center gap-1">
                 <input
                   value={draft.servingsPerDay}
                   onChange={(event) =>
@@ -857,8 +872,23 @@ export function ShoppingModulePage({
                   step="1"
                   placeholder="1"
                   className={fieldClassName}
-                  aria-label="Tomadas por dia"
+                  aria-label="Número de tomadas"
                 />
+                <select
+                  value={draft.servingFrequency}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      servingFrequency: event.target.value as typeof current.servingFrequency,
+                    }))
+                  }
+                  className={fieldClassName}
+                  aria-label="Frequência"
+                >
+                  <option value="daily">/dia</option>
+                  <option value="weekly">/sem</option>
+                  <option value="monthly">/mês</option>
+                </select>
                 <span className="px-0.5 text-center text-xs text-zinc-500">×</span>
                 <input
                   value={draft.servingAmount}
@@ -897,14 +927,37 @@ export function ShoppingModulePage({
                 const sv = Math.max(1, Math.round(Number(draft.servingsPerDay) || 1));
                 const am = Number(draft.servingAmount) || 0;
                 if (am <= 0) return null;
-                const total = sv * am;
-                const unitLabel =
-                  draft.dailyDoseUnit === "serving"
-                    ? `${total === 1 ? "porção" : "porções"}`
-                    : `${draft.dailyDoseUnit}/dia`;
+                const perPeriod = sv * am;
+                const periodLabel: Record<typeof draft.servingFrequency, string> = {
+                  daily: "dia",
+                  weekly: "sem",
+                  monthly: "mês",
+                };
+                const period = periodLabel[draft.servingFrequency];
+                const unit =
+                  draft.dailyDoseUnit === "serving" ? "" : ` ${draft.dailyDoseUnit}`;
+                // Mostra também o equivalente mensal pra dar uma noção
+                // do consumo total (que é o que vira custo mensal).
+                const monthlyMultiplier =
+                  draft.servingFrequency === "daily"
+                    ? 30
+                    : draft.servingFrequency === "weekly"
+                      ? 4.345
+                      : 1;
+                const monthly = perPeriod * monthlyMultiplier;
                 return (
                   <p className="text-[10px] leading-4 text-zinc-500">
-                    total: <span className="text-zinc-300">{total}</span> {unitLabel}
+                    <span className="text-zinc-300">{perPeriod}</span>
+                    {unit}/{period}
+                    {draft.servingFrequency !== "monthly" ? (
+                      <>
+                        {" "}· ≈{" "}
+                        <span className="text-zinc-300">
+                          {Math.round(monthly * 10) / 10}
+                        </span>
+                        {unit}/mês
+                      </>
+                    ) : null}
                   </p>
                 );
               })()}

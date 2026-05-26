@@ -27,20 +27,28 @@ export interface ShoppingTrackedItem {
   dailyDoseUnit?: DoseUnit;
   monthlyUnits: number;
   includeInFinance: boolean;
-  /** Decomposed daily dose ("Opção 2"): the user inputs
-   *  how many times/day they take this AND how much per intake;
-   *  dailyDose / dailyDoseAmount on the item are derived from the
-   *  product so the existing cost-per-day math keeps working.
+  /** Decomposed dose model: tomadas × (dose por tomada) × frequência.
+   *
+   *  servingsPerDay = how many intakes per `servingFrequency` period.
+   *  Despite the historical name "PerDay", it's interpreted against
+   *  the frequency field below. Kept the legacy name for stable
+   *  serialization with existing items.
+   *
+   *  servingFrequency = "daily" (default) | "weekly" | "monthly".
+   *  Lets items used <1×/day be tracked naturally (IPVA mensal,
+   *  alergia esporádica, suplemento semanal etc.).
    *
    *  Examples:
-   *    Whey 80g/dia em 2 doses  → servingsPerDay 2, servingAmount 40, dailyDoseUnit "g"
-   *    Vit. C 1500mg em 3 caps  → servingsPerDay 3, servingAmount 500, dailyDoseUnit "mg"
-   *    Voextor 10mg 1 cap       → servingsPerDay 1, servingAmount 10, dailyDoseUnit "mg"
+   *    Whey 80g/dia em 2 doses     → 2  "daily"   × 40   g  → 80 g/dia
+   *    Vit. C 1500mg/dia em 3 caps → 3  "daily"   × 500  mg → 1500 mg/dia
+   *    IPVA anual em 1 dose        → 1  "monthly" × 200  R$ → uso 1×/mês
+   *    Alergia 2× por semana       → 2  "weekly"  × 1    cap → 2/sem
    *
-   *  Both optional for backwards-compat with items that only have
-   *  dailyDose / dailyDoseAmount filled in. */
+   *  dailyDose / dailyDoseAmount on the item are still derived (=
+   *  monthly total / 30) so the cost-per-day engine doesn't change. */
   servingsPerDay?: number;
   servingAmount?: number;
+  servingFrequency?: "daily" | "weekly" | "monthly";
   purchaseMode: ShoppingPurchaseMode;
   localStoreName?: string;
   manualUnitPrice?: number;

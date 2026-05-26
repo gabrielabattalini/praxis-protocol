@@ -3410,6 +3410,11 @@ function normalizeShoppingTrackedItem(
       if (!Number.isFinite(raw) || raw <= 0) return undefined;
       return raw;
     })(),
+    servingFrequency: (() => {
+      const raw = item?.servingFrequency;
+      if (raw === "weekly" || raw === "monthly" || raw === "daily") return raw;
+      return undefined;
+    })(),
     monthlyUnits: Math.max(0.01, Number(item?.monthlyUnits) || 1),
     includeInFinance: item?.includeInFinance ?? true,
     purchaseMode,
