@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Clock3,
-  GripVertical,
   MoreHorizontal,
   Plus,
   Settings2,
@@ -46,6 +45,17 @@ const CELL_TYPE_ORDER: WorkCellType[] = [
   "computed-remaining",
   "computed-urgency",
 ];
+
+function getColumnLetter(index: number): string {
+  let letter = "";
+  let n = index + 1;
+  while (n > 0) {
+    const remainder = (n - 1) % 26;
+    letter = String.fromCharCode(65 + remainder) + letter;
+    n = Math.floor((n - 1) / 26);
+  }
+  return letter;
+}
 
 function cloneSheet(sheet: WorkSheet): WorkSheet {
   return {
@@ -821,13 +831,18 @@ export default function WorkModulePage() {
           <table className="min-w-full table-fixed border-collapse">
             <thead>
               <tr className="border-b border-zinc-800 bg-zinc-950/90 text-left">
-                <th className="w-10 px-2 py-2"></th>
+                <th className="w-12 border-r border-zinc-800 px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                  #
+                </th>
                 {sheet.columns.map((column, index) => (
                   <th
                     key={column.id}
                     className="relative px-2 py-2 align-bottom"
                     style={{ minWidth: column.width ?? 160 }}
                   >
+                    <div className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                      {getColumnLetter(index)}
+                    </div>
                     <div className="flex items-center gap-1.5">
                       <input
                         value={column.label}
@@ -878,7 +893,7 @@ export default function WorkModulePage() {
               </tr>
             </thead>
             <tbody>
-              {sheet.rows.map((row) => {
+              {sheet.rows.map((row, rowIndex) => {
                 const computed = deadlineColumn
                   ? (() => {
                       const deadlineValue = row.cells[deadlineColumn.id] as
@@ -901,8 +916,8 @@ export default function WorkModulePage() {
                     key={row.id}
                     className="border-b border-zinc-900/80 align-top"
                   >
-                    <td className="px-2 py-2 text-center text-zinc-600">
-                      <GripVertical className="mx-auto h-3.5 w-3.5" />
+                    <td className="border-r border-zinc-800 bg-zinc-950/60 px-2 py-2 text-center text-xs font-semibold text-zinc-400">
+                      {rowIndex + 1}
                     </td>
                     {sheet.columns.map((column) => {
                       if (column.type === "computed-remaining") {
@@ -979,8 +994,8 @@ export default function WorkModulePage() {
                   className="border-b border-zinc-900/80 align-top"
                   aria-hidden="true"
                 >
-                  <td className="px-2 py-2 text-center text-zinc-700">
-                    <GripVertical className="mx-auto h-3.5 w-3.5 opacity-30" />
+                  <td className="border-r border-zinc-800 bg-zinc-950/40 px-2 py-2 text-center text-xs font-semibold text-zinc-600">
+                    {sheet.rows.length + phantomIndex + 1}
                   </td>
                   {sheet.columns.map((column) => (
                     <td key={column.id} className="px-3 py-2">
