@@ -605,8 +605,10 @@ function NutritionTargetsEditor({
   isCollapsed,
   onToggle,
   embedded = false,
+  activityMultiplier = 1,
 }: {
   targets: DailyNutritionTargets;
+  activityMultiplier?: number;
   onApply: (payload: {
     bodyWeightKg: number;
     bodyHeightCm: number;
@@ -687,9 +689,15 @@ function NutritionTargetsEditor({
     basalMetabolicRateSource === "manual"
       ? Number(manualBasalMetabolicRate) || targets.basalMetabolicRate
       : estimatedBasalMetabolicRate;
+  // Daily calorie target uses TDEE (BMR × activity multiplier) + adjustment,
+  // not raw BMR — otherwise sedentary calculation gets baked in and the
+  // displayed target is way below what the user actually needs.
+  const tdeeForTargets = Math.round(
+    displayedBasalMetabolicRate * activityMultiplier,
+  );
   const adjustedCaloriesTarget = Math.max(
     0,
-    Math.round(displayedBasalMetabolicRate + targets.goalAdjustmentKcal),
+    Math.round(tdeeForTargets + targets.goalAdjustmentKcal),
   );
   const resolvedFiberTarget =
     fiberStrategy === "per-kg"
@@ -987,8 +995,9 @@ function NutritionTargetsEditor({
             {adjustedCaloriesTarget} kcal
           </p>
           <p className="mt-2 text-xs text-zinc-500">
-            Basal {displayedBasalMetabolicRate.toFixed(0)} kcal com{" "}
-            {formatGoalAdjustment(targets.goalAdjustmentKcal).toLowerCase()}.
+            TDEE {tdeeForTargets} kcal (basal{" "}
+            {displayedBasalMetabolicRate.toFixed(0)} × {activityMultiplier.toFixed(3)})
+            {" "}com {formatGoalAdjustment(targets.goalAdjustmentKcal).toLowerCase()}.
           </p>
         </div>
         <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-4 py-4">
@@ -3882,6 +3891,7 @@ export default function NutritionModulePage() {
                 Ajuste de peso e referência diária
               </p>
               <NutritionTargetsEditor
+                activityMultiplier={activityMultiplier}
                 key={`nutrition-targets-${state.activeDietPlanId}-${dailyNutritionTargets.bodyWeightKg}-${dailyNutritionTargets.goalAdjustmentKcal}-${dailyNutritionTargets.perKg.waterMl}-${dailyNutritionTargets.perKg.protein}-${dailyNutritionTargets.perKg.carbs}-${dailyNutritionTargets.perKg.fat}-${dailyNutritionTargets.fiberStrategy}-${dailyNutritionTargets.fiberPerKg}-${dailyNutritionTargets.fiberRatioGrams}-${dailyNutritionTargets.fiberRatioCalories}-${dailyNutritionTargets.sodiumTargetMg}`}
                 targets={dailyNutritionTargets}
                 onApply={actions.updateNutritionTargets}
