@@ -876,14 +876,12 @@ export function ShoppingModulePage({
             <span className="inline-block h-1 w-1 rounded-full bg-[var(--accent)]" />
             Item
           </div>
-          {/* Rebalanceamento (terceiro passe): user pediu pra
-              uniformizar mais ainda. Antes a razão maior/menor era
-              1.7/0.65 = 2.6×. Agora simples (Marca/Qtd/Categoria/Link/
-              Preço) todos em 1fr, Nome 1.2fr (nome do produto é o que
-              mais varia), Tomadas × dose fica em 1.8fr (necessário por
-              ter 5 sub-células). Razão maior/menor = 1.8×, bem mais
-              equilibrado visualmente. */}
-          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.8fr)_minmax(0,1fr)]">
+          {/* Rebalanceamento (quarto passe): Categoria foi removida
+              ("isso não serve pra nada"), Preço subiu pra ocupar o
+              slot onde ela estava (entre Qtd e Link). Restam 6 colunas
+              em xl: Nome (1.2fr) / Marca / Qtd / Preço / Link / Tomadas
+              × dose (1.8fr). Razão = 1.8×. */}
+          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.8fr)]">
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">Nome</span>
               <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder={examples[0] ?? "Ex.: detergente"} className={fieldClassName} />
@@ -897,8 +895,10 @@ export function ShoppingModulePage({
               {/* Qtd. agora é composta: [número] + [unidade]. Mantém o
                   draft.quantity sincronizado como string "X unit" pra
                   não quebrar o engine de parsing/preço que lê esse
-                  campo cru (parseTrackedQuantity / getMonthlyUnits). */}
-              <div className="grid grid-cols-[minmax(0,1fr)_3.6rem] items-center gap-1">
+                  campo cru (parseTrackedQuantity / getMonthlyUnits).
+                  Unit column subiu de 3.6rem pra 5.5rem — o select
+                  estava cortando "kg/mg/ml" muito apertado. */}
+              <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-1">
                 <input
                   value={draft.quantityAmount}
                   onChange={(event) =>
@@ -939,9 +939,31 @@ export function ShoppingModulePage({
                 </select>
               </div>
             </label>
+            {/* Preço subiu pra cá ("no lugar da Categoria") — antes
+                ficava na última coluna. draft.categoryLabel continua
+                no state como string vazia (não tem mais input pra
+                editar) pra não quebrar saveItem. */}
             <label className="block space-y-1 min-w-0">
-              <span className="praxis-label text-[var(--accent)]">Categoria</span>
-              <input value={draft.categoryLabel} onChange={(event) => setDraft((current) => ({ ...current, categoryLabel: event.target.value }))} placeholder={scope === "supplements" ? "Ex.: massa" : "Ex.: higiene"} className={fieldClassName} />
+              <span className="praxis-label text-[var(--accent)]">Preço (R$)</span>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-medium text-zinc-400">
+                  R$
+                </span>
+                <input
+                  value={draft.manualUnitPrice}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      manualUnitPrice: event.target.value,
+                    }))
+                  }
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="39,90"
+                  className={`${fieldClassName} pl-8`}
+                />
+              </div>
             </label>
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">Link</span>
@@ -1066,32 +1088,8 @@ export function ShoppingModulePage({
                 );
               })()}
             </label>
-            <label className="block space-y-1 min-w-0">
-              <span className="praxis-label text-[var(--accent)]">
-                {scope === "market" && draft.purchaseMode === "presential"
-                  ? "Preço (R$)"
-                  : "Preço (R$)"}
-              </span>
-              <div className="relative">
-                <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-medium text-zinc-400">
-                  R$
-                </span>
-                <input
-                  value={draft.manualUnitPrice}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      manualUnitPrice: event.target.value,
-                    }))
-                  }
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="39,90"
-                  className={`${fieldClassName} pl-8`}
-                />
-              </div>
-            </label>
+            {/* Preço original (última coluna) removido — movido pro
+                slot que era da Categoria, ali em cima. */}
           </div>
         </section>
 
