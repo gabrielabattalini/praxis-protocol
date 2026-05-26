@@ -79,6 +79,64 @@ function toText(value: WorkCellValue): string {
   return String(value);
 }
 
+const DISPLAY_CELL =
+  "min-h-[34px] w-full cursor-text rounded-sm border border-transparent px-2 py-1.5 text-sm text-zinc-100 hover:border-zinc-700 hover:bg-zinc-900/50";
+
+function CellDisplay({
+  column,
+  value,
+  onActivate,
+}: {
+  column: WorkColumn;
+  value: WorkCellValue;
+  onActivate: () => void;
+}) {
+  if (column.type === "checkbox") {
+    // single-click toggle handled by parent; show a visual mark
+    return (
+      <div className="flex h-full min-h-[34px] items-center justify-center">
+        <span
+          className={`inline-flex h-4 w-4 items-center justify-center rounded-sm border ${
+            value
+              ? "border-[var(--accent)] bg-[var(--accent)]/20 text-[var(--accent)]"
+              : "border-zinc-700 bg-zinc-950"
+          }`}
+        >
+          {value ? "✓" : ""}
+        </span>
+      </div>
+    );
+  }
+
+  if (column.type === "date" || column.type === "deadline") {
+    const text = toText(value);
+    return (
+      <div
+        className={DISPLAY_CELL}
+        onDoubleClick={onActivate}
+        title="Duplo clique para editar"
+      >
+        {text ? (
+          formatDateBR(text)
+        ) : (
+          <span className="italic text-zinc-600">duplo clique…</span>
+        )}
+      </div>
+    );
+  }
+
+  const text = toText(value);
+  return (
+    <div
+      className={`${DISPLAY_CELL} ${column.type === "longtext" ? "whitespace-pre-wrap" : "truncate"}`}
+      onDoubleClick={onActivate}
+      title="Duplo clique para editar"
+    >
+      {text || <span className="italic text-zinc-600">duplo clique…</span>}
+    </div>
+  );
+}
+
 function CellEditor({
   column,
   value,
@@ -88,36 +146,79 @@ function CellEditor({
   value: WorkCellValue;
   onCommit: (next: WorkCellValue) => void;
 }) {
+  const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<WorkCellValue>(value);
+
   useEffect(() => setDraft(value), [value]);
 
-  function commit(next: WorkCellValue) {
+  // Checkbox is always interactive (single click toggles), no edit mode needed.
+  if (column.type === "checkbox") {
+    return (
+      <label className="flex h-full min-h-[34px] cursor-pointer items-center justify-center">
+        <input
+          type="checkbox"
+          checked={Boolean(draft)}
+          className="h-4 w-4 accent-[var(--accent)]"
+          onChange={(event) => {
+            setDraft(event.target.checked);
+            onCommit(event.target.checked);
+          }}
+        />
+      </label>
+    );
+  }
+
+  function exitAndCommit(next: WorkCellValue) {
+    setEditing(false);
     if (next !== value) onCommit(next);
   }
 
+  function cancel() {
+    setDraft(value);
+    setEditing(false);
+  }
+
+  if (!editing) {
+    return (
+      <CellDisplay
+        column={column}
+        value={value}
+        onActivate={() => setEditing(true)}
+      />
+    );
+  }
+
   if (column.type === "longtext") {
-    const text = toText(draft);
     return (
       <textarea
-        value={text}
-        rows={2}
-        className="praxis-field min-h-[60px] w-full resize-y px-2.5 py-2 text-sm leading-5"
+        autoFocus
+        value={toText(draft)}
+        rows={3}
+        className="praxis-field min-h-[80px] w-full resize-y px-2.5 py-2 text-sm leading-5"
         onChange={(event) => setDraft(event.target.value)}
-        onBlur={() => commit(toText(draft).trim())}
+        onBlur={() => exitAndCommit(toText(draft).trim())}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") cancel();
+          if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+            event.currentTarget.blur();
+          }
+        }}
       />
     );
   }
 
   if (column.type === "date" || column.type === "deadline") {
-    const text = toText(draft);
     return (
       <input
+        autoFocus
         type="date"
-        value={text}
+        value={toText(draft)}
         className={FIELD_COMPACT}
-        onChange={(event) => {
-          setDraft(event.target.value);
-          commit(event.target.value);
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => exitAndCommit(toText(draft))}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") cancel();
+          if (event.key === "Enter") event.currentTarget.blur();
         }}
       />
     );
@@ -130,6 +231,7 @@ function CellEditor({
         : String(draft);
     return (
       <input
+        autoFocus
         type="number"
         value={text}
         className={FIELD_COMPACT}
@@ -137,21 +239,27 @@ function CellEditor({
           const raw = event.target.value;
           setDraft(raw === "" ? null : Number(raw));
         }}
-        onBlur={() => commit(draft)}
+        onBlur={() => exitAndCommit(draft)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") cancel();
+          if (event.key === "Enter") event.currentTarget.blur();
+        }}
       />
     );
   }
 
   if (column.type === "select") {
     const options = column.options ?? [];
-    const text = toText(draft);
     return (
       <select
-        value={text}
+        autoFocus
+        value={toText(draft)}
         className={FIELD_COMPACT}
-        onChange={(event) => {
-          setDraft(event.target.value);
-          commit(event.target.value);
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => exitAndCommit(toText(draft))}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") cancel();
+          if (event.key === "Enter") event.currentTarget.blur();
         }}
       >
         <option value="">—</option>
@@ -164,31 +272,16 @@ function CellEditor({
     );
   }
 
-  if (column.type === "checkbox") {
-    return (
-      <label className="flex h-full items-center justify-center">
-        <input
-          type="checkbox"
-          checked={Boolean(draft)}
-          className="h-4 w-4 accent-[var(--accent)]"
-          onChange={(event) => {
-            setDraft(event.target.checked);
-            commit(event.target.checked);
-          }}
-        />
-      </label>
-    );
-  }
-
-  const text = toText(draft);
   return (
     <input
+      autoFocus
       type="text"
-      value={text}
+      value={toText(draft)}
       className={FIELD_COMPACT}
       onChange={(event) => setDraft(event.target.value)}
-      onBlur={() => commit(toText(draft).trim())}
+      onBlur={() => exitAndCommit(toText(draft).trim())}
       onKeyDown={(event) => {
+        if (event.key === "Escape") cancel();
         if (event.key === "Enter") event.currentTarget.blur();
       }}
     />
