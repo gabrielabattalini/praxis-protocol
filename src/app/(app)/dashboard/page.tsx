@@ -132,7 +132,8 @@ export default function DashboardPage() {
     [todayAgenda],
   );
 
-  const openXp = pendingItems.reduce((sum, item) => sum + (item.xp ?? 0), 0);
+  // openXp const removido — só era usado no rodapé "Fila de execução"
+  // que o usuário pediu pra tirar.
   const earnedXpToday = completedItems.reduce(
     (sum, item) => sum + (item.xp ?? 0),
     0,
@@ -627,7 +628,7 @@ export default function DashboardPage() {
             }}
           >
             {pendingItems.length} pendentes · {completedItems.length}{" "}
-            concluídas · +{formatPoints(openXp)} XP disponíveis
+            concluídas
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
