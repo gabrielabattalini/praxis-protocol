@@ -684,93 +684,11 @@ export default function RunModulePage() {
         ) : null}
       </GlassPanel>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <GlassPanel><p className="praxis-label text-zinc-500">Meta semanal</p><p className="mt-2 font-title text-3xl font-bold text-[var(--accent)]">{weeklyTarget.toFixed(1)} km</p></GlassPanel>
-        <GlassPanel><p className="praxis-label text-zinc-500">Percorrido</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{weeklyDistance.toFixed(2)} km</p></GlassPanel>
-        <GlassPanel><p className="praxis-label text-zinc-500">Ritmo médio</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{formatPace(weeklyDuration, weeklyDistance)}</p></GlassPanel>
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <GlassPanel className="space-y-4">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <p className="praxis-label text-[var(--accent)]">Evolução</p>
-              <h2 className="mt-1 font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100">
-                Curva das últimas semanas
-              </h2>
-            </div>
-            <span className="text-sm text-zinc-500">
-              {formatWeekLabel(weeklyEvolution[0]?.weekStart ?? weekStart)} a{" "}
-              {formatWeekLabel(weeklyEvolution[weeklyEvolution.length - 1]?.weekStart ?? weekStart)}
-            </span>
-          </div>
-
-          <ProgressCurveChart
-            points={weeklyEvolution}
-            valueFormatter={(value) => `${value.toFixed(1)} km`}
-            emptyLabel="Registre alguns treinos de cardio para aparecer a curva semanal."
-          />
-        </GlassPanel>
-
-        <GlassPanel className="space-y-4">
-          <div>
-            <p className="praxis-label text-[var(--accent)]">Leitura real</p>
-            <h2 className="mt-1 font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100">
-              Progresso do cardio
-            </h2>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
-              <p className="praxis-label text-zinc-500">Execução da semana</p>
-              <p className="mt-2 font-title text-3xl font-bold text-[var(--accent)]">
-                {weeklyCompletionRate}%
-              </p>
-              <p className="mt-2 text-sm text-zinc-500">
-                {weeklyDistance.toFixed(1)} km de {weeklyTarget.toFixed(1)} km
-              </p>
-            </div>
-            <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
-              <p className="praxis-label text-zinc-500">Dias com treino</p>
-              <p className="mt-2 font-title text-3xl font-bold text-zinc-100">
-                {activeWeekdays}x
-              </p>
-              <p className="mt-2 text-sm text-zinc-500">
-                Dias da semana que já receberam registro
-              </p>
-            </div>
-            <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
-              <p className="praxis-label text-zinc-500">Melhor ritmo</p>
-              <p className="mt-2 font-title text-3xl font-bold text-zinc-100">
-                {bestPaceEntry
-                  ? formatPace(bestPaceEntry.durationSeconds, bestPaceEntry.distanceKm)
-                  : "--:--"}
-              </p>
-              <p className="mt-2 text-sm text-zinc-500">
-                {bestPaceEntry
-                  ? `${bestPaceEntry.distanceKm.toFixed(1)} km em ${formatRunDate(bestPaceEntry.date)}`
-                  : "Sem pace suficiente ainda"}
-              </p>
-            </div>
-            <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
-              <p className="praxis-label text-zinc-500">Maior sessão</p>
-              <p className="mt-2 font-title text-3xl font-bold text-zinc-100">
-                {longestRunEntry ? `${longestRunEntry.distanceKm.toFixed(1)} km` : "--"}
-              </p>
-              <p className="mt-2 text-sm text-zinc-500">
-                {latestEntry
-                  ? `Último treino em ${formatRunDate(latestEntry.date)}`
-                  : "Histórico aguardando o primeiro registro"}
-              </p>
-            </div>
-          </div>
-        </GlassPanel>
-      </div>
-
-      {/* Lançar cardio — compact horizontal bar at the top, all fields
-          and the submit button in a single row on desktop, stacking
-          on phones. Sits above the "Meta por dia" block per the user's
-          layout request. */}
+      {/* Lançar cardio — barra horizontal compacta SEMPRE (todos os
+          viewports), grudada em cima do bloco "Meta por dia" abaixo.
+          Movida pra cima da régua de KPIs e dos painéis de curva/
+          progresso a pedido do usuário, pra ser a primeira coisa
+          acionável ao abrir a página. */}
       <GlassPanel className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-baseline gap-3">
@@ -797,7 +715,7 @@ export default function RunModulePage() {
 
         <form
           onSubmit={handleSubmit}
-          className="grid gap-2 sm:grid-cols-[minmax(140px,1fr)_minmax(110px,1fr)_minmax(90px,0.9fr)_minmax(90px,0.9fr)_auto] sm:items-center"
+          className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_auto] items-center gap-2"
         >
           <input
             type="date"
@@ -805,7 +723,7 @@ export default function RunModulePage() {
             onChange={(event) =>
               setForm((current) => ({ ...current, date: event.target.value }))
             }
-            className="praxis-field px-3 py-2 text-sm text-white"
+            className="praxis-field min-w-0 px-2 py-2 text-sm text-white"
           />
           <input
             type="number"
@@ -815,8 +733,8 @@ export default function RunModulePage() {
             onChange={(event) =>
               setForm((current) => ({ ...current, distanceKm: event.target.value }))
             }
-            placeholder="Distância (km)"
-            className="praxis-field px-3 py-2 text-sm text-white placeholder:text-zinc-500"
+            placeholder="km"
+            className="praxis-field min-w-0 px-2 py-2 text-sm text-white placeholder:text-zinc-500"
           />
           <input
             type="number"
@@ -825,8 +743,8 @@ export default function RunModulePage() {
             onChange={(event) =>
               setForm((current) => ({ ...current, minutes: event.target.value }))
             }
-            placeholder="Minutos"
-            className="praxis-field px-3 py-2 text-sm text-white placeholder:text-zinc-500"
+            placeholder="min"
+            className="praxis-field min-w-0 px-2 py-2 text-sm text-white placeholder:text-zinc-500"
           />
           <input
             type="number"
@@ -836,15 +754,16 @@ export default function RunModulePage() {
             onChange={(event) =>
               setForm((current) => ({ ...current, seconds: event.target.value }))
             }
-            placeholder="Segundos"
-            className="praxis-field px-3 py-2 text-sm text-white placeholder:text-zinc-500"
+            placeholder="seg"
+            className="praxis-field min-w-0 px-2 py-2 text-sm text-white placeholder:text-zinc-500"
           />
           <button
             type="submit"
-            className="praxis-button inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm"
+            className="praxis-button inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm"
+            aria-label="Registrar treino"
           >
             <Plus className="h-4 w-4" />
-            Registrar
+            <span className="hidden sm:inline">Registrar</span>
           </button>
         </form>
       </GlassPanel>
@@ -935,6 +854,91 @@ export default function RunModulePage() {
                 </div>
               );
             })}
+          </div>
+        </GlassPanel>
+      </div>
+
+      {/* Métricas semanais — descem pra cá pra liberar o topo da
+          página pra "Lançar cardio + Meta por dia". */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <GlassPanel><p className="praxis-label text-zinc-500">Meta semanal</p><p className="mt-2 font-title text-3xl font-bold text-[var(--accent)]">{weeklyTarget.toFixed(1)} km</p></GlassPanel>
+        <GlassPanel><p className="praxis-label text-zinc-500">Percorrido</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{weeklyDistance.toFixed(2)} km</p></GlassPanel>
+        <GlassPanel><p className="praxis-label text-zinc-500">Ritmo médio</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{formatPace(weeklyDuration, weeklyDistance)}</p></GlassPanel>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <GlassPanel className="space-y-4">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="praxis-label text-[var(--accent)]">Evolução</p>
+              <h2 className="mt-1 font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100">
+                Curva das últimas semanas
+              </h2>
+            </div>
+            <span className="text-sm text-zinc-500">
+              {formatWeekLabel(weeklyEvolution[0]?.weekStart ?? weekStart)} a{" "}
+              {formatWeekLabel(weeklyEvolution[weeklyEvolution.length - 1]?.weekStart ?? weekStart)}
+            </span>
+          </div>
+
+          <ProgressCurveChart
+            points={weeklyEvolution}
+            valueFormatter={(value) => `${value.toFixed(1)} km`}
+            emptyLabel="Registre alguns treinos de cardio para aparecer a curva semanal."
+          />
+        </GlassPanel>
+
+        <GlassPanel className="space-y-4">
+          <div>
+            <p className="praxis-label text-[var(--accent)]">Leitura real</p>
+            <h2 className="mt-1 font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100">
+              Progresso do cardio
+            </h2>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
+              <p className="praxis-label text-zinc-500">Execução da semana</p>
+              <p className="mt-2 font-title text-3xl font-bold text-[var(--accent)]">
+                {weeklyCompletionRate}%
+              </p>
+              <p className="mt-2 text-sm text-zinc-500">
+                {weeklyDistance.toFixed(1)} km de {weeklyTarget.toFixed(1)} km
+              </p>
+            </div>
+            <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
+              <p className="praxis-label text-zinc-500">Dias com treino</p>
+              <p className="mt-2 font-title text-3xl font-bold text-zinc-100">
+                {activeWeekdays}x
+              </p>
+              <p className="mt-2 text-sm text-zinc-500">
+                Dias da semana que já receberam registro
+              </p>
+            </div>
+            <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
+              <p className="praxis-label text-zinc-500">Melhor ritmo</p>
+              <p className="mt-2 font-title text-3xl font-bold text-zinc-100">
+                {bestPaceEntry
+                  ? formatPace(bestPaceEntry.durationSeconds, bestPaceEntry.distanceKm)
+                  : "--:--"}
+              </p>
+              <p className="mt-2 text-sm text-zinc-500">
+                {bestPaceEntry
+                  ? `${bestPaceEntry.distanceKm.toFixed(1)} km em ${formatRunDate(bestPaceEntry.date)}`
+                  : "Sem pace suficiente ainda"}
+              </p>
+            </div>
+            <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
+              <p className="praxis-label text-zinc-500">Maior sessão</p>
+              <p className="mt-2 font-title text-3xl font-bold text-zinc-100">
+                {longestRunEntry ? `${longestRunEntry.distanceKm.toFixed(1)} km` : "--"}
+              </p>
+              <p className="mt-2 text-sm text-zinc-500">
+                {latestEntry
+                  ? `Último treino em ${formatRunDate(latestEntry.date)}`
+                  : "Histórico aguardando o primeiro registro"}
+              </p>
+            </div>
           </div>
         </GlassPanel>
       </div>
