@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Clock3,
   MoreHorizontal,
@@ -302,6 +303,7 @@ function ColumnHeaderMenu({
   column,
   columns,
   index,
+  anchorRect,
   onUpdate,
   onRemove,
   onMove,
@@ -310,6 +312,7 @@ function ColumnHeaderMenu({
   column: WorkColumn;
   columns: WorkColumn[];
   index: number;
+  anchorRect: DOMRect;
   onUpdate: (patch: Partial<WorkColumn>) => void;
   onRemove: () => void;
   onMove: (direction: -1 | 1) => void;
@@ -332,16 +335,28 @@ function ColumnHeaderMenu({
     }
     window.addEventListener("mousedown", handleClick);
     window.addEventListener("keydown", handleKey);
+    window.addEventListener("resize", onClose);
+    window.addEventListener("scroll", onClose, true);
     return () => {
       window.removeEventListener("mousedown", handleClick);
       window.removeEventListener("keydown", handleKey);
+      window.removeEventListener("resize", onClose);
+      window.removeEventListener("scroll", onClose, true);
     };
   }, [onClose]);
 
-  return (
+  const MENU_WIDTH = 288;
+  const top = anchorRect.bottom + 8;
+  const left = Math.max(
+    8,
+    Math.min(window.innerWidth - MENU_WIDTH - 8, anchorRect.right - MENU_WIDTH),
+  );
+
+  return createPortal(
     <div
       ref={containerRef}
-      className="absolute left-0 top-full z-30 mt-2 w-72 rounded-sm border border-zinc-700 bg-zinc-950/95 p-3 shadow-xl backdrop-blur"
+      style={{ position: "fixed", top, left, zIndex: 60 }}
+      className="w-72 rounded-sm border border-zinc-700 bg-zinc-950/95 p-3 shadow-xl backdrop-blur"
     >
       <div className="flex items-center justify-between">
         <div className="min-w-0">
@@ -463,15 +478,18 @@ function ColumnHeaderMenu({
           Excluir
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
 function RowActionsMenu({
+  anchorRect,
   onDelete,
   onDuplicate,
   onClose,
 }: {
+  anchorRect: DOMRect;
   onDelete: () => void;
   onDuplicate: () => void;
   onClose: () => void;
@@ -486,14 +504,33 @@ function RowActionsMenu({
         onClose();
       }
     }
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
     window.addEventListener("mousedown", handleClick);
-    return () => window.removeEventListener("mousedown", handleClick);
+    window.addEventListener("keydown", handleKey);
+    window.addEventListener("resize", onClose);
+    window.addEventListener("scroll", onClose, true);
+    return () => {
+      window.removeEventListener("mousedown", handleClick);
+      window.removeEventListener("keydown", handleKey);
+      window.removeEventListener("resize", onClose);
+      window.removeEventListener("scroll", onClose, true);
+    };
   }, [onClose]);
 
-  return (
+  const MENU_WIDTH = 176;
+  const top = anchorRect.bottom + 8;
+  const left = Math.max(
+    8,
+    Math.min(window.innerWidth - MENU_WIDTH - 8, anchorRect.right - MENU_WIDTH),
+  );
+
+  return createPortal(
     <div
       ref={containerRef}
-      className="absolute right-0 top-full z-30 mt-2 w-44 rounded-sm border border-zinc-700 bg-zinc-950/95 p-1.5 shadow-xl backdrop-blur"
+      style={{ position: "fixed", top, left, zIndex: 60 }}
+      className="w-44 rounded-sm border border-zinc-700 bg-zinc-950/95 p-1.5 shadow-xl backdrop-blur"
     >
       <button
         type="button"
@@ -517,7 +554,8 @@ function RowActionsMenu({
         <Trash2 className="h-3 w-3" />
         Excluir linha
       </button>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -531,8 +569,12 @@ export default function WorkModulePage() {
     [state.moduleState, state.workControlEntries],
   );
 
-  const [openColumnMenu, setOpenColumnMenu] = useState<string | null>(null);
-  const [openRowMenu, setOpenRowMenu] = useState<string | null>(null);
+  const [openColumnMenu, setOpenColumnMenu] = useState<
+    { id: string; rect: DOMRect } | null
+  >(null);
+  const [openRowMenu, setOpenRowMenu] = useState<
+    { id: string; rect: DOMRect } | null
+  >(null);
   const [showColumnPicker, setShowColumnPicker] = useState(false);
 
   const persistSheet = useCallback(
@@ -853,20 +895,25 @@ export default function WorkModulePage() {
                         title="Mais opções"
                         aria-label="Mais opções da coluna"
                         className="shrink-0 rounded-sm border border-transparent p-1 text-zinc-500 hover:border-zinc-700 hover:text-zinc-200"
-                        onClick={() =>
+                        onClick={(event) => {
+                          const rect =
+                            event.currentTarget.getBoundingClientRect();
                           setOpenColumnMenu((current) =>
-                            current === column.id ? null : column.id,
-                          )
-                        }
+                            current?.id === column.id
+                              ? null
+                              : { id: column.id, rect },
+                          );
+                        }}
                       >
                         <Settings2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
-                    {openColumnMenu === column.id ? (
+                    {openColumnMenu?.id === column.id ? (
                       <ColumnHeaderMenu
                         column={column}
                         columns={sheet.columns}
                         index={index}
+                        anchorRect={openColumnMenu.rect}
                         onUpdate={(patch) => updateColumn(column.id, patch)}
                         onRemove={() => removeColumn(column.id)}
                         onMove={(direction) => moveColumn(column.id, direction)}
@@ -962,16 +1009,21 @@ export default function WorkModulePage() {
                       <button
                         type="button"
                         className="praxis-button-ghost p-1.5"
-                        onClick={() =>
+                        onClick={(event) => {
+                          const rect =
+                            event.currentTarget.getBoundingClientRect();
                           setOpenRowMenu((current) =>
-                            current === row.id ? null : row.id,
-                          )
-                        }
+                            current?.id === row.id
+                              ? null
+                              : { id: row.id, rect },
+                          );
+                        }}
                       >
                         <MoreHorizontal className="h-3.5 w-3.5" />
                       </button>
-                      {openRowMenu === row.id ? (
+                      {openRowMenu?.id === row.id ? (
                         <RowActionsMenu
+                          anchorRect={openRowMenu.rect}
                           onDelete={() => removeRow(row.id)}
                           onDuplicate={() => duplicateRow(row.id)}
                           onClose={() => setOpenRowMenu(null)}
