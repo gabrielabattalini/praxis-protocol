@@ -854,28 +854,33 @@ export default function FinanceModulePage() {
                   className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white"
                   placeholder="Descrição"
                 />
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={lineValueDrafts[monthValueKey] ?? monthValue.toFixed(2)}
-                  onChange={(event) =>
-                    setLineValueDrafts((current) => ({
-                      ...current,
-                      [monthValueKey]: event.target.value,
-                    }))
-                  }
-                  onBlur={(event) =>
-                    commitLineMonthValue(line.id, event.target.value)
-                  }
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.currentTarget.blur();
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-zinc-500">
+                    R$
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={lineValueDrafts[monthValueKey] ?? monthValue.toFixed(2)}
+                    onChange={(event) =>
+                      setLineValueDrafts((current) => ({
+                        ...current,
+                        [monthValueKey]: event.target.value,
+                      }))
                     }
-                  }}
-                  disabled={isSystemManaged}
-                  className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-right font-semibold text-white"
-                  placeholder="Valor do mês"
-                />
+                    onBlur={(event) =>
+                      commitLineMonthValue(line.id, event.target.value)
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.currentTarget.blur();
+                      }
+                    }}
+                    disabled={isSystemManaged}
+                    className="w-full rounded-sm border border-zinc-800 bg-black/60 py-3 pl-12 pr-4 text-right font-semibold text-white disabled:opacity-50"
+                    placeholder="0,00"
+                  />
+                </div>
               </div>
 
               <div className="grid gap-3 lg:grid-cols-[1.1fr_150px_170px_140px_150px]">
@@ -997,26 +1002,31 @@ export default function FinanceModulePage() {
                     </p>
                   </div>
                   <div className="grid gap-3 lg:grid-cols-[1fr_170px]">
-                    <input
-                      id={partialInputId}
-                      type="text"
-                      inputMode="decimal"
-                      value={settlementDrafts[settlementKey] ?? ""}
-                      onChange={(event) =>
-                        setSettlementDrafts((current) => ({
-                          ...current,
-                          [settlementKey]: event.target.value,
-                        }))
-                      }
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          applyPartialSettlement(line);
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-zinc-500">
+                        R$
+                      </span>
+                      <input
+                        id={partialInputId}
+                        type="text"
+                        inputMode="decimal"
+                        value={settlementDrafts[settlementKey] ?? ""}
+                        onChange={(event) =>
+                          setSettlementDrafts((current) => ({
+                            ...current,
+                            [settlementKey]: event.target.value,
+                          }))
                         }
-                      }}
-                      className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-right font-semibold text-white"
-                      placeholder="Valor parcial"
-                    />
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            applyPartialSettlement(line);
+                          }
+                        }}
+                        className="w-full rounded-sm border border-zinc-800 bg-black/60 py-3 pl-12 pr-4 text-right font-semibold text-white"
+                        placeholder="Valor parcial"
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={() => applyPartialSettlement(line)}
@@ -1407,18 +1417,23 @@ export default function FinanceModulePage() {
 
               <div className="space-y-2">
                 <div className="px-1 text-[11px] uppercase tracking-[0.18em] text-zinc-600">
-                  Valor em {selectedMonth.label}
+                  Valor em {selectedMonth.label} (R$)
                 </div>
-                <input
-                  value={draft.amount}
-                  onChange={(event) =>
-                    setDraft((current) => ({ ...current, amount: event.target.value }))
-                  }
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="0,00"
-                  className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-right font-semibold text-white placeholder:text-zinc-600"
-                />
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-zinc-400">
+                    R$
+                  </span>
+                  <input
+                    value={draft.amount}
+                    onChange={(event) =>
+                      setDraft((current) => ({ ...current, amount: event.target.value }))
+                    }
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    className="w-full rounded-sm border border-zinc-800 bg-black/60 py-3 pl-12 pr-4 text-right font-semibold text-white placeholder:text-zinc-600"
+                  />
+                </div>
               </div>
             </div>
 

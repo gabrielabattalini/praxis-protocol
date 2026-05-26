@@ -886,23 +886,31 @@ export function ShoppingModulePage({
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">
                 {scope === "market" && draft.purchaseMode === "presential"
-                  ? "Preço encontrado"
-                  : "Preço unitário"}
+                  ? "Preço encontrado (R$)"
+                  : "Preço unitário (R$)"}
               </span>
-              <input
-                value={draft.manualUnitPrice}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    manualUnitPrice: event.target.value,
-                  }))
-                }
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="Ex.: 39.90"
-                className={fieldClassName}
-              />
+              {/* Visual "R$" prefix dentro do input. pl-9 abre espaço pro
+                  span absolute. text-zinc-400 deixa o R$ discreto pra
+                  não competir com o valor digitado. */}
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-zinc-400">
+                  R$
+                </span>
+                <input
+                  value={draft.manualUnitPrice}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      manualUnitPrice: event.target.value,
+                    }))
+                  }
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="39,90"
+                  className={`${fieldClassName} pl-9`}
+                />
+              </div>
             </label>
           </div>
         </section>
