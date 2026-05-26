@@ -876,12 +876,13 @@ export function ShoppingModulePage({
             <span className="inline-block h-1 w-1 rounded-full bg-[var(--accent)]" />
             Item
           </div>
-          {/* Rebalanceamento (quarto passe): Categoria foi removida
-              ("isso não serve pra nada"), Preço subiu pra ocupar o
-              slot onde ela estava (entre Qtd e Link). Restam 6 colunas
-              em xl: Nome (1.2fr) / Marca / Qtd / Preço / Link / Tomadas
-              × dose (1.8fr). Razão = 1.8×. */}
-          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.8fr)]">
+          {/* Rebalanceamento (quinto passe): "Compra" (Online/Presencial)
+              entrou no row pra ficar tudo na mesma linha. Local
+              presencial foi removido ("não serve pra nada"). Link e
+              Preço encolheram porque estavam sobrando espaço. 7 cols
+              em xl: Nome 1.2fr / Marca / Qtd / Preço 0.7fr / Link 0.7fr
+              / Compra 1.2fr / Tomadas × dose 1.8fr. */}
+          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.2fr)_minmax(0,1.8fr)]">
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">Nome</span>
               <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder={examples[0] ?? "Ex.: detergente"} className={fieldClassName} />
@@ -968,6 +969,45 @@ export function ShoppingModulePage({
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">Link</span>
               <input value={draft.referenceUrl} onChange={(event) => setDraft((current) => ({ ...current, referenceUrl: event.target.value }))} placeholder="https://..." className={fieldClassName} />
+            </label>
+            {/* Compra subiu pra cá (era SECTION 3 embaixo). Pra
+                supplements fica trancado em Online (sempre online,
+                não tem toggle). Local presencial foi removido a
+                pedido do user. */}
+            <label className="block space-y-1 min-w-0">
+              <span className="praxis-label text-[var(--accent)]">Compra</span>
+              {scope === "market" ? (
+                <div className="grid grid-cols-2 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setDraft((current) => ({ ...current, purchaseMode: "online", localStoreName: "" }))}
+                    className={cn(
+                      "rounded-sm border px-2 py-1.5 text-xs transition",
+                      draft.purchaseMode === "online"
+                        ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100"
+                        : "border-white/10 bg-[#0a0a0b] text-zinc-400",
+                    )}
+                  >
+                    Online
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDraft((current) => ({ ...current, purchaseMode: "presential" }))}
+                    className={cn(
+                      "rounded-sm border px-2 py-1.5 text-xs transition",
+                      draft.purchaseMode === "presential"
+                        ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100"
+                        : "border-white/10 bg-[#0a0a0b] text-zinc-400",
+                    )}
+                  >
+                    Presencial
+                  </button>
+                </div>
+              ) : (
+                <div className="rounded-sm border border-white/10 bg-[#0a0a0b] px-3 py-1.5 text-xs text-zinc-400">
+                  Online
+                </div>
+              )}
             </label>
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">
@@ -1093,61 +1133,11 @@ export function ShoppingModulePage({
           </div>
         </section>
 
-        {/* SECTION 3 — Compra (market only)
-            Just the online/presencial toggle + local presencial
-            input. Price moved up to "Dose & preço". Whole section
-            hidden for supplements (they're always online and don't
-            need a local store field). */}
-        {scope === "market" ? (
-          <section className="space-y-2">
-            <div className="praxis-label flex items-center gap-2 border-b border-white/5 pb-1 text-[10px] text-zinc-400">
-              <span className="inline-block h-1 w-1 rounded-full bg-[var(--accent)]" />
-              Compra
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => setDraft((current) => ({ ...current, purchaseMode: "online", localStoreName: "" }))}
-                className={cn(
-                  "rounded-sm border px-3 py-2 text-left text-sm transition",
-                  draft.purchaseMode === "online"
-                    ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100"
-                    : "border-white/10 bg-[#0a0a0b] text-zinc-400",
-                )}
-              >
-                Online
-              </button>
-              <button
-                type="button"
-                onClick={() => setDraft((current) => ({ ...current, purchaseMode: "presential" }))}
-                className={cn(
-                  "rounded-sm border px-3 py-2 text-left text-sm transition",
-                  draft.purchaseMode === "presential"
-                    ? "border-[var(--accent)]/40 bg-[rgba(251,146,60,0.08)] text-zinc-100"
-                    : "border-white/10 bg-[#0a0a0b] text-zinc-400",
-                )}
-              >
-                Presencial
-              </button>
-            </div>
-            {draft.purchaseMode === "presential" ? (
-              <label className="block space-y-1">
-                <span className="praxis-label text-[var(--accent)]">Local presencial</span>
-                <input
-                  value={draft.localStoreName}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      localStoreName: event.target.value,
-                    }))
-                  }
-                  placeholder="Ex.: Açougue do bairro"
-                  className={fieldClassName}
-                />
-              </label>
-            ) : null}
-          </section>
-        ) : null}
+        {/* SECTION 3 (Compra + Local presencial) removida — Compra
+            subiu pro top row, Local presencial foi descontinuado a
+            pedido do user. saveItem continua usando draft.localStoreName
+            (sempre vazio agora) e draft.purchaseMode (controlado pelos
+            buttons que subiram). */}
 
         {/* SECTION 4 — Ofertas online (edit mode only, online items)
             Buscar button + sources status + result picker. Was on the
