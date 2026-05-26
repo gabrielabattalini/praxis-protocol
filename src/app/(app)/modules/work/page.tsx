@@ -1047,9 +1047,6 @@ export default function WorkModulePage() {
         <GlassPanel className="praxis-panel-active">
           <p className="praxis-label text-[var(--accent)]">Linhas ativas</p>
           <p className="praxis-title mt-3 text-4xl">{summary.total}</p>
-          <p className="mt-2 text-sm text-zinc-400">
-            Cada linha é um item editável da sua planilha.
-          </p>
         </GlassPanel>
         <GlassPanel>
           <p className="praxis-label text-[var(--accent)]">Urgência</p>
