@@ -3094,6 +3094,16 @@ export default function NutritionModulePage() {
                               //    in one click, so a misclick is fully
                               //    reversible without having to expand
                               //    the meal and untoggle item-by-item.
+                              //
+                              // Layout:
+                              //   ml-auto empurra o botão pra direita do
+                              //   row (separa visualmente das pílulas e do
+                              //   toggle "Ver alimentos", que ficam na
+                              //   esquerda). No estado "Concluir refeição"
+                              //   o botão ganha destaque: verde mais
+                              //   saturado, padding maior, font-semibold
+                              //   e glow sutil. O estado "Desfazer" fica
+                              //   discreto pra não competir com o resto.
                               onClick={() => {
                                 actions.setMealBlockItemsCompleted({
                                   blockId: block.id,
@@ -3106,16 +3116,16 @@ export default function NutritionModulePage() {
                                   ? "Desfazer: remove a marcação de todos os itens deste bloco para hoje"
                                   : "Marcar todos os itens deste bloco como concluídos hoje"
                               }
-                              className={`inline-flex items-center gap-1 whitespace-nowrap rounded-sm border px-3 py-2 text-xs transition ${
+                              className={`ml-auto inline-flex items-center gap-1.5 whitespace-nowrap rounded-sm border transition ${
                                 blockAllCompletedToday
-                                  ? "border-zinc-800 bg-[rgba(14,14,17,0.96)] text-zinc-400 hover:border-[rgba(239,68,68,0.35)] hover:text-red-300"
-                                  : "border-[rgba(74,222,128,0.3)] bg-[rgba(74,222,128,0.12)] text-[#a7f3d0] hover:border-[rgba(74,222,128,0.5)]"
+                                  ? "border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2 text-xs text-zinc-400 hover:border-[rgba(239,68,68,0.35)] hover:text-red-300"
+                                  : "border-[rgba(74,222,128,0.55)] bg-[rgba(74,222,128,0.22)] px-4 py-2.5 text-sm font-semibold text-emerald-100 shadow-[0_0_20px_rgba(74,222,128,0.18)] hover:border-[rgba(74,222,128,0.85)] hover:bg-[rgba(74,222,128,0.32)]"
                               }`}
                             >
                               {blockAllCompletedToday ? (
                                 <X className="h-3.5 w-3.5" />
                               ) : (
-                                <Check className="h-3.5 w-3.5" />
+                                <Check className="h-4 w-4" />
                               )}
                               {blockAllCompletedToday
                                 ? "Desfazer refeição"
