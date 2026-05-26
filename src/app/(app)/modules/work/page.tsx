@@ -374,9 +374,6 @@ function ColumnHeaderMenu({
             </option>
           ))}
         </select>
-        <p className="mt-1 text-[11px] leading-4 text-zinc-500">
-          {CELL_TYPE_HINTS[column.type]}
-        </p>
       </label>
 
       {column.type === "select" ? (
@@ -768,14 +765,12 @@ export default function WorkModulePage() {
               <button
                 key={type}
                 type="button"
-                className="praxis-button-ghost flex flex-col items-start gap-1 px-3 py-2 text-left"
+                title={CELL_TYPE_HINTS[type]}
+                className="praxis-button-ghost flex items-center justify-start gap-2 px-3 py-2 text-left"
                 onClick={() => addColumn(type)}
               >
                 <span className="text-sm font-medium text-zinc-100">
                   {CELL_TYPE_LABELS[type]}
-                </span>
-                <span className="text-[11px] leading-4 text-zinc-500">
-                  {CELL_TYPE_HINTS[type]}
                 </span>
               </button>
             ))}
