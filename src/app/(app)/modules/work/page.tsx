@@ -15,7 +15,15 @@ import { GlassPanel } from "@/components/ui/glass-panel";
 import {
   CELL_TYPE_HINTS,
   CELL_TYPE_LABELS,
+  DEFAULT_COLUMN_WIDTH,
+  DEFAULT_ROW_HEIGHT,
+  MAX_COLUMN_WIDTH,
+  MAX_ROW_HEIGHT,
+  MIN_COLUMN_WIDTH,
+  MIN_ROW_HEIGHT,
   WORK_SHEET_MODULE_KEY,
+  clampColumnWidth,
+  clampRowHeight,
   type WorkCellType,
   type WorkCellValue,
   type WorkColumn,
@@ -69,8 +77,57 @@ function cloneSheet(sheet: WorkSheet): WorkSheet {
     rows: sheet.rows.map((row) => ({
       id: row.id,
       cells: { ...row.cells },
+      height: row.height,
     })),
   };
+}
+
+function startColumnDrag(
+  event: React.MouseEvent,
+  startWidth: number,
+  onUpdate: (width: number) => void,
+) {
+  event.preventDefault();
+  event.stopPropagation();
+  const startX = event.clientX;
+  const handleMove = (moveEvent: MouseEvent) => {
+    const delta = moveEvent.clientX - startX;
+    onUpdate(startWidth + delta);
+  };
+  const handleUp = () => {
+    window.removeEventListener("mousemove", handleMove);
+    window.removeEventListener("mouseup", handleUp);
+    document.body.style.userSelect = "";
+    document.body.style.cursor = "";
+  };
+  window.addEventListener("mousemove", handleMove);
+  window.addEventListener("mouseup", handleUp);
+  document.body.style.userSelect = "none";
+  document.body.style.cursor = "col-resize";
+}
+
+function startRowDrag(
+  event: React.MouseEvent,
+  startHeight: number,
+  onUpdate: (height: number) => void,
+) {
+  event.preventDefault();
+  event.stopPropagation();
+  const startY = event.clientY;
+  const handleMove = (moveEvent: MouseEvent) => {
+    const delta = moveEvent.clientY - startY;
+    onUpdate(startHeight + delta);
+  };
+  const handleUp = () => {
+    window.removeEventListener("mousemove", handleMove);
+    window.removeEventListener("mouseup", handleUp);
+    document.body.style.userSelect = "";
+    document.body.style.cursor = "";
+  };
+  window.addEventListener("mousemove", handleMove);
+  window.addEventListener("mouseup", handleUp);
+  document.body.style.userSelect = "none";
+  document.body.style.cursor = "row-resize";
 }
 
 function makeEmptyRow(columns: WorkColumn[]): WorkRow {
@@ -93,7 +150,7 @@ function toText(value: WorkCellValue): string {
 }
 
 const DISPLAY_CELL =
-  "min-h-[100px] w-full cursor-text whitespace-pre-wrap break-words rounded-sm border border-zinc-700/70 bg-zinc-950/40 px-2 py-2 text-sm leading-6 text-zinc-100 hover:border-[var(--accent)]/40 hover:bg-zinc-900/70";
+  "h-full min-h-[60px] w-full cursor-text whitespace-pre-wrap break-words rounded-sm border border-zinc-700/70 bg-zinc-950/40 px-2 py-2 text-sm leading-6 text-zinc-100 hover:border-[var(--accent)]/40 hover:bg-zinc-900/70";
 
 function CellDisplay({
   column,
@@ -389,6 +446,23 @@ function ColumnHeaderMenu({
         </select>
       </label>
 
+      <label className="mt-3 block space-y-1">
+        <span className="text-xs text-zinc-400">
+          Largura (px) — entre {MIN_COLUMN_WIDTH} e {MAX_COLUMN_WIDTH}
+        </span>
+        <input
+          type="number"
+          min={MIN_COLUMN_WIDTH}
+          max={MAX_COLUMN_WIDTH}
+          value={column.width ?? DEFAULT_COLUMN_WIDTH}
+          onChange={(event) => {
+            const raw = Number(event.target.value);
+            if (Number.isFinite(raw)) onUpdate({ width: raw });
+          }}
+          className={FIELD_COMPACT}
+        />
+      </label>
+
       {column.type === "computed-remaining" ||
       column.type === "computed-urgency" ? (
         <div className="mt-3 space-y-2">
@@ -532,11 +606,15 @@ function ColumnHeaderMenu({
 
 function RowActionsMenu({
   anchorRect,
+  rowHeight,
+  onHeightChange,
   onDelete,
   onDuplicate,
   onClose,
 }: {
   anchorRect: DOMRect;
+  rowHeight: number;
+  onHeightChange: (next: number) => void;
   onDelete: () => void;
   onDuplicate: () => void;
   onClose: () => void;
@@ -566,7 +644,7 @@ function RowActionsMenu({
     };
   }, [onClose]);
 
-  const MENU_WIDTH = 176;
+  const MENU_WIDTH = 208;
   const top = anchorRect.bottom + 8;
   const left = Math.max(
     8,
@@ -577,8 +655,24 @@ function RowActionsMenu({
     <div
       ref={containerRef}
       style={{ position: "fixed", top, left, zIndex: 60 }}
-      className="w-44 rounded-sm border border-zinc-700 bg-zinc-950/95 p-1.5 shadow-xl backdrop-blur"
+      className="w-52 rounded-sm border border-zinc-700 bg-zinc-950/95 p-2 shadow-xl backdrop-blur"
     >
+      <label className="mb-2 block space-y-1 px-1">
+        <span className="text-[10px] uppercase tracking-wider text-zinc-400">
+          Altura (px)
+        </span>
+        <input
+          type="number"
+          min={MIN_ROW_HEIGHT}
+          max={MAX_ROW_HEIGHT}
+          value={rowHeight}
+          onChange={(event) => {
+            const raw = Number(event.target.value);
+            if (Number.isFinite(raw)) onHeightChange(raw);
+          }}
+          className={FIELD_COMPACT}
+        />
+      </label>
       <button
         type="button"
         className="praxis-button-ghost flex w-full items-center justify-start gap-2 px-2 py-1.5 text-xs"
@@ -743,12 +837,42 @@ export default function WorkModulePage() {
         const source = draft.rows.find((row) => row.id === rowId);
         if (!source) return draft;
         const index = draft.rows.indexOf(source);
-        const copy: WorkRow = { id: makeRowId(), cells: { ...source.cells } };
+        const copy: WorkRow = {
+          id: makeRowId(),
+          cells: { ...source.cells },
+          height: source.height,
+        };
         draft.rows = [
           ...draft.rows.slice(0, index + 1),
           copy,
           ...draft.rows.slice(index + 1),
         ];
+        return draft;
+      });
+    },
+    [persistSheet],
+  );
+
+  const setColumnWidth = useCallback(
+    (columnId: string, width: number) => {
+      persistSheet((draft) => {
+        draft.columns = draft.columns.map((column) =>
+          column.id === columnId
+            ? { ...column, width: clampColumnWidth(width) }
+            : column,
+        );
+        return draft;
+      });
+    },
+    [persistSheet],
+  );
+
+  const setRowHeight = useCallback(
+    (rowId: string, height: number) => {
+      persistSheet((draft) => {
+        draft.rows = draft.rows.map((row) =>
+          row.id === rowId ? { ...row, height: clampRowHeight(height) } : row,
+        );
         return draft;
       });
     },
@@ -921,8 +1045,11 @@ export default function WorkModulePage() {
                 {sheet.columns.map((column, index) => (
                   <th
                     key={column.id}
-                    className="relative border-r border-zinc-700 px-2 py-2 align-bottom last:border-r-0"
-                    style={{ minWidth: column.width ?? 160 }}
+                    className="relative border-r border-zinc-700 px-2 py-2 align-bottom"
+                    style={{
+                      width: column.width ?? DEFAULT_COLUMN_WIDTH,
+                      minWidth: column.width ?? DEFAULT_COLUMN_WIDTH,
+                    }}
                   >
                     <div className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-300">
                       {getColumnLetter(index)}
@@ -967,6 +1094,19 @@ export default function WorkModulePage() {
                         onClose={() => setOpenColumnMenu(null)}
                       />
                     ) : null}
+                    <div
+                      role="separator"
+                      aria-label="Redimensionar coluna"
+                      title="Arraste para redimensionar"
+                      onMouseDown={(event) =>
+                        startColumnDrag(
+                          event,
+                          column.width ?? DEFAULT_COLUMN_WIDTH,
+                          (next) => setColumnWidth(column.id, next),
+                        )
+                      }
+                      className="absolute right-[-3px] top-0 z-10 h-full w-1.5 cursor-col-resize hover:bg-[var(--accent)]/60"
+                    />
                   </th>
                 ))}
                 <th className="w-12 px-2 py-2 text-right">
@@ -983,13 +1123,29 @@ export default function WorkModulePage() {
             </thead>
             <tbody>
               {sheet.rows.map((row, rowIndex) => {
+                const rowHeight = row.height ?? DEFAULT_ROW_HEIGHT;
+                const heightStyle = { height: rowHeight } as const;
                 return (
                   <tr
                     key={row.id}
                     className="border-b border-zinc-700/80 align-top hover:bg-zinc-900/30"
                   >
-                    <td className="border-r border-zinc-600 bg-zinc-900/70 px-2 py-2 text-center text-xs font-semibold text-zinc-200">
+                    <td
+                      style={heightStyle}
+                      className="relative border-r border-zinc-600 bg-zinc-900/70 px-2 py-2 text-center text-xs font-semibold text-zinc-200"
+                    >
                       {rowIndex + 1}
+                      <div
+                        role="separator"
+                        aria-label="Redimensionar linha"
+                        title="Arraste para redimensionar a linha"
+                        onMouseDown={(event) =>
+                          startRowDrag(event, rowHeight, (next) =>
+                            setRowHeight(row.id, next),
+                          )
+                        }
+                        className="absolute bottom-[-3px] left-0 z-10 h-1.5 w-full cursor-row-resize hover:bg-[var(--accent)]/60"
+                      />
                     </td>
                     {sheet.columns.map((column) => {
                       if (column.type === "computed-remaining") {
@@ -1007,7 +1163,11 @@ export default function WorkModulePage() {
                           ? (row.cells[endColumn.id] as string | undefined)
                           : undefined;
                         return (
-                          <td key={column.id} className="border-r border-zinc-700/60 px-3 py-2">
+                          <td
+                            key={column.id}
+                            style={heightStyle}
+                            className="border-r border-zinc-700/60 px-3 py-2"
+                          >
                             <div className="rounded-sm border border-zinc-600 bg-zinc-900/80 px-2 py-1.5 text-xs">
                               <p className="font-medium text-zinc-100">
                                 {formatRemainingLabel(remaining)}
@@ -1030,7 +1190,11 @@ export default function WorkModulePage() {
                         );
                         const urgency = computeUrgencyLabel(remaining);
                         return (
-                          <td key={column.id} className="border-r border-zinc-700/60 px-3 py-2">
+                          <td
+                            key={column.id}
+                            style={heightStyle}
+                            className="border-r border-zinc-700/60 px-3 py-2"
+                          >
                             <span
                               className={`inline-flex rounded-sm border px-2 py-1 text-xs font-semibold ${getUrgencyClasses(
                                 urgency,
@@ -1042,7 +1206,11 @@ export default function WorkModulePage() {
                         );
                       }
                       return (
-                        <td key={column.id} className="border-r border-zinc-700/60 px-3 py-2">
+                        <td
+                          key={column.id}
+                          style={heightStyle}
+                          className="border-r border-zinc-700/60 px-3 py-2"
+                        >
                           <CellEditor
                             column={column}
                             value={row.cells[column.id] ?? ""}
@@ -1053,7 +1221,10 @@ export default function WorkModulePage() {
                         </td>
                       );
                     })}
-                    <td className="relative px-2 py-2 text-right">
+                    <td
+                      style={heightStyle}
+                      className="relative px-2 py-2 text-right"
+                    >
                       <button
                         type="button"
                         className="praxis-button-ghost p-1.5"
@@ -1072,6 +1243,10 @@ export default function WorkModulePage() {
                       {openRowMenu?.id === row.id ? (
                         <RowActionsMenu
                           anchorRect={openRowMenu.rect}
+                          rowHeight={rowHeight}
+                          onHeightChange={(next) =>
+                            setRowHeight(row.id, next)
+                          }
                           onDelete={() => removeRow(row.id)}
                           onDuplicate={() => duplicateRow(row.id)}
                           onClose={() => setOpenRowMenu(null)}

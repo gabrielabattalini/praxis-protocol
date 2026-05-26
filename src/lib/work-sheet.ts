@@ -29,6 +29,24 @@ export interface WorkColumn {
 export interface WorkRow {
   id: string;
   cells: Record<string, WorkCellValue>;
+  height?: number;
+}
+
+export const MIN_COLUMN_WIDTH = 90;
+export const MAX_COLUMN_WIDTH = 800;
+export const DEFAULT_COLUMN_WIDTH = 180;
+export const MIN_ROW_HEIGHT = 60;
+export const MAX_ROW_HEIGHT = 600;
+export const DEFAULT_ROW_HEIGHT = 100;
+
+export function clampColumnWidth(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_COLUMN_WIDTH;
+  return Math.max(MIN_COLUMN_WIDTH, Math.min(MAX_COLUMN_WIDTH, Math.round(value)));
+}
+
+export function clampRowHeight(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_ROW_HEIGHT;
+  return Math.max(MIN_ROW_HEIGHT, Math.min(MAX_ROW_HEIGHT, Math.round(value)));
 }
 
 export interface WorkSheet {
