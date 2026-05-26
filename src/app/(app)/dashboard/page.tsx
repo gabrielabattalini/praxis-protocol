@@ -31,7 +31,7 @@ import {
   RxChip,
 } from "@/components/redesign/primitives";
 import { buildAgendaEvents, buildWeekAgenda } from "@/lib/agenda";
-import { moduleCatalog, rankingSeed } from "@/lib/mock-data";
+import { moduleCatalog } from "@/lib/mock-data";
 import type { AgendaEvent } from "@/lib/agenda";
 import type { DashboardSectionId, ModuleId } from "@/lib/types";
 import { formatPoints } from "@/lib/utils";
@@ -187,32 +187,10 @@ export default function DashboardPage() {
     return pendingItems.slice(0, 6);
   }, [missionFilter, pendingItems, todayAgenda, today]);
 
-  const leaderboard = useMemo(() => {
-    const selfEntry = {
-      id: "praxis-user",
-      name: user.name,
-      username: user.username,
-      totalXp: user.totalXp,
-      level: user.level,
-      rankTier: user.rankTier,
-      rankLabel: user.rankLabel,
-    };
-    return [...rankingSeed, selfEntry].sort(
-      (left, right) => right.totalXp - left.totalXp,
-    );
-  }, [
-    user.level,
-    user.name,
-    user.rankLabel,
-    user.rankTier,
-    user.totalXp,
-    user.username,
-  ]);
-
-  const rankingPosition = Math.max(
-    1,
-    leaderboard.findIndex((entry) => entry.id === "praxis-user") + 1,
-  );
+  // Leaderboard global removido — era seed fake (Zenkichi, Kurama,
+  // Levi etc.) sem sinal real. Enquanto não existe camada social,
+  // o usuário é o único operador e fica naturalmente em #1.
+  const rankingPosition = 1;
 
   const moduleSnapshots = useMemo<ModuleSnapshot[]>(() => {
     return moduleCatalog
@@ -585,8 +563,7 @@ export default function DashboardPage() {
 
           <div style={{ width: "100%" }}>
             <span className="rank-tag">
-              ◆ {user.rankTier} {user.rankLabel} · #{rankingPosition}/
-              {leaderboard.length}
+              ◆ {user.rankTier} {user.rankLabel} · #{rankingPosition}
             </span>
           </div>
         </div>
@@ -1000,11 +977,11 @@ export default function DashboardPage() {
 
   const rankingPanel = (
     <div className="glass">
-      {/* Bloco enxuto: só o rank do usuário (E Rank · #11/11) grande
+      {/* Bloco enxuto: só o rank do usuário (◆ E Rank · #1) grande
           no topo. Lista global de personagens removida a pedido do
           usuário — era seed fake (Zenkichi, Kurama, Levi etc.) que
-          não trazia sinal. leaderboard.length continua sendo usado
-          como denominador da posição. */}
+          não trazia sinal. Sem denominador enquanto não existe
+          camada social real. */}
       <div
         style={{
           display: "flex",
@@ -1031,8 +1008,7 @@ export default function DashboardPage() {
           letterSpacing: "-0.01em",
         }}
       >
-        ◆ {user.rankTier} {user.rankLabel} · #{rankingPosition}/
-        {leaderboard.length}
+        ◆ {user.rankTier} {user.rankLabel} · #{rankingPosition}
       </div>
       <div
         style={{

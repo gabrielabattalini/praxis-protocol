@@ -25,7 +25,6 @@
   PersistedState,
   RankTier,
   ReminderItem,
-  RankingEntry,
   SavedDietPlan,
   SavedWorkoutProgram,
   Task,
@@ -491,71 +490,11 @@ export const achievementCatalog: Achievement[] = [
   },
 ];
 
-const rankingSeedBase = [
-  {
-    id: "rank-1",
-    name: "Zenkichi Hitoyoshi",
-    username: "@ZenkichiHitoyoshi",
-    totalXp: 93806,
-  },
-  {
-    id: "rank-2",
-    name: "Kurama Yoko",
-    username: "@KuramaYoko",
-    totalXp: 87445,
-  },
-  {
-    id: "rank-3",
-    name: "Levi Ackerman",
-    username: "@LeviAckerman",
-    totalXp: 77121,
-  },
-  {
-    id: "rank-4",
-    name: "All Might Hero",
-    username: "@AllMightHero",
-    totalXp: 72328,
-  },
-  {
-    id: "rank-5",
-    name: "Aizen Sosuke",
-    username: "@AizenSosuke",
-    totalXp: 49845,
-    rankLabel: "Grão-Mestre II",
-  },
-  {
-    id: "rank-6",
-    name: "Edward Elric",
-    username: "@EdwardElric",
-    totalXp: 48456,
-    rankLabel: "Grão-Mestre II",
-  },
-  {
-    id: "rank-7",
-    name: "Sung Jin Woo",
-    username: "@SungJinWoo",
-    totalXp: 40636,
-    rankLabel: "Grão-Mestre I",
-  },
-  {
-    id: "rank-8",
-    name: "Gojo Satoru",
-    username: "@GojoSatoru",
-    totalXp: 35465,
-  },
-  {
-    id: "rank-9",
-    name: "Kurapika Chain",
-    username: "@KurapikaChain",
-    totalXp: 35177,
-  },
-  {
-    id: "rank-10",
-    name: "Sasuke Uchiha",
-    username: "@SasukeUchiha",
-    totalXp: 30865,
-  },
-];
+// rankingSeedBase removido — eram 10 personagens fake (Zenkichi,
+// Kurama, Levi, All Might, Aizen, Edward, Sung Jin Woo, Gojo,
+// Kurapika, Sasuke) que apareciam em /ranking, /friends e no card
+// "Sua posição" do dashboard. Sem sinal real até a camada social
+// existir. Removidos junto com a export const rankingSeed.
 
 export const financeLessonSeed: FinanceLesson[] = [
   {
@@ -2686,20 +2625,10 @@ export function getRankFromXp(totalXp: number) {
   };
 }
 
-export const rankingSeed: RankingEntry[] = rankingSeedBase.map((entry) => {
-  const levelProgress = getLevelProgressFromXp(entry.totalXp);
-  const rank = getRankFromXp(entry.totalXp);
-
-  return {
-    id: entry.id,
-    name: entry.name,
-    username: entry.username,
-    totalXp: entry.totalXp,
-    level: levelProgress.level,
-    rankTier: rank.tier,
-    rankLabel: rank.label,
-  };
-});
+// export const rankingSeed removido — não tem mais consumidores
+// (dashboard, /ranking e /friends agora mostram só o próprio user
+// ou empty state). Quando voltar a camada social, reconstruir a
+// partir de dados reais e não de mock.
 
 export function buildUserProfile(state: PersistedState): UserProfile {
   const completedTasks = state.tasks.filter((task) => task.completed);
