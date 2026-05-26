@@ -80,7 +80,7 @@ function toText(value: WorkCellValue): string {
 }
 
 const DISPLAY_CELL =
-  "min-h-[34px] w-full cursor-text rounded-sm border border-transparent px-2 py-1.5 text-sm text-zinc-100 hover:border-zinc-700 hover:bg-zinc-900/50";
+  "min-h-[100px] w-full cursor-text whitespace-pre-wrap break-words rounded-sm border border-transparent px-2 py-2 text-sm leading-6 text-zinc-100 hover:border-zinc-700 hover:bg-zinc-900/50";
 
 function CellDisplay({
   column,
@@ -94,7 +94,7 @@ function CellDisplay({
   if (column.type === "checkbox") {
     // single-click toggle handled by parent; show a visual mark
     return (
-      <div className="flex h-full min-h-[34px] items-center justify-center">
+      <div className="flex h-full min-h-[100px] items-center justify-center">
         <span
           className={`inline-flex h-4 w-4 items-center justify-center rounded-sm border ${
             value
@@ -128,7 +128,7 @@ function CellDisplay({
   const text = toText(value);
   return (
     <div
-      className={`${DISPLAY_CELL} ${column.type === "longtext" ? "whitespace-pre-wrap" : "truncate"}`}
+      className={DISPLAY_CELL}
       onDoubleClick={onActivate}
       title="Duplo clique para editar"
     >
