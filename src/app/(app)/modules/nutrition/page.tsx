@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Check,
   ChevronDown,
@@ -662,6 +663,15 @@ function NutritionTargetsEditor({
   const [manualBasalMetabolicRate, setManualBasalMetabolicRate] = useState(
     targets.basalMetabolicRate.toString(),
   );
+  // Toast efêmero "Metas salvas" disparado pelo botão Aplicar metas.
+  // Não persiste estado — só feedback visual de 2.5s. Limpa o timer no
+  // unmount pra evitar setState após unmount.
+  const [showSavedToast, setShowSavedToast] = useState(false);
+  useEffect(() => {
+    if (!showSavedToast) return;
+    const timer = window.setTimeout(() => setShowSavedToast(false), 2500);
+    return () => window.clearTimeout(timer);
+  }, [showSavedToast]);
 
   const bodyWeightValue = Number(bodyWeightKg) || 0;
   const bodyHeightValue = Number(bodyHeightCm) || 0;
@@ -1013,7 +1023,7 @@ function NutritionTargetsEditor({
 
       <button
         type="button"
-        onClick={() =>
+        onClick={() => {
           onApply({
             bodyWeightKg: bodyWeightValue || targets.bodyWeightKg,
             bodyHeightCm: bodyHeightValue || targets.bodyHeightCm,
@@ -1026,18 +1036,32 @@ function NutritionTargetsEditor({
             fiberStrategy,
             fiberPerKg: fiberPerKgValue || targets.fiberPerKg,
             fiberRatioGrams: fiberRatioGramsValue || targets.fiberRatioGrams,
-            fiberRatioCalories: fiberRatioCaloriesValue || targets.fiberRatioCalories,
+            fiberRatioCalories:
+              fiberRatioCaloriesValue || targets.fiberRatioCalories,
             sodiumTargetMg: sodiumTargetValue || targets.sodiumTargetMg,
             targetWeightKg: targets.weightGoal.targetWeightKg,
             weeklyChangeKg: targets.weightGoal.weeklyChangeKg,
             basalMetabolicRate: displayedBasalMetabolicRate,
             basalMetabolicRateSource,
-          })
-        }
+          });
+          setShowSavedToast(true);
+        }}
         className="w-full rounded-sm bg-[linear-gradient(135deg,var(--accent)_0%,var(--accent-2)_100%)] px-4 py-3 font-semibold text-slate-950"
       >
         Aplicar metas
       </button>
+      {showSavedToast && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              role="status"
+              aria-live="polite"
+              className="fixed left-1/2 top-6 z-[100] -translate-x-1/2 rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-5 py-3 text-sm font-semibold text-emerald-100 shadow-xl backdrop-blur"
+            >
+              ✓ Metas salvas com sucesso
+            </div>,
+            document.body,
+          )
+        : null}
         </>
       )}
     </>
