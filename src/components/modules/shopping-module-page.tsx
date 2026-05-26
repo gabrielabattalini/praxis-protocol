@@ -999,7 +999,13 @@ export function ShoppingModulePage({
                     }))
                   }
                   type="number"
-                  min="0.01"
+                  // min PRECISA ser múltiplo de step, senão o browser
+                  // valida contra a sequência min + step*n e rejeita
+                  // valores "inteiros". Com min=0.01 e step=0.1, o
+                  // browser aceitava 0.01, 0.11, 0.21, ..., 1.91, 2.01
+                  // — daí "2" virava inválido. min=0.1 alinha tudo:
+                  // valores válidos = 0.1, 0.2, ..., 0.9, 1.0, ..., 2.0.
+                  min="0.1"
                   step="0.1"
                   placeholder="1"
                   className={fieldClassName}
