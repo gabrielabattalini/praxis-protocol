@@ -971,23 +971,40 @@ export default function WorkModulePage() {
                   </tr>
                 );
               })}
+              {Array.from({
+                length: Math.max(0, 5 - sheet.rows.length),
+              }).map((_, phantomIndex) => (
+                <tr
+                  key={`phantom-${phantomIndex}`}
+                  className="border-b border-zinc-900/80 align-top"
+                  aria-hidden="true"
+                >
+                  <td className="px-2 py-2 text-center text-zinc-700">
+                    <GripVertical className="mx-auto h-3.5 w-3.5 opacity-30" />
+                  </td>
+                  {sheet.columns.map((column) => (
+                    <td key={column.id} className="px-3 py-2">
+                      <div className="min-h-[100px] w-full rounded-sm border border-transparent px-2 py-2 text-sm text-zinc-700">
+                        &nbsp;
+                      </div>
+                    </td>
+                  ))}
+                  <td className="px-2 py-2 text-right">
+                    <button
+                      type="button"
+                      title="Adicionar linha aqui"
+                      aria-label="Adicionar linha aqui"
+                      className="praxis-button-ghost p-1.5 opacity-40 hover:opacity-100"
+                      onClick={addRow}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
-
-        {sheet.rows.length === 0 ? (
-          <div className="rounded-sm border border-dashed border-zinc-800 px-4 py-10 text-center text-sm text-zinc-500">
-            Sua planilha está vazia. Use{" "}
-            <button
-              type="button"
-              className="underline underline-offset-2"
-              onClick={addRow}
-            >
-              Nova linha
-            </button>{" "}
-            para começar.
-          </div>
-        ) : null}
 
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
           <p>
