@@ -774,28 +774,29 @@ export function ShoppingModulePage({
             <span className="inline-block h-1 w-1 rounded-full bg-[var(--accent)]" />
             Identidade
           </div>
-          <label className="block space-y-1">
-            <span className="praxis-label text-[var(--accent)]">Nome do produto</span>
-            <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder={examples[0] ?? "Ex.: detergente"} className={fieldClassName} />
-          </label>
-          {/* Marca · Quantidade · Categoria · Link all on a single row
-              on lg+ screens (4 columns). Mobile stacks 2x2 then 2x2.
-              The link is the longest field so it gets a wider column. */}
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1.1fr)_minmax(0,1.6fr)]">
+          {/* Nome · Marca · Quantidade · Categoria · Link — todos na
+              mesma linha em telas grandes. Stack progressivo no
+              responsivo: mobile 1 col, sm 2, md 3, lg 5. Link é o
+              mais largo (URLs longas), Quantidade é o mais estreito. */}
+          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1.6fr)]">
+            <label className="block space-y-1 min-w-0">
+              <span className="praxis-label text-[var(--accent)]">Nome</span>
+              <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder={examples[0] ?? "Ex.: detergente"} className={fieldClassName} />
+            </label>
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">Marca</span>
               <input value={draft.brand} onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))} placeholder={examples[1] ?? "Ex.: Growth"} className={fieldClassName} />
             </label>
             <label className="block space-y-1 min-w-0">
-              <span className="praxis-label text-[var(--accent)]">Quantidade</span>
+              <span className="praxis-label text-[var(--accent)]">Qtd.</span>
               <input value={draft.quantity} onChange={(event) => setDraft((current) => ({ ...current, quantity: event.target.value }))} placeholder={examples[2] ?? "Ex.: 900 g"} className={fieldClassName} />
             </label>
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">Categoria</span>
-              <input value={draft.categoryLabel} onChange={(event) => setDraft((current) => ({ ...current, categoryLabel: event.target.value }))} placeholder={scope === "supplements" ? "Ex.: massa muscular" : "Ex.: higiene, limpeza"} className={fieldClassName} />
+              <input value={draft.categoryLabel} onChange={(event) => setDraft((current) => ({ ...current, categoryLabel: event.target.value }))} placeholder={scope === "supplements" ? "Ex.: massa" : "Ex.: higiene"} className={fieldClassName} />
             </label>
             <label className="block space-y-1 min-w-0">
-              <span className="praxis-label text-[var(--accent)]">Link de referência</span>
+              <span className="praxis-label text-[var(--accent)]">Link</span>
               <input value={draft.referenceUrl} onChange={(event) => setDraft((current) => ({ ...current, referenceUrl: event.target.value }))} placeholder="https://..." className={fieldClassName} />
             </label>
           </div>
