@@ -334,44 +334,23 @@ function ColumnHeaderMenu({
       className="absolute left-0 top-full z-30 mt-2 w-72 rounded-sm border border-zinc-700 bg-zinc-950/95 p-3 shadow-xl backdrop-blur"
     >
       <div className="flex items-center justify-between">
-        <span className="praxis-label text-[var(--accent)]">Coluna</span>
+        <div className="min-w-0">
+          <span className="praxis-label text-[var(--accent)]">Coluna</span>
+          <p className="mt-0.5 truncate text-xs text-zinc-400">
+            {column.label || "Sem nome"} · {CELL_TYPE_LABELS[column.type]}
+          </p>
+          <p className="mt-0.5 text-[11px] leading-4 text-zinc-500">
+            {CELL_TYPE_HINTS[column.type]}
+          </p>
+        </div>
         <button
           type="button"
-          className="text-zinc-500 hover:text-zinc-200"
+          className="ml-2 shrink-0 text-zinc-500 hover:text-zinc-200"
           onClick={onClose}
         >
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
-
-      <label className="mt-3 block space-y-1">
-        <span className="text-xs text-zinc-400">Nome</span>
-        <input
-          value={column.label}
-          onChange={(event) => onUpdate({ label: event.target.value })}
-          className={FIELD_COMPACT}
-        />
-      </label>
-
-      <label className="mt-3 block space-y-1">
-        <span className="text-xs text-zinc-400">Tipo</span>
-        <select
-          value={column.type}
-          onChange={(event) =>
-            onUpdate({ type: event.target.value as WorkCellType })
-          }
-          className={FIELD_COMPACT}
-        >
-          {CELL_TYPE_ORDER.map((type) => (
-            <option key={type} value={type}>
-              {CELL_TYPE_LABELS[type]}
-            </option>
-          ))}
-        </select>
-        <p className="mt-1 text-[11px] leading-4 text-zinc-500">
-          {CELL_TYPE_HINTS[column.type]}
-        </p>
-      </label>
 
       {column.type === "select" ? (
         <div className="mt-3 space-y-2">
@@ -829,28 +808,55 @@ export default function WorkModulePage() {
                 {sheet.columns.map((column, index) => (
                   <th
                     key={column.id}
-                    className="relative px-3 py-2"
+                    className="relative px-2 py-2 align-bottom"
                     style={{ minWidth: column.width ?? 160 }}
                   >
-                    <button
-                      type="button"
-                      className="group flex w-full items-center justify-between gap-2 rounded-sm border border-transparent px-1 py-1 text-left hover:border-zinc-700 hover:bg-zinc-900/60"
-                      onClick={() =>
-                        setOpenColumnMenu((current) =>
-                          current === column.id ? null : column.id,
-                        )
-                      }
-                    >
-                      <div className="min-w-0">
-                        <p className="praxis-label truncate">
-                          {column.label || "Sem nome"}
-                        </p>
-                        <p className="mt-0.5 text-[10px] uppercase tracking-wider text-zinc-500">
-                          {CELL_TYPE_LABELS[column.type]}
-                        </p>
+                    <div className="flex items-start gap-1.5">
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <input
+                          value={column.label}
+                          placeholder="Sem nome"
+                          aria-label="Nome da coluna"
+                          onChange={(event) =>
+                            updateColumn(column.id, { label: event.target.value })
+                          }
+                          className="praxis-label w-full truncate rounded-sm border border-transparent bg-transparent px-1 py-0.5 hover:border-zinc-700 hover:bg-zinc-900/60 focus:border-[var(--accent)]/40 focus:bg-zinc-900/70 focus:outline-none"
+                        />
+                        <select
+                          value={column.type}
+                          aria-label="Tipo da coluna"
+                          onChange={(event) =>
+                            updateColumn(column.id, {
+                              type: event.target.value as WorkCellType,
+                            })
+                          }
+                          className="w-full cursor-pointer appearance-none rounded-sm border border-transparent bg-transparent px-1 py-0.5 text-[10px] uppercase tracking-wider text-zinc-500 hover:border-zinc-700 hover:bg-zinc-900/60 hover:text-zinc-300 focus:outline-none"
+                        >
+                          {CELL_TYPE_ORDER.map((type) => (
+                            <option
+                              key={type}
+                              value={type}
+                              className="bg-zinc-950 text-zinc-100"
+                            >
+                              {CELL_TYPE_LABELS[type]}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                      <Settings2 className="h-3.5 w-3.5 text-zinc-500 group-hover:text-zinc-200" />
-                    </button>
+                      <button
+                        type="button"
+                        title="Mais opções"
+                        aria-label="Mais opções da coluna"
+                        className="mt-0.5 shrink-0 rounded-sm border border-transparent p-1 text-zinc-500 hover:border-zinc-700 hover:text-zinc-200"
+                        onClick={() =>
+                          setOpenColumnMenu((current) =>
+                            current === column.id ? null : column.id,
+                          )
+                        }
+                      >
+                        <Settings2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                     {openColumnMenu === column.id ? (
                       <ColumnHeaderMenu
                         column={column}
