@@ -27,8 +27,16 @@ type RunEntry = {
   durationSeconds: number;
 };
 
+/** Qual unidade está ativa como meta do dia. "km" = distância, "minutes" =
+ *  tempo. Cada DailyTarget guarda os DOIS números (km + minutes), mas só
+ *  um é tratado como a meta efetiva — assim o user pode alternar a
+ *  unidade sem perder o que já tinha digitado. */
+type DailyTargetMetric = "km" | "minutes";
+
 type DailyTarget = {
   km: number;
+  minutes: number;
+  metric: DailyTargetMetric;
   time: string;
   type: CardioType;
 };
@@ -73,7 +81,13 @@ const runModuleKey = "run-module-v2";
 function createEmptyTargets(defaultType: CardioType = "running") {
   return weekdayItems.reduce(
     (accumulator, item) => {
-      accumulator[item.id] = { km: 0, time: "", type: defaultType };
+      accumulator[item.id] = {
+        km: 0,
+        minutes: 0,
+        metric: "km",
+        time: "",
+        type: defaultType,
+      };
       return accumulator;
     },
     {} as Record<Weekday, DailyTarget>,
@@ -84,6 +98,17 @@ function coerceCardioType(value: unknown, fallback: CardioType): CardioType {
   return CARDIO_TYPES.includes(value as CardioType)
     ? (value as CardioType)
     : fallback;
+}
+
+function coerceMetric(value: unknown): DailyTargetMetric {
+  return value === "minutes" ? "minutes" : "km";
+}
+
+/** Pega o valor numérico da meta efetiva (km ou min) considerando o
+ *  metric ativo. Centralizado pra evitar repetição em cada call site. */
+function getTargetGoal(target: DailyTarget | undefined) {
+  if (!target) return 0;
+  return target.metric === "km" ? target.km : target.minutes;
 }
 
 function normalizeTimeValue(value: unknown) {
@@ -99,8 +124,12 @@ function isValidTime(value: string) {
 }
 
 /**
- * Migrates the old shape (dailyTargets: Record<Weekday, number>) to the
- * new one (km + time + type per weekday) without losing existing km.
+ * Migrações suportadas no normalize:
+ *   v0: dailyTargets: Record<Weekday, number>             // só km
+ *   v1: dailyTargets: Record<Weekday, { km, time, type }> // km + agenda
+ *   v2: dailyTargets: Record<Weekday, { km, minutes,      // km OU min
+ *                                       metric, time, type }>
+ * O default de metric é "km" pra não quebrar quem já tinha meta em km.
  */
 function normalizeRunState(raw: unknown, defaultType: CardioType): RunState {
   const base: RunState = { dailyTargets: createEmptyTargets(defaultType), entries: [] };
@@ -116,6 +145,8 @@ function normalizeRunState(raw: unknown, defaultType: CardioType): RunState {
     if (typeof stored === "number") {
       dailyTargets[item.id] = {
         km: Math.max(0, stored),
+        minutes: 0,
+        metric: "km",
         time: "",
         type: defaultType,
       };
@@ -123,6 +154,8 @@ function normalizeRunState(raw: unknown, defaultType: CardioType): RunState {
       const entry = stored as Partial<DailyTarget>;
       dailyTargets[item.id] = {
         km: Math.max(0, Number(entry.km) || 0),
+        minutes: Math.max(0, Number(entry.minutes) || 0),
+        metric: coerceMetric(entry.metric),
         time: normalizeTimeValue(entry.time),
         type: coerceCardioType(entry.type, defaultType),
       };
@@ -355,17 +388,20 @@ export default function RunModulePage() {
     const activeKeys = new Set<string>();
     weekdayItems.forEach((item) => {
       const target = targets[item.id];
-      const km = target?.km ?? 0;
-      const time = (target?.time ?? "").trim();
-      if (km <= 0 || !isValidTime(time)) {
+      if (!target) return;
+      const time = (target.time ?? "").trim();
+      const goal = getTargetGoal(target);
+      if (goal <= 0 || !isValidTime(time)) {
         return;
       }
 
       const typeLabel = cardioPreferenceLabel(target.type);
+      const goalLabel =
+        target.metric === "km" ? `${target.km} km` : `${target.minutes} min`;
       const key = `cardio-target-${item.id}`;
       const payload = {
-        title: `Cardio · ${km} km`,
-        description: `Meta de ${typeLabel.toLowerCase()} (${km} km) na ${item.label.toLowerCase()}.`,
+        title: `Cardio · ${goalLabel}`,
+        description: `Meta de ${typeLabel.toLowerCase()} (${goalLabel}) na ${item.label.toLowerCase()}.`,
         category: "fitness" as const,
         moduleId: "run" as const,
         scheduledTime: time,
@@ -428,15 +464,46 @@ export default function RunModulePage() {
     return map;
   }, [weekEntries]);
 
+  /** Minutos completos por dia da semana (derivado de durationSeconds das
+   *  entries). Usado pro progresso quando a meta do dia está em minutos. */
+  const dailyMinutesMap = useMemo(() => {
+    const map = weekdayItems.reduce(
+      (accumulator, item) => {
+        accumulator[item.id] = 0;
+        return accumulator;
+      },
+      {} as Record<Weekday, number>,
+    );
+    for (const entry of weekEntries) {
+      map[entry.weekday] = map[entry.weekday] + Math.round(entry.durationSeconds / 60);
+    }
+    return map;
+  }, [weekEntries]);
+
   const weeklyDistance = weekEntries.reduce((sum, entry) => sum + entry.distanceKm, 0);
   const weeklyDuration = weekEntries.reduce((sum, entry) => sum + entry.durationSeconds, 0);
-  const weeklyTarget = weekdayItems.reduce(
-    (sum, item) => sum + (state.dailyTargets[item.id]?.km ?? 0),
+  const weeklyMinutesDone = Math.round(weeklyDuration / 60);
+  // Soma só dos dias cujo metric ativo é "km" (não somar com minutes,
+  // são unidades diferentes — exibimos os dois lado a lado quando ambos
+  // existirem).
+  const weeklyTargetKm = weekdayItems.reduce(
+    (sum, item) => {
+      const t = state.dailyTargets[item.id];
+      return sum + (t?.metric === "km" ? t.km : 0);
+    },
+    0,
+  );
+  const weeklyTargetMinutes = weekdayItems.reduce(
+    (sum, item) => {
+      const t = state.dailyTargets[item.id];
+      return sum + (t?.metric === "minutes" ? t.minutes : 0);
+    },
     0,
   );
   const scheduledDays = weekdayItems.filter((item) => {
     const target = state.dailyTargets[item.id];
-    return (target?.km ?? 0) > 0 && isValidTime((target?.time ?? "").trim());
+    if (!target) return false;
+    return getTargetGoal(target) > 0 && isValidTime((target.time ?? "").trim());
   }).length;
   const averageSpeedKmH =
     weeklyDuration > 0
@@ -505,8 +572,17 @@ export default function RunModulePage() {
     [state.entries],
   );
   const latestEntry = recentEntries[0] ?? null;
-  const weeklyCompletionRate =
-    weeklyTarget > 0 ? Math.min(100, Math.round((weeklyDistance / weeklyTarget) * 100)) : 0;
+  // Quando o user mistura metas em km e min na semana, calculamos a
+  // taxa de execução com base no metric "dominante" (o que tem mais
+  // meta acumulada). Se só existir um, esse é usado. Se nenhum,
+  // continua 0.
+  const weeklyCompletionRate = (() => {
+    if (weeklyTargetKm === 0 && weeklyTargetMinutes === 0) return 0;
+    const useMinutes = weeklyTargetMinutes > weeklyTargetKm;
+    const done = useMinutes ? weeklyMinutesDone : weeklyDistance;
+    const target = useMinutes ? weeklyTargetMinutes : weeklyTargetKm;
+    return target > 0 ? Math.min(100, Math.round((done / target) * 100)) : 0;
+  })();
   const profileBaseSummary = [
     { label: "Idade", value: `${profile.ageYears} anos` },
     { label: "Peso", value: `${profile.bodyWeightKg.toFixed(1)} kg` },
@@ -526,6 +602,11 @@ export default function RunModulePage() {
           const previous = current.dailyTargets[item.id];
           accumulator[item.id] = {
             km: days.includes(item.id) ? perDay : 0,
+            // Preserva o minutes que o user já tinha digitado (mesmo
+            // que esteja inativo), pra não perder dado quando alternar.
+            minutes: previous?.minutes ?? 0,
+            // A sugestão automática vem em km, então fixamos o metric.
+            metric: "km",
             time: previous?.time ?? "",
             type: previous?.type ?? defaultCardioType,
           };
@@ -775,29 +856,35 @@ export default function RunModulePage() {
             <p className="praxis-label text-[var(--accent)]">Planejamento</p>
             <h2 className="mt-1 font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100">Meta por dia</h2>
             <p className="mt-2 text-sm leading-6 text-zinc-400">
-              Defina km, horário e tipo de cardio. Cada dia com km e horário
-              vira automaticamente uma tarefa na sua agenda e um lembrete
-              (push / Telegram).
+              Defina a meta (km <span className="text-zinc-500">ou</span>{" "}
+              minutos), horário e tipo de cardio. Cada dia com meta e
+              horário vira automaticamente uma tarefa na sua agenda e um
+              lembrete (push / Telegram).
             </p>
             <p className="mt-2 text-xs uppercase tracking-[0.2em] text-[var(--accent)]">
               {scheduledDays > 0
                 ? `${scheduledDays} ${scheduledDays === 1 ? "dia gerando tarefa" : "dias gerando tarefa"} na agenda`
-                : "Preencha km + horário para gerar tarefas"}
+                : "Preencha meta + horário para gerar tarefas"}
             </p>
           </div>
           <div className="space-y-3">
             {weekdayItems.map((item) => {
               const target = state.dailyTargets[item.id];
-              const remaining = Math.max(
-                0,
-                (target?.km ?? 0) - dailyDistanceMap[item.id],
-              );
+              const metric: DailyTargetMetric = target?.metric ?? "km";
+              const goal =
+                metric === "km" ? target?.km ?? 0 : target?.minutes ?? 0;
+              const done =
+                metric === "km"
+                  ? dailyDistanceMap[item.id]
+                  : dailyMinutesMap[item.id];
+              const remaining = Math.max(0, goal - done);
+              const unitLabel = metric === "km" ? "km" : "min";
               const willSchedule =
-                (target?.km ?? 0) > 0 && isValidTime((target?.time ?? "").trim());
+                goal > 0 && isValidTime((target?.time ?? "").trim());
               return (
                 <div
                   key={item.id}
-                  className="grid gap-3 border border-zinc-800 bg-black/40 p-4 md:grid-cols-[1fr_104px_120px_132px] md:items-center"
+                  className="grid gap-3 border border-zinc-800 bg-black/40 p-4 md:grid-cols-[1fr_88px_72px_104px_132px] md:items-center"
                   style={{
                     borderColor: willSchedule
                       ? "rgba(251,146,60,0.28)"
@@ -807,28 +894,45 @@ export default function RunModulePage() {
                   <div>
                     <p className="font-headline text-lg font-bold text-zinc-100">{item.label}</p>
                     <p className="mt-1 text-xs text-zinc-500">
-                      {dailyDistanceMap[item.id].toFixed(1)} km feitos ·{" "}
-                      {remaining.toFixed(1)} km faltam
+                      {metric === "km"
+                        ? `${done.toFixed(1)} km feitos · ${remaining.toFixed(1)} km faltam`
+                        : `${done} min feitos · ${remaining} min faltam`}
                     </p>
                     <p className="mt-1 text-[0.68rem] uppercase tracking-[0.2em] text-zinc-600">
                       {willSchedule
-                        ? `Tarefa ${target.time} • ${cardioPreferenceLabel(target.type)}`
-                        : "Sem tarefa (falta km ou horário)"}
+                        ? `Tarefa ${target?.time} • ${cardioPreferenceLabel(target?.type ?? defaultCardioType)}`
+                        : "Sem tarefa (falta meta ou horário)"}
                     </p>
                   </div>
                   <input
                     type="number"
                     min="0"
-                    step="0.1"
-                    value={target?.km ?? 0}
-                    onChange={(event) =>
-                      updateTarget(item.id, {
-                        km: Math.max(0, Number(event.target.value) || 0),
-                      })
-                    }
-                    placeholder="km"
+                    step={metric === "km" ? "0.1" : "1"}
+                    value={goal}
+                    onChange={(event) => {
+                      const next = Math.max(0, Number(event.target.value) || 0);
+                      updateTarget(
+                        item.id,
+                        metric === "km" ? { km: next } : { minutes: next },
+                      );
+                    }}
+                    placeholder={unitLabel}
+                    aria-label={`Meta em ${unitLabel} para ${item.label}`}
                     className="praxis-field px-3 py-3 text-sm text-white"
                   />
+                  <select
+                    value={metric}
+                    onChange={(event) =>
+                      updateTarget(item.id, {
+                        metric: event.target.value as DailyTargetMetric,
+                      })
+                    }
+                    aria-label={`Unidade da meta de ${item.label}`}
+                    className="praxis-field px-2 py-3 text-sm text-white"
+                  >
+                    <option value="km">km</option>
+                    <option value="minutes">min</option>
+                  </select>
                   <input
                     type="time"
                     value={target?.time ?? ""}
@@ -860,10 +964,31 @@ export default function RunModulePage() {
       </div>
 
       {/* Métricas semanais — descem pra cá pra liberar o topo da
-          página pra "Lançar cardio + Meta por dia". */}
+          página pra "Lançar cardio + Meta por dia". Como a meta agora
+          pode ser em km OU min por dia, "Meta semanal" mostra os dois
+          quando ambos existem, e "Percorrido" sempre mostra distância
+          + tempo (que as entries já carregam juntos). */}
       <div className="grid gap-4 md:grid-cols-3">
-        <GlassPanel><p className="praxis-label text-zinc-500">Meta semanal</p><p className="mt-2 font-title text-3xl font-bold text-[var(--accent)]">{weeklyTarget.toFixed(1)} km</p></GlassPanel>
-        <GlassPanel><p className="praxis-label text-zinc-500">Percorrido</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{weeklyDistance.toFixed(2)} km</p></GlassPanel>
+        <GlassPanel>
+          <p className="praxis-label text-zinc-500">Meta semanal</p>
+          <p className="mt-2 font-title text-3xl font-bold text-[var(--accent)]">
+            {weeklyTargetKm === 0 && weeklyTargetMinutes === 0
+              ? "—"
+              : [
+                  weeklyTargetKm > 0 ? `${weeklyTargetKm.toFixed(1)} km` : null,
+                  weeklyTargetMinutes > 0 ? `${weeklyTargetMinutes} min` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+          </p>
+        </GlassPanel>
+        <GlassPanel>
+          <p className="praxis-label text-zinc-500">Percorrido</p>
+          <p className="mt-2 font-title text-3xl font-bold text-zinc-100">
+            {weeklyDistance.toFixed(2)} km
+            {weeklyMinutesDone > 0 ? ` · ${weeklyMinutesDone} min` : ""}
+          </p>
+        </GlassPanel>
         <GlassPanel><p className="praxis-label text-zinc-500">Ritmo médio</p><p className="mt-2 font-title text-3xl font-bold text-zinc-100">{formatPace(weeklyDuration, weeklyDistance)}</p></GlassPanel>
       </div>
 
@@ -904,7 +1029,11 @@ export default function RunModulePage() {
                 {weeklyCompletionRate}%
               </p>
               <p className="mt-2 text-sm text-zinc-500">
-                {weeklyDistance.toFixed(1)} km de {weeklyTarget.toFixed(1)} km
+                {weeklyTargetKm === 0 && weeklyTargetMinutes === 0
+                  ? "Sem meta semanal"
+                  : weeklyTargetMinutes > weeklyTargetKm
+                    ? `${weeklyMinutesDone} min de ${weeklyTargetMinutes} min`
+                    : `${weeklyDistance.toFixed(1)} km de ${weeklyTargetKm.toFixed(1)} km`}
               </p>
             </div>
             <div className="rounded-sm border border-zinc-800 bg-black/30 p-4">
