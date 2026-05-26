@@ -3937,7 +3937,7 @@ export default function NutritionModulePage() {
         <div>
           <p className="text-sm text-zinc-500">Resumo do cardápio</p>
           <h2 className="mt-1 text-2xl font-semibold text-white">
-            Total dos macros configurados
+            Total dos macros da dieta
           </h2>
           <p className="mt-2 text-sm text-zinc-500">
             Soma dos itens em todas as refeições do plano. Compare com a meta
