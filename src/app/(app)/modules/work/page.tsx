@@ -1116,29 +1116,27 @@ export default function WorkModulePage() {
           </table>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
-          <p>
-            {sheet.columns.length} colunas · {sheet.rows.length} linhas
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="praxis-button-ghost px-2 py-1"
-              onClick={() => setShowColumnPicker(true)}
-            >
-              <Plus className="h-3 w-3" />
-              Adicionar coluna
-            </button>
-            <button
-              type="button"
-              className="praxis-button-ghost px-2 py-1"
-              onClick={addRow}
-            >
-              <Plus className="h-3 w-3" />
-              Adicionar linha
-            </button>
-          </div>
+        <div className="flex flex-wrap items-center justify-center gap-3 border-t border-zinc-700/40 pt-4">
+          <button
+            type="button"
+            className="praxis-button px-4 py-2"
+            onClick={addRow}
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar linha
+          </button>
+          <button
+            type="button"
+            className="praxis-button px-4 py-2"
+            onClick={() => setShowColumnPicker(true)}
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar coluna
+          </button>
         </div>
+        <p className="text-center text-xs text-zinc-500">
+          {sheet.columns.length} colunas · {sheet.rows.length} linhas
+        </p>
       </GlassPanel>
 
       <GlassPanel>
