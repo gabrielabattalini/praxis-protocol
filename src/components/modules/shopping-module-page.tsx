@@ -1000,7 +1000,7 @@ export function ShoppingModulePage({
                   }
                   type="number"
                   min="0.01"
-                  step="0.5"
+                  step="0.1"
                   placeholder="1"
                   className={fieldClassName}
                   aria-label="Número de tomadas"
