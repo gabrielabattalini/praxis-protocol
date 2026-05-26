@@ -278,6 +278,9 @@ export function ShoppingModulePage({
   // set (edit mode). The right-side "Cadastro rápido" panel was
   // removed at the user's request — single-flow editing now.
   const [isAddingNew, setIsAddingNew] = useState(false);
+  // Collapse/expand for the "Ofertas online" subsection inside the
+  // draft form (next to the "Buscar agora" button).
+  const [searchResultsExpanded, setSearchResultsExpanded] = useState(true);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [searchingItemId, setSearchingItemId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
@@ -975,24 +978,50 @@ export function ShoppingModulePage({
                 Ofertas online
               </div>
 
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.preventDefault();
-                  runSearch(currentItem);
-                }}
-                disabled={searchingItemId === currentItem.id}
-                className="praxis-button inline-flex items-center gap-1.5 px-3 py-1.5 text-sm"
-              >
-                {searchingItemId === currentItem.id ? (
-                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Search className="h-3.5 w-3.5" />
-                )}
-                Buscar agora
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    // Auto-expand results when the user kicks off a
+                    // new search, so they don't have to also click
+                    // the chevron to see what came back.
+                    setSearchResultsExpanded(true);
+                    runSearch(currentItem);
+                  }}
+                  disabled={searchingItemId === currentItem.id}
+                  className="praxis-button inline-flex items-center gap-1.5 px-3 py-1.5 text-sm"
+                >
+                  {searchingItemId === currentItem.id ? (
+                    <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Search className="h-3.5 w-3.5" />
+                  )}
+                  Buscar agora
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSearchResultsExpanded((current) => !current)
+                  }
+                  aria-expanded={searchResultsExpanded}
+                  aria-label={
+                    searchResultsExpanded
+                      ? "Ocultar resultados de busca"
+                      : "Expandir resultados de busca"
+                  }
+                  className="praxis-button-ghost inline-flex items-center gap-1.5 px-3 py-1.5 text-sm"
+                >
+                  {searchResultsExpanded ? (
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  )}
+                  {searchResultsExpanded ? "Ocultar" : "Expandir"}
+                </button>
+              </div>
 
-              {snapshot?.sources.length ? (
+              {searchResultsExpanded && snapshot?.sources.length ? (
                 <div className="grid gap-3 md:grid-cols-2">
                   {snapshot.sources.map((source) => (
                     <div key={source.id} className="rounded-sm border border-white/10 bg-[#0a0a0b] p-3">
@@ -1012,47 +1041,49 @@ export function ShoppingModulePage({
                 </div>
               ) : null}
 
-              {snapshot?.results.length ? (
-                <div className="grid gap-4">
-                  {snapshot.results.map((result) => (
-                    <ResultCard
-                      key={result.id}
-                      result={result}
-                      isPreferred={
-                        currentItem.preferredResultId === result.id ||
-                        (!currentItem.preferredResultId &&
-                          snapshot.results[0]?.id === result.id)
-                      }
-                      onChoose={() => {
-                        updateModuleState((current) => ({
-                          ...current,
-                          items: current.items.map((item) =>
-                            item.id === currentItem.id
-                              ? {
-                                  ...item,
-                                  preferredResultId: result.id,
-                                  monthlyUnits: getMonthlyUnitsFromDose(
-                                    result.quantityLabel || item.quantity,
-                                    item.dailyDose,
-                                    item.monthlyUnits,
-                                  ),
-                                  updatedAt: new Date().toISOString(),
-                                }
-                              : item,
-                          ),
-                        }));
-                        setFeedback(
-                          `Oferta de ${result.sourceName} definida no calculo mensal.`,
-                        );
-                      }}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-sm border border-dashed border-white/10 p-5 text-sm leading-6 text-zinc-500">
-                  Rode a busca para comparar preço, frete e precisão entre as lojas.
-                </div>
-              )}
+              {searchResultsExpanded ? (
+                snapshot?.results.length ? (
+                  <div className="grid gap-4">
+                    {snapshot.results.map((result) => (
+                      <ResultCard
+                        key={result.id}
+                        result={result}
+                        isPreferred={
+                          currentItem.preferredResultId === result.id ||
+                          (!currentItem.preferredResultId &&
+                            snapshot.results[0]?.id === result.id)
+                        }
+                        onChoose={() => {
+                          updateModuleState((current) => ({
+                            ...current,
+                            items: current.items.map((item) =>
+                              item.id === currentItem.id
+                                ? {
+                                    ...item,
+                                    preferredResultId: result.id,
+                                    monthlyUnits: getMonthlyUnitsFromDose(
+                                      result.quantityLabel || item.quantity,
+                                      item.dailyDose,
+                                      item.monthlyUnits,
+                                    ),
+                                    updatedAt: new Date().toISOString(),
+                                  }
+                                : item,
+                            ),
+                          }));
+                          setFeedback(
+                            `Oferta de ${result.sourceName} definida no calculo mensal.`,
+                          );
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-sm border border-dashed border-white/10 p-5 text-sm leading-6 text-zinc-500">
+                    Rode a busca para comparar preço, frete e precisão entre as lojas.
+                  </div>
+                )
+              ) : null}
             </section>
           );
         })()}
