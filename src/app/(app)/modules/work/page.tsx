@@ -129,11 +129,7 @@ function CellDisplay({
         onDoubleClick={onActivate}
         title="Duplo clique para editar"
       >
-        {text ? (
-          formatDateBR(text)
-        ) : (
-          <span className="italic text-zinc-400">duplo clique…</span>
-        )}
+        {text ? formatDateBR(text) : ""}
       </div>
     );
   }
@@ -145,7 +141,7 @@ function CellDisplay({
       onDoubleClick={onActivate}
       title="Duplo clique para editar"
     >
-      {text || <span className="italic text-zinc-400">duplo clique…</span>}
+      {text}
     </div>
   );
 }
