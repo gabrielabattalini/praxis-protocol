@@ -2808,7 +2808,11 @@ export default function NutritionModulePage() {
               item.mode === "limit"
                 ? getNutritionProgressPercent(item.current, item.target, "limit") / 100
                 : getNutritionProgressPercent(item.current, item.target) / 100;
-
+            // Sódio = limite (quanto menos, melhor). Os outros = meta
+            // (queremos chegar perto). Reflete isso no label e badge.
+            const isLimit = item.mode === "limit";
+            const badgeLabel = isLimit ? "Limite" : "Meta";
+            const progressNoun = isLimit ? "do limite" : "da meta";
             return (
               <div
                 key={item.label}
@@ -2817,7 +2821,7 @@ export default function NutritionModulePage() {
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm text-zinc-500">{item.label}</p>
                   <span className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-2 py-1 text-[11px] text-zinc-300">
-                    Meta {item.target.toFixed(item.decimals)} {item.unit}
+                    {badgeLabel} {item.target.toFixed(item.decimals)} {item.unit}
                   </span>
                 </div>
                 <p className="mt-2 text-xl font-semibold text-white">
@@ -2830,7 +2834,7 @@ export default function NutritionModulePage() {
                   />
                 </div>
                 <p className="mt-2 text-sm text-zinc-500">
-                  {Math.round(progress * 100)}% da meta
+                  {Math.round(progress * 100)}% {progressNoun}
                 </p>
               </div>
             );
@@ -3946,21 +3950,47 @@ export default function NutritionModulePage() {
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {[
-            { label: "Proteína", value: plannedDietTotals.protein, target: dailyNutritionTargets.totals.protein, unit: "g" },
-            { label: "Carboidrato", value: plannedDietTotals.carbs, target: dailyNutritionTargets.totals.carbs, unit: "g" },
-            { label: "Gordura", value: plannedDietTotals.fat, target: dailyNutritionTargets.totals.fat, unit: "g" },
-            { label: "Fibra", value: plannedDietTotals.fiber, target: dailyNutritionTargets.totals.fiber, unit: "g" },
-            { label: "Sódio", value: plannedDietTotals.sodium, target: dailyNutritionTargets.totals.sodium, unit: "mg" },
-            { label: "Calorias", value: plannedDietTotals.calories, target: dailyNutritionTargets.totals.calories, unit: "kcal" },
+            { label: "Proteína", value: plannedDietTotals.protein, target: dailyNutritionTargets.totals.protein, unit: "g", mode: "target" as const },
+            { label: "Carboidrato", value: plannedDietTotals.carbs, target: dailyNutritionTargets.totals.carbs, unit: "g", mode: "target" as const },
+            { label: "Gordura", value: plannedDietTotals.fat, target: dailyNutritionTargets.totals.fat, unit: "g", mode: "target" as const },
+            { label: "Fibra", value: plannedDietTotals.fiber, target: dailyNutritionTargets.totals.fiber, unit: "g", mode: "target" as const },
+            // Sódio é LIMITE, não alvo — quanto menos, melhor (até o teto).
+            { label: "Sódio", value: plannedDietTotals.sodium, target: dailyNutritionTargets.totals.sodium, unit: "mg", mode: "limit" as const },
+            { label: "Calorias", value: plannedDietTotals.calories, target: dailyNutritionTargets.totals.calories, unit: "kcal", mode: "target" as const },
           ].map((card) => {
             const pct = card.target > 0 ? (card.value / card.target) * 100 : 0;
             const diff = card.value - card.target;
+            const intDecimals = card.unit === "kcal" || card.unit === "mg" ? 0 : 1;
+            // Tom de cor depende do modo:
+            //  - "target" (macros): verde perto de 100%, amber se faltando,
+            //    laranja se estourou.
+            //  - "limit" (sódio): verde quando bem abaixo do teto (< 80%),
+            //    amber se chegando perto (80-100%), laranja se passou.
             const tone =
-              Math.abs(pct - 100) <= 5
-                ? "text-emerald-300"
-                : pct < 95
-                  ? "text-amber-300"
-                  : "text-orange-300";
+              card.mode === "limit"
+                ? pct <= 80
+                  ? "text-emerald-300"
+                  : pct <= 100
+                    ? "text-amber-300"
+                    : "text-orange-300"
+                : Math.abs(pct - 100) <= 5
+                  ? "text-emerald-300"
+                  : pct < 95
+                    ? "text-amber-300"
+                    : "text-orange-300";
+            const goalLabel = card.mode === "limit" ? "do limite" : "da meta";
+            // Pro modo limit, diff negativo = folga (bom). Pra ficar
+            // legível, mostramos "X mg abaixo do limite" em vez do número
+            // cru com sinal de menos.
+            const diffLabel = (() => {
+              if (card.mode === "limit") {
+                if (diff <= 0) {
+                  return `${Math.abs(diff).toFixed(intDecimals)} ${card.unit} abaixo`;
+                }
+                return `+${diff.toFixed(intDecimals)} acima`;
+              }
+              return `${diff >= 0 ? "+" : ""}${diff.toFixed(intDecimals)}`;
+            })();
             return (
               <div
                 key={card.label}
@@ -3968,13 +3998,12 @@ export default function NutritionModulePage() {
               >
                 <p className="text-sm text-zinc-500">{card.label}</p>
                 <p className="mt-2 text-xl font-semibold text-white">
-                  {card.value.toFixed(card.unit === "kcal" || card.unit === "mg" ? 0 : 1)} {card.unit}
+                  {card.value.toFixed(intDecimals)} {card.unit}
                 </p>
                 <p className={`mt-2 text-xs ${tone}`}>
-                  {pct.toFixed(0)}% da meta ({card.target.toFixed(card.unit === "kcal" || card.unit === "mg" ? 0 : 1)} {card.unit})
+                  {pct.toFixed(0)}% {goalLabel} ({card.target.toFixed(intDecimals)} {card.unit})
                   {" · "}
-                  {diff >= 0 ? "+" : ""}
-                  {diff.toFixed(card.unit === "kcal" || card.unit === "mg" ? 0 : 1)}
+                  {diffLabel}
                 </p>
               </div>
             );
