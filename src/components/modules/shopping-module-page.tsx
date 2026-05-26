@@ -784,7 +784,13 @@ export function ShoppingModulePage({
       servingsPerDay: servingsPerDay,
       servingAmount: servingAmount > 0 ? servingAmount : undefined,
       servingFrequency: draft.servingFrequency,
-      monthlyUnits: getMonthlyUnitsFromDose(draft.quantity.trim(), dailyDose, currentEditingItem?.monthlyUnits ?? 1),
+      // Fallback antes era currentEditingItem?.monthlyUnits — isso
+      // perpetuava valores absurdos quando o item legado tinha
+      // monthlyUnits ruim (ex: 12000) e a Qtd não conseguia ser
+      // parseada. Agora cai sempre pra 1, então re-salvar com Qtd
+      // vazia "limpa" o bug. Quando a Qtd é parseável, o getMonthly
+      // calcula corretamente (consumo mensal / canonicalValue).
+      monthlyUnits: getMonthlyUnitsFromDose(draft.quantity.trim(), dailyDose, 1),
       includeInFinance: currentEditingItem?.includeInFinance ?? true,
       purchaseMode,
       localStoreName: purchaseMode === "presential" ? draft.localStoreName.trim() || undefined : undefined,
@@ -870,11 +876,14 @@ export function ShoppingModulePage({
             <span className="inline-block h-1 w-1 rounded-full bg-[var(--accent)]" />
             Item
           </div>
-          {/* Rebalanceei os tracks: Link encolheu (ele só precisa
-              mostrar o início da URL e o usuário consegue rolar dentro
-              do input), Tomadas × dose ganhou MUITO mais espaço pra
-              caber tomadas/freq × dose/unit sem sumir os inputs. */}
-          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.5fr)_minmax(0,0.75fr)_minmax(0,0.65fr)_minmax(0,3fr)_minmax(0,0.75fr)]">
+          {/* Rebalanceamento (segundo passe): a Qtd virou número +
+              unidade (2 sub-células), e estava espremida em 0.5fr —
+              user reportou que não conseguia digitar. Subiu pra
+              0.85fr. Em troca, "Tomadas × dose" desceu de 3fr pra
+              1.7fr (estava bloating o input "200"). O dose number
+              também ganhou cap interno pra não inflar de volta. Link
+              continua compacto. */}
+          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.85fr)_minmax(0,0.75fr)_minmax(0,0.65fr)_minmax(0,1.7fr)_minmax(0,0.75fr)]">
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">Nome</span>
               <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder={examples[0] ?? "Ex.: detergente"} className={fieldClassName} />
@@ -948,9 +957,12 @@ export function ShoppingModulePage({
                   alergia 2×/semana, etc.). saveItem normaliza tudo
                   pra dailyDose interno (× 1, ÷ 7 ou ÷ 30). */}
               {/* Sub-grid de 5 células. Tomadas/freq/×/dose/unit.
-                  Frequência aumentada pra 5.5rem — texto "/sem" e
-                  "/mês" estavam cortando com 4rem; agora respiram. */}
-              <div className="grid grid-cols-[3rem_5.5rem_auto_minmax(0,1fr)_3.6rem] items-center gap-1">
+                  Frequência em 5.5rem. O dose number era minmax(0,1fr)
+                  e inflava demais quando o outer column tinha muita
+                  folga (user reportou "200" gigante). Capei em
+                  minmax(0,6rem) pra ficar mais ou menos do tamanho dos
+                  outros inputs numéricos do form. */}
+              <div className="grid grid-cols-[3rem_5.5rem_auto_minmax(0,6rem)_3.6rem] items-center gap-1">
                 <input
                   value={draft.servingsPerDay}
                   onChange={(event) =>
