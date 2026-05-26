@@ -3082,6 +3082,22 @@ export default function NutritionModulePage() {
                             )}
                             {isMealExpanded ? "Ocultar alimentos" : "Ver alimentos"}
                           </button>
+                          {/* Pílulas de macros movidas pra cá pra ficar
+                              ao lado do botão "Ver alimentos" a pedido
+                              do usuário. Antes ficavam num row separado
+                              abaixo. */}
+                          <span className="rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] px-3 py-1 text-xs text-[var(--accent)]">
+                            P {blockTotals.protein.toFixed(1)}g
+                          </span>
+                          <span className="rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] px-3 py-1 text-xs text-[var(--accent)]">
+                            C {blockTotals.carbs.toFixed(1)}g
+                          </span>
+                          <span className="rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] px-3 py-1 text-xs text-[var(--accent)]">
+                            G {blockTotals.fat.toFixed(1)}g
+                          </span>
+                          <span className="rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] px-3 py-1 text-xs text-[var(--accent)]">
+                            {blockTotals.calories.toFixed(0)} kcal
+                          </span>
                           {block.items.length > 0 ? (
                             <button
                               type="button"
@@ -3132,20 +3148,6 @@ export default function NutritionModulePage() {
                                 : "Concluir refeição"}
                             </button>
                           ) : null}
-                        </div>
-                        <div className="flex flex-wrap gap-2 text-xs text-[var(--accent)]">
-                          <span className="rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] px-3 py-1">
-                            P {blockTotals.protein.toFixed(1)}g
-                          </span>
-                          <span className="rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] px-3 py-1">
-                            C {blockTotals.carbs.toFixed(1)}g
-                          </span>
-                          <span className="rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] px-3 py-1">
-                            G {blockTotals.fat.toFixed(1)}g
-                          </span>
-                          <span className="rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] px-3 py-1">
-                            {blockTotals.calories.toFixed(0)} kcal
-                          </span>
                         </div>
                       </div>
                       {isEditingMealBlock ? (
