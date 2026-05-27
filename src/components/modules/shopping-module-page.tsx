@@ -984,12 +984,12 @@ export function ShoppingModulePage({
                   alergia 2×/semana, etc.). saveItem normaliza tudo
                   pra dailyDose interno (× 1, ÷ 7 ou ÷ 30). */}
               {/* Sub-grid de 5 células. Tomadas/freq/×/dose/unit.
-                  Frequência em 5.5rem. O dose number era minmax(0,1fr)
-                  e inflava demais quando o outer column tinha muita
-                  folga (user reportou "200" gigante). Capei em
-                  minmax(0,6rem) pra ficar mais ou menos do tamanho dos
-                  outros inputs numéricos do form. */}
-              <div className="grid grid-cols-[3rem_5.5rem_auto_minmax(0,6rem)_3.6rem] items-center gap-1">
+                  Tomadas subiu de 3rem (48px) -> 5rem (80px) — com
+                  step 0.1 o user digita "0.5", "1.5" etc., e com 3rem
+                  não cabia número + setinhas do browser. Freq em
+                  5.5rem. Dose capado em minmax(0,6rem) pra ficar do
+                  tamanho dos outros inputs numéricos do form. */}
+              <div className="grid grid-cols-[5rem_5.5rem_auto_minmax(0,6rem)_3.6rem] items-center gap-1">
                 <input
                   value={draft.servingsPerDay}
                   onChange={(event) =>
