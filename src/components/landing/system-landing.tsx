@@ -2,7 +2,36 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { useAuthClient } from "@/components/providers/auth-client-provider";
+
+const INTRO_SEEN_KEY = "praxis_intro_seen";
+
+function subscribeToIntroSeen(callback: () => void) {
+  if (typeof window === "undefined") return () => {};
+  const handler = (event: StorageEvent) => {
+    if (event.key === INTRO_SEEN_KEY) callback();
+  };
+  window.addEventListener("storage", handler);
+  return () => window.removeEventListener("storage", handler);
+}
+
+function readIntroSeen() {
+  if (typeof window === "undefined") return false;
+  return window.localStorage.getItem(INTRO_SEEN_KEY) === "1";
+}
+
+function readIntroSeenServer() {
+  return false;
+}
 import {
   Activity,
   AlertTriangle,
@@ -692,6 +721,25 @@ export function SystemLanding() {
   const [operatorGender, setOperatorGender] = useState<OperatorGender>("male");
   const [motionReady, setMotionReady] = useState(false);
   const [evolutionSectionVisible, setEvolutionSectionVisible] = useState(false);
+  const introSeen = useSyncExternalStore(
+    subscribeToIntroSeen,
+    readIntroSeen,
+    readIntroSeenServer,
+  );
+
+  const router = useRouter();
+  const { isLoaded: authLoaded, isSignedIn } = useAuthClient();
+
+  useEffect(() => {
+    if (!introSeen || !authLoaded) return;
+    router.replace(isSignedIn ? "/dashboard" : "/auth/login");
+  }, [authLoaded, introSeen, isSignedIn, router]);
+
+  useEffect(() => {
+    if (introStage !== "complete") return;
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(INTRO_SEEN_KEY, "1");
+  }, [introStage]);
 
   const visibleCheckCount =
     bootProgress >= 92
@@ -1135,6 +1183,10 @@ export function SystemLanding() {
 
     return () => observer.disconnect();
   }, []);
+
+  if (introSeen) {
+    return null;
+  }
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#050505] text-zinc-100">
