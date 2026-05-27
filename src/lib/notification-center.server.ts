@@ -13,6 +13,47 @@ const dataDir = path.join(process.cwd(), ".data");
 const vapidPath = path.join(dataDir, "notifications-vapid.json");
 const storePath = path.join(dataDir, "notifications-store.json");
 
+/* ── KV (Upstash / Vercel KV) ─────────────────────────────────────
+   File-backed storage doesn't survive cold starts on Vercel — the
+   `.data` dir is ephemeral per instance. When KV creds are present
+   we persist subscriptions, schedules and the dispatch log there;
+   otherwise we fall back to disk for local development.
+   ──────────────────────────────────────────────────────────────── */
+
+const KV_URL =
+  process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "";
+const KV_TOKEN =
+  process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
+const KV_ENABLED = Boolean(KV_URL && KV_TOKEN);
+const KV_STORE_KEY = "praxis:notif:store";
+
+async function kvCommand<T = unknown>(
+  command: Array<string | number>,
+): Promise<T | null> {
+  try {
+    const response = await fetch(KV_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${KV_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(command),
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      console.error(
+        `[notifications] KV command failed: ${response.status} ${response.statusText}`,
+      );
+      return null;
+    }
+    const payload = (await response.json()) as { result?: T };
+    return payload.result ?? null;
+  } catch (error) {
+    console.error("[notifications] KV command error:", error);
+    return null;
+  }
+}
+
 type StoredSubscription = {
   id: string;
   endpoint: string;
@@ -79,12 +120,30 @@ function writeJsonFile(filePath: string, value: unknown) {
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2), "utf8");
 }
 
-function loadStore() {
+async function loadStore(): Promise<NotificationStore> {
+  if (KV_ENABLED) {
+    const raw = await kvCommand<string>(["GET", KV_STORE_KEY]);
+    if (!raw) return emptyStore();
+    try {
+      const parsed = JSON.parse(raw) as NotificationStore;
+      return {
+        subscriptions: parsed.subscriptions ?? {},
+        schedules: parsed.schedules ?? {},
+        dispatchLog: parsed.dispatchLog ?? [],
+      };
+    } catch {
+      return emptyStore();
+    }
+  }
   ensureDataDir();
   return readJsonFile(storePath, emptyStore());
 }
 
-function saveStore(store: NotificationStore) {
+async function saveStore(store: NotificationStore): Promise<void> {
+  if (KV_ENABLED) {
+    await kvCommand(["SET", KV_STORE_KEY, JSON.stringify(store)]);
+    return;
+  }
   writeJsonFile(storePath, store);
 }
 
@@ -236,8 +295,7 @@ export function getNotificationPublicKey() {
   return configureWebPush().publicKey;
 }
 
-export function getNotificationStatus(userId: string) {
-  const store = loadStore();
+function statusFromStore(store: NotificationStore, userId: string) {
   const subscriptions = store.subscriptions[userId] ?? [];
   const schedule = store.schedules[userId];
 
@@ -250,18 +308,25 @@ export function getNotificationStatus(userId: string) {
   };
 }
 
-export function syncNotificationSchedule(userId: string, payload: NotificationSyncPayload) {
-  const store = loadStore();
+export async function getNotificationStatus(userId: string) {
+  const store = await loadStore();
+  return statusFromStore(store, userId);
+}
+
+export async function syncNotificationSchedule(
+  userId: string,
+  payload: NotificationSyncPayload,
+) {
+  const store = await loadStore();
   store.schedules[userId] = {
     ...payload,
     userId,
   };
-  saveStore(store);
-
-  return getNotificationStatus(userId);
+  await saveStore(store);
+  return statusFromStore(store, userId);
 }
 
-export function subscribeUserToNotifications(
+export async function subscribeUserToNotifications(
   userId: string,
   subscription: PushSubscription,
   options?: {
@@ -270,7 +335,7 @@ export function subscribeUserToNotifications(
     userAgent?: string;
   },
 ) {
-  const store = loadStore();
+  const store = await loadStore();
   const current = store.subscriptions[userId] ?? [];
   const now = new Date().toISOString();
   const existingIndex = current.findIndex(
@@ -298,26 +363,28 @@ export function subscribeUserToNotifications(
       : [nextEntry, ...current];
 
   store.subscriptions[userId] = nextSubscriptions;
-  saveStore(store);
-
-  return getNotificationStatus(userId);
+  await saveStore(store);
+  return statusFromStore(store, userId);
 }
 
-export function unsubscribeUserFromNotifications(userId: string, endpoint?: string) {
-  const store = loadStore();
+export async function unsubscribeUserFromNotifications(
+  userId: string,
+  endpoint?: string,
+) {
+  const store = await loadStore();
   const current = store.subscriptions[userId] ?? [];
 
   store.subscriptions[userId] = endpoint
     ? current.filter((entry) => entry.endpoint !== endpoint)
     : [];
 
-  saveStore(store);
-  return getNotificationStatus(userId);
+  await saveStore(store);
+  return statusFromStore(store, userId);
 }
 
 export async function sendTestNotification(userId: string) {
   configureWebPush();
-  const store = loadStore();
+  const store = await loadStore();
   const subscriptions = store.subscriptions[userId] ?? [];
   let removed = 0;
   let sent = 0;
@@ -353,7 +420,7 @@ export async function sendTestNotification(userId: string) {
   }
 
   store.subscriptions[userId] = nextSubscriptions;
-  saveStore(store);
+  await saveStore(store);
 
   return {
     sent,
@@ -363,7 +430,7 @@ export async function sendTestNotification(userId: string) {
 
 export async function dispatchDueNotifications(referenceDate = new Date()) {
   configureWebPush();
-  const store = loadStore();
+  const store = await loadStore();
   const summary: DispatchSummary = {
     usersChecked: 0,
     notificationsSent: 0,
@@ -444,7 +511,7 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
   }
 
   store.dispatchLog = dispatchLog;
-  saveStore(store);
+  await saveStore(store);
 
   return summary;
 }

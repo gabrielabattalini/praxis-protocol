@@ -85,7 +85,7 @@ export async function POST(request: Request) {
       ),
     );
 
-    const status = syncNotificationSchedule(userId, {
+    const status = await syncNotificationSchedule(userId, {
       timezone: body.timezone,
       syncedAt: body.syncedAt || new Date().toISOString(),
       items: body.items,

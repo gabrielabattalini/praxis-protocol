@@ -30,11 +30,15 @@ export async function POST(request: Request) {
 
   try {
     const body = bodySchema.parse(await request.json());
-    const status = subscribeUserToNotifications(userId, body.subscription, {
-      deviceLabel: body.deviceLabel,
-      timezone: body.timezone,
-      userAgent: body.userAgent,
-    });
+    const status = await subscribeUserToNotifications(
+      userId,
+      body.subscription,
+      {
+        deviceLabel: body.deviceLabel,
+        timezone: body.timezone,
+        userAgent: body.userAgent,
+      },
+    );
 
     return NextResponse.json(status);
   } catch (error) {

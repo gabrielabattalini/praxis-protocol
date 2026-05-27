@@ -43,3 +43,35 @@ test("dispatch em produção falha quando o segredo não está configurado", () 
     false,
   );
 });
+
+test("dispatch aceita Authorization: Bearer (formato Vercel Cron)", () => {
+  assert.equal(
+    isAuthorizedDispatchRequest({
+      nodeEnv: "production",
+      configuredSecret: "segredo",
+      headerSecret: null,
+      authorizationHeader: "Bearer segredo",
+    }),
+    true,
+  );
+
+  assert.equal(
+    isAuthorizedDispatchRequest({
+      nodeEnv: "production",
+      configuredSecret: "segredo",
+      headerSecret: null,
+      authorizationHeader: "Bearer outro",
+    }),
+    false,
+  );
+
+  assert.equal(
+    isAuthorizedDispatchRequest({
+      nodeEnv: "production",
+      configuredSecret: "segredo",
+      headerSecret: null,
+      authorizationHeader: null,
+    }),
+    false,
+  );
+});

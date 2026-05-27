@@ -15,6 +15,6 @@ export async function POST(request: Request) {
     endpoint?: string;
   };
 
-  const status = unsubscribeUserFromNotifications(userId, body.endpoint);
+  const status = await unsubscribeUserFromNotifications(userId, body.endpoint);
   return NextResponse.json(status);
 }

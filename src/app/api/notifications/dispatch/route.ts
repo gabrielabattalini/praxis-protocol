@@ -7,8 +7,10 @@ export const runtime = "nodejs";
 function isAuthorized(request: Request) {
   return isAuthorizedDispatchRequest({
     nodeEnv: process.env.NODE_ENV,
-    configuredSecret: process.env.NOTIFICATION_CRON_SECRET,
+    configuredSecret:
+      process.env.NOTIFICATION_CRON_SECRET || process.env.CRON_SECRET,
     headerSecret: request.headers.get("x-praxis-cron-secret"),
+    authorizationHeader: request.headers.get("authorization"),
   });
 }
 
