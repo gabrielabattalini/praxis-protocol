@@ -149,6 +149,19 @@ export default function DashboardPage() {
       })),
     [weekAgenda],
   );
+  const mobileWeek = useMemo(() => {
+    if (currentWeek.length <= 5) return currentWeek;
+    const todayKey = today.toDateString();
+    const todayIdx = currentWeek.findIndex(
+      (day) => day.date.toDateString() === todayKey,
+    );
+    if (todayIdx === -1) return currentWeek.slice(0, 5);
+    const start = Math.max(
+      0,
+      Math.min(currentWeek.length - 5, todayIdx - 2),
+    );
+    return currentWeek.slice(start, start + 5);
+  }, [currentWeek, today]);
   const weekXp = currentWeek.reduce(
     (sum, day) => sum + day.completedCount * 120,
     0,
@@ -881,6 +894,56 @@ export default function DashboardPage() {
     </div>
   );
 
+  const renderWeekDayCard = (day: (typeof currentWeek)[number]) => {
+    const isToday = day.date.toDateString() === today.toDateString();
+    return (
+      <div
+        key={day.dateKey}
+        style={{
+          border: isToday
+            ? "1px solid rgba(74,222,128,.4)"
+            : "1px solid rgba(39,39,42,.8)",
+          background: isToday ? "rgba(74,222,128,.08)" : undefined,
+          borderRadius: 20,
+          padding: "14px 8px",
+          textAlign: "center",
+        }}
+      >
+        <div
+          className="praxis-label"
+          style={{
+            marginBottom: 8,
+            color: isToday ? "var(--ok)" : undefined,
+          }}
+        >
+          {day.shortLabel.slice(0, 3)}
+        </div>
+        <div
+          style={{
+            fontSize: 24,
+            fontWeight: 600,
+            color: "#f4f4f5",
+            fontFamily: "var(--font-space-grotesk), sans-serif",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          {day.percent}%
+        </div>
+        <div style={{ fontSize: 11, color: "#71717a", marginTop: 8 }}>
+          {day.completedCount}/{day.totalCount}
+        </div>
+        <div className="progress-track progress-thin" style={{ marginTop: 8 }}>
+          <div
+            className="progress-fill"
+            style={{
+              width: `${Math.max(day.percent, day.totalCount > 0 ? 6 : 0)}%`,
+            }}
+          />
+        </div>
+      </div>
+    );
+  };
+
   const telemetryPanel = (
     <div className="glass">
       <div
@@ -907,70 +970,19 @@ export default function DashboardPage() {
         </span>
       </div>
       <div
+        className="hidden md:grid"
+        style={{ gridTemplateColumns: "repeat(7, 1fr)", gap: 10 }}
+      >
+        {currentWeek.map(renderWeekDayCard)}
+      </div>
+      <div
+        className="grid md:hidden"
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(7, 1fr)",
-          gap: 10,
+          gridTemplateColumns: `repeat(${mobileWeek.length}, 1fr)`,
+          gap: 8,
         }}
       >
-        {currentWeek.map((day) => {
-          const isToday =
-            day.date.toDateString() === today.toDateString();
-          return (
-            <div
-              key={day.dateKey}
-              style={{
-                border: isToday
-                  ? "1px solid rgba(74,222,128,.4)"
-                  : "1px solid rgba(39,39,42,.8)",
-                background: isToday
-                  ? "rgba(74,222,128,.08)"
-                  : undefined,
-                borderRadius: 20,
-                padding: "14px 8px",
-                textAlign: "center",
-              }}
-            >
-              <div
-                className="praxis-label"
-                style={{
-                  marginBottom: 8,
-                  color: isToday ? "var(--ok)" : undefined,
-                }}
-              >
-                {day.shortLabel.slice(0, 3)}
-              </div>
-              <div
-                style={{
-                  fontSize: 24,
-                  fontWeight: 600,
-                  color: "#f4f4f5",
-                  fontFamily: "var(--font-space-grotesk), sans-serif",
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                {day.percent}%
-              </div>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "#71717a",
-                  marginTop: 8,
-                }}
-              >
-                {day.completedCount}/{day.totalCount}
-              </div>
-              <div className="progress-track progress-thin" style={{ marginTop: 8 }}>
-                <div
-                  className="progress-fill"
-                  style={{
-                    width: `${Math.max(day.percent, day.totalCount > 0 ? 6 : 0)}%`,
-                  }}
-                />
-              </div>
-            </div>
-          );
-        })}
+        {mobileWeek.map(renderWeekDayCard)}
       </div>
     </div>
   );
