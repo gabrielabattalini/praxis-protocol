@@ -1861,7 +1861,7 @@ export function ShoppingModulePage({
                           >
                             <span
                               className={cn(
-                                "mb-1 text-[10px] font-semibold",
+                                "mb-1 hidden whitespace-nowrap text-[10px] font-semibold md:inline-block",
                                 isSelected || isPeak
                                   ? "text-[var(--accent)]"
                                   : "text-zinc-500 group-hover:text-zinc-300",
