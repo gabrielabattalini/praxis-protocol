@@ -43,6 +43,7 @@ import {
   useUserClient,
 } from "@/components/providers/auth-client-provider";
 import { NavigationLoadingOverlay } from "@/components/ui/navigation-loading-overlay";
+import { RemoteSaveIndicator } from "@/components/remote-save-indicator";
 import { isLocalAuthBypassEnabled } from "@/lib/auth-mode";
 import { moduleCatalog } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
@@ -892,6 +893,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
+      <RemoteSaveIndicator />
     </div>
   );
 }

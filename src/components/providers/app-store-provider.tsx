@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -102,6 +103,11 @@ type AppStoreValue = {
   state: PersistedState;
   user: ReturnType<typeof buildUserProfile>;
   entitlement: AccountEntitlement;
+  // Cross-device sync indicator. "idle" = up to date; "saving" = a PUT
+  // is in flight or queued; "error" = the last PUT failed and we'll
+  // retry. The tasks UI needs this so users can see when a change has
+  // actually been pushed to the server vs. only living in localStorage.
+  remoteSaveStatus: "idle" | "saving" | "error";
   actions: {
     toggleTask: (taskId: string) => void;
     /**
@@ -5114,6 +5120,88 @@ export function AppStoreProvider({
   const remoteSyncReadyRef = useRef(false);
   const lastServerSnapshotRef = useRef("");
   const saveAccountTimeoutRef = useRef<number | null>(null);
+  const retryTimeoutRef = useRef<number | null>(null);
+  const retryAttemptRef = useRef(0);
+  const stateRef = useRef(state);
+  const userIdRef = useRef(userId);
+  const remoteSaveInFlightRef = useRef(false);
+  const [remoteSaveStatus, setRemoteSaveStatus] = useState<
+    "idle" | "saving" | "error"
+  >("idle");
+
+  // Keep refs in sync with the latest values so the pagehide / retry
+  // callbacks (registered once) always read the current state and user.
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
+
+  const flushRemoteSave = useCallback(
+    async (opts?: { keepalive?: boolean; isRetry?: boolean }) => {
+      const currentUserId = userIdRef.current;
+      if (!currentUserId) return;
+      if (remoteSaveInFlightRef.current && !opts?.isRetry) return;
+
+      const snapshot = JSON.stringify(stateRef.current);
+      if (snapshot === lastServerSnapshotRef.current) {
+        setRemoteSaveStatus("idle");
+        return;
+      }
+
+      if (saveAccountTimeoutRef.current) {
+        window.clearTimeout(saveAccountTimeoutRef.current);
+        saveAccountTimeoutRef.current = null;
+      }
+      if (retryTimeoutRef.current && !opts?.isRetry) {
+        window.clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+
+      remoteSaveInFlightRef.current = true;
+      setRemoteSaveStatus("saving");
+
+      try {
+        const response = await fetch("/api/account-state", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: serializePersistedState(stateRef.current),
+          // keepalive lets the request survive the page being hidden /
+          // closed (e.g. user switches apps on mobile right after
+          // tapping "concluir"). Limited to 64KB by the browser, so we
+          // only opt in when the payload fits.
+          keepalive:
+            opts?.keepalive && snapshot.length < 60_000 ? true : undefined,
+        });
+        if (!response.ok) {
+          throw new Error(`account-state PUT failed: ${response.status}`);
+        }
+        lastServerSnapshotRef.current = snapshot;
+        retryAttemptRef.current = 0;
+        setRemoteSaveStatus("idle");
+      } catch {
+        setRemoteSaveStatus("error");
+        // Don't retry on keepalive flushes — the page is already gone
+        // and the next session will pick up from localStorage.
+        if (!opts?.keepalive && retryAttemptRef.current < 4) {
+          retryAttemptRef.current += 1;
+          const delay = Math.min(
+            30_000,
+            2_000 * 2 ** (retryAttemptRef.current - 1),
+          );
+          retryTimeoutRef.current = window.setTimeout(() => {
+            void flushRemoteSave({ isRetry: true });
+          }, delay);
+        }
+      } finally {
+        remoteSaveInFlightRef.current = false;
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!effectiveAuthLoaded) return;
@@ -5274,33 +5362,22 @@ export function AppStoreProvider({
   useEffect(() => {
     if (!effectiveAuthLoaded || !hydrated || !userId || !remoteSyncReadyRef.current) return;
 
+    const currentSnapshot = JSON.stringify(state);
+    if (currentSnapshot === lastServerSnapshotRef.current) {
+      return;
+    }
+
     if (saveAccountTimeoutRef.current) {
       window.clearTimeout(saveAccountTimeoutRef.current);
     }
 
+    // Surface "saving" the moment the user makes a change, even though
+    // the actual PUT is debounced. UI consumers (banner) can show
+    // "salvando…" without waiting for the network call to begin.
+    setRemoteSaveStatus((prev) => (prev === "error" ? prev : "saving"));
+
     saveAccountTimeoutRef.current = window.setTimeout(() => {
-      const currentSnapshot = JSON.stringify(state);
-
-      if (currentSnapshot === lastServerSnapshotRef.current) {
-        return;
-      }
-
-      void fetch("/api/account-state", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "same-origin",
-        body: serializePersistedState(state),
-      })
-        .then(async (response) => {
-          if (!response.ok) {
-            throw new Error("Falha ao sincronizar o estado da conta.");
-          }
-
-          lastServerSnapshotRef.current = currentSnapshot;
-        })
-        .catch(() => {});
+      void flushRemoteSave();
     }, 700);
 
     return () => {
@@ -5309,7 +5386,33 @@ export function AppStoreProvider({
         saveAccountTimeoutRef.current = null;
       }
     };
-  }, [effectiveAuthLoaded, hydrated, state, userId]);
+  }, [effectiveAuthLoaded, hydrated, state, userId, flushRemoteSave]);
+
+  // Flush pending changes when the tab/app goes to background. Without
+  // this, the 700ms debounce loses everything that was changed in the
+  // last 700ms before the user switched apps on mobile or closed the
+  // tab — which is exactly the "marquei no celular e voltou tudo pra
+  // não concluído no PC" bug.
+  useEffect(() => {
+    if (!hydrated || !userId) return;
+
+    const onHide = () => {
+      void flushRemoteSave({ keepalive: true });
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        void flushRemoteSave({ keepalive: true });
+      }
+    };
+
+    window.addEventListener("pagehide", onHide);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [hydrated, userId, flushRemoteSave]);
 
   useEffect(() => {
     if (!authLoaded || !hydrated) return;
@@ -5432,6 +5535,7 @@ export function AppStoreProvider({
     state,
     user: buildUserProfile(state),
     entitlement,
+    remoteSaveStatus,
     actions: {
       toggleTask(taskId) {
         dispatch({ type: "toggle-task", taskId });
