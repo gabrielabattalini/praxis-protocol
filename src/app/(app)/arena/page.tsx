@@ -89,6 +89,7 @@ export default function ArenaPage() {
     <div>
       <style>{`
         .arena-vs { display:grid; grid-template-columns:1fr 120px 1fr; gap:20px; align-items:center; }
+        @media (max-width: 767px) { .arena-vs { grid-template-columns:1fr; gap:14px; } }
         .fighter-card { border:1px solid rgba(39,39,42,.8); border-radius:20px; padding:28px; text-align:center; background:rgba(14,14,17,0.96); }
         .fighter-card.me { border-color:rgba(251,146,60,.35); background:linear-gradient(180deg,rgba(251,146,60,.08),rgba(10,10,12,.98)); }
         .fighter-avatar-box { width:80px; height:80px; border-radius:20px; border:2px solid rgba(251,146,60,.3); background:rgba(251,146,60,.1); display:flex; align-items:center; justify-content:center; font-family:var(--font-space-grotesk),sans-serif; font-size:28px; font-weight:700; color:var(--accent); margin:0 auto 16px; box-shadow:0 0 24px rgba(251,146,60,.2); }
@@ -249,9 +250,8 @@ export default function ArenaPage() {
 
       {/* Combat log + comparative */}
       <div
+        className="grid grid-cols-1 md:[grid-template-columns:1.1fr_1fr]"
         style={{
-          display: "grid",
-          gridTemplateColumns: "1.1fr 1fr",
           gap: 20,
           marginBottom: 20,
         }}
@@ -321,9 +321,8 @@ export default function ArenaPage() {
 
       {/* Radar comparison */}
       <div
+        className="grid grid-cols-1 md:grid-cols-2"
         style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
           gap: 20,
           marginBottom: 20,
         }}
