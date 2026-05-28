@@ -2293,6 +2293,10 @@ export default function NutritionModulePage() {
       [blockId]: "",
     }));
     setMealSearchBlockId((current) => (current === blockId ? null : current));
+    setMealFoodComposerOpenByBlock((current) => ({
+      ...current,
+      [blockId]: false,
+    }));
   }
 
   const nutritionCompletionTolerance = 0.05;
