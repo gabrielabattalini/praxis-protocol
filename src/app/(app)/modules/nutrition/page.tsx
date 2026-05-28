@@ -1313,42 +1313,54 @@ export default function NutritionModulePage() {
     [consumedDietTotals, extrasTodayTotals],
   );
   // Histórico agregado por data: junta itens completados naquela data +
-  // extras daquela data. Lista ordenada do dia mais recente pro mais antigo.
+  // extras daquela data + água consumida. Lista ordenada do dia mais recente
+  // pro mais antigo.
   const nutritionDailyHistory = useMemo(() => {
     const buckets: Record<
       string,
-      { date: string; totals: NutritionMacros; itemsCount: number; extrasCount: number }
+      {
+        date: string;
+        totals: NutritionMacros;
+        itemsCount: number;
+        extrasCount: number;
+        waterMl: number;
+      }
     > = {};
-    for (const block of mealPlan) {
-      for (const item of block.items) {
-        const dateKey = item.completedAt?.slice(0, 10);
-        if (!dateKey) continue;
-        const bucket = buckets[dateKey] ?? {
+    const ensure = (dateKey: string) => {
+      if (!buckets[dateKey]) {
+        buckets[dateKey] = {
           date: dateKey,
           totals: emptyMacros(),
           itemsCount: 0,
           extrasCount: 0,
+          waterMl: 0,
         };
+      }
+      return buckets[dateKey];
+    };
+    for (const block of mealPlan) {
+      for (const item of block.items) {
+        const dateKey = item.completedAt?.slice(0, 10);
+        if (!dateKey) continue;
+        const bucket = ensure(dateKey);
         bucket.totals = addMacros(bucket.totals, item.macros);
         bucket.itemsCount += 1;
-        buckets[dateKey] = bucket;
       }
     }
     for (const extra of nutritionDailyExtras) {
-      const bucket = buckets[extra.date] ?? {
-        date: extra.date,
-        totals: emptyMacros(),
-        itemsCount: 0,
-        extrasCount: 0,
-      };
+      const bucket = ensure(extra.date);
       bucket.totals = addMacros(bucket.totals, extra.macros);
       bucket.extrasCount += 1;
-      buckets[extra.date] = bucket;
+    }
+    for (const water of waterEntries) {
+      if (!water.consumedMl || water.consumedMl <= 0) continue;
+      const bucket = ensure(water.date);
+      bucket.waterMl += water.consumedMl;
     }
     return Object.values(buckets).sort((left, right) =>
       right.date.localeCompare(left.date),
     );
-  }, [mealPlan, nutritionDailyExtras]);
+  }, [mealPlan, nutritionDailyExtras, waterEntries]);
   // completedMealItemsCount removed — its only consumer (the "X itens
   // concluídos" badge on the Leitura detalhada panel header) was deleted
   // along with that header.
@@ -4509,7 +4521,7 @@ export default function NutritionModulePage() {
               Histórico da dieta
             </h2>
             <p className="mt-2 text-sm text-zinc-500">
-              Cada linha agrega itens marcados como concluídos naquele dia + extras adicionados na mesma data.
+              Cada linha agrega itens marcados como concluídos naquele dia + extras + água consumida na mesma data.
             </p>
           </div>
           <button
@@ -4536,6 +4548,7 @@ export default function NutritionModulePage() {
                     <th className="px-3 py-2 text-right">F (g)</th>
                     <th className="px-3 py-2 text-right">Fibra</th>
                     <th className="px-3 py-2 text-right">kcal</th>
+                    <th className="px-3 py-2 text-right">Água</th>
                     <th className="px-3 py-2 text-right">Itens · Extras</th>
                   </tr>
                 </thead>
@@ -4572,6 +4585,21 @@ export default function NutritionModulePage() {
                         <td className={`px-3 py-2 text-right font-semibold ${tone}`}>
                           {entry.totals.calories.toFixed(0)}{" "}
                           <span className="text-[10px] text-zinc-500">({pct.toFixed(0)}%)</span>
+                        </td>
+                        <td className="px-3 py-2 text-right text-zinc-200">
+                          {entry.waterMl > 0 ? (
+                            <>
+                              {(entry.waterMl / 1000).toFixed(2)}
+                              <span className="ml-1 text-[10px] text-zinc-500">L</span>
+                              {waterTarget > 0 ? (
+                                <span className="ml-1 text-[10px] text-zinc-500">
+                                  ({Math.round((entry.waterMl / waterTarget) * 100)}%)
+                                </span>
+                              ) : null}
+                            </>
+                          ) : (
+                            <span className="text-zinc-600">—</span>
+                          )}
                         </td>
                         <td className="px-3 py-2 text-right text-xs text-zinc-400">
                           {entry.itemsCount} · {entry.extrasCount}
