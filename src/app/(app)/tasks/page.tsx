@@ -118,9 +118,14 @@ const calendarHeaderLabels = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
 const hiddenLegacyTaskIds = new Set(["task-pull", "task-push", "task-legs"]);
 
 const phaseAccent: Record<
-  "morning" | "afternoon" | "night" | "unscheduled",
+  "dawn" | "morning" | "afternoon" | "night" | "unscheduled",
   { border: string; bg: string; color: string }
 > = {
+  dawn: {
+    border: "rgba(99,102,241,0.3)",
+    bg: "rgba(99,102,241,0.08)",
+    color: "#a5b4fc",
+  },
   morning: {
     border: "rgba(56,189,248,0.3)",
     bg: "rgba(56,189,248,0.08)",
