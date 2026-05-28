@@ -284,7 +284,7 @@ function detailToneClasses(tone?: AgendaDetailItem["tone"]) {
   };
 }
 
-type AgendaPhaseId = "morning" | "afternoon" | "night" | "unscheduled";
+type AgendaPhaseId = "dawn" | "morning" | "afternoon" | "night" | "unscheduled";
 
 type AgendaPhaseBucket = {
   id: AgendaPhaseId;
@@ -302,6 +302,13 @@ type AgendaTimelineBucket = AgendaPhaseBucket & {
 
 const agendaPhaseOrder: Array<Omit<AgendaPhaseBucket, "items">> = [
   {
+    id: "dawn",
+    label: "Madrugada",
+    window: "00:00 - 04:59",
+    description: "Início do dia — tarefas de quem acorda cedo demais.",
+    accentClass: "from-indigo-400/20 to-blue-400/10",
+  },
+  {
     id: "morning",
     label: "Manhã",
     window: "05:00 - 11:59",
@@ -318,7 +325,7 @@ const agendaPhaseOrder: Array<Omit<AgendaPhaseBucket, "items">> = [
   {
     id: "night",
     label: "Noite",
-    window: "18:00 - 04:59",
+    window: "18:00 - 23:59",
     description: "Fechamento, treino e pendências de final de ciclo.",
     accentClass: "from-violet-400/20 to-fuchsia-400/10",
   },
@@ -346,9 +353,9 @@ function parseAgendaTimeMinutes(time?: string) {
 function normalizeAgendaTimeForDayOrder(time?: string) {
   const minutes = parseAgendaTimeMinutes(time);
   if (minutes === null) return Number.POSITIVE_INFINITY;
-
-  // Horários entre 00:00 e 04:59 pertencem ao fim do ciclo do mesmo dia.
-  return minutes < 5 * 60 ? minutes + 24 * 60 : minutes;
+  // Dia reseta às 00:00. 00:01 já é dia novo — 01:00 deve aparecer
+  // ANTES de 23:00, não depois. Ordem natural de minutos do dia.
+  return minutes;
 }
 
 function isMealItemCompletedForDateKey(item: MealPlanItem, dateKey: string) {
@@ -358,7 +365,7 @@ function isMealItemCompletedForDateKey(item: MealPlanItem, dateKey: string) {
 function getAgendaPhaseId(time?: string): AgendaPhaseId {
   const minutes = parseAgendaTimeMinutes(time);
   if (minutes === null) return "unscheduled";
-  if (minutes < 5 * 60) return "night";
+  if (minutes < 5 * 60) return "dawn";
   if (minutes < 12 * 60) return "morning";
   if (minutes < 18 * 60) return "afternoon";
   return "night";
