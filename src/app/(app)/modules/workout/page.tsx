@@ -1677,22 +1677,6 @@ export default function WorkoutModulePage() {
 
               <div className="mb-8 flex flex-col gap-6 border-b border-zinc-800/60 pb-6 md:flex-row md:items-end md:justify-between">
                 <div className="flex-1">
-                  <p className="font-label text-[0.6rem] uppercase tracking-widest text-zinc-500">
-                    Sessão selecionada
-                  </p>
-                  <h3 className="mt-2 font-headline text-2xl font-bold text-zinc-100">
-                    {activeDay?.title ?? "Aguardando treino"}
-                  </h3>
-                  <p className="mt-2 text-sm leading-6 text-zinc-400">
-                    {activeDay?.summary ??
-                      "Crie ou selecione um treino para começar a registrar as séries."}
-                  </p>
-                  {activeDay?.focus ? (
-                    <p className="mt-3 font-label text-[0.6rem] uppercase tracking-widest text-[var(--accent)]">
-                      Foco: {activeDay.focus}
-                    </p>
-                  ) : null}
-
                   {activeDay && !activeDay.isRestDay ? (
                     <div className="mt-4 space-y-2 rounded-sm border border-zinc-800 bg-black/40 px-4 py-3">
                       <div className="flex flex-wrap items-center gap-3">
