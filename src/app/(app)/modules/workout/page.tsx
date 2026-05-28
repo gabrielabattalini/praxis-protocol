@@ -1382,73 +1382,6 @@ export default function WorkoutModulePage() {
         </div>
       </div>
 
-      <section className="mx-auto max-w-4xl border border-[rgba(251,146,60,0.18)] bg-[rgba(5,5,5,0.92)] p-5 shadow-[0_0_32px_rgba(251,146,60,0.08)] md:p-6">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0 space-y-3">
-            <p className="font-label text-[0.65rem] uppercase tracking-[0.35em] text-[var(--accent)]">
-              Central de treinos
-            </p>
-            <h2 className="font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100 md:text-3xl">
-              Biblioteca operacional
-            </h2>
-            <p className="max-w-2xl text-sm leading-6 text-zinc-400">
-              Acesse seus programas salvos, abra um novo treino em branco ou
-              exclua um plano antigo sem sair do módulo.
-            </p>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3 lg:w-[420px]">
-            <div className="border border-zinc-800 bg-black/50 px-4 py-3">
-              <p className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
-                Treinos salvos
-              </p>
-              <p className="mt-2 font-headline text-2xl font-bold text-[var(--accent)]">
-                {state.workoutPrograms.length}
-              </p>
-            </div>
-            <div className="border border-zinc-800 bg-black/50 px-4 py-3">
-              <p className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
-                Treino ativo
-              </p>
-              <p className="mt-2 truncate font-headline text-sm font-bold text-zinc-100">
-                {activeProgram?.name ?? "Nenhum selecionado"}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={openWorkoutLibrary}
-              className="group flex min-h-[96px] flex-col justify-center border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.08)] px-4 py-3 text-left transition hover:border-[rgba(251,146,60,0.42)] hover:bg-[rgba(251,146,60,0.14)]"
-            >
-              <span className="inline-flex items-center gap-2 font-label text-[0.55rem] uppercase tracking-widest text-[var(--accent)]">
-                <BookOpen className="h-3.5 w-3.5" />
-                Abrir lista
-              </span>
-              <span className="mt-2 font-headline text-sm font-bold text-zinc-100">
-                Ver treinos, ativar ou excluir
-              </span>
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-5 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={openWorkoutLibrary}
-            className="praxis-button px-5 py-3"
-          >
-            Ver treinos salvos
-          </button>
-          <button
-            type="button"
-            onClick={startNewWorkout}
-            className="inline-flex items-center gap-2 border border-zinc-800 bg-black/50 px-5 py-3 font-headline text-xs font-bold uppercase tracking-[0.25em] text-zinc-100 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"
-          >
-            <FolderPlus className="h-4 w-4" />
-            Criar novo treino
-          </button>
-        </div>
-      </section>
-
       <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
         <section className="space-y-6 md:col-span-8">
           <div className="mb-2 flex items-center justify-between">
@@ -2014,6 +1947,73 @@ export default function WorkoutModulePage() {
           </div>
         </aside>
       </div>
+
+      <section className="mx-auto max-w-4xl border border-[rgba(251,146,60,0.18)] bg-[rgba(5,5,5,0.92)] p-5 shadow-[0_0_32px_rgba(251,146,60,0.08)] md:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 space-y-3">
+            <p className="font-label text-[0.65rem] uppercase tracking-[0.35em] text-[var(--accent)]">
+              Central de treinos
+            </p>
+            <h2 className="font-headline text-2xl font-bold uppercase tracking-tighter text-zinc-100 md:text-3xl">
+              Biblioteca operacional
+            </h2>
+            <p className="max-w-2xl text-sm leading-6 text-zinc-400">
+              Acesse seus programas salvos, abra um novo treino em branco ou
+              exclua um plano antigo sem sair do módulo.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3 lg:w-[420px]">
+            <div className="border border-zinc-800 bg-black/50 px-4 py-3">
+              <p className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
+                Treinos salvos
+              </p>
+              <p className="mt-2 font-headline text-2xl font-bold text-[var(--accent)]">
+                {state.workoutPrograms.length}
+              </p>
+            </div>
+            <div className="border border-zinc-800 bg-black/50 px-4 py-3">
+              <p className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
+                Treino ativo
+              </p>
+              <p className="mt-2 truncate font-headline text-sm font-bold text-zinc-100">
+                {activeProgram?.name ?? "Nenhum selecionado"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={openWorkoutLibrary}
+              className="group flex min-h-[96px] flex-col justify-center border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.08)] px-4 py-3 text-left transition hover:border-[rgba(251,146,60,0.42)] hover:bg-[rgba(251,146,60,0.14)]"
+            >
+              <span className="inline-flex items-center gap-2 font-label text-[0.55rem] uppercase tracking-widest text-[var(--accent)]">
+                <BookOpen className="h-3.5 w-3.5" />
+                Abrir lista
+              </span>
+              <span className="mt-2 font-headline text-sm font-bold text-zinc-100">
+                Ver treinos, ativar ou excluir
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={openWorkoutLibrary}
+            className="praxis-button px-5 py-3"
+          >
+            Ver treinos salvos
+          </button>
+          <button
+            type="button"
+            onClick={startNewWorkout}
+            className="inline-flex items-center gap-2 border border-zinc-800 bg-black/50 px-5 py-3 font-headline text-xs font-bold uppercase tracking-[0.25em] text-zinc-100 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"
+          >
+            <FolderPlus className="h-4 w-4" />
+            Criar novo treino
+          </button>
+        </div>
+      </section>
 
       {showSavedWorkouts ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 py-6 backdrop-blur-sm">
