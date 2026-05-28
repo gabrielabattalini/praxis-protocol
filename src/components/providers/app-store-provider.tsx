@@ -5169,6 +5169,60 @@ export function AppStoreProvider({
     }
   }, [activeStorageKey, hydrated, state]);
 
+  // Cross-device pull: refresh server snapshot when the tab regains
+  // focus or visibility, and on a 60s interval as a safety net. Skips
+  // when there are unsynced local changes (debounced PUT pending or
+  // local snapshot already ahead of last server snapshot).
+  useEffect(() => {
+    if (!effectiveAuthLoaded || !hydrated || !userId || !remoteSyncReadyRef.current) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const pullFromServer = async () => {
+      if (cancelled) return;
+      // Skip if a local push is still pending — would race and overwrite.
+      if (saveAccountTimeoutRef.current) return;
+      const localSnapshot = JSON.stringify(state);
+      if (localSnapshot !== lastServerSnapshotRef.current) return;
+      try {
+        const response = await fetch("/api/account-state", {
+          credentials: "same-origin",
+        });
+        if (!response.ok || cancelled) return;
+        const parsed = parsePersistedEnvelopeValue(await response.json());
+        const envelope = isEnvelopeCompatibleWithUser(parsed, userId, currentEmail)
+          ? parsed
+          : null;
+        if (!envelope) return;
+        const serverSnapshot = JSON.stringify(envelope.state);
+        if (serverSnapshot === lastServerSnapshotRef.current) return;
+        lastServerSnapshotRef.current = serverSnapshot;
+        dispatch({ type: "hydrate", payload: envelope.state, allowSeed: false });
+      } catch {
+        // Network blip — silent, next tick will retry.
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") void pullFromServer();
+    };
+    const handleFocus = () => {
+      void pullFromServer();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleFocus);
+    const pollHandle = window.setInterval(() => void pullFromServer(), 60_000);
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleFocus);
+      window.clearInterval(pollHandle);
+    };
+  }, [currentEmail, effectiveAuthLoaded, hydrated, state, userId]);
+
   useEffect(() => {
     if (!effectiveAuthLoaded || !hydrated || !userId || !remoteSyncReadyRef.current) return;
 
