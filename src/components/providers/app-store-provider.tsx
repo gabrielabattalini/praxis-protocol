@@ -1025,7 +1025,22 @@ function isMealItemCompletedForDate(
   date: Date,
 ) {
   const dateKey = date.toISOString().slice(0, 10);
+  if (item.completedDates?.includes(dateKey)) return true;
+  // Legacy fallback for items that never wrote into completedDates.
   return Boolean(item.completed && item.completedAt?.slice(0, 10) === dateKey);
+}
+
+// Migrate the singular legacy completedAt into the completedDates[] array
+// so future hydrations preserve the full history instead of throwing it
+// away. Idempotent: re-running on an already-migrated item is a no-op.
+function migrateMealItemCompletionHistory(
+  item: PersistedState["mealPlan"][number]["items"][number],
+): PersistedState["mealPlan"][number]["items"][number] {
+  const legacyDate = item.completedAt?.slice(0, 10);
+  if (!legacyDate) return item;
+  const current = item.completedDates ?? [];
+  if (current.includes(legacyDate)) return item;
+  return { ...item, completedDates: [...current, legacyDate] };
 }
 
 function normalizeMealPlanCompletion(
@@ -1034,7 +1049,10 @@ function normalizeMealPlanCompletion(
 ) {
   return mealPlan.map((block) => ({
     ...block,
-    items: block.items.map((item) => {
+    items: block.items.map((rawItem) => {
+      // Preserve historical completedDates by migrating legacy completedAt
+      // before recomputing the "is today" view.
+      const item = migrateMealItemCompletionHistory(rawItem);
       const completedForCurrentDate = isMealItemCompletedForDate(item, date);
       return {
         ...item,
@@ -1048,6 +1066,8 @@ function normalizeMealPlanCompletion(
 function clearMealPlanCompletion(
   mealPlan: PersistedState["mealPlan"],
 ): PersistedState["mealPlan"] {
+  // "Clear" só refere à vista de HOJE: completed + completedAt. completedDates
+  // continua sendo o histórico permanente — não destruímos aqui.
   return mealPlan.map((block) => ({
     ...block,
     items: block.items.map((item) => ({
@@ -2328,22 +2348,33 @@ function reducer(state: PersistedState, action: Action): PersistedState {
                 items: block.items.map((item) =>
                   item.id === action.payload.itemId
                     ? (() => {
-                        // When dateKey is passed we are toggling the
-                        // item's completion for that specific calendar
-                        // day (e.g. retroactively marking yesterday's
-                        // meal). Otherwise we operate on "today".
                         const referenceDate = action.payload.dateKey
                           ? new Date(`${action.payload.dateKey}T12:00:00`)
                           : new Date();
-                        const completedForCurrentDate = isMealItemCompletedForDate(
-                          item,
-                          referenceDate,
-                        );
+                        const referenceKey = referenceDate
+                          .toISOString()
+                          .slice(0, 10);
+                        const todayKey = new Date()
+                          .toISOString()
+                          .slice(0, 10);
+                        const isReferenceToday = referenceKey === todayKey;
+                        const migrated = migrateMealItemCompletionHistory(item);
+                        const currentDates = migrated.completedDates ?? [];
+                        const wasCompleted = currentDates.includes(referenceKey);
+                        const nextDates = wasCompleted
+                          ? currentDates.filter((d) => d !== referenceKey)
+                          : [...currentDates, referenceKey].sort();
+                        // completed/completedAt continuam refletindo só
+                        // a vista de HOJE — quem persiste é completedDates.
+                        const willBeCompletedToday = nextDates.includes(todayKey);
                         return {
-                          ...item,
-                          completed: !completedForCurrentDate,
-                          completedAt: !completedForCurrentDate
-                            ? referenceDate.toISOString()
+                          ...migrated,
+                          completedDates: nextDates,
+                          completed: willBeCompletedToday,
+                          completedAt: willBeCompletedToday
+                            ? isReferenceToday
+                              ? referenceDate.toISOString()
+                              : (migrated.completedAt ?? new Date().toISOString())
                             : undefined,
                         };
                       })()
@@ -2356,22 +2387,39 @@ function reducer(state: PersistedState, action: Action): PersistedState {
     case "set-meal-block-items-completed":
       return {
         ...state,
-        mealPlan: state.mealPlan.map((block) =>
-          block.id === action.payload.blockId
-             ? {
-                ...block,
-                items: block.items.map((item) => ({
-                  ...item,
-                  completed: action.payload.completed,
-                  completedAt: action.payload.completed
-                    ? (action.payload.dateKey
-                        ? new Date(`${action.payload.dateKey}T12:00:00`).toISOString()
-                        : new Date().toISOString())
-                    : undefined,
-                })),
-              }
-            : block,
-        ),
+        mealPlan: state.mealPlan.map((block) => {
+          if (block.id !== action.payload.blockId) return block;
+          const referenceDate = action.payload.dateKey
+            ? new Date(`${action.payload.dateKey}T12:00:00`)
+            : new Date();
+          const referenceKey = referenceDate.toISOString().slice(0, 10);
+          const todayKey = new Date().toISOString().slice(0, 10);
+          const isReferenceToday = referenceKey === todayKey;
+          return {
+            ...block,
+            items: block.items.map((rawItem) => {
+              const migrated = migrateMealItemCompletionHistory(rawItem);
+              const currentDates = migrated.completedDates ?? [];
+              const hasReferenceDate = currentDates.includes(referenceKey);
+              const nextDates = action.payload.completed
+                ? hasReferenceDate
+                  ? currentDates
+                  : [...currentDates, referenceKey].sort()
+                : currentDates.filter((d) => d !== referenceKey);
+              const willBeCompletedToday = nextDates.includes(todayKey);
+              return {
+                ...migrated,
+                completedDates: nextDates,
+                completed: willBeCompletedToday,
+                completedAt: willBeCompletedToday
+                  ? isReferenceToday
+                    ? referenceDate.toISOString()
+                    : (migrated.completedAt ?? new Date().toISOString())
+                  : undefined,
+              };
+            }),
+          };
+        }),
       };
     case "update-meal-item":
       return {

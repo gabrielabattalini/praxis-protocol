@@ -1191,6 +1191,7 @@ export default function NutritionModulePage() {
     calories: "",
   });
   const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(true);
+  const [historyRangeDays, setHistoryRangeDays] = useState<number | null>(30);
   const [manualFoodDrafts, setManualFoodDrafts] = useState<
     Record<string, ManualFoodDraft>
   >({});
@@ -1244,7 +1245,20 @@ export default function NutritionModulePage() {
   const currentGoal = nutritionGoals[activeGoalId] ?? nutritionGoals.maintain;
   const activeMealLookup = mealSearchBlockId ? mealFoodLookups[mealSearchBlockId] ?? "" : "";
   const deferredMealLookup = useDeferredValue(activeMealLookup.trim());
-  const todayKey = new Date().toISOString().slice(0, 10);
+  // todayKey precisa virar quando o relógio cruza meia-noite com o app
+  // aberto (ex.: usuário deixou a aba ativa e veio o dia seguinte). Sem
+  // isso, "Hidratação · hoje" continuaria contando ml do dia anterior.
+  // Tick de 30s força re-render se mudou de dia.
+  const [todayKey, setTodayKey] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
+  useEffect(() => {
+    const handle = window.setInterval(() => {
+      const next = new Date().toISOString().slice(0, 10);
+      setTodayKey((current) => (current === next ? current : next));
+    }, 30_000);
+    return () => window.clearInterval(handle);
+  }, []);
   const todayWaterConsumed =
     waterEntries.find((entry) => entry.date === todayKey)?.consumedMl ?? 0;
   // Single source of truth for "is this item consumed today?". The reducer
@@ -1254,7 +1268,12 @@ export default function NutritionModulePage() {
   // contribute to today's consumption, regardless of any stale `completed`
   // boolean. This lets the "Desfazer refeição" block-level action drop
   // the macro percentages immediately.
-  const isMealItemConsumedToday = (item: { completed?: boolean; completedAt?: string }) =>
+  const isMealItemConsumedToday = (item: {
+    completed?: boolean;
+    completedAt?: string;
+    completedDates?: string[];
+  }) =>
+    item.completedDates?.includes(todayKey) ||
     item.completedAt?.slice(0, 10) === todayKey;
   const consumedDietTotals = useMemo(
     () =>
@@ -1340,11 +1359,19 @@ export default function NutritionModulePage() {
     };
     for (const block of mealPlan) {
       for (const item of block.items) {
-        const dateKey = item.completedAt?.slice(0, 10);
-        if (!dateKey) continue;
-        const bucket = ensure(dateKey);
-        bucket.totals = addMacros(bucket.totals, item.macros);
-        bucket.itemsCount += 1;
+        // Use completedDates (histórico real). Fallback pra completedAt
+        // pra itens legacy que ainda não foram migrados.
+        const dateKeys =
+          item.completedDates && item.completedDates.length > 0
+            ? item.completedDates
+            : item.completedAt
+              ? [item.completedAt.slice(0, 10)]
+              : [];
+        for (const dateKey of dateKeys) {
+          const bucket = ensure(dateKey);
+          bucket.totals = addMacros(bucket.totals, item.macros);
+          bucket.itemsCount += 1;
+        }
       }
     }
     for (const extra of nutritionDailyExtras) {
@@ -4537,7 +4564,56 @@ export default function NutritionModulePage() {
             <p className="text-sm text-zinc-500">
               Sem registros ainda. Marque refeições como concluídas ou adicione extras pra construir o histórico.
             </p>
-          ) : (
+          ) : (() => {
+            const ranges: Array<{ label: string; days: number | null }> = [
+              { label: "7 dias", days: 7 },
+              { label: "30 dias", days: 30 },
+              { label: "90 dias", days: 90 },
+              { label: "Tudo", days: null },
+            ];
+            const cutoffKey = historyRangeDays
+              ? (() => {
+                  const cutoff = new Date();
+                  cutoff.setHours(0, 0, 0, 0);
+                  cutoff.setDate(cutoff.getDate() - (historyRangeDays - 1));
+                  return cutoff.toISOString().slice(0, 10);
+                })()
+              : null;
+            const filteredHistory = cutoffKey
+              ? nutritionDailyHistory.filter((entry) => entry.date >= cutoffKey)
+              : nutritionDailyHistory;
+            return (
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] uppercase tracking-wider text-zinc-500">
+                    Período
+                  </span>
+                  {ranges.map((range) => {
+                    const isActive = historyRangeDays === range.days;
+                    return (
+                      <button
+                        key={range.label}
+                        type="button"
+                        onClick={() => setHistoryRangeDays(range.days)}
+                        className={`rounded-sm border px-3 py-1 text-xs transition ${
+                          isActive
+                            ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
+                            : "border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                        }`}
+                      >
+                        {range.label}
+                      </button>
+                    );
+                  })}
+                  <span className="ml-auto text-[11px] text-zinc-500">
+                    {filteredHistory.length} {filteredHistory.length === 1 ? "dia" : "dias"} no período
+                  </span>
+                </div>
+                {filteredHistory.length === 0 ? (
+                  <p className="mt-3 text-sm text-zinc-500">
+                    Sem registros nesse período. Tente um intervalo maior.
+                  </p>
+                ) : (
             <div className="overflow-x-auto rounded-sm border border-zinc-800">
               <table className="min-w-full border-collapse text-sm">
                 <thead>
@@ -4553,7 +4629,7 @@ export default function NutritionModulePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {nutritionDailyHistory.map((entry) => {
+                  {filteredHistory.map((entry) => {
                     const targetCal = dailyNutritionTargets.totals.calories || 1;
                     const pct = (entry.totals.calories / targetCal) * 100;
                     const tone =
@@ -4610,7 +4686,10 @@ export default function NutritionModulePage() {
                 </tbody>
               </table>
             </div>
-          )
+                )}
+              </>
+            );
+          })()
         ) : null}
       </GlassPanel>
     </div>

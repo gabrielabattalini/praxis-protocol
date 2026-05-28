@@ -424,6 +424,11 @@ export interface MealPlanItem {
   notes?: string;
   completed?: boolean;
   completedAt?: string;
+  // Per-date completion history (YYYY-MM-DD keys). Same pattern usado em
+  // Task.completedDates — sobrevive a hidratações e ao normalize diário,
+  // permitindo histórico real (semanal/mensal/trimestral) em vez de só
+  // o último dia marcado.
+  completedDates?: string[];
 }
 
 export interface MealPlanBlock {
