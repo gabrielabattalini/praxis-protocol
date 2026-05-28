@@ -199,10 +199,30 @@ function getZonedNow(timezone: string, referenceDate = new Date()): ZonedNow {
   };
 }
 
+// Janela em minutos: depois do horário marcado, ainda consideramos o item
+// "due" por até DISPATCH_WINDOW_MIN. Cobre delays normais de cron externo,
+// cold start, debounce do sync. Combinado com dispatchKey baseada em data,
+// garante 1 disparo por (user, item, dia) mesmo se o cron rodar várias
+// vezes dentro da janela.
+const DISPATCH_WINDOW_MIN = 60;
+
+function minutesOfDay(hourMinute: string) {
+  const [h, m] = hourMinute.split(":").map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return Number.NaN;
+  return h * 60 + m;
+}
+
 function isNotificationItemDue(item: NotificationScheduleItem, zonedNow: ZonedNow) {
-  if (!item.enabled || item.time !== zonedNow.hourMinute) {
-    return false;
-  }
+  if (!item.enabled) return false;
+
+  // Item dispara assim que zonedNow >= item.time, mas só por DISPATCH_WINDOW_MIN
+  // minutos depois (pra não disparar uma tarefa de 8h às 23h só porque o cron
+  // ficou fora ao longo do dia).
+  const itemMins = minutesOfDay(item.time);
+  const nowMins = minutesOfDay(zonedNow.hourMinute);
+  if (!Number.isFinite(itemMins) || !Number.isFinite(nowMins)) return false;
+  const diff = nowMins - itemMins;
+  if (diff < 0 || diff > DISPATCH_WINDOW_MIN) return false;
 
   if (item.dayOfMonth) {
     return item.dayOfMonth === zonedNow.dayOfMonth;
@@ -233,8 +253,11 @@ function isNotificationItemDue(item: NotificationScheduleItem, zonedNow: ZonedNo
   return true;
 }
 
+// Dedup por (user, item, dia) — não por minuto. Antes a chave incluía
+// hourMinute atual, então cada chamada do cron criava uma key nova e a
+// mesma notificação podia ir várias vezes dentro da janela de 60 min.
 function dispatchKey(userId: string, itemId: string, zonedNow: ZonedNow) {
-  return `${userId}:${itemId}:${zonedNow.dateKey}:${zonedNow.hourMinute}`;
+  return `${userId}:${itemId}:${zonedNow.dateKey}`;
 }
 
 function buildWebPushPayload(item: NotificationScheduleItem) {
