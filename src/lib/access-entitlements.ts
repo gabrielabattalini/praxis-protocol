@@ -46,6 +46,7 @@ export const FOUNDER_ACCESS_EMAILS: readonly string[] = [
  */
 export const BUILT_IN_LIFETIME_EMAILS: readonly string[] = [
   "alberto1998.lima@gmail.com",
+  "kadinefernandq@gmail.com",
 ];
 
 /**
