@@ -1606,26 +1606,6 @@ export default function WorkoutModulePage() {
                                   </div>
                                   <div>
                                     <label className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
-                                      Repetições
-                                    </label>
-                                    <input
-                                      value={draftLoadRepetitions[key] ?? ""}
-                                      onChange={(event) =>
-                                        updateDraftRepetitions(
-                                          activeDay.id,
-                                          exercise.id,
-                                          setNumber,
-                                          event.target.value,
-                                        )
-                                      }
-                                      type="number"
-                                      min={1}
-                                      placeholder="Ex.: 10"
-                                      className={`${compactFieldClassName} mt-2`}
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
                                       Peso (kg)
                                     </label>
                                     <input
@@ -1642,6 +1622,26 @@ export default function WorkoutModulePage() {
                                       min={0}
                                       step="0.5"
                                       placeholder="Ex.: 20"
+                                      className={`${compactFieldClassName} mt-2`}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
+                                      Repetições
+                                    </label>
+                                    <input
+                                      value={draftLoadRepetitions[key] ?? ""}
+                                      onChange={(event) =>
+                                        updateDraftRepetitions(
+                                          activeDay.id,
+                                          exercise.id,
+                                          setNumber,
+                                          event.target.value,
+                                        )
+                                      }
+                                      type="number"
+                                      min={1}
+                                      placeholder="Ex.: 10"
                                       className={`${compactFieldClassName} mt-2`}
                                     />
                                   </div>
