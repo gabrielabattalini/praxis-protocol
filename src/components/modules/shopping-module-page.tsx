@@ -1835,8 +1835,8 @@ export function ShoppingModulePage({
 
                   {/* Bar chart — 12 bars, one per month. Click a bar
                       to see the itemized breakdown below. */}
-                  <div className="rounded-sm border border-white/10 bg-[#0d0d0f] p-4">
-                    <div className="flex items-end gap-2 h-48">
+                  <div className="rounded-sm border border-white/10 bg-[#0d0d0f] p-1 md:p-4">
+                    <div className="flex items-end gap-px md:gap-2 h-48 min-w-0">
                       {annualForecast.months.map((m) => {
                         const ratio =
                           annualForecast.maxMonthTotal > 0
@@ -1861,7 +1861,7 @@ export function ShoppingModulePage({
                           >
                             <span
                               className={cn(
-                                "mb-1 text-[10px] font-semibold",
+                                "mb-1 hidden whitespace-nowrap text-[10px] font-semibold md:inline-block",
                                 isSelected || isPeak
                                   ? "text-[var(--accent)]"
                                   : "text-zinc-500 group-hover:text-zinc-300",
@@ -1882,7 +1882,7 @@ export function ShoppingModulePage({
                             />
                             <span
                               className={cn(
-                                "mt-2 text-[11px] uppercase tracking-widest",
+                                "mt-2 text-[9px] uppercase tracking-normal md:text-[11px] md:tracking-widest",
                                 isSelected
                                   ? "text-[var(--accent)]"
                                   : "text-zinc-500",
