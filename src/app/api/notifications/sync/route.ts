@@ -49,7 +49,7 @@ const reminderEntityTypeValues = [
 
 const notificationScheduleItemSchema = z.object({
   id: z.string().trim().min(1).max(200),
-  source: z.enum(["task", "reminder"]),
+  source: z.enum(["task", "reminder", "meal", "workout"]),
   title: z.string().trim().min(1).max(160),
   body: z.string().trim().min(1).max(500),
   time: z.string().regex(/^\d{2}:\d{2}$/),

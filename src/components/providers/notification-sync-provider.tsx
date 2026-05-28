@@ -102,8 +102,14 @@ export function NotificationSyncProvider({
     [],
   );
   const syncPayload = useMemo(
-    () => buildNotificationSyncPayload(state.tasks, state.reminders, timezone),
-    [state.reminders, state.tasks, timezone],
+    () =>
+      buildNotificationSyncPayload(
+        state.tasks,
+        state.reminders,
+        timezone,
+        state.mealPlan,
+      ),
+    [state.mealPlan, state.reminders, state.tasks, timezone],
   );
 
   const fetchStatus = useCallback(async () => {
