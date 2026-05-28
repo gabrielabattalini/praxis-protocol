@@ -1,5 +1,6 @@
 import { buildNotificationBodyWithCue } from "@/lib/discipline-cues";
 import type {
+  MealPlanBlock,
   ModuleId,
   ReminderEntityType,
   ReminderItem,
@@ -8,7 +9,7 @@ import type {
   Weekday,
 } from "@/lib/types";
 
-export type NotificationScheduleSource = "task" | "reminder";
+export type NotificationScheduleSource = "task" | "reminder" | "meal" | "workout";
 
 export interface NotificationScheduleItem {
   id: string;
@@ -148,12 +149,20 @@ export function buildNotificationSyncPayload(
   tasks: Task[],
   reminders: ReminderItem[],
   timezone: string,
+  mealPlan: MealPlanBlock[] = [],
 ): NotificationSyncPayload {
   const syncedAt = new Date().toISOString();
   const todayKey = localDateKey();
   const reminderTaskIds = new Set(
     reminders
       .filter((reminder) => reminder.entityType === "task")
+      .map((reminder) => reminder.entityId),
+  );
+  // Reminders manuais já cobrem blocos específicos — evitar 2 schedules
+  // pro mesmo bloco se o usuário criou um reminder explícito.
+  const reminderMealIds = new Set(
+    reminders
+      .filter((reminder) => reminder.entityType === "meal" || reminder.entityType === "supplement")
       .map((reminder) => reminder.entityId),
   );
 
@@ -265,9 +274,64 @@ export function buildNotificationSyncPayload(
       return [preItem, onTimeItem];
     });
 
+  // Meal blocks com time viram notificações automáticas (sem precisar
+  // criar reminder manual). weekdays=all = todo dia.
+  const mealItems = mealPlan
+    .filter((block) => !reminderMealIds.has(block.id))
+    .flatMap<NotificationScheduleItem>((block) => {
+      const time = normalizeTime(block.time);
+      if (!time) return [];
+      const itemsCount = block.items.length;
+      const description =
+        itemsCount > 0
+          ? `${itemsCount} ${itemsCount === 1 ? "item" : "itens"} planejados`
+          : "Refeição planejada no Praxis.";
+      const baseId = `meal:${block.id}`;
+
+      const onTimeItem: NotificationScheduleItem = {
+        id: baseId,
+        source: "meal" as const,
+        title: block.title,
+        body: buildNotificationBodyWithCue({
+          title: block.title,
+          body: description,
+          entityType: "meal",
+          route: "/modules/nutrition",
+        }),
+        time,
+        route: "/modules/nutrition",
+        entityType: "meal" as const,
+        entityId: block.id,
+        enabled: true,
+        weekdays: allWeekdays(),
+      };
+
+      const preTime = offsetTimeBackward(time, PRE_WARNING_MINUTES);
+      if (!preTime) return [onTimeItem];
+
+      const preItem: NotificationScheduleItem = {
+        ...onTimeItem,
+        id: `${baseId}:pre${PRE_WARNING_MINUTES}`,
+        title: `⏰ Em ${PRE_WARNING_MINUTES} min: ${block.title}`,
+        body: buildNotificationBodyWithCue({
+          title: block.title,
+          body: `Faltam ${PRE_WARNING_MINUTES} minutos. ${description}`,
+          entityType: "meal",
+          route: "/modules/nutrition",
+        }),
+        time: preTime,
+      };
+
+      return [preItem, onTimeItem];
+    });
+
+  // Workout: WorkoutDayPlan não tem campo `time` próprio — o horário
+  // do treino vive no reminder vinculado. Já é coberto por reminderItems.
+  // Nada a gerar aqui.
+
   return {
     timezone,
     syncedAt,
-    items: [...taskItems, ...reminderItems],
+    items: [...taskItems, ...reminderItems, ...mealItems],
   };
 }
