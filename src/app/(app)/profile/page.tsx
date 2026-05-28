@@ -242,14 +242,19 @@ export default function ProfilePage() {
   return (
     <div>
       <style>{`
-        .profile-layout { display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start; }
+        .profile-layout { display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start; min-width: 0; }
         .profile-card-v2 {
           border: 1px solid rgba(251,146,60,0.3);
           border-radius: 20px;
           padding: 28px;
           text-align: center;
           background: linear-gradient(180deg, rgba(251,146,60,0.06), rgba(10,10,12,0.98));
+          min-width: 0;
+          overflow: hidden;
         }
+        .profile-card-v2 .xp-segs { min-width: 0; overflow: hidden; }
+        .profile-card-v2 .xp-seg { min-width: 0; }
+        .profile-card-v2 .rank-tag { max-width: 100%; white-space: normal; text-align: center; }
         .profile-avatar-v2 {
           width: 96px; height: 96px;
           border-radius: 24px;
@@ -261,19 +266,28 @@ export default function ProfilePage() {
           margin: 0 auto 16px;
           box-shadow: 0 0 32px rgba(251,146,60,0.25);
         }
-        .stat-trio { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .stat-trio { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 20px; min-width: 0; }
         .stat-box {
           padding: 14px 8px;
           border: 1px solid rgba(39,39,42,0.6);
           border-radius: 12px;
           text-align: center;
+          min-width: 0;
+          overflow: hidden;
         }
-        .stat-num { font-family: var(--font-space-grotesk), sans-serif; font-size: 24px; font-weight: 700; color: var(--fg); }
+        .stat-num { font-family: var(--font-space-grotesk), sans-serif; font-size: 24px; font-weight: 700; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .timeline-bar { height: 60px; display: flex; align-items: flex-end; gap: 3px; }
         .tbar { flex: 1; border-radius: 3px; background: var(--accent); opacity: 0.5; transition: opacity 0.15s; }
         .tbar:last-child { opacity: 1; }
         .tbar:hover { opacity: 1; }
         @media (max-width: 900px) { .profile-layout { grid-template-columns: 1fr; } }
+        @media (max-width: 768px) {
+          .profile-card-v2 { padding: 20px 16px; }
+          .profile-card-v2 .rank-tag { letter-spacing: 0.12em; font-size: 9px; padding: 4px 8px; }
+          .stat-trio { gap: 6px; }
+          .stat-box { padding: 10px 4px; }
+          .stat-num { font-size: 18px; }
+        }
       `}</style>
 
       {/* Page header */}
