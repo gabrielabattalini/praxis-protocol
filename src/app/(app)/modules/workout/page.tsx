@@ -1597,11 +1597,12 @@ export default function WorkoutModulePage() {
                                     <label className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
                                       Série
                                     </label>
-                                    <input
-                                      value={setNumber}
-                                      readOnly
-                                      className={`${compactFieldClassName} mt-2 cursor-default opacity-80`}
-                                    />
+                                    <div
+                                      aria-label={`Série ${setNumber}`}
+                                      className="mt-2 flex h-10 w-full select-none items-center justify-center rounded-sm bg-[var(--accent)] font-headline text-lg font-bold text-black"
+                                    >
+                                      {setNumber}
+                                    </div>
                                   </div>
                                   <div>
                                     <label className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
