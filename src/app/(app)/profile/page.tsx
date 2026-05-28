@@ -243,6 +243,7 @@ export default function ProfilePage() {
     <div>
       <style>{`
         .profile-layout { display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start; min-width: 0; }
+        .profile-layout > * { min-width: 0; }
         .profile-card-v2 {
           border: 1px solid rgba(251,146,60,0.3);
           border-radius: 20px;
@@ -416,12 +417,8 @@ export default function ProfilePage() {
               Radar de habilidades
             </h2>
             <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 24,
-                alignItems: "center",
-              }}
+              className="grid grid-cols-1 md:grid-cols-2"
+              style={{ gap: 24, alignItems: "center" }}
             >
               <div style={{ display: "flex", justifyContent: "center" }}>
                 <RadarChart values={radarValues} size={220} />
