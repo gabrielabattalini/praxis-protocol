@@ -2821,6 +2821,30 @@ export default function NutritionModulePage() {
             <span className="rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.08)] px-2 py-0.5 text-[11px] text-[var(--accent)]">
               {Math.round(Math.min(waterProgress, 100))}%
             </span>
+            <button
+              type="button"
+              aria-label="Editar consumo de água"
+              title="Editar consumo de água"
+              onClick={() => {
+                const raw = window.prompt(
+                  "Quanto de água você consumiu hoje? (em ml)",
+                  String(Math.round(todayWaterConsumed)),
+                );
+                if (raw === null) return;
+                const parsed = Number(raw.replace(",", ".").trim());
+                if (!Number.isFinite(parsed) || parsed < 0) {
+                  window.alert("Valor inválido. Use só números, ex.: 1500");
+                  return;
+                }
+                actions.setWaterConsumed({
+                  date: todayKey,
+                  consumedMl: Math.round(parsed),
+                });
+              }}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-zinc-700 text-zinc-400 transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+            >
+              <PencilLine className="h-3.5 w-3.5" />
+            </button>
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2">
             {waterQuickActions.map((amount) => (
