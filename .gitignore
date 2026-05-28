@@ -65,3 +65,6 @@ output-*.png
 test-results/
 tmp/
 tmp-*
+
+# mobile audit harness output
+/audit-artifacts/
