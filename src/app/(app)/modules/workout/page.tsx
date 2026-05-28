@@ -863,7 +863,7 @@ export default function WorkoutModulePage() {
       }
       return next;
     });
-    setExpandedExerciseKey(exercise.id);
+    setExpandedExerciseKey(null);
   }
 
   function removeProgram(program: SavedWorkoutProgram) {
