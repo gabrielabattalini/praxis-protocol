@@ -1491,6 +1491,189 @@ export default function WorkoutModulePage() {
                 ) : null}
               </div>
 
+              <div className="space-y-4">
+                {activeDay?.exercises.map((exercise, idx) => {
+                  const isExpanded = expandedExerciseKey === exercise.id;
+                  const latestEntry = latestExerciseLogMap.get(exercise.id);
+                  const isCurveSelected =
+                    resolvedCurveExerciseId === exercise.id;
+
+                  return (
+                    <div
+                      key={exercise.id}
+                      className={`rounded-sm border bg-black/40 p-4 transition ${
+                        isCurveSelected
+                          ? "border-[rgba(251,146,60,0.4)]"
+                          : "border-zinc-800"
+                      }`}
+                    >
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedCurveExerciseId(exercise.id)
+                          }
+                          className="flex min-w-0 gap-4 text-left transition hover:opacity-90"
+                          title="Ver curva deste exercício"
+                        >
+                          <div className="flex h-10 w-10 min-w-10 items-center justify-center border border-[rgba(251,146,60,0.2)] bg-black/50 font-headline text-[var(--accent)]">
+                            {String(idx + 1).padStart(2, "0")}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="font-headline text-sm font-bold uppercase text-zinc-100">
+                                {exercise.name}
+                              </h4>
+                              {isCurveSelected ? (
+                                <span className="rounded-sm border border-[rgba(251,146,60,0.45)] bg-[rgba(251,146,60,0.16)] px-2 py-0.5 font-label text-[0.55rem] uppercase tracking-widest text-[var(--accent)]">
+                                  Curva ativa
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="font-label text-[0.55rem] uppercase tracking-wider text-zinc-500">
+                              {exercise.muscleGroup} / {exercise.bodyArea}
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                              <span className="rounded-sm border border-zinc-800 bg-black/50 px-3 py-2 text-zinc-300">
+                                {exercise.sets} séries
+                              </span>
+                              <span className="rounded-sm border border-zinc-800 bg-black/50 px-3 py-2 text-zinc-300">
+                                Repetições {exercise.repRange}
+                              </span>
+                            </div>
+                            <p className="mt-3 text-sm leading-6 text-zinc-500">
+                              {latestEntry
+                                ? `Último registro em ${formatWorkoutDateTime(latestEntry.loggedAt)}: ${formatWorkoutSetSummary(latestEntry.sets)}`
+                                : "Ainda sem registro salvo para este exercício."}
+                            </p>
+                          </div>
+                        </button>
+
+                        <div className="flex w-full flex-col gap-2 lg:w-[220px]">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedExerciseKey((current) =>
+                                current === exercise.id ? null : exercise.id,
+                              )
+                            }
+                            className="inline-flex items-center justify-center gap-2 rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] px-3 py-2.5 text-xs font-medium text-[var(--accent)]"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            {isExpanded ? "Fechar lançamento" : "Registrar séries"}
+                          </button>
+                          <Link
+                            href={exerciseHistoryHref(exercise)}
+                            className="inline-flex items-center justify-center gap-2 rounded-sm border border-zinc-800 bg-[rgba(18,18,20,0.98)] px-3 py-2.5 text-xs text-zinc-300 transition hover:border-[rgba(251,146,60,0.24)] hover:text-zinc-100"
+                          >
+                            <History className="h-3.5 w-3.5" />
+                            Ver histórico
+                          </Link>
+                        </div>
+                      </div>
+
+                      {isExpanded && activeDay ? (
+                        <div className="mt-4 border-t border-zinc-800 pt-4">
+                          <div className="mb-4 flex items-center justify-between gap-3">
+                            <p className="text-sm text-zinc-400">
+                              Preencha as séries executadas e salve no histórico do exercício.
+                            </p>
+                            <span className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
+                              {exercise.sets} séries previstas
+                            </span>
+                          </div>
+
+                          <div className="space-y-3">
+                            {Array.from({ length: exercise.sets }, (_, index) => {
+                              const setNumber = index + 1;
+                              const key = draftSetKey(activeDay.id, exercise.id, setNumber);
+
+                              return (
+                                <div
+                                  key={key}
+                                  className="grid gap-3 rounded-sm border border-zinc-800 bg-[rgba(18,18,20,0.94)] p-4 md:grid-cols-[120px_1fr_1fr]"
+                                >
+                                  <div>
+                                    <label className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
+                                      Série
+                                    </label>
+                                    <input
+                                      value={setNumber}
+                                      readOnly
+                                      className={`${compactFieldClassName} mt-2 cursor-default opacity-80`}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
+                                      Repetições
+                                    </label>
+                                    <input
+                                      value={draftLoadRepetitions[key] ?? ""}
+                                      onChange={(event) =>
+                                        updateDraftRepetitions(
+                                          activeDay.id,
+                                          exercise.id,
+                                          setNumber,
+                                          event.target.value,
+                                        )
+                                      }
+                                      type="number"
+                                      min={1}
+                                      placeholder="Ex.: 10"
+                                      className={`${compactFieldClassName} mt-2`}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
+                                      Peso (kg)
+                                    </label>
+                                    <input
+                                      value={draftLoads[key] ?? ""}
+                                      onChange={(event) =>
+                                        updateDraftWeight(
+                                          activeDay.id,
+                                          exercise.id,
+                                          setNumber,
+                                          event.target.value,
+                                        )
+                                      }
+                                      type="number"
+                                      min={0}
+                                      step="0.5"
+                                      placeholder="Ex.: 20"
+                                      className={`${compactFieldClassName} mt-2`}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-xs text-zinc-500">
+                              O sistema salva data, séries, repetições e carga de cada execução.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => saveLoad(activeDay.id, exercise)}
+                              disabled={!canSaveLoad(activeDay.id, exercise)}
+                              className="praxis-button px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              Salvar no histórico
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+                {!activeDay?.exercises.length ? (
+                  <div className="p-8 text-center text-zinc-500 text-xs uppercase tracking-widest">
+                    Sem exercícios cadastrados neste dia.
+                  </div>
+                ) : null}
+              </div>
+
               <div className="mb-8 flex flex-col gap-6 border-b border-zinc-800/60 pb-6 md:flex-row md:items-end md:justify-between">
                 <div className="flex-1">
                   <p className="font-label text-[0.6rem] uppercase tracking-widest text-zinc-500">
@@ -1748,188 +1931,6 @@ export default function WorkoutModulePage() {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                {activeDay?.exercises.map((exercise, idx) => {
-                  const isExpanded = expandedExerciseKey === exercise.id;
-                  const latestEntry = latestExerciseLogMap.get(exercise.id);
-                  const isCurveSelected =
-                    resolvedCurveExerciseId === exercise.id;
-
-                  return (
-                    <div
-                      key={exercise.id}
-                      className={`rounded-sm border bg-black/40 p-4 transition ${
-                        isCurveSelected
-                          ? "border-[rgba(251,146,60,0.4)]"
-                          : "border-zinc-800"
-                      }`}
-                    >
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSelectedCurveExerciseId(exercise.id)
-                          }
-                          className="flex min-w-0 gap-4 text-left transition hover:opacity-90"
-                          title="Ver curva deste exercício"
-                        >
-                          <div className="flex h-10 w-10 min-w-10 items-center justify-center border border-[rgba(251,146,60,0.2)] bg-black/50 font-headline text-[var(--accent)]">
-                            {String(idx + 1).padStart(2, "0")}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h4 className="font-headline text-sm font-bold uppercase text-zinc-100">
-                                {exercise.name}
-                              </h4>
-                              {isCurveSelected ? (
-                                <span className="rounded-sm border border-[rgba(251,146,60,0.45)] bg-[rgba(251,146,60,0.16)] px-2 py-0.5 font-label text-[0.55rem] uppercase tracking-widest text-[var(--accent)]">
-                                  Curva ativa
-                                </span>
-                              ) : null}
-                            </div>
-                            <p className="font-label text-[0.55rem] uppercase tracking-wider text-zinc-500">
-                              {exercise.muscleGroup} / {exercise.bodyArea}
-                            </p>
-                            <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                              <span className="rounded-sm border border-zinc-800 bg-black/50 px-3 py-2 text-zinc-300">
-                                {exercise.sets} séries
-                              </span>
-                              <span className="rounded-sm border border-zinc-800 bg-black/50 px-3 py-2 text-zinc-300">
-                                Repetições {exercise.repRange}
-                              </span>
-                            </div>
-                            <p className="mt-3 text-sm leading-6 text-zinc-500">
-                              {latestEntry
-                                ? `Último registro em ${formatWorkoutDateTime(latestEntry.loggedAt)}: ${formatWorkoutSetSummary(latestEntry.sets)}`
-                                : "Ainda sem registro salvo para este exercício."}
-                            </p>
-                          </div>
-                        </button>
-
-                        <div className="flex w-full flex-col gap-2 lg:w-[220px]">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExpandedExerciseKey((current) =>
-                                current === exercise.id ? null : exercise.id,
-                              )
-                            }
-                            className="inline-flex items-center justify-center gap-2 rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] px-3 py-2.5 text-xs font-medium text-[var(--accent)]"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                            {isExpanded ? "Fechar lançamento" : "Registrar séries"}
-                          </button>
-                          <Link
-                            href={exerciseHistoryHref(exercise)}
-                            className="inline-flex items-center justify-center gap-2 rounded-sm border border-zinc-800 bg-[rgba(18,18,20,0.98)] px-3 py-2.5 text-xs text-zinc-300 transition hover:border-[rgba(251,146,60,0.24)] hover:text-zinc-100"
-                          >
-                            <History className="h-3.5 w-3.5" />
-                            Ver histórico
-                          </Link>
-                        </div>
-                      </div>
-
-                      {isExpanded && activeDay ? (
-                        <div className="mt-4 border-t border-zinc-800 pt-4">
-                          <div className="mb-4 flex items-center justify-between gap-3">
-                            <p className="text-sm text-zinc-400">
-                              Preencha as séries executadas e salve no histórico do exercício.
-                            </p>
-                            <span className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
-                              {exercise.sets} séries previstas
-                            </span>
-                          </div>
-
-                          <div className="space-y-3">
-                            {Array.from({ length: exercise.sets }, (_, index) => {
-                              const setNumber = index + 1;
-                              const key = draftSetKey(activeDay.id, exercise.id, setNumber);
-
-                              return (
-                                <div
-                                  key={key}
-                                  className="grid gap-3 rounded-sm border border-zinc-800 bg-[rgba(18,18,20,0.94)] p-4 md:grid-cols-[120px_1fr_1fr]"
-                                >
-                                  <div>
-                                    <label className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
-                                      Série
-                                    </label>
-                                    <input
-                                      value={setNumber}
-                                      readOnly
-                                      className={`${compactFieldClassName} mt-2 cursor-default opacity-80`}
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
-                                      Repetições
-                                    </label>
-                                    <input
-                                      value={draftLoadRepetitions[key] ?? ""}
-                                      onChange={(event) =>
-                                        updateDraftRepetitions(
-                                          activeDay.id,
-                                          exercise.id,
-                                          setNumber,
-                                          event.target.value,
-                                        )
-                                      }
-                                      type="number"
-                                      min={1}
-                                      placeholder="Ex.: 10"
-                                      className={`${compactFieldClassName} mt-2`}
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
-                                      Peso (kg)
-                                    </label>
-                                    <input
-                                      value={draftLoads[key] ?? ""}
-                                      onChange={(event) =>
-                                        updateDraftWeight(
-                                          activeDay.id,
-                                          exercise.id,
-                                          setNumber,
-                                          event.target.value,
-                                        )
-                                      }
-                                      type="number"
-                                      min={0}
-                                      step="0.5"
-                                      placeholder="Ex.: 20"
-                                      className={`${compactFieldClassName} mt-2`}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-
-                          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <p className="text-xs text-zinc-500">
-                              O sistema salva data, séries, repetições e carga de cada execução.
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => saveLoad(activeDay.id, exercise)}
-                              disabled={!canSaveLoad(activeDay.id, exercise)}
-                              className="praxis-button px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              Salvar no histórico
-                            </button>
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                })}
-                {!activeDay?.exercises.length ? (
-                  <div className="p-8 text-center text-zinc-500 text-xs uppercase tracking-widest">
-                    Sem exercícios cadastrados neste dia.
-                  </div>
-                ) : null}
-              </div>
             </div>
           ) : (
             editorPanel
