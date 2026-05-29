@@ -1,0 +1,47 @@
+name: Notification Dispatch Cron
+
+# Aciona /api/notifications/dispatch pra entregar push + Telegram dos
+# lembretes vencidos. Vercel Hobby só permite cron diário, e crons
+# externos gratuitos (cron-job.org) esbarram em limites de "output".
+# GitHub Actions é confiável e sob nosso controle.
+#
+# Truque de precisão: o schedule do GitHub Actions é granular só a cada
+# 5 min (e às vezes atrasa sob carga). Pra chegar perto de 1 min, cada
+# run pinga o endpoint a cada 60s durante ~5 min — então o próximo run
+# assume. O dispatch é idempotente (dedup por user+item+dia), então
+# pings sobrepostos não duplicam notificação.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+# Evita acumular runs sobrepostos se um ficar lento.
+concurrency:
+  group: notification-dispatch
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping dispatch every minute for ~5 minutes
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DISPATCH_URL: https://praxis-protocol.vercel.app/api/notifications/dispatch
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET secret não configurado no repositório."
+            exit 1
+          fi
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" \
+              --max-time 30 \
+              -X POST \
+              -H "Authorization: Bearer ${CRON_SECRET}" \
+              "$DISPATCH_URL" || echo "000")
+            echo "ping $i -> HTTP $code"
+            if [ "$i" -lt 5 ]; then
+              sleep 60
+            fi
+          done
