@@ -57,3 +57,23 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return GET(request);
 }
+
+// HEAD existe principalmente pra crons externos (ex.: cron-job.org).
+// Por spec HTTP, response a HEAD NÃO TEM BODY — o que garante 0 bytes
+// independente do que a Vercel/Next façam com headers. Roda a mesma
+// lógica de dispatch e retorna um status code curto. Sem chance de
+// "output too large" no log do cron externo.
+export async function HEAD(request: Request) {
+  if (!isAuthorized(request)) {
+    return new Response(null, { status: 401 });
+  }
+  try {
+    const summary = await dispatchDueNotifications();
+    console.log(
+      `[dispatch:HEAD] users=${summary.usersChecked} sent=${summary.notificationsSent} cleaned=${summary.invalidSubscriptionsRemoved}`,
+    );
+  } catch (error) {
+    console.error("[dispatch:HEAD] erro inesperado:", error);
+  }
+  return new Response(null, { status: 204 });
+}
