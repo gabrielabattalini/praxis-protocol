@@ -19,21 +19,39 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
 
-  const summary = await dispatchDueNotifications();
-  // Log completo no servidor pra debug via Vercel Logs sem precisar
-  // de body grande na resposta — cron-job.org free tier limita a ~1KB
-  // (headers + body) e Vercel sozinho já manda ~1KB em headers de segurança.
-  console.log(
-    `[dispatch] users=${summary.usersChecked} sent=${summary.notificationsSent} cleaned=${summary.invalidSubscriptionsRemoved}`,
-  );
+  const wantsVerbose =
+    new URL(request.url).searchParams.get("verbose") === "1";
 
-  // ?verbose=1 retorna o JSON completo (debug manual via curl/browser).
-  // Default = 204 No Content pra caber no limite de qualquer cron externo.
-  const url = new URL(request.url);
-  if (url.searchParams.get("verbose") === "1") {
-    return NextResponse.json(summary);
+  try {
+    const summary = await dispatchDueNotifications();
+    // Log completo no servidor pra debug via Vercel Logs sem precisar
+    // de body grande na resposta — cron-job.org free tier limita o tamanho
+    // do output salvo, e qualquer 500 (página HTML de erro do Next) estoura.
+    console.log(
+      `[dispatch] users=${summary.usersChecked} sent=${summary.notificationsSent} cleaned=${summary.invalidSubscriptionsRemoved}`,
+    );
+
+    // ?verbose=1 retorna o JSON completo (debug manual via curl/browser).
+    // Default = 204 No Content pra caber no limite de qualquer cron externo.
+    if (wantsVerbose) {
+      return NextResponse.json(summary);
+    }
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    // Nunca deixa vazar um 500 com página HTML grande — isso quebraria
+    // crons externos (cron-job.org marca "output too large" e desativa
+    // o job). Loga e responde curto.
+    console.error("[dispatch] erro inesperado:", error);
+    if (wantsVerbose) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "dispatch failed" },
+        { status: 500 },
+      );
+    }
+    // 200 com corpo mínimo: o cron externo considera sucesso, e o erro
+    // real fica registrado no Vercel Logs pra diagnóstico.
+    return new Response("err", { status: 200 });
   }
-  return new Response(null, { status: 204 });
 }
 
 export async function POST(request: Request) {
