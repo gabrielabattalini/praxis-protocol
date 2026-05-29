@@ -5,18 +5,28 @@ import { Shield } from "lucide-react";
 import { getLoadingCuePool } from "@/lib/discipline-cues";
 import { cn } from "@/lib/utils";
 
+type Cue = { eyebrow: string; text: string };
+
 type NavigationLoadingOverlayProps = {
   message?: string;
   detail?: string;
   className?: string;
+  // Frases extras (ex.: as personalizadas do usuário). Passadas via prop
+  // — não usar useAppStore aqui, porque este overlay também roda como
+  // loading.tsx de rota, que pode renderizar fora do AppStoreProvider.
+  extraCues?: Cue[];
 };
 
 export function NavigationLoadingOverlay({
   message = "Carregando",
   detail = "Aguarde enquanto o sistema conclui a próxima etapa.",
   className,
+  extraCues,
 }: NavigationLoadingOverlayProps) {
-  const cuePool = useMemo(() => getLoadingCuePool(), []);
+  const cuePool = useMemo(
+    () => [...getLoadingCuePool(), ...(extraCues ?? [])],
+    [extraCues],
+  );
   const [activeCue] = useState(() => {
     if (!cuePool.length) {
       return { eyebrow: "PROTOCOLO", text: "Carregando rotina." };

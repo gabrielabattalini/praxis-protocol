@@ -108,8 +108,13 @@ export function NotificationSyncProvider({
         state.reminders,
         timezone,
         state.mealPlan,
+        (state.customQuotes ?? []).map((quote) =>
+          quote.author?.trim()
+            ? `${quote.text} — ${quote.author.trim()}`
+            : quote.text,
+        ),
       ),
-    [state.mealPlan, state.reminders, state.tasks, timezone],
+    [state.customQuotes, state.mealPlan, state.reminders, state.tasks, timezone],
   );
 
   const fetchStatus = useCallback(async () => {

@@ -2592,6 +2592,7 @@ export const initialPersistedState: PersistedState = {
   },
   sleepHistory: [],
   moduleState: {},
+  customQuotes: [],
 };
 
 export function getRankFromPoints(points: number) {

@@ -782,6 +782,16 @@ export interface PersistedState {
      via the central account-state envelope. Each module owns its
      own shape inside its slot. */
   moduleState: Record<string, unknown>;
+  /* Frases motivacionais que o próprio usuário cadastra nas
+     Configurações. Aparecem no overlay de transição entre páginas e
+     são anexadas aos lembretes do Telegram, junto das frases nativas. */
+  customQuotes: CustomQuote[];
+}
+
+export interface CustomQuote {
+  id: string;
+  text: string;
+  author?: string;
 }
 
 /* ── Sleep ──────────────────────────────────────────────────────

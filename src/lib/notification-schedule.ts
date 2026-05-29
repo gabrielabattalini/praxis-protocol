@@ -32,6 +32,9 @@ export interface NotificationSyncPayload {
   timezone: string;
   syncedAt: string;
   items: NotificationScheduleItem[];
+  // Frases personalizadas do usuário (texto pronto, já com "— autor"
+  // quando houver). Anexadas aos lembretes do Telegram junto das nativas.
+  customQuotes?: string[];
 }
 
 export const notificationRouteByModuleId: Record<ModuleId, string> = {
@@ -150,6 +153,7 @@ export function buildNotificationSyncPayload(
   reminders: ReminderItem[],
   timezone: string,
   mealPlan: MealPlanBlock[] = [],
+  customQuotes: string[] = [],
 ): NotificationSyncPayload {
   const syncedAt = new Date().toISOString();
   const todayKey = localDateKey();
@@ -333,5 +337,9 @@ export function buildNotificationSyncPayload(
     timezone,
     syncedAt,
     items: [...taskItems, ...reminderItems, ...mealItems],
+    customQuotes: customQuotes
+      .map((quote) => quote.trim())
+      .filter((quote) => quote.length > 0)
+      .slice(0, 100),
   };
 }

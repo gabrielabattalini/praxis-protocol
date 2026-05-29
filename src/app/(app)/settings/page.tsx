@@ -21,6 +21,7 @@ type SettingsTab =
   | "account"
   | "themes"
   | "notifications"
+  | "quotes"
   | "modules"
   | "subscription";
 
@@ -28,6 +29,7 @@ const settingsTabs: Array<{ id: SettingsTab; label: string }> = [
   { id: "account", label: "Conta" },
   { id: "themes", label: "Temas" },
   { id: "notifications", label: "Notificações" },
+  { id: "quotes", label: "Frases" },
   { id: "modules", label: "Módulos" },
   { id: "subscription", label: "Assinatura" },
 ];
@@ -104,6 +106,181 @@ function syncStatusLabel(status: string) {
     default:
       return "Aguardando";
   }
+}
+
+function QuotesTab() {
+  const { state, actions } = useAppStore();
+  const quotes = state.customQuotes ?? [];
+  const [text, setText] = useState("");
+  const [author, setAuthor] = useState("");
+
+  const handleAdd = () => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    actions.addCustomQuote({ text: trimmed, author: author.trim() || undefined });
+    setText("");
+    setAuthor("");
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <RxPanel style={{ padding: 22 }}>
+        <RxLabel>SUAS FRASES</RxLabel>
+        <p
+          style={{
+            fontSize: 13,
+            color: "var(--fg-3)",
+            marginTop: 8,
+            marginBottom: 16,
+            lineHeight: 1.6,
+            maxWidth: 560,
+          }}
+        >
+          Frases que você cadastra aqui entram no rodízio das telas de
+          carregamento e são anexadas aos seus lembretes do Telegram, junto
+          das frases nativas do Praxis.
+        </p>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <textarea
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            placeholder="Escreva sua frase de motivação…"
+            rows={3}
+            maxLength={280}
+            style={{
+              width: "100%",
+              resize: "vertical",
+              borderRadius: 10,
+              border: "1px solid rgba(39,39,42,0.8)",
+              background: "rgba(7,7,9,0.92)",
+              color: "var(--fg)",
+              padding: "12px 14px",
+              fontSize: 14,
+              fontFamily: "inherit",
+              lineHeight: 1.5,
+            }}
+          />
+          <input
+            value={author}
+            onChange={(event) => setAuthor(event.target.value)}
+            placeholder="Autor (opcional) — ex.: você mesmo, um mentor…"
+            maxLength={80}
+            style={{
+              width: "100%",
+              borderRadius: 10,
+              border: "1px solid rgba(39,39,42,0.8)",
+              background: "rgba(7,7,9,0.92)",
+              color: "var(--fg)",
+              padding: "10px 14px",
+              fontSize: 14,
+              fontFamily: "inherit",
+            }}
+          />
+          <div>
+            <button
+              type="button"
+              onClick={handleAdd}
+              disabled={!text.trim()}
+              className="praxis-button"
+              style={{
+                padding: "10px 18px",
+                opacity: text.trim() ? 1 : 0.4,
+                cursor: text.trim() ? "pointer" : "not-allowed",
+              }}
+            >
+              Adicionar frase
+            </button>
+          </div>
+        </div>
+      </RxPanel>
+
+      <RxPanel style={{ padding: 22 }}>
+        <RxLabel>
+          {quotes.length > 0
+            ? `CADASTRADAS · ${quotes.length}`
+            : "NENHUMA FRASE AINDA"}
+        </RxLabel>
+        {quotes.length === 0 ? (
+          <p
+            style={{
+              fontSize: 13,
+              color: "var(--fg-3)",
+              marginTop: 12,
+              lineHeight: 1.6,
+            }}
+          >
+            Adicione frases acima para vê-las nas transições e nos lembretes.
+          </p>
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+              marginTop: 14,
+            }}
+          >
+            {quotes.map((quote) => (
+              <div
+                key={quote.id}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  border: "1px solid rgba(39,39,42,0.7)",
+                  borderRadius: 12,
+                  padding: "12px 14px",
+                  background: "rgba(7,7,9,0.6)",
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <p
+                    style={{
+                      fontSize: 14,
+                      color: "var(--fg)",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    “{quote.text}”
+                  </p>
+                  {quote.author ? (
+                    <p
+                      style={{
+                        fontSize: 12,
+                        color: "var(--accent)",
+                        marginTop: 6,
+                      }}
+                    >
+                      — {quote.author}
+                    </p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => actions.removeCustomQuote(quote.id)}
+                  aria-label="Remover frase"
+                  style={{
+                    flexShrink: 0,
+                    border: "1px solid rgba(39,39,42,0.8)",
+                    borderRadius: 8,
+                    background: "transparent",
+                    color: "#a1a1aa",
+                    padding: "6px 10px",
+                    cursor: "pointer",
+                    fontSize: 12,
+                  }}
+                >
+                  Remover
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </RxPanel>
+    </div>
+  );
 }
 
 function TabContent({
@@ -651,6 +828,10 @@ function TabContent({
         <TelegramCard />
       </div>
     );
+  }
+
+  if (tab === "quotes") {
+    return <QuotesTab />;
   }
 
   if (tab === "modules") {

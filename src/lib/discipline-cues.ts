@@ -88,6 +88,62 @@ const loadingCues: LoadingCue[] = [
     eyebrow: "Marco Aurélio",
     text: "Confine-se ao presente.",
   },
+  {
+    eyebrow: "Marco Aurélio",
+    text: "Ame a disciplina que você conhece e deixe-a te sustentar.",
+  },
+  {
+    eyebrow: "Marco Aurélio",
+    text: "Seja tolerante com os outros e rigoroso consigo mesmo.",
+  },
+  {
+    eyebrow: "Marco Aurélio",
+    text: "Quão ridículo é não fugir da própria maldade, o que é possível, e tentar fugir da dos outros, o que é impossível.",
+  },
+  {
+    eyebrow: "Sêneca",
+    text: "Enquanto adiamos a vida, ela passa.",
+  },
+  {
+    eyebrow: "Sêneca",
+    text: "Não é porque as coisas são difíceis que não ousamos; é porque não ousamos que elas são difíceis.",
+  },
+  {
+    eyebrow: "Epicteto",
+    text: "Não são as coisas que nos perturbam, mas os julgamentos que fazemos sobre elas.",
+  },
+  {
+    eyebrow: "Epicteto",
+    text: "Nenhum homem é livre se não for senhor de si mesmo.",
+  },
+  {
+    eyebrow: "Confúcio",
+    text: "Ver o que é certo e não fazê-lo é falta de coragem.",
+  },
+  {
+    eyebrow: "Confúcio",
+    text: "O homem superior é modesto na fala, mas excede nas ações.",
+  },
+  {
+    eyebrow: "Lao-Tsé",
+    text: "Conhecer os outros é inteligência; conhecer a si mesmo é sabedoria. Dominar os outros é força; dominar a si mesmo é verdadeiro poder.",
+  },
+  {
+    eyebrow: "Lao-Tsé",
+    text: "O suave vence o duro; o lento vence o rápido.",
+  },
+  {
+    eyebrow: "Benjamin Franklin",
+    text: "Você pode adiar, mas o tempo não vai adiar.",
+  },
+  {
+    eyebrow: "Benjamin Franklin",
+    text: "Cuide das pequenas coisas: uma pequena fenda afunda um grande navio.",
+  },
+  {
+    eyebrow: "Theodore Roosevelt",
+    text: "Faça o que puder, com o que tiver, onde estiver.",
+  },
 ];
 
 const genericNotificationCues = [
