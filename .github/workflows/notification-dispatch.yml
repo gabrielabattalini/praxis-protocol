@@ -37,7 +37,6 @@ jobs:
           for i in 1 2 3 4 5; do
             code=$(curl -s -o /dev/null -w "%{http_code}" \
               --max-time 30 \
-              -X POST \
               -H "Authorization: Bearer ${CRON_SECRET}" \
               "$DISPATCH_URL" || echo "000")
             echo "ping $i -> HTTP $code"
