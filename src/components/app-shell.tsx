@@ -274,6 +274,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <NavigationLoadingOverlay
           message={navigationMessage}
           detail="Aguarde enquanto o sistema conclui a mudança de página."
+          extraCues={(state.customQuotes ?? []).map((quote) => ({
+            eyebrow: quote.author?.trim() || "Sua frase",
+            text: quote.text,
+          }))}
         />
       ) : null}
 

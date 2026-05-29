@@ -8,6 +8,7 @@ import type {
   NotificationSyncPayload,
 } from "@/lib/notification-schedule";
 import { sendTelegramToUser } from "@/lib/telegram-center.server";
+import { getLoadingCuePool } from "@/lib/discipline-cues";
 
 const dataDir = path.join(process.cwd(), ".data");
 const vapidPath = path.join(dataDir, "notifications-vapid.json");
@@ -209,6 +210,16 @@ const PRE_WARNING_MIN = 5;
 // fora por um tempo. Combinado com dispatchKey por dia, garante 1 disparo
 // por (user, item, dia) mesmo se o cron rodar várias vezes na janela.
 const DISPATCH_WINDOW_MIN = 10;
+
+// Seleção determinística por seed — mesma frase pro mesmo (user, dia,
+// horário), variando entre disparos. Evita repetir sempre a primeira.
+function pickBySeed<T>(items: readonly T[], seed: string): T {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return items[hash % items.length];
+}
 
 function minutesOfDay(hourMinute: string) {
   const [h, m] = hourMinute.split(":").map(Number);
@@ -559,10 +570,19 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
         // Dedup linhas idênticas — tarefas/lembretes com mesmo título e
         // horário (ex.: cardio duplicado no schedule) não aparecem 2x.
         const lines = [...new Set(rawLines)];
-        const message =
-          telegramBatch.length === 1
-            ? lines[0]
-            : `Lembretes Praxis:\n${lines.join("\n")}`;
+        const header =
+          lines.length === 1 ? lines[0] : `Lembretes Praxis:\n${lines.join("\n")}`;
+        // Anexa 1 frase motivacional (nativa do Praxis + personalizadas do
+        // usuário, que vêm no schedule via sync). Escolha rotativa por dia.
+        const quotePool = [
+          ...getLoadingCuePool().map((cue) => `${cue.text} — ${cue.eyebrow}`),
+          ...(schedule.customQuotes ?? []),
+        ];
+        const quote =
+          quotePool.length > 0
+            ? pickBySeed(quotePool, `${userId}|${zonedNow.dateKey}|${zonedNow.hourMinute}`)
+            : "";
+        const message = quote ? `${header}\n\n— — —\n${quote}` : header;
         const tg = await sendTelegramToUser(userId, message);
         if (tg.ok && !tg.skipped) {
           summary.notificationsSent += 1;

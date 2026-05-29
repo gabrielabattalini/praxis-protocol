@@ -239,6 +239,8 @@ type AppStoreValue = {
       date: string;
       consumedMl: number;
     }) => void;
+    addCustomQuote: (payload: { text: string; author?: string }) => void;
+    removeCustomQuote: (quoteId: string) => void;
     setWorkoutMode: (mode: WorkoutMode) => void;
     setDietDayType: (payload: {
       weekday: Weekday;
@@ -648,6 +650,11 @@ type Action =
         consumedMl: number;
       };
     }
+  | {
+      type: "add-custom-quote";
+      payload: { text: string; author?: string };
+    }
+  | { type: "remove-custom-quote"; quoteId: string }
   | {
       type: "add-household-supply";
       payload: {
@@ -1700,6 +1707,25 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         ),
       };
     }
+    case "add-custom-quote": {
+      const text = action.payload.text.trim();
+      if (!text) return state;
+      const author = action.payload.author?.trim() || undefined;
+      return {
+        ...state,
+        customQuotes: [
+          { id: makeId("quote"), text, author },
+          ...state.customQuotes,
+        ],
+      };
+    }
+    case "remove-custom-quote":
+      return {
+        ...state,
+        customQuotes: state.customQuotes.filter(
+          (quote) => quote.id !== action.quoteId,
+        ),
+      };
     case "add-household-supply":
       return {
         ...state,
@@ -4619,6 +4645,7 @@ const emptyPersistedState: PersistedState = {
   },
   sleepHistory: [],
   moduleState: {},
+  customQuotes: [],
 };
 
 function parseStateValue(
@@ -4917,6 +4944,15 @@ function parseStateValue(
         !Array.isArray(parsedState.moduleState)
           ? (parsedState.moduleState as Record<string, unknown>)
           : {},
+      customQuotes: Array.isArray(parsedState.customQuotes)
+        ? parsedState.customQuotes.filter(
+            (q): q is PersistedState["customQuotes"][number] =>
+              Boolean(q) &&
+              typeof q === "object" &&
+              typeof (q as { id?: unknown }).id === "string" &&
+              typeof (q as { text?: unknown }).text === "string",
+          )
+        : [],
     };
   } catch {
     return null;
@@ -5671,6 +5707,12 @@ export function AppStoreProvider({
       },
       setWaterConsumed(payload) {
         dispatch({ type: "set-water-consumed", payload });
+      },
+      addCustomQuote(payload) {
+        dispatch({ type: "add-custom-quote", payload });
+      },
+      removeCustomQuote(quoteId) {
+        dispatch({ type: "remove-custom-quote", quoteId });
       },
       setWorkoutMode(mode) {
         dispatch({ type: "set-workout", mode });
