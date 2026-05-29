@@ -204,11 +204,11 @@ function getZonedNow(timezone: string, referenceDate = new Date()): ZonedNow {
 const PRE_WARNING_MIN = 5;
 
 // Janela em minutos: depois do horário marcado, ainda consideramos o item
-// "due" por até DISPATCH_WINDOW_MIN. Cobre delays normais de cron externo,
-// cold start, debounce do sync. Combinado com dispatchKey baseada em data,
-// garante 1 disparo por (user, item, dia) mesmo se o cron rodar várias
-// vezes dentro da janela.
-const DISPATCH_WINDOW_MIN = 60;
+// "due" por até DISPATCH_WINDOW_MIN. Cobre delays normais de cron (1 min)
+// + cold start, sem despejar tarefas de horas atrás quando o cron fica
+// fora por um tempo. Combinado com dispatchKey por dia, garante 1 disparo
+// por (user, item, dia) mesmo se o cron rodar várias vezes na janela.
+const DISPATCH_WINDOW_MIN = 10;
 
 function minutesOfDay(hourMinute: string) {
   const [h, m] = hourMinute.split(":").map(Number);
@@ -547,7 +547,7 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
     // neste run, formatadas de forma enxuta (sem body verbose nem cue).
     if (telegramBatch.length > 0) {
       try {
-        const lines = telegramBatch.map((entry) => {
+        const rawLines = telegramBatch.map((entry) => {
           const isPreWarning = entry.id.endsWith(`:pre${PRE_WARNING_MIN}`);
           const baseTitle = entry.title
             .replace(/^⏰ Em \d+ min: /, "")
@@ -556,6 +556,9 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
           const inMin = isPreWarning ? ` (em ${PRE_WARNING_MIN}min)` : "";
           return `${prefix} ${entry.time} ${baseTitle}${inMin}`;
         });
+        // Dedup linhas idênticas — tarefas/lembretes com mesmo título e
+        // horário (ex.: cardio duplicado no schedule) não aparecem 2x.
+        const lines = [...new Set(rawLines)];
         const message =
           telegramBatch.length === 1
             ? lines[0]
