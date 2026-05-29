@@ -199,6 +199,10 @@ function getZonedNow(timezone: string, referenceDate = new Date()): ZonedNow {
   };
 }
 
+// Mesma janela usada em notification-schedule.ts pra construir os ids
+// "<base>:pre5". Mudou lá, mude aqui.
+const PRE_WARNING_MIN = 5;
+
 // Janela em minutos: depois do horário marcado, ainda consideramos o item
 // "due" por até DISPATCH_WINDOW_MIN. Cobre delays normais de cron externo,
 // cold start, debounce do sync. Combinado com dispatchKey baseada em data,
@@ -487,6 +491,10 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
     summary.usersChecked += 1;
     const zonedNow = getZonedNow(schedule.timezone || "America/Sao_Paulo", referenceDate);
     const validSubscriptions: StoredSubscription[] = [];
+    // Coleta items que disparam neste run pra mandar UMA mensagem só
+    // no Telegram (web push continua individual — mobile precisa de
+    // notificações separadas pra agrupar/expand no system tray).
+    const telegramBatch: NotificationScheduleItem[] = [];
 
     for (const item of schedule.items) {
       if (!isNotificationItemDue(item, zonedNow)) {
@@ -527,24 +535,38 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
         }
       }
 
-      // Fan out the same due item to Telegram. Failures here must
-      // never block web push or the de-dupe bookkeeping below.
+      telegramBatch.push(item);
+
+      dispatchLog.push({
+        key,
+        sentAt: referenceDate.toISOString(),
+      });
+    }
+
+    // Envia 1 mensagem Telegram contendo todos os items que dispararam
+    // neste run, formatadas de forma enxuta (sem body verbose nem cue).
+    if (telegramBatch.length > 0) {
       try {
-        const tg = await sendTelegramToUser(
-          userId,
-          `🔔 ${item.title}\n${item.body}`,
-        );
+        const lines = telegramBatch.map((entry) => {
+          const isPreWarning = entry.id.endsWith(`:pre${PRE_WARNING_MIN}`);
+          const baseTitle = entry.title
+            .replace(/^⏰ Em \d+ min: /, "")
+            .replace(/^🔔 /, "");
+          const prefix = isPreWarning ? "⏰" : "🔔";
+          const inMin = isPreWarning ? ` (em ${PRE_WARNING_MIN}min)` : "";
+          return `${prefix} ${entry.time} ${baseTitle}${inMin}`;
+        });
+        const message =
+          telegramBatch.length === 1
+            ? lines[0]
+            : `Lembretes Praxis:\n${lines.join("\n")}`;
+        const tg = await sendTelegramToUser(userId, message);
         if (tg.ok && !tg.skipped) {
           summary.notificationsSent += 1;
         }
       } catch {
         /* swallow — Telegram is a best-effort secondary channel */
       }
-
-      dispatchLog.push({
-        key,
-        sentAt: referenceDate.toISOString(),
-      });
     }
 
     // Só reescreve (poda assinaturas mortas 404/410) quando o web push
