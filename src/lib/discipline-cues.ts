@@ -5,54 +5,88 @@ type LoadingCue = {
   text: string;
 };
 
+// Frases reais de pensadores, traduzidas. Alinhadas ao tom do app
+// (disciplina, hábito, execução, identidade). Cada eyebrow é o autor.
 const loadingCues: LoadingCue[] = [
   {
-    eyebrow: "Protocolo de execução",
-    text: "Você não precisa de hype. Precisa do próximo passo.",
+    eyebrow: "Aristóteles",
+    text: "Somos aquilo que fazemos repetidamente. Excelência, então, não é um ato — é um hábito.",
   },
   {
-    eyebrow: "Consistência",
-    text: "Hoje não precisa ser perfeito. Só precisa continuar.",
+    eyebrow: "Marco Aurélio",
+    text: "Não perca mais tempo discutindo como deveria ser um bom homem. Seja um.",
   },
   {
-    eyebrow: "Identidade",
-    text: "Cada execução reforça quem você está se tornando.",
+    eyebrow: "Marco Aurélio",
+    text: "Você monta sua vida sozinho — ação por ação.",
   },
   {
-    eyebrow: "Aderência",
-    text: "Facilite o começo. O resto fica mais leve em movimento.",
+    eyebrow: "Sêneca",
+    text: "Não é que tenhamos pouco tempo de vida. É que perdemos muito dele.",
   },
   {
-    eyebrow: "Regra central",
-    text: "Falhar uma vez é ruído. Falhar duas vezes vira padrão.",
+    eyebrow: "Sêneca",
+    text: "O mais poderoso é aquele que tem a si mesmo em seu próprio poder.",
   },
   {
-    eyebrow: "Disciplina",
-    text: "Sofra a dor da disciplina ou sofra a dor do arrependimento.",
+    eyebrow: "Epicteto",
+    text: "Primeiro decida quem você quer ser. Depois faça o que precisa ser feito.",
   },
   {
-    eyebrow: "Sistema",
-    text: "Menos negociação mental. Mais caminho pronto para agir.",
+    eyebrow: "Epicteto",
+    text: "Todo hábito e capacidade se confirma e cresce nas ações correspondentes — caminhar, caminhando; correr, correndo.",
   },
   {
-    eyebrow: "Ambiente",
-    text: "O que fica fácil de começar pesa menos na força de vontade.",
+    eyebrow: "Lao-Tsé",
+    text: "A jornada de mil milhas começa com um único passo.",
   },
   {
-    eyebrow: "Sentido",
-    text: "O esforço pesa menos quando você lembra por que escolheu isso.",
+    eyebrow: "Sócrates",
+    text: "O segredo da mudança é focar toda a sua energia não em lutar contra o velho, mas em construir o novo.",
   },
   {
-    eyebrow: "Retomada",
-    text: "Quebrou ontem? Hoje é o dia de voltar para a trilha.",
+    eyebrow: "Bruce Lee",
+    text: "A disciplina é o caminho para a liberdade.",
   },
   {
-    eyebrow: "Ação",
-    text: "Clareza não vem antes. Clareza aparece enquanto você faz.",
+    eyebrow: "Bruce Lee",
+    text: "Não ore por uma vida fácil. Ore por força para suportar uma vida difícil.",
   },
   {
-    eyebrow: "Fidelidade",
-    text: "O que você repete em silêncio constrói a pessoa que você vira.",
+    eyebrow: "Bruce Lee",
+    text: "Se você passa tempo demais pensando em uma coisa, nunca vai realizá-la.",
+  },
+  {
+    eyebrow: "Albert Einstein",
+    text: "Não é que eu seja tão inteligente. É que fico com os problemas por mais tempo.",
+  },
+  {
+    eyebrow: "Will Durant",
+    text: "Aquilo que fazemos repetidamente nos define. Excelência não é um ato — é um hábito.",
+  },
+  {
+    eyebrow: "Peter Drucker",
+    text: "O que é medido, é gerenciado.",
+  },
+  {
+    eyebrow: "James Clear",
+    text: "Você não se eleva ao nível das suas metas. Você cai ao nível dos seus sistemas.",
+  },
+  {
+    eyebrow: "James Clear",
+    text: "Cada ação é um voto no tipo de pessoa que você quer se tornar.",
+  },
+  {
+    eyebrow: "John C. Maxwell",
+    text: "Pequenas disciplinas repetidas com consistência todo dia geram grandes conquistas com o tempo.",
+  },
+  {
+    eyebrow: "Jeremy Bentham",
+    text: "A mais rara das qualidades humanas é a consistência.",
+  },
+  {
+    eyebrow: "Marco Aurélio",
+    text: "Confine-se ao presente.",
   },
 ];
 
