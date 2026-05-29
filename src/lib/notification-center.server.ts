@@ -452,7 +452,21 @@ export async function sendTestNotification(userId: string) {
 }
 
 export async function dispatchDueNotifications(referenceDate = new Date()) {
-  configureWebPush();
+  // VAPID config pode lançar se as chaves estiverem malformadas/ausentes.
+  // Isso NÃO pode derrubar o dispatch inteiro — senão o canal Telegram
+  // (que não depende de VAPID) também para, e o endpoint retorna 500
+  // (página HTML grande que estoura crons externos como cron-job.org).
+  let webPushReady = false;
+  try {
+    configureWebPush();
+    webPushReady = true;
+  } catch (error) {
+    console.error(
+      "[dispatch] web push desabilitado (VAPID inválido/ausente):",
+      error instanceof Error ? error.message : error,
+    );
+  }
+
   const store = await loadStore();
   const summary: DispatchSummary = {
     usersChecked: 0,
@@ -486,24 +500,29 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
 
       const payload = buildWebPushPayload(item);
 
-      for (const subscription of subscriptions) {
-        try {
-          await webpush.sendNotification(subscription as PushSubscription, payload);
-          summary.notificationsSent += 1;
-          if (!validSubscriptions.find((entry) => entry.endpoint === subscription.endpoint)) {
-            validSubscriptions.push(subscription);
-          }
-        } catch (error) {
-          const statusCode =
-            typeof error === "object" && error && "statusCode" in error
-              ? Number((error as { statusCode?: number }).statusCode)
-              : 0;
-          if (statusCode === 404 || statusCode === 410) {
-            summary.invalidSubscriptionsRemoved += 1;
-            continue;
-          }
-          if (!validSubscriptions.find((entry) => entry.endpoint === subscription.endpoint)) {
-            validSubscriptions.push(subscription);
+      // Só tenta web push quando o VAPID configurou OK. Quando não, nem
+      // entra no loop — assim validSubscriptions não fica vazio à toa e
+      // não disparamos a poda destrutiva lá embaixo.
+      if (webPushReady) {
+        for (const subscription of subscriptions) {
+          try {
+            await webpush.sendNotification(subscription as PushSubscription, payload);
+            summary.notificationsSent += 1;
+            if (!validSubscriptions.find((entry) => entry.endpoint === subscription.endpoint)) {
+              validSubscriptions.push(subscription);
+            }
+          } catch (error) {
+            const statusCode =
+              typeof error === "object" && error && "statusCode" in error
+                ? Number((error as { statusCode?: number }).statusCode)
+                : 0;
+            if (statusCode === 404 || statusCode === 410) {
+              summary.invalidSubscriptionsRemoved += 1;
+              continue;
+            }
+            if (!validSubscriptions.find((entry) => entry.endpoint === subscription.endpoint)) {
+              validSubscriptions.push(subscription);
+            }
           }
         }
       }
@@ -528,9 +547,15 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
       });
     }
 
-    store.subscriptions[userId] = validSubscriptions.length
-      ? validSubscriptions
-      : subscriptions.filter(() => false);
+    // Só reescreve (poda assinaturas mortas 404/410) quando o web push
+    // realmente rodou. Se o VAPID estava off, preservamos as assinaturas
+    // como estavam — senão um erro transitório de config apagaria todos
+    // os dispositivos push do usuário.
+    if (webPushReady) {
+      store.subscriptions[userId] = validSubscriptions.length
+        ? validSubscriptions
+        : subscriptions.filter(() => false);
+    }
   }
 
   store.dispatchLog = dispatchLog;
