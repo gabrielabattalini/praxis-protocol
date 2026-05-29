@@ -209,7 +209,7 @@ const PRE_WARNING_MIN = 5;
 // + cold start, sem despejar tarefas de horas atrás quando o cron fica
 // fora por um tempo. Combinado com dispatchKey por dia, garante 1 disparo
 // por (user, item, dia) mesmo se o cron rodar várias vezes na janela.
-const DISPATCH_WINDOW_MIN = 10;
+const DISPATCH_WINDOW_MIN = 15;
 
 // Seleção determinística por seed — mesma frase pro mesmo (user, dia,
 // horário), variando entre disparos. Evita repetir sempre a primeira.
