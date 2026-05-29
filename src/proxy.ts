@@ -15,6 +15,12 @@ const isPublicRoute = createRouteMatcher([
   // Telegram calls this with no Clerk session; protected by a secret
   // token header that Telegram echoes on every request.
   "/api/telegram/webhook",
+  // Cron de notificações — chamado por GitHub Actions / cron externo sem
+  // sessão Clerk. Tem auth próprio via CRON_SECRET (Authorization: Bearer).
+  // Sem isto, em `pk_test_*` o middleware do Clerk faz rewrite pra /404
+  // quando não acha o cookie de dev-browser, e o cron nunca consegue
+  // disparar (x-clerk-auth-reason: protect-rewrite, dev-browser-missing).
+  "/api/notifications/dispatch",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
