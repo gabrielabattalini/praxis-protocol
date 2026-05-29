@@ -573,9 +573,13 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
         const header =
           lines.length === 1 ? lines[0] : `Lembretes Praxis:\n${lines.join("\n")}`;
         // Anexa 1 frase motivacional (nativa do Praxis + personalizadas do
-        // usuário, que vêm no schedule via sync). Escolha rotativa por dia.
+        // usuário, que vêm no schedule via sync). Exclui as nativas que o
+        // usuário escondeu nas Configurações. Escolha rotativa por dia.
+        const hiddenSet = new Set(schedule.hiddenQuotes ?? []);
         const quotePool = [
-          ...getLoadingCuePool().map((cue) => `${cue.text} — ${cue.eyebrow}`),
+          ...getLoadingCuePool()
+            .filter((cue) => !hiddenSet.has(cue.text))
+            .map((cue) => `${cue.text} — ${cue.eyebrow}`),
           ...(schedule.customQuotes ?? []),
         ];
         const quote =

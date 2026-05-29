@@ -15,6 +15,8 @@ type NavigationLoadingOverlayProps = {
   // — não usar useAppStore aqui, porque este overlay também roda como
   // loading.tsx de rota, que pode renderizar fora do AppStoreProvider.
   extraCues?: Cue[];
+  // Textos de frases nativas que o usuário escondeu nas Configurações.
+  hiddenTexts?: string[];
 };
 
 export function NavigationLoadingOverlay({
@@ -22,11 +24,13 @@ export function NavigationLoadingOverlay({
   detail = "Aguarde enquanto o sistema conclui a próxima etapa.",
   className,
   extraCues,
+  hiddenTexts,
 }: NavigationLoadingOverlayProps) {
-  const cuePool = useMemo(
-    () => [...getLoadingCuePool(), ...(extraCues ?? [])],
-    [extraCues],
-  );
+  const cuePool = useMemo(() => {
+    const hidden = new Set(hiddenTexts ?? []);
+    const natives = getLoadingCuePool().filter((cue) => !hidden.has(cue.text));
+    return [...natives, ...(extraCues ?? [])];
+  }, [extraCues, hiddenTexts]);
   const [activeCue] = useState(() => {
     if (!cuePool.length) {
       return { eyebrow: "PROTOCOLO", text: "Carregando rotina." };

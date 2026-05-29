@@ -241,6 +241,7 @@ type AppStoreValue = {
     }) => void;
     addCustomQuote: (payload: { text: string; author?: string }) => void;
     removeCustomQuote: (quoteId: string) => void;
+    toggleNativeQuote: (text: string) => void;
     setWorkoutMode: (mode: WorkoutMode) => void;
     setDietDayType: (payload: {
       weekday: Weekday;
@@ -655,6 +656,7 @@ type Action =
       payload: { text: string; author?: string };
     }
   | { type: "remove-custom-quote"; quoteId: string }
+  | { type: "toggle-native-quote"; text: string }
   | {
       type: "add-household-supply";
       payload: {
@@ -1726,6 +1728,15 @@ function reducer(state: PersistedState, action: Action): PersistedState {
           (quote) => quote.id !== action.quoteId,
         ),
       };
+    case "toggle-native-quote": {
+      const isHidden = state.hiddenQuotes.includes(action.text);
+      return {
+        ...state,
+        hiddenQuotes: isHidden
+          ? state.hiddenQuotes.filter((text) => text !== action.text)
+          : [...state.hiddenQuotes, action.text],
+      };
+    }
     case "add-household-supply":
       return {
         ...state,
@@ -4646,6 +4657,7 @@ const emptyPersistedState: PersistedState = {
   sleepHistory: [],
   moduleState: {},
   customQuotes: [],
+  hiddenQuotes: [],
 };
 
 function parseStateValue(
@@ -4951,6 +4963,11 @@ function parseStateValue(
               typeof q === "object" &&
               typeof (q as { id?: unknown }).id === "string" &&
               typeof (q as { text?: unknown }).text === "string",
+          )
+        : [],
+      hiddenQuotes: Array.isArray(parsedState.hiddenQuotes)
+        ? parsedState.hiddenQuotes.filter(
+            (q): q is string => typeof q === "string",
           )
         : [],
     };
@@ -5713,6 +5730,9 @@ export function AppStoreProvider({
       },
       removeCustomQuote(quoteId) {
         dispatch({ type: "remove-custom-quote", quoteId });
+      },
+      toggleNativeQuote(text) {
+        dispatch({ type: "toggle-native-quote", text });
       },
       setWorkoutMode(mode) {
         dispatch({ type: "set-workout", mode });

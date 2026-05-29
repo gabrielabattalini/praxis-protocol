@@ -69,6 +69,7 @@ const notificationSyncSchema = z.object({
   syncedAt: z.string().trim().min(1).max(80).optional(),
   items: z.array(notificationScheduleItemSchema).max(512),
   customQuotes: z.array(z.string().trim().min(1).max(280)).max(100).optional(),
+  hiddenQuotes: z.array(z.string().trim().min(1).max(280)).max(200).optional(),
 });
 
 export async function POST(request: Request) {

@@ -113,8 +113,16 @@ export function NotificationSyncProvider({
             ? `${quote.text} — ${quote.author.trim()}`
             : quote.text,
         ),
+        state.hiddenQuotes ?? [],
       ),
-    [state.customQuotes, state.mealPlan, state.reminders, state.tasks, timezone],
+    [
+      state.customQuotes,
+      state.hiddenQuotes,
+      state.mealPlan,
+      state.reminders,
+      state.tasks,
+      timezone,
+    ],
   );
 
   const fetchStatus = useCallback(async () => {
