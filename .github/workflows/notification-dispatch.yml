@@ -25,6 +25,34 @@ jobs:
   dispatch:
     runs-on: ubuntu-latest
     steps:
+      - name: Diagnostic ping (full curl trace)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DISPATCH_URL: https://praxis-protocol.vercel.app/api/notifications/dispatch
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET secret não configurado no repositório."
+            exit 1
+          fi
+          echo "== GET sem auth (controle, esperado 401 + JSON) =="
+          curl -i -s --max-time 30 \
+            -H "User-Agent: Mozilla/5.0 (compatible; PraxisCron/1.0)" \
+            -H "Accept: application/json" \
+            "$DISPATCH_URL" 2>&1 | head -40
+          echo ""
+          echo "== GET com Authorization Bearer =="
+          curl -i -s --max-time 30 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -H "User-Agent: Mozilla/5.0 (compatible; PraxisCron/1.0)" \
+            -H "Accept: application/json" \
+            "$DISPATCH_URL" 2>&1 | head -40
+          echo ""
+          echo "== GET com query param token (fallback) =="
+          curl -i -s --max-time 30 \
+            -H "User-Agent: Mozilla/5.0 (compatible; PraxisCron/1.0)" \
+            -H "Accept: application/json" \
+            "${DISPATCH_URL}?token=${CRON_SECRET}&verbose=1" 2>&1 | head -40
+
       - name: Ping dispatch every minute for ~5 minutes
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
@@ -35,15 +63,10 @@ jobs:
             exit 1
           fi
           for i in 1 2 3 4 5; do
-            # Headers extras (User-Agent + Accept) porque a Vercel pode
-            # responder 404 a requests "anônimos" do curl sem identificação,
-            # confundindo com tráfego de bot. Também respondemos o body
-            # pra log (-w "%{http_code}\n%{size_download}b") pra ajudar
-            # debug futuro.
             response=$(curl -s -w "\n__HTTP_CODE__%{http_code}" \
               --max-time 30 \
               -H "Authorization: Bearer ${CRON_SECRET}" \
-              -H "User-Agent: praxis-protocol-cron/1.0 (+github-actions)" \
+              -H "User-Agent: Mozilla/5.0 (compatible; PraxisCron/1.0)" \
               -H "Accept: application/json" \
               "$DISPATCH_URL" || echo "__HTTP_CODE__000")
             code="${response##*__HTTP_CODE__}"
