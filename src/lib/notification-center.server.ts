@@ -586,7 +586,7 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
           quotePool.length > 0
             ? pickBySeed(quotePool, `${userId}|${zonedNow.dateKey}|${zonedNow.hourMinute}`)
             : "";
-        const message = quote ? `${header}\n\n— — —\n${quote}` : header;
+        const message = quote ? `${header}\n\n${quote}` : header;
         const tg = await sendTelegramToUser(userId, message);
         if (tg.ok && !tg.skipped) {
           summary.notificationsSent += 1;
