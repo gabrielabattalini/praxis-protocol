@@ -35,12 +35,17 @@ jobs:
             exit 1
           fi
           for i in 1 2 3 4 5; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" \
+            # ?verbose=1 retorna JSON { usersChecked, notificationsSent,
+            # invalidSubscriptionsRemoved } — pequeno, e o GitHub Actions
+            # não tem limite de output como o cron-job.org. Imprime no log
+            # pra diagnóstico: users=0 => schedule não chegou ao servidor;
+            # users>=1 sent=0 => achou o usuário mas nada vencendo agora.
+            body=$(curl -s \
               --max-time 30 \
               -H "Authorization: Bearer ${CRON_SECRET}" \
               -H "User-Agent: praxis-cron/1.0" \
-              "$DISPATCH_URL" || echo "000")
-            echo "ping $i -> HTTP $code"
+              "${DISPATCH_URL}?verbose=1" || echo '{"error":"curl failed"}')
+            echo "ping $i -> $body"
             if [ "$i" -lt 5 ]; then
               sleep 60
             fi
