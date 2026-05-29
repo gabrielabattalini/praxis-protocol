@@ -10,7 +10,7 @@ type LoadingCue = {
 const loadingCues: LoadingCue[] = [
   {
     eyebrow: "Aristóteles",
-    text: "Somos aquilo que fazemos repetidamente. Excelência, então, não é um ato — é um hábito.",
+    text: "Nos tornamos justos praticando atos justos; temperantes, praticando a temperança; corajosos, praticando atos de coragem.",
   },
   {
     eyebrow: "Marco Aurélio",
@@ -61,12 +61,12 @@ const loadingCues: LoadingCue[] = [
     text: "Não é que eu seja tão inteligente. É que fico com os problemas por mais tempo.",
   },
   {
-    eyebrow: "Will Durant",
-    text: "Aquilo que fazemos repetidamente nos define. Excelência não é um ato — é um hábito.",
+    eyebrow: "Marco Aurélio",
+    text: "O obstáculo à ação faz avançar a ação. O que está no caminho se torna o caminho.",
   },
   {
-    eyebrow: "Peter Drucker",
-    text: "O que é medido, é gerenciado.",
+    eyebrow: "Sêneca",
+    text: "Sofremos mais vezes na imaginação do que na realidade.",
   },
   {
     eyebrow: "James Clear",
