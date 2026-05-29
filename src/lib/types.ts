@@ -786,6 +786,10 @@ export interface PersistedState {
      Configurações. Aparecem no overlay de transição entre páginas e
      são anexadas aos lembretes do Telegram, junto das frases nativas. */
   customQuotes: CustomQuote[];
+  /* Textos das frases NATIVAS que o usuário escondeu nas Configurações.
+     Guardamos o texto (não há id no array em código); o pool de frases
+     filtra por ele no overlay e nos lembretes do Telegram. */
+  hiddenQuotes: string[];
 }
 
 export interface CustomQuote {

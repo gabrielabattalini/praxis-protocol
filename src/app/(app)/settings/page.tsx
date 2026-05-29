@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   BellRing,
   RefreshCw,
@@ -14,6 +14,7 @@ import { useUserClient } from "@/components/providers/auth-client-provider";
 import { StripeCheckoutButton } from "@/components/billing/stripe-checkout-button";
 import { TelegramCard } from "@/components/settings/telegram-card";
 import { RxLabel, RxPanel } from "@/components/redesign/primitives";
+import { getLoadingCuePool } from "@/lib/discipline-cues";
 import { moduleCatalog, themeOptions } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
@@ -279,7 +280,100 @@ function QuotesTab() {
           </div>
         )}
       </RxPanel>
+
+      <NativeQuotesPanel />
     </div>
+  );
+}
+
+function NativeQuotesPanel() {
+  const { state, actions } = useAppStore();
+  const hidden = state.hiddenQuotes ?? [];
+  const nativeQuotes = useMemo(() => getLoadingCuePool(), []);
+  const activeCount = nativeQuotes.filter(
+    (cue) => !hidden.includes(cue.text),
+  ).length;
+
+  return (
+    <RxPanel style={{ padding: 22 }}>
+      <RxLabel>FRASES DO PRAXIS · {activeCount}/{nativeQuotes.length} ATIVAS</RxLabel>
+      <p
+        style={{
+          fontSize: 13,
+          color: "var(--fg-3)",
+          marginTop: 8,
+          marginBottom: 14,
+          lineHeight: 1.6,
+          maxWidth: 560,
+        }}
+      >
+        Citações reais de pensadores que já vêm no app. Remova as que não
+        curtir — as ativas entram no rodízio das transições e dos lembretes
+        do Telegram, junto das suas.
+      </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {nativeQuotes.map((cue) => {
+          const isHidden = hidden.includes(cue.text);
+          return (
+            <div
+              key={cue.text}
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                gap: 12,
+                border: "1px solid rgba(39,39,42,0.7)",
+                borderRadius: 12,
+                padding: "12px 14px",
+                background: "rgba(7,7,9,0.6)",
+                opacity: isHidden ? 0.45 : 1,
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <p
+                  style={{
+                    fontSize: 14,
+                    color: "var(--fg)",
+                    lineHeight: 1.5,
+                    textDecoration: isHidden ? "line-through" : "none",
+                  }}
+                >
+                  “{cue.text}”
+                </p>
+                <p
+                  style={{
+                    fontSize: 12,
+                    color: "var(--accent)",
+                    marginTop: 6,
+                  }}
+                >
+                  — {cue.eyebrow}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => actions.toggleNativeQuote(cue.text)}
+                aria-label={isHidden ? "Restaurar frase" : "Remover frase"}
+                style={{
+                  flexShrink: 0,
+                  border: isHidden
+                    ? "1px solid var(--accent)"
+                    : "1px solid rgba(39,39,42,0.8)",
+                  borderRadius: 8,
+                  background: "transparent",
+                  color: isHidden ? "var(--accent)" : "#a1a1aa",
+                  padding: "6px 10px",
+                  cursor: "pointer",
+                  fontSize: 12,
+                }}
+              >
+                {isHidden ? "Restaurar" : "Remover"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </RxPanel>
   );
 }
 

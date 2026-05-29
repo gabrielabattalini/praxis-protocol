@@ -2593,6 +2593,7 @@ export const initialPersistedState: PersistedState = {
   sleepHistory: [],
   moduleState: {},
   customQuotes: [],
+  hiddenQuotes: [],
 };
 
 export function getRankFromPoints(points: number) {

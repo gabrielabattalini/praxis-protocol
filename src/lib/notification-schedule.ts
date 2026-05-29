@@ -35,6 +35,9 @@ export interface NotificationSyncPayload {
   // Frases personalizadas do usuário (texto pronto, já com "— autor"
   // quando houver). Anexadas aos lembretes do Telegram junto das nativas.
   customQuotes?: string[];
+  // Textos das frases NATIVAS que o usuário escondeu — o dispatch as
+  // remove do pool antes de anexar uma frase ao lembrete.
+  hiddenQuotes?: string[];
 }
 
 export const notificationRouteByModuleId: Record<ModuleId, string> = {
@@ -154,6 +157,7 @@ export function buildNotificationSyncPayload(
   timezone: string,
   mealPlan: MealPlanBlock[] = [],
   customQuotes: string[] = [],
+  hiddenQuotes: string[] = [],
 ): NotificationSyncPayload {
   const syncedAt = new Date().toISOString();
   const todayKey = localDateKey();
@@ -341,5 +345,9 @@ export function buildNotificationSyncPayload(
       .map((quote) => quote.trim())
       .filter((quote) => quote.length > 0)
       .slice(0, 100),
+    hiddenQuotes: hiddenQuotes
+      .map((quote) => quote.trim())
+      .filter((quote) => quote.length > 0)
+      .slice(0, 200),
   };
 }
