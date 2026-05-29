@@ -35,11 +35,23 @@ jobs:
             exit 1
           fi
           for i in 1 2 3 4 5; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" \
+            # Headers extras (User-Agent + Accept) porque a Vercel pode
+            # responder 404 a requests "anônimos" do curl sem identificação,
+            # confundindo com tráfego de bot. Também respondemos o body
+            # pra log (-w "%{http_code}\n%{size_download}b") pra ajudar
+            # debug futuro.
+            response=$(curl -s -w "\n__HTTP_CODE__%{http_code}" \
               --max-time 30 \
               -H "Authorization: Bearer ${CRON_SECRET}" \
-              "$DISPATCH_URL" || echo "000")
+              -H "User-Agent: praxis-protocol-cron/1.0 (+github-actions)" \
+              -H "Accept: application/json" \
+              "$DISPATCH_URL" || echo "__HTTP_CODE__000")
+            code="${response##*__HTTP_CODE__}"
+            body="${response%__HTTP_CODE__*}"
             echo "ping $i -> HTTP $code"
+            if [ -n "$body" ] && [ "$code" != "204" ]; then
+              echo "  body: ${body:0:200}"
+            fi
             if [ "$i" -lt 5 ]; then
               sleep 60
             fi
