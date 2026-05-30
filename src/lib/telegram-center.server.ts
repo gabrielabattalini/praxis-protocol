@@ -203,11 +203,21 @@ export async function consumeTelegramLinkCode(
 
 /* ── Chat binding ────────────────────────────────────────────── */
 
+// Reverse lookup: chatId → userId. Preenchido em bindTelegramChat pra
+// que o webhook (callback_query) consiga resolver o user a partir do
+// chat que clicou no botão "Concluir".
+const chatToUserKey = (chatId: number) => `telegram:chat:${chatId}`;
+
 export async function bindTelegramChat(
   userId: string,
   binding: TelegramBinding,
 ): Promise<void> {
   await kvSet(chatBindingKey(userId), JSON.stringify(binding));
+  await kvSet(chatToUserKey(binding.chatId), userId);
+}
+
+export async function getUserIdByChatId(chatId: number): Promise<string | null> {
+  return kvGet(chatToUserKey(chatId));
 }
 
 export async function getTelegramBinding(
@@ -223,6 +233,10 @@ export async function getTelegramBinding(
 }
 
 export async function unlinkTelegram(userId: string): Promise<void> {
+  const binding = await getTelegramBinding(userId);
+  if (binding?.chatId) {
+    await kvDelete(chatToUserKey(binding.chatId));
+  }
   await kvDelete(chatBindingKey(userId));
 }
 
@@ -300,10 +314,16 @@ export async function getBotUsername(): Promise<string | null> {
   return username;
 }
 
+export type InlineButton = { text: string; callback_data: string };
+export type SendOpts = {
+  html?: boolean;
+  inlineKeyboard?: InlineButton[][];
+};
+
 export async function sendTelegramMessage(
   chatId: number,
   text: string,
-  opts?: { html?: boolean },
+  opts?: SendOpts,
 ): Promise<{ ok: boolean; error?: string }> {
   const result = await telegramApi("sendMessage", {
     chat_id: chatId,
@@ -312,6 +332,9 @@ export async function sendTelegramMessage(
     // Controlled, hand-written messages opt into HTML.
     ...(opts?.html ? { parse_mode: "HTML" } : {}),
     disable_web_page_preview: true,
+    ...(opts?.inlineKeyboard
+      ? { reply_markup: { inline_keyboard: opts.inlineKeyboard } }
+      : {}),
   });
   return result.ok
     ? { ok: true }
@@ -326,7 +349,7 @@ export async function sendTelegramMessage(
 export async function sendTelegramToUser(
   userId: string,
   text: string,
-  opts?: { html?: boolean },
+  opts?: SendOpts,
 ): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
   if (!isTelegramConfigured()) {
     return { ok: false, error: "Bot do Telegram não configurado." };
@@ -336,6 +359,38 @@ export async function sendTelegramToUser(
     return { ok: true, skipped: true };
   }
   return sendTelegramMessage(binding.chatId, text, opts);
+}
+
+/**
+ * Confirma um callback_query do Telegram (faz o spinner do botão sumir
+ * e mostra um toast curto pra quem clicou).
+ */
+export async function answerCallbackQuery(
+  callbackQueryId: string,
+  text?: string,
+): Promise<void> {
+  await telegramApi("answerCallbackQuery", {
+    callback_query_id: callbackQueryId,
+    ...(text ? { text, show_alert: false } : {}),
+  });
+}
+
+/**
+ * Edita a marcação inline de uma mensagem já enviada — usamos pra trocar
+ * o botão "Concluir" por um "✓ Concluído" indelével após o user marcar.
+ */
+export async function editMessageReplyMarkup(
+  chatId: number,
+  messageId: number,
+  inlineKeyboard: InlineButton[][] | null,
+): Promise<void> {
+  await telegramApi("editMessageReplyMarkup", {
+    chat_id: chatId,
+    message_id: messageId,
+    ...(inlineKeyboard
+      ? { reply_markup: { inline_keyboard: inlineKeyboard } }
+      : { reply_markup: { inline_keyboard: [] } }),
+  });
 }
 
 export async function sendTelegramTest(

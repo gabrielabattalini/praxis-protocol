@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 import {
+  answerCallbackQuery,
   bindTelegramChat,
   consumeTelegramLinkCode,
+  editMessageReplyMarkup,
   getTelegramWebhookSecret,
+  getUserIdByChatId,
   sendTelegramMessage,
 } from "@/lib/telegram-center.server";
+import {
+  completeMealBlockForUser,
+  completeTaskForUser,
+} from "@/lib/telegram-actions.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +25,15 @@ type TelegramUpdate = {
       first_name?: string;
     };
     text?: string;
+  };
+  callback_query?: {
+    id: string;
+    data?: string;
+    message?: {
+      chat?: { id?: number };
+      message_id?: number;
+    };
+    from?: { id?: number };
   };
 };
 
@@ -42,6 +58,52 @@ export async function POST(request: Request) {
   try {
     update = (await request.json()) as TelegramUpdate;
   } catch {
+    return NextResponse.json({ ok: true });
+  }
+
+  // Inline button callback ("✓ Concluir" abaixo dos lembretes).
+  // Sempre responde 200; falhas viram um toast curto pra quem clicou.
+  if (update.callback_query) {
+    const cb = update.callback_query;
+    const cbChatId = cb.message?.chat?.id;
+    const cbMessageId = cb.message?.message_id;
+    const data = cb.data ?? "";
+
+    if (!cbChatId) {
+      await answerCallbackQuery(cb.id, "Chat inválido.");
+      return NextResponse.json({ ok: true });
+    }
+
+    const userId = await getUserIdByChatId(cbChatId);
+    if (!userId) {
+      await answerCallbackQuery(cb.id, "Conta não vinculada — reconecte no app.");
+      return NextResponse.json({ ok: true });
+    }
+
+    let result: { ok: boolean; message: string };
+    if (data.startsWith("t:")) {
+      result = await completeTaskForUser(userId, data.slice("t:".length));
+    } else if (data.startsWith("mb:")) {
+      result = await completeMealBlockForUser(userId, data.slice("mb:".length));
+    } else {
+      result = { ok: false, message: "Ação desconhecida." };
+    }
+
+    await answerCallbackQuery(cb.id, result.message);
+
+    // Substitui o botão por "✓ Concluído" indelével pra evitar cliques
+    // duplicados / confusão visual. Mesmo formato: 1 linha, 1 botão sem
+    // callback_data (texto puro fica como rótulo desabilitado de fato).
+    if (result.ok && cbMessageId) {
+      try {
+        await editMessageReplyMarkup(cbChatId, cbMessageId, [
+          [{ text: "✓ Concluído", callback_data: "noop" }],
+        ]);
+      } catch {
+        /* swallow — alteração visual é opcional */
+      }
+    }
+
     return NextResponse.json({ ok: true });
   }
 
