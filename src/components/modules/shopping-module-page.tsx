@@ -99,6 +99,23 @@ type ShoppingFilterOption =
 
 const fieldClassName = "praxis-field w-full px-3 py-1.5 text-sm";
 
+// Aceita só http(s) — bloqueia `javascript:` (self-XSS) e `data:` em
+// href. Stored-XSS é improvável aqui (state é por usuário), mas é uma
+// defesa barata em todo lugar que o usuário cola URL livre.
+function safeHref(url: string | undefined | null): string | undefined {
+  if (!url) return undefined;
+  const trimmed = url.trim();
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+      return trimmed;
+    }
+  } catch {
+    /* não é uma URL válida — descarta */
+  }
+  return undefined;
+}
+
 function makeId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -799,7 +816,7 @@ export function ShoppingModulePage({
       purchaseMode,
       localStoreName: purchaseMode === "presential" ? draft.localStoreName.trim() || undefined : undefined,
       manualUnitPrice: manualUnitPrice > 0 ? manualUnitPrice : undefined,
-      referenceUrl: draft.referenceUrl.trim() || undefined,
+      referenceUrl: safeHref(draft.referenceUrl),
       preferredResultId: purchaseMode === "online" ? currentEditingItem?.preferredResultId : undefined,
       createdAt: currentEditingItem?.createdAt ?? new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -1633,9 +1650,9 @@ export function ShoppingModulePage({
                                 .join(" • ")}
                             </p>
                           </button>
-                          {item.referenceUrl ? (
+                          {safeHref(item.referenceUrl) ? (
                             <a
-                              href={item.referenceUrl}
+                              href={safeHref(item.referenceUrl)}
                               target="_blank"
                               rel="noreferrer"
                               title={`Abrir link de ${item.name}`}
@@ -1718,8 +1735,8 @@ export function ShoppingModulePage({
                                   <Trash2 className="h-4 w-4" />
                                   Remover
                                 </button>
-                                {item.referenceUrl ? (
-                                  <a href={item.referenceUrl} target="_blank" rel="noreferrer" className="praxis-button inline-flex items-center gap-2 px-3 py-2">
+                                {safeHref(item.referenceUrl) ? (
+                                  <a href={safeHref(item.referenceUrl)} target="_blank" rel="noreferrer" className="praxis-button inline-flex items-center gap-2 px-3 py-2">
                                     <ExternalLink className="h-4 w-4" />
                                     Abrir link
                                   </a>
