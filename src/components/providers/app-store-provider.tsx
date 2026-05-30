@@ -1701,12 +1701,54 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         date: action.payload.date,
         consumedMl: Math.max(0, Math.round(action.payload.consumedMl)),
       };
-      const remaining = state.waterEntries.filter((entry) => entry.date !== nextEntry.date);
+      const remaining = state.waterEntries.filter(
+        (entry) => entry.date !== nextEntry.date,
+      );
+      const nextWaterEntries = [nextEntry, ...remaining].sort((left, right) =>
+        right.date.localeCompare(left.date),
+      );
+
+      // Auto-conclusão da task "Hidratação diária" quando o consumo do dia
+      // atinge / passa da meta. Antes essa lógica vivia num useEffect do
+      // módulo Dieta, então só rodava se o usuário estivesse naquela aba.
+      // Aqui no reducer cobre qualquer ponto de mudança (Dieta, Missões).
+      const todayKey = new Date().toISOString().slice(0, 10);
+      if (action.payload.date !== todayKey) {
+        return { ...state, waterEntries: nextWaterEntries };
+      }
+
+      const waterTarget = state.dailyNutritionTargets?.waterMl ?? 0;
+      const hydrationTask = state.tasks.find(
+        (task) => task.sourceKey === "nutrition-hydration-daily",
+      );
+      if (!hydrationTask || waterTarget <= 0) {
+        return { ...state, waterEntries: nextWaterEntries };
+      }
+
+      const reachedTarget = nextEntry.consumedMl >= waterTarget;
+      if (hydrationTask.completed === reachedTarget) {
+        return { ...state, waterEntries: nextWaterEntries };
+      }
+
+      const nextTasks = state.tasks.map((task) =>
+        task.id === hydrationTask.id
+          ? {
+              ...task,
+              completed: reachedTarget,
+              completedAt: reachedTarget
+                ? new Date().toISOString()
+                : undefined,
+              completedDates: reachedTarget
+                ? Array.from(new Set([...(task.completedDates ?? []), todayKey])).sort()
+                : (task.completedDates ?? []).filter((d) => d !== todayKey),
+            }
+          : task,
+      );
+
       return {
         ...state,
-        waterEntries: [nextEntry, ...remaining].sort((left, right) =>
-          right.date.localeCompare(left.date),
-        ),
+        waterEntries: nextWaterEntries,
+        tasks: nextTasks,
       };
     }
     case "add-custom-quote": {

@@ -367,6 +367,11 @@ function normalizeAgendaTimeForDayOrder(time?: string) {
 }
 
 function isMealItemCompletedForDateKey(item: MealPlanItem, dateKey: string) {
+  // Lê dos dois: completedDates (novo, persiste histórico de qualquer dia)
+  // e completedAt (legacy, ainda usado pelo dia atual). Sem isto o botão
+  // "Concluir" da refeição não reagia visualmente porque o reducer escreve
+  // em completedDates mas a UI olhava só completedAt.
+  if (item.completedDates?.includes(dateKey)) return true;
   return Boolean(item.completedAt?.slice(0, 10) === dateKey);
 }
 
