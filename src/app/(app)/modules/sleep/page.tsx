@@ -625,6 +625,19 @@ export default function SleepModulePage() {
       }
     });
 
+    // Limpa órfãos: tarefas "Acordar"/"Dormir" do módulo sleep sem
+    // sourceKey (ou com sourceKey num formato antigo que não bate
+    // com o gerado atual). Sem isso, mudar o horário cria a nova
+    // via sync mas as antigas seguem disparando em horários
+    // defasados. Tarefas com sourceKey "sleep-plan-" já foram
+    // tratadas no loop acima.
+    state.tasks.forEach((task) => {
+      if (task.moduleId !== "sleep") return;
+      if (task.title !== "Acordar" && task.title !== "Dormir") return;
+      if (task.sourceKey?.startsWith("sleep-plan-")) return;
+      actions.removeTask(task.id);
+    });
+
     window.setTimeout(() => {
       syncInFlightRef.current = false;
       setIsSyncingTasks(false);
