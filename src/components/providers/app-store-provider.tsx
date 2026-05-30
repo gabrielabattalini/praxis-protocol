@@ -5500,11 +5500,27 @@ export function AppStoreProvider({
       }
     };
 
+    // Online again — força flush imediato em vez de esperar o próximo
+    // tick do backoff exponencial. Reseta a contagem de retries pra
+    // começar do zero quando voltar a internet. Cobre o caso clássico:
+    // usuário marca tarefas no metrô (offline), volta a ter sinal —
+    // o sync sobe na hora em vez de esperar 30s.
+    const onOnline = () => {
+      retryAttemptRef.current = 0;
+      if (retryTimeoutRef.current) {
+        window.clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+      void flushRemoteSave();
+    };
+
     window.addEventListener("pagehide", onHide);
+    window.addEventListener("online", onOnline);
     document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
       window.removeEventListener("pagehide", onHide);
+      window.removeEventListener("online", onOnline);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [hydrated, userId, flushRemoteSave]);
