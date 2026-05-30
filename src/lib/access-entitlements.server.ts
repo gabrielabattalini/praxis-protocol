@@ -7,19 +7,6 @@ import {
 import { getStripeServer } from "@/lib/stripe.server";
 
 /**
- * Synchronous resolver — only the env lifetime allowlist.
- * Kept for callers that cannot await (and as the instant first pass).
- */
-export function resolveAccountEntitlementFromEnv(
-  email: string | null | undefined,
-) {
-  return resolveAccountEntitlement({
-    email,
-    lifetimeAccessEmails: process.env.PRAXIS_LIFETIME_ACCESS_EMAILS,
-  });
-}
-
-/**
  * Returns true if the given email has paid — checked LIVE against Stripe.
  *
  * No database needed: Stripe itself is the source of truth. We look the

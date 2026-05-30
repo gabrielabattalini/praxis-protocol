@@ -143,8 +143,3 @@ export async function saveAccountState(
   saveStore(store);
   return store.users[userId];
 }
-
-/** True when a durable cross-device backend is configured. */
-export function isDurableAccountStoreEnabled() {
-  return KV_ENABLED;
-}

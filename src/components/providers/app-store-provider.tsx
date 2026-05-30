@@ -60,7 +60,6 @@ import type {
   PersistedState,
   ModuleId,
   RecoveryDayPlan,
-  SavedRecoveryProgram,
   Task,
   TaskCategory,
   TaskDifficulty,

@@ -61,69 +61,6 @@ export async function completeTaskForUser(
 }
 
 /**
- * Marca um item de refeição (alimento) como concluído pra hoje, no
- * account-state. Atualiza completedDates (histórico) + completed/
- * completedAt (vista atual).
- */
-export async function completeMealItemForUser(
-  userId: string,
-  blockId: string,
-  itemId: string,
-): Promise<{ ok: boolean; message: string }> {
-  const envelope = await getAccountState(userId);
-  if (!envelope) {
-    return { ok: false, message: "Conta não encontrada." };
-  }
-  const state = readState(envelope);
-  const mealPlan = state.mealPlan ?? [];
-  const block = mealPlan.find((b) => b.id === blockId);
-  if (!block) {
-    return { ok: false, message: "Refeição não encontrada." };
-  }
-  const item = block.items.find((i) => i.id === itemId);
-  if (!item) {
-    return { ok: false, message: "Item não encontrado." };
-  }
-
-  const todayKey = new Date().toISOString().slice(0, 10);
-  const already =
-    item.completedDates?.includes(todayKey) ||
-    item.completedAt?.slice(0, 10) === todayKey;
-  if (already) {
-    return { ok: true, message: "Já estava concluído." };
-  }
-
-  const nextDates = Array.from(
-    new Set([...(item.completedDates ?? []), todayKey]),
-  ).sort();
-  const nextMealPlan = mealPlan.map((b) =>
-    b.id !== blockId
-      ? b
-      : {
-          ...b,
-          items: b.items.map((it) =>
-            it.id !== itemId
-              ? it
-              : {
-                  ...it,
-                  completed: true,
-                  completedAt: new Date().toISOString(),
-                  completedDates: nextDates,
-                },
-          ),
-        },
-  );
-
-  await saveAccountState(userId, {
-    ...envelope,
-    state: { ...state, mealPlan: nextMealPlan } as PersistedState,
-    updatedAt: new Date().toISOString(),
-  });
-
-  return { ok: true, message: `Concluído: ${item.label}` };
-}
-
-/**
  * Marca um bloco inteiro (todos os itens) como concluído.
  */
 export async function completeMealBlockForUser(

@@ -18,7 +18,6 @@ import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { PageIntro } from "@/components/ui/page-intro";
 import {
-  buildShoppingQueryLabel,
   type ShoppingPurchaseMode,
   type ShoppingModuleScope,
   type ShoppingModuleStoredState,
@@ -34,7 +33,6 @@ type ShoppingModulePageProps = {
   title: string;
   description: string;
   storageKey: string;
-  sourceNames: string[];
   examples: string[];
   emptyLabel: string;
   introEyebrow?: string;
@@ -321,7 +319,6 @@ export function ShoppingModulePage({
   title,
   description,
   storageKey,
-  sourceNames,
   examples,
   emptyLabel,
   introEyebrow = "Modulo",
