@@ -79,10 +79,22 @@ type DispatchLogEntry = {
   sentAt: string;
 };
 
+type SnoozedItem = {
+  // ID arbitrário recebido do SW (geralmente o id do schedule item).
+  itemId: string;
+  // ISO timestamp em que o re-disparo deve sair.
+  fireAt: string;
+  title?: string;
+  body?: string;
+};
+
 type NotificationStore = {
   subscriptions: Record<string, StoredSubscription[]>;
   schedules: Record<string, StoredSchedule>;
   dispatchLog: DispatchLogEntry[];
+  // Adiamentos por usuário. Chave = userId. O dispatch processa snoozes
+  // vencidas (fireAt <= now), emite a notificação e remove a entrada.
+  snoozes?: Record<string, SnoozedItem[]>;
 };
 
 type DispatchSummary = {
@@ -364,6 +376,30 @@ export async function syncNotificationSchedule(
   return statusFromStore(store, userId);
 }
 
+export async function snoozeNotification(
+  userId: string,
+  payload: { itemId: string; minutes: number; title?: string; body?: string },
+) {
+  const store = await loadStore();
+  const minutes = Math.max(1, Math.min(180, Math.round(payload.minutes)));
+  const fireAt = new Date(Date.now() + minutes * 60_000).toISOString();
+  const snoozes = store.snoozes ?? {};
+  const list = snoozes[userId] ?? [];
+  // Substitui qualquer snooze anterior pra mesmo item — usuário clicou
+  // "Adiar 15min" duas vezes seguidas, queremos que o último valha.
+  const remaining = list.filter((entry) => entry.itemId !== payload.itemId);
+  remaining.push({
+    itemId: payload.itemId,
+    fireAt,
+    title: payload.title?.slice(0, 200),
+    body: payload.body?.slice(0, 500),
+  });
+  snoozes[userId] = remaining;
+  store.snoozes = snoozes;
+  await saveStore(store);
+  return { fireAt };
+}
+
 export async function subscribeUserToNotifications(
   userId: string,
   subscription: PushSubscription,
@@ -606,6 +642,61 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
         : subscriptions.filter(() => false);
     }
   }
+
+  // Processa snoozes vencidas — reenvia push + Telegram para cada uma e
+  // remove a entrada. Não passa pelo isNotificationItemDue (já passou da
+  // hora original; queremos disparar AGORA).
+  const allSnoozes = store.snoozes ?? {};
+  const nowMs = referenceDate.getTime();
+  for (const [userId, list] of Object.entries(allSnoozes)) {
+    const due = list.filter((entry) => new Date(entry.fireAt).getTime() <= nowMs);
+    if (due.length === 0) continue;
+
+    const subscriptions = store.subscriptions[userId] ?? [];
+    for (const entry of due) {
+      const title = entry.title || "Lembrete adiado";
+      const body = entry.body || "Você adiou esse lembrete.";
+
+      // Web push
+      if (webPushReady) {
+        const payload = JSON.stringify({
+          title,
+          body,
+          url: "/tasks",
+          tag: `${entry.itemId}:snoozed`,
+          icon: "/logo.png",
+          badge: "/logo.png",
+          requireInteraction: true,
+          silent: false,
+          vibrate: [250, 100, 250],
+        });
+        for (const subscription of subscriptions) {
+          try {
+            await webpush.sendNotification(subscription as PushSubscription, payload);
+            summary.notificationsSent += 1;
+          } catch {
+            /* swallow */
+          }
+        }
+      }
+
+      // Telegram
+      try {
+        const tg = await sendTelegramToUser(userId, `🔔 ${title}\n${body}`);
+        if (tg.ok && !tg.skipped) {
+          summary.notificationsSent += 1;
+        }
+      } catch {
+        /* swallow */
+      }
+    }
+
+    // Remove os disparados, mantém os ainda futuros.
+    allSnoozes[userId] = list.filter(
+      (entry) => new Date(entry.fireAt).getTime() > nowMs,
+    );
+  }
+  store.snoozes = allSnoozes;
 
   store.dispatchLog = dispatchLog;
   await saveStore(store);
