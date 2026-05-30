@@ -62,7 +62,10 @@ if (!url) {
 
 const body = {
   url,
-  allowed_updates: ["message"],
+  // "callback_query" é essencial pros botões inline ("✓ Concluir" nos
+  // lembretes) — sem isto o Telegram não chama nosso webhook quando o
+  // usuário clica e o spinner do botão fica girando pra sempre.
+  allowed_updates: ["message", "callback_query"],
   drop_pending_updates: true,
 };
 if (secret) body.secret_token = secret;

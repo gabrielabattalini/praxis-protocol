@@ -100,6 +100,29 @@ export function TelegramCard() {
     }
   }
 
+  async function rebuildBind() {
+    setBusy("rebuild");
+    setError("");
+    setNotice("");
+    try {
+      const res = await fetch("/api/telegram/rebuild-bind", { method: "POST" });
+      const data = (await res
+        .json()
+        .catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setError(`${data.error || "Falha ao reativar botões."} (HTTP ${res.status})`);
+        return;
+      }
+      setNotice("Botão ✓ Concluir já está ativo nos próximos lembretes.");
+    } catch (err) {
+      setError(
+        `Falha de rede${err instanceof Error ? `: ${err.message}` : ""}.`,
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function unlink() {
     setBusy("unlink");
     setError("");
@@ -268,6 +291,20 @@ export function TelegramCard() {
                 >
                   <Send className="h-3.5 w-3.5" />
                   Enviar teste
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void rebuildBind()}
+                  disabled={busy === "rebuild"}
+                  className="rx-btn-ghost"
+                  style={{
+                    ...btnBase,
+                    opacity: busy === "rebuild" ? 0.5 : 1,
+                  }}
+                  title="Necessário 1 vez pra ativar o botão ✓ Concluir nos lembretes em contas conectadas antes da feature"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Ativar botão concluir
                 </button>
                 <button
                   type="button"
