@@ -221,7 +221,33 @@ export const moduleCatalog: ModuleConfig[] = [
   },
 ];
 
-export const defaultModuleOrder = moduleCatalog.map((module) => module.id);
+// Ordem padrão dos módulos na sidebar/dashboard (definida pelo dono).
+// Explícita de propósito pra fixar a ordem independente da ordem interna
+// do moduleCatalog (que é iterado em outras telas, ex.: onboarding).
+// Qualquer módulo novo do catálogo que não esteja listado aqui é anexado
+// ao fim automaticamente, pra nunca sumir da navegação.
+const preferredModuleOrder: ModuleId[] = [
+  "workout", // Treino
+  "run", // Cardio
+  "nutrition", // Dieta
+  "finance", // Finanças
+  "market", // Mercado
+  "supplements", // Suplementos / Remédios
+  "sleep", // Sono
+  "work", // Trabalho
+  "appearance", // Aparência
+  "recovery", // Recuperação
+  "health", // Saúde
+  "mind", // Mente
+  "home", // Casa
+];
+
+export const defaultModuleOrder: ModuleId[] = [
+  ...preferredModuleOrder,
+  ...moduleCatalog
+    .map((module) => module.id)
+    .filter((id) => !preferredModuleOrder.includes(id)),
+];
 
 export const defaultDashboardSectionOrder: DashboardSectionId[] = [
   "quick-actions",
