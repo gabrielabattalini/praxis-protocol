@@ -42,6 +42,7 @@ import {
   useClerkClient,
   useUserClient,
 } from "@/components/providers/auth-client-provider";
+import { CommandPalette } from "@/components/ui/command-palette";
 import { NavigationLoadingOverlay } from "@/components/ui/navigation-loading-overlay";
 import { QuickActionsBar } from "@/components/ui/quick-actions-bar";
 import { ToastProvider } from "@/components/ui/toast";
@@ -903,6 +904,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
       <RemoteSaveIndicator />
       <QuickActionsBar />
+      <CommandPalette />
     </div>
     </ToastProvider>
   );
