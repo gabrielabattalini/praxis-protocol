@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { HydrationControls } from "@/components/nutrition/hydration-controls";
+import { useToast } from "@/components/ui/toast";
 import { RxPBar } from "@/components/redesign/primitives";
 import { moduleCatalog } from "@/lib/mock-data";
 import type {
@@ -400,6 +401,7 @@ function buildAgendaTimeline(items: AgendaItem[]): AgendaTimelineBucket[] {
 
 export default function TasksPage() {
   const { state, actions } = useAppStore();
+  const toast = useToast();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
@@ -985,6 +987,7 @@ export default function TasksPage() {
                       // recurring-task completedAt timestamp) keeps working.
                       // Past dates go through the per-date history toggle so
                       // they don't clobber today's state.
+                      const wasCompleted = item.completed;
                       if (isSelectedDateToday) {
                         actions.toggleTask(item.manualTaskId!);
                       } else {
@@ -993,6 +996,21 @@ export default function TasksPage() {
                           dateKey: selectedDateKey,
                         });
                       }
+                      toast.push({
+                        message: wasCompleted
+                          ? `Reaberta: ${item.title}`
+                          : `Concluída: ${item.title}`,
+                        undo: () => {
+                          if (isSelectedDateToday) {
+                            actions.toggleTask(item.manualTaskId!);
+                          } else {
+                            actions.toggleTaskCompletionForDate({
+                              taskId: item.manualTaskId!,
+                              dateKey: selectedDateKey,
+                            });
+                          }
+                        },
+                      });
                     }}
                     className={`v2-btn v2-btn-sm ${
                       item.completed ? "" : "v2-btn-ok"
