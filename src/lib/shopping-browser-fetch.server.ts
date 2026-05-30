@@ -43,31 +43,28 @@ async function getBrowser() {
 
 export { shouldUseBrowserFallback };
 
-// Allowlist defensiva: hoje só recebemos URLs montadas em
+// Allowlist defensiva: só recebemos URLs montadas em
 // shopping-search.server.ts pra um conjunto fixo de varejistas, mas se um
 // caller futuro passar uma URL derivada de input do usuário (ou um host
 // permitido fizer redirect aberto), sem allowlist isso vira SSRF
 // (169.254.169.254/metadata, file://, hosts internos). Mantém allowlist
 // próximo ao sink (page.goto) — fail-safe.
+//
+// IMPORTANTE: esta lista TEM que conter todos os baseUrl de SHOPPING_SOURCES
+// em shopping-search.server.ts. Loja que estiver lá e faltar aqui é
+// bloqueada → some dos resultados → o item perde o preço. Apex apenas:
+// assertAllowedUrl casa subdomínios (www., lista., produto.) por sufixo.
 const ALLOWED_HOSTS = new Set<string>([
+  // Marketplaces (market + supplements)
   "mercadolivre.com.br",
-  "lista.mercadolivre.com.br",
-  "produto.mercadolivre.com.br",
-  "shopee.com.br",
-  "www.amazon.com.br",
   "amazon.com.br",
-  "www.magazineluiza.com.br",
+  "shopee.com.br",
   "magazineluiza.com.br",
-  "www.americanas.com.br",
-  "americanas.com.br",
-  "www.casasbahia.com.br",
-  "casasbahia.com.br",
-  "www.kabum.com.br",
-  "kabum.com.br",
-  "www.netshoes.com.br",
-  "netshoes.com.br",
-  "www.centauro.com.br",
-  "centauro.com.br",
+  // Lojas de suplemento (scope supplements)
+  "gsuplementos.com.br",
+  "integralmedica.com.br",
+  "maxtitanium.com.br",
+  "oficialfarma.com.br",
 ]);
 
 function assertAllowedUrl(rawUrl: string) {
