@@ -4,10 +4,7 @@ import { useState } from "react";
 import { CheckCircle2, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
-import {
-  appearanceCareCategories,
-  appearanceRoutineTemplates,
-} from "@/lib/mock-data";
+import { appearanceRoutineTemplates } from "@/lib/mock-data";
 import type {
   AppearanceRoutineTemplate,
   Task,
@@ -478,34 +475,6 @@ export default function AppearanceModulePage() {
             para adicionar a primeira.
           </div>
         )}
-      </GlassPanel>
-
-      <GlassPanel className="space-y-4">
-        <div>
-          <p className="text-sm text-zinc-500">Frentes de cuidado</p>
-          <h2 className="mt-1 text-2xl font-semibold text-zinc-100">
-            Rotinas específicas para rosto, corpo e grooming
-          </h2>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {appearanceCareCategories.map((category) => (
-            <div
-              key={category.id}
-              className="praxis-panel rounded-sm p-4"
-            >
-              <p className="text-base font-semibold text-zinc-100">{category.name}</p>
-              <p className="mt-2 text-sm leading-6 text-zinc-500">
-                {category.description}
-              </p>
-              <div className="mt-4 flex items-center justify-between text-xs">
-                <span className="rounded-sm border border-zinc-800 bg-black/50 px-3 py-2 text-zinc-300">
-                  {category.routines} rotinas
-                </span>
-                <span className="text-[var(--accent)]">{category.points}</span>
-              </div>
-            </div>
-          ))}
-        </div>
       </GlassPanel>
 
       <GlassPanel className="space-y-4">
