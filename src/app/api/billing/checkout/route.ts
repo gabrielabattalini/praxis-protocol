@@ -13,6 +13,18 @@ type CheckoutPayload = {
 const CHECKOUT_ERROR_MESSAGE =
   "Não foi possível iniciar o checkout agora. Tente novamente em instantes.";
 
+// Validação leve de email — só pra não injetar lixo arbitrário em
+// customer_email/metadata.email no Stripe. Não autoriza nada: o
+// entitlement é resolvido server-side via Stripe lookup pelo email
+// da sessão Clerk, então o email do body é só pré-preenchimento.
+function safeEmail(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed.length > 254) return undefined;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return undefined;
+  return trimmed.toLowerCase();
+}
+
 async function createCheckoutSessionUrl(payload: CheckoutPayload) {
   const source =
     typeof payload.source === "string" && payload.source.trim().length > 0
@@ -30,8 +42,7 @@ async function createCheckoutSessionUrl(payload: CheckoutPayload) {
   const { userId } = await auth();
   const user = userId ? await currentUser() : null;
   const email =
-    user?.primaryEmailAddress?.emailAddress ||
-    (typeof payload.email === "string" ? payload.email : undefined);
+    user?.primaryEmailAddress?.emailAddress || safeEmail(payload.email);
   const stripe = getStripeServer();
   const appUrl = getAppUrl();
 

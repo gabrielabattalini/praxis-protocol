@@ -359,6 +359,15 @@ function getConfiguredVapidKeys() {
     };
   }
 
+  // Em produção exigimos as env vars — gerar e gravar a chave PRIVADA do
+  // VAPID em disco (.data/) num ambiente serverless é vazamento de
+  // material criptográfico (fs efêmero + legível dentro do container).
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "[notifications] WEB_PUSH_VAPID_PUBLIC_KEY/PRIVATE_KEY ausentes em produção",
+    );
+  }
+
   // File fallback (local dev only) — now safe to touch the data dir.
   ensureDataDir();
 
