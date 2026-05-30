@@ -43,6 +43,8 @@ import {
   useUserClient,
 } from "@/components/providers/auth-client-provider";
 import { NavigationLoadingOverlay } from "@/components/ui/navigation-loading-overlay";
+import { QuickActionsBar } from "@/components/ui/quick-actions-bar";
+import { ToastProvider } from "@/components/ui/toast";
 import { RemoteSaveIndicator } from "@/components/remote-save-indicator";
 import { isLocalAuthBypassEnabled } from "@/lib/auth-mode";
 import { moduleCatalog } from "@/lib/mock-data";
@@ -269,6 +271,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     : Math.round((user.xp / Math.max(1, user.xpToNextLevel)) * 100);
 
   return (
+    <ToastProvider>
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
       {navigationPending ? (
         <NavigationLoadingOverlay
@@ -899,6 +902,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
       <RemoteSaveIndicator />
+      <QuickActionsBar />
     </div>
+    </ToastProvider>
   );
 }
