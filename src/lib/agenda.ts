@@ -236,7 +236,10 @@ export function buildAgendaEvents(
     }
 
     if (left.time && right.time) {
-      return left.time.localeCompare(right.time);
+      // 00:00 = meia-noite = fim do dia, vai por último.
+      const leftKey = left.time === "00:00" ? "24:00" : left.time;
+      const rightKey = right.time === "00:00" ? "24:00" : right.time;
+      return leftKey.localeCompare(rightKey);
     }
 
     if (left.time) return -1;

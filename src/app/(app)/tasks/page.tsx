@@ -358,8 +358,9 @@ function parseAgendaTimeMinutes(time?: string) {
 function normalizeAgendaTimeForDayOrder(time?: string) {
   const minutes = parseAgendaTimeMinutes(time);
   if (minutes === null) return Number.POSITIVE_INFINITY;
-  // Dia reseta às 00:00. 00:01 já é dia novo — 01:00 deve aparecer
-  // ANTES de 23:00, não depois. Ordem natural de minutos do dia.
+  // 00:00 é a meia-noite = fim do dia (hora de dormir), então vai por
+  // último. 00:01–04:59 já é o novo dia (madrugada) e aparece cedo.
+  if (minutes === 0) return 24 * 60;
   return minutes;
 }
 
@@ -370,6 +371,8 @@ function isMealItemCompletedForDateKey(item: MealPlanItem, dateKey: string) {
 function getAgendaPhaseId(time?: string): AgendaPhaseId {
   const minutes = parseAgendaTimeMinutes(time);
   if (minutes === null) return "unscheduled";
+  // 00:00 = fim do dia → vai pro bucket Noite (último), depois de 23:xx.
+  if (minutes === 0) return "night";
   if (minutes < 5 * 60) return "dawn";
   if (minutes < 12 * 60) return "morning";
   if (minutes < 18 * 60) return "afternoon";
