@@ -85,6 +85,7 @@ import {
   emptyFinanceMonthlyValues,
   financeMonthOrder,
   getAdjustedTaskXp,
+  formatDateKey,
   getTaskBaseXp,
   isFinanceCreditCardPaymentMethod,
   isTaskCompletedForDate,
@@ -1712,7 +1713,10 @@ function reducer(state: PersistedState, action: Action): PersistedState {
       // atinge / passa da meta. Antes essa lógica vivia num useEffect do
       // módulo Dieta, então só rodava se o usuário estivesse naquela aba.
       // Aqui no reducer cobre qualquer ponto de mudança (Dieta, Missões).
-      const todayKey = new Date().toISOString().slice(0, 10);
+      // formatDateKey usa horário LOCAL (vira à meia-noite do fuso do
+      // usuário). Usar toISOString (UTC) fazia a hidratação resetar às
+      // 21h no Brasil (UTC-3), não à meia-noite.
+      const todayKey = formatDateKey(new Date());
       if (action.payload.date !== todayKey) {
         return { ...state, waterEntries: nextWaterEntries };
       }
@@ -2277,7 +2281,7 @@ function reducer(state: PersistedState, action: Action): PersistedState {
     }
     case "toggle-workout-day-completed": {
       const dateKey =
-        action.payload.dateKey ?? new Date().toISOString().slice(0, 10);
+        action.payload.dateKey ?? formatDateKey(new Date());
       const program =
         state.workoutPrograms.find((currentProgram) =>
           currentProgram.workoutPlan.some(
@@ -2477,8 +2481,8 @@ function reducer(state: PersistedState, action: Action): PersistedState {
           const referenceDate = action.payload.dateKey
             ? new Date(`${action.payload.dateKey}T12:00:00`)
             : new Date();
-          const referenceKey = referenceDate.toISOString().slice(0, 10);
-          const todayKey = new Date().toISOString().slice(0, 10);
+          const referenceKey = formatDateKey(referenceDate);
+          const todayKey = formatDateKey(new Date());
           const isReferenceToday = referenceKey === todayKey;
           return {
             ...block,
@@ -5832,7 +5836,7 @@ export function AppStoreProvider({
         dispatch({ type: "restore-default-meal-plan" });
       },
       addNutritionDailyExtra(payload) {
-        const today = new Date().toISOString().slice(0, 10);
+        const today = formatDateKey(new Date());
         dispatch({
           type: "add-nutrition-daily-extra",
           payload: {

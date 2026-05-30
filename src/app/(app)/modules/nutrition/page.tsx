@@ -37,6 +37,7 @@ import {
   describeTrainingActivity,
   emptyMacros,
   estimateBasalMetabolicRate,
+  formatDateKey,
   formatPoints,
   getActivityMultiplierFromTrainingDays,
   weekdayLongLabel,
@@ -1249,13 +1250,13 @@ export default function NutritionModulePage() {
   // todayKey precisa virar quando o relógio cruza meia-noite com o app
   // aberto (ex.: usuário deixou a aba ativa e veio o dia seguinte). Sem
   // isso, "Hidratação · hoje" continuaria contando ml do dia anterior.
-  // Tick de 30s força re-render se mudou de dia.
-  const [todayKey, setTodayKey] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
+  // Tick de 30s força re-render se mudou de dia. formatDateKey usa
+  // horário LOCAL — vira à meia-noite do fuso do usuário (não às 21h,
+  // efeito que o UTC causava no Brasil).
+  const [todayKey, setTodayKey] = useState(() => formatDateKey(new Date()));
   useEffect(() => {
     const handle = window.setInterval(() => {
-      const next = new Date().toISOString().slice(0, 10);
+      const next = formatDateKey(new Date());
       setTodayKey((current) => (current === next ? current : next));
     }, 30_000);
     return () => window.clearInterval(handle);

@@ -5,11 +5,13 @@ import Link from "next/link";
 import { Droplet, ListPlus, UtensilsCrossed, X } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { useToast } from "@/components/ui/toast";
+import { formatDateKey } from "@/lib/utils";
 
 const WATER_QUICK_ML = 250;
 
 function getTodayKey() {
-  return new Date().toISOString().slice(0, 10);
+  // Horário LOCAL — vira à meia-noite do fuso do usuário, não em UTC.
+  return formatDateKey(new Date());
 }
 
 function findNextPendingMeal(

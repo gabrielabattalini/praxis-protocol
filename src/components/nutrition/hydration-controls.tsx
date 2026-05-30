@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { PencilLine } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
-import { formatPoints } from "@/lib/utils";
+import { formatDateKey, formatPoints } from "@/lib/utils";
 
 const WATER_QUICK_ACTIONS = [200, 500, 1000];
 
@@ -17,12 +17,12 @@ export function HydrationControls({ className }: { className?: string }) {
   const { state, actions } = useAppStore();
 
   // todayKey precisa virar quando cruza a meia-noite com o app aberto.
-  const [todayKey, setTodayKey] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
+  // formatDateKey usa horário LOCAL — reseta à meia-noite do fuso do
+  // usuário, não às 21h (que era o efeito de usar UTC no Brasil).
+  const [todayKey, setTodayKey] = useState(() => formatDateKey(new Date()));
   useEffect(() => {
     const handle = window.setInterval(() => {
-      const next = new Date().toISOString().slice(0, 10);
+      const next = formatDateKey(new Date());
       setTodayKey((current) => (current === next ? current : next));
     }, 30_000);
     return () => window.clearInterval(handle);
