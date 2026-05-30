@@ -220,6 +220,18 @@ export async function getUserIdByChatId(chatId: number): Promise<string | null> 
   return kvGet(chatToUserKey(chatId));
 }
 
+/**
+ * Grava a chave reversa pra um chatId já bindado. Usado pelo endpoint
+ * de migração `/api/telegram/rebuild-bind` (rodado uma vez por conta
+ * que tenha conectado antes do PR do botão inline).
+ */
+export async function rebuildReverseBinding(
+  userId: string,
+  chatId: number,
+): Promise<void> {
+  await kvSet(chatToUserKey(chatId), userId);
+}
+
 export async function getTelegramBinding(
   userId: string,
 ): Promise<TelegramBinding | null> {
