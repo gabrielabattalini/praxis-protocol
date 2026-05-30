@@ -188,6 +188,152 @@ export default function AppearanceModulePage() {
     setDraft(null);
   }
 
+  // Formulário de edição/criação, renderizado inline (logo abaixo da
+  // tarefa que está sendo editada, ou abaixo da biblioteca quando é
+  // uma nova tarefa vinda de um template).
+  function renderDraftForm() {
+    if (!draft) return null;
+
+    return (
+      <div
+        className="praxis-panel rounded-sm p-4"
+        style={{ borderColor: "rgba(251,146,60,0.34)" }}
+      >
+        <div className="mb-4">
+          <p className="text-sm text-zinc-500">
+            {draft.editingTaskId ? "Editar tarefa" : "Finalizar tarefa"}
+          </p>
+          <h3 className="mt-1 text-lg font-semibold text-zinc-100">
+            {draft.editingTaskId
+              ? "Ajuste nome, horário e dias"
+              : "Edite antes de salvar"}
+          </h3>
+        </div>
+
+        <form className="space-y-4" onSubmit={saveTask}>
+          <label className="block space-y-2">
+            <span className="text-sm text-zinc-300">Nome da tarefa</span>
+            <input
+              value={draft.title}
+              onChange={(event) =>
+                setDraft((current) =>
+                  current ? { ...current, title: event.target.value } : current,
+                )
+              }
+              className={fieldClassName}
+            />
+          </label>
+
+          <label className="block space-y-2">
+            <span className="text-sm text-zinc-300">Descrição</span>
+            <textarea
+              rows={4}
+              value={draft.description}
+              onChange={(event) =>
+                setDraft((current) =>
+                  current ? { ...current, description: event.target.value } : current,
+                )
+              }
+              className={fieldClassName}
+            />
+          </label>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="block space-y-2">
+              <span className="text-sm text-zinc-300">Horário</span>
+              <input
+                type="time"
+                value={draft.scheduledTime}
+                onChange={(event) =>
+                  setDraft((current) =>
+                    current
+                      ? { ...current, scheduledTime: event.target.value }
+                      : current,
+                  )
+                }
+                className={fieldClassName}
+              />
+            </label>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-sm text-zinc-300">Frequência</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: "selected-weekdays", label: "Dias específicos" },
+                { id: "daily", label: "Todos os dias" },
+              ].map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() =>
+                    setDraft((current) =>
+                      current
+                        ? {
+                            ...current,
+                            recurrenceKind: option.id as AppearanceTaskDraft["recurrenceKind"],
+                          }
+                        : current,
+                    )
+                  }
+                  className={`rounded-sm border px-4 py-2 text-sm ${
+                    draft.recurrenceKind === option.id
+                      ? "border-[rgba(251,146,60,0.34)] bg-[rgba(251,146,60,0.12)] text-[var(--accent)]"
+                      : "border-zinc-800 bg-black/50 text-zinc-300"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {draft.recurrenceKind === "selected-weekdays" ? (
+            <div className="space-y-3">
+              <p className="text-sm text-zinc-300">Dias da rotina</p>
+              <div className="flex flex-wrap gap-2">
+                {weekdayOptions.map((day) => {
+                  const active = draft.weekdays.includes(day);
+
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => toggleDraftWeekday(day)}
+                      className={`rounded-sm border px-3 py-2 text-sm ${
+                        active
+                          ? "border-[rgba(251,146,60,0.34)] bg-[rgba(251,146,60,0.12)] text-[var(--accent)]"
+                          : "border-zinc-800 bg-black/50 text-zinc-300"
+                      }`}
+                    >
+                      {weekdayLongLabel(day)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="flex gap-3">
+            <button
+              type="submit"
+              className="flex-1 praxis-button px-4 py-3 text-slate-950"
+            >
+              {draft.editingTaskId ? "Salvar alterações" : "Salvar tarefa"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setDraft(null)}
+              className="rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-sm text-zinc-300"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="mod-hero">
@@ -249,8 +395,8 @@ export default function AppearanceModulePage() {
               const isEditing = draft?.editingTaskId === task.id;
 
               return (
+                <div key={task.id} className="space-y-3">
                 <div
-                  key={task.id}
                   className="praxis-panel rounded-sm p-4"
                   style={
                     isEditing
@@ -320,6 +466,9 @@ export default function AppearanceModulePage() {
                     </button>
                   </div>
                 </div>
+
+                {isEditing ? renderDraftForm() : null}
+                </div>
               );
             })}
           </div>
@@ -330,142 +479,6 @@ export default function AppearanceModulePage() {
           </div>
         )}
       </GlassPanel>
-
-      {draft ? (
-        <GlassPanel className="space-y-4">
-          <div>
-            <p className="text-sm text-zinc-500">
-              {draft.editingTaskId ? "Editar tarefa" : "Finalizar tarefa"}
-            </p>
-            <h2 className="mt-1 text-2xl font-semibold text-zinc-100">
-              {draft.editingTaskId
-                ? "Ajuste nome, horário e dias"
-                : "Edite antes de salvar"}
-            </h2>
-          </div>
-
-          <form className="space-y-4" onSubmit={saveTask}>
-            <label className="block space-y-2">
-              <span className="text-sm text-zinc-300">Nome da tarefa</span>
-              <input
-                value={draft.title}
-                onChange={(event) =>
-                  setDraft((current) =>
-                    current ? { ...current, title: event.target.value } : current,
-                  )
-                }
-                className={fieldClassName}
-              />
-            </label>
-
-            <label className="block space-y-2">
-              <span className="text-sm text-zinc-300">Descrição</span>
-              <textarea
-                rows={4}
-                value={draft.description}
-                onChange={(event) =>
-                  setDraft((current) =>
-                    current ? { ...current, description: event.target.value } : current,
-                  )
-                }
-                className={fieldClassName}
-              />
-            </label>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="block space-y-2">
-                <span className="text-sm text-zinc-300">Horário</span>
-                <input
-                  type="time"
-                  value={draft.scheduledTime}
-                  onChange={(event) =>
-                    setDraft((current) =>
-                      current
-                        ? { ...current, scheduledTime: event.target.value }
-                        : current,
-                    )
-                  }
-                  className={fieldClassName}
-                />
-              </label>
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-sm text-zinc-300">Frequência</p>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { id: "selected-weekdays", label: "Dias específicos" },
-                  { id: "daily", label: "Todos os dias" },
-                ].map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() =>
-                      setDraft((current) =>
-                        current
-                          ? {
-                              ...current,
-                              recurrenceKind: option.id as AppearanceTaskDraft["recurrenceKind"],
-                            }
-                          : current,
-                      )
-                    }
-                    className={`rounded-sm border px-4 py-2 text-sm ${
-                      draft.recurrenceKind === option.id
-                        ? "border-[rgba(251,146,60,0.34)] bg-[rgba(251,146,60,0.12)] text-[var(--accent)]"
-                        : "border-zinc-800 bg-black/50 text-zinc-300"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {draft.recurrenceKind === "selected-weekdays" ? (
-              <div className="space-y-3">
-                <p className="text-sm text-zinc-300">Dias da rotina</p>
-                <div className="flex flex-wrap gap-2">
-                  {weekdayOptions.map((day) => {
-                    const active = draft.weekdays.includes(day);
-
-                    return (
-                      <button
-                        key={day}
-                        type="button"
-                        onClick={() => toggleDraftWeekday(day)}
-                        className={`rounded-sm border px-3 py-2 text-sm ${
-                          active
-                            ? "border-[rgba(251,146,60,0.34)] bg-[rgba(251,146,60,0.12)] text-[var(--accent)]"
-                            : "border-zinc-800 bg-black/50 text-zinc-300"
-                        }`}
-                      >
-                        {weekdayLongLabel(day)}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : null}
-
-            <div className="flex gap-3">
-              <button
-                type="submit"
-                className="flex-1 praxis-button px-4 py-3 text-slate-950"
-              >
-                {draft.editingTaskId ? "Salvar alterações" : "Salvar tarefa"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setDraft(null)}
-                className="rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-sm text-zinc-300"
-              >
-                Cancelar
-              </button>
-            </div>
-          </form>
-        </GlassPanel>
-      ) : null}
 
       <GlassPanel className="space-y-4">
         <div>
@@ -504,9 +517,13 @@ export default function AppearanceModulePage() {
         </div>
 
         <div className="space-y-3">
-          {appearanceRoutineTemplates.map((template) => (
+          {appearanceRoutineTemplates.map((template) => {
+            const isAddingThis =
+              !!draft && !draft.editingTaskId && draft.templateId === template.id;
+
+            return (
+            <div key={template.id} className="space-y-3">
             <div
-              key={template.id}
               className="praxis-panel rounded-sm p-5"
             >
               <div className="flex items-start justify-between gap-4">
@@ -554,7 +571,11 @@ export default function AppearanceModulePage() {
                 </button>
               </div>
             </div>
-          ))}
+
+            {isAddingThis ? renderDraftForm() : null}
+            </div>
+            );
+          })}
         </div>
       </GlassPanel>
     </div>
