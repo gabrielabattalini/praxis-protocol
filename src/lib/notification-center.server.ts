@@ -233,6 +233,30 @@ function pickBySeed<T>(items: readonly T[], seed: string): T {
   return items[hash % items.length];
 }
 
+/**
+ * Codifica callback_data pro botão "✓ Concluir" do Telegram. Limite é
+ * 64 bytes total — id de meal block + item pode estourar. Retorna null
+ * quando não conseguimos codificar (caller esconde o botão).
+ *
+ * Schedule item ids (de notification-schedule.ts):
+ *  - "task:<sourceKey-or-id>"            → callback "t:<id>"
+ *  - "meal:<blockId>"                    → callback "mb:<blockId>"
+ *  - "reminder:..."                      → sem botão (genérico demais)
+ */
+function buildCompleteCallbackData(
+  item: NotificationScheduleItem,
+): string | null {
+  if (item.id.startsWith("task:")) {
+    const cb = `t:${item.id.slice("task:".length)}`;
+    return cb.length <= 64 ? cb : null;
+  }
+  if (item.id.startsWith("meal:")) {
+    const cb = `mb:${item.id.slice("meal:".length)}`;
+    return cb.length <= 64 ? cb : null;
+  }
+  return null;
+}
+
 function minutesOfDay(hourMinute: string) {
   const [h, m] = hourMinute.split(":").map(Number);
   if (!Number.isFinite(h) || !Number.isFinite(m)) return Number.NaN;
@@ -623,7 +647,23 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
             ? pickBySeed(quotePool, `${userId}|${zonedNow.dateKey}|${zonedNow.hourMinute}`)
             : "";
         const message = quote ? `${header}\n\n${quote}` : header;
-        const tg = await sendTelegramToUser(userId, message);
+
+        // Inline keyboard só faz sentido quando o batch tem 1 item ON-TIME
+        // (não pre-warning). Multi-item agruparia ações ambíguas; pre-
+        // warning marca como feito 5min antes do horário, esquisito.
+        let inlineKeyboard;
+        if (telegramBatch.length === 1) {
+          const only = telegramBatch[0];
+          const isPreWarning = only.id.endsWith(`:pre${PRE_WARNING_MIN}`);
+          if (!isPreWarning) {
+            const cbData = buildCompleteCallbackData(only);
+            if (cbData) {
+              inlineKeyboard = [[{ text: "✓ Concluir", callback_data: cbData }]];
+            }
+          }
+        }
+
+        const tg = await sendTelegramToUser(userId, message, { inlineKeyboard });
         if (tg.ok && !tg.skipped) {
           summary.notificationsSent += 1;
         }
