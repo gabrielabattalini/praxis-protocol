@@ -16,6 +16,7 @@ import {
   Plus,
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
+import { HydrationControls } from "@/components/nutrition/hydration-controls";
 import { RxPBar } from "@/components/redesign/primitives";
 import { moduleCatalog } from "@/lib/mock-data";
 import type {
@@ -68,6 +69,7 @@ type AgendaItem = {
   };
   moduleRoute?: string;
   manualTaskId?: string;
+  sourceKey?: string;
   workoutDayId?: string;
   workoutLoggedToday?: boolean;
   workoutMarkedCompleted?: boolean;
@@ -468,6 +470,7 @@ export default function TasksPage() {
             ? moduleCatalog.find((module) => module.id === task.moduleId)?.route
             : undefined,
           manualTaskId: task.id,
+          sourceKey: task.sourceKey,
           canPostpone: targetDateKey === todayKey && !completedForTargetDate && !isSyncedTask,
           postponeLabel:
             task.recurrence.kind === "one-time" ? "Adiar para amanhã" : "Pular hoje",
@@ -1177,6 +1180,15 @@ export default function TasksPage() {
                 </div>
               );
             })}
+          </div>
+        ) : null}
+
+        {/* Hidratação compartilha o mesmo waterEntries da Dieta — mesmos
+            botões +200/+500/+1000, %, editar manual, barra de progresso.
+            Sincroniza automaticamente entre os dois lugares. */}
+        {item.sourceKey === "nutrition-hydration-daily" ? (
+          <div className="mt-4">
+            <HydrationControls />
           </div>
         ) : null}
       </div>
