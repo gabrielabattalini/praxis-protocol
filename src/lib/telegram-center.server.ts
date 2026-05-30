@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -173,9 +174,12 @@ async function kvDelete(key: string): Promise<void> {
 /* ── Link codes ──────────────────────────────────────────────── */
 
 function randomCode() {
-  return `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}${Math.random()
-    .toString(36)
-    .slice(2)}`.replace(/[^a-z0-9]/g, "").slice(0, 40);
+  // CSPRNG — esse code é o único segredo que vincula um chat do Telegram
+  // a uma conta Clerk. Math.random() é previsível: um atacante que adivinhe
+  // um code ativo (TTL 30 min) sequestra o canal de notificações da vítima
+  // e pode marcar as tarefas dela como concluídas via o botão inline.
+  // 32 bytes = 256 bits de entropia.
+  return crypto.randomBytes(32).toString("base64url");
 }
 
 export async function createTelegramLinkCode(userId: string) {

@@ -4,6 +4,7 @@ import {
   bindTelegramChat,
   consumeTelegramLinkCode,
   editMessageReplyMarkup,
+  getTelegramBinding,
   getTelegramWebhookSecret,
   getUserIdByChatId,
   sendTelegramMessage,
@@ -50,7 +51,18 @@ export async function POST(request: Request) {
     "x-telegram-bot-api-secret-token",
   );
 
-  if (expectedSecret && providedSecret !== expectedSecret) {
+  // Fail-CLOSED: sem segredo configurado o webhook não pode aceitar updates.
+  // Antes o `expectedSecret &&` short-circuitava e qualquer um conseguia
+  // forjar updates (incluindo callback_query com chat.id arbitrário) e
+  // mexer no estado da conta correspondente.
+  if (!expectedSecret) {
+    console.error(
+      "[telegram-webhook] TELEGRAM_WEBHOOK_SECRET ausente — recusando update",
+    );
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+
+  if (providedSecret !== expectedSecret) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
@@ -77,6 +89,20 @@ export async function POST(request: Request) {
     const userId = await getUserIdByChatId(cbChatId);
     if (!userId) {
       await answerCallbackQuery(cb.id, "Conta não vinculada — reconecte no app.");
+      return NextResponse.json({ ok: true });
+    }
+
+    // Confere que quem clicou é o dono do binding. Sem isso, se outra
+    // pessoa tiver acesso ao mesmo chat (grupo) ou o secret for vazado,
+    // dá pra forjar callback_query com chat.id de outro usuário.
+    const cbFromId = cb.from?.id;
+    const binding = await getTelegramBinding(userId);
+    if (
+      binding?.telegramUserId &&
+      cbFromId &&
+      binding.telegramUserId !== cbFromId
+    ) {
+      await answerCallbackQuery(cb.id, "Apenas o dono da conta pode concluir.");
       return NextResponse.json({ ok: true });
     }
 

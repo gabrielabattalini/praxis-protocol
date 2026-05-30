@@ -27,8 +27,18 @@ export async function POST(request: NextRequest) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
 
   if (!secret) {
-    // Not configured — accept silently so Stripe test pings don't error,
-    // but do nothing (entitlement is resolved live regardless).
+    // Fail-CLOSED em produção: aceitar webhooks não-assinados, mesmo só
+    // pra log, normaliza "tá ok não verificar" e mascara uma má config.
+    // Em dev local seguimos aceitando pra teste manual com Stripe CLI.
+    if (process.env.NODE_ENV === "production") {
+      console.error(
+        "[webhook] STRIPE_WEBHOOK_SECRET ausente em produção — recusando",
+      );
+      return NextResponse.json(
+        { error: "Webhook não configurado." },
+        { status: 500 },
+      );
+    }
     return NextResponse.json({ received: true, configured: false });
   }
 
