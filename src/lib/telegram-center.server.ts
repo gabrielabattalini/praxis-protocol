@@ -257,6 +257,12 @@ export async function getTelegramStatus(
 ): Promise<TelegramStatus> {
   const configured = isTelegramConfigured();
   const binding = await getTelegramBinding(userId);
+  if (binding) {
+    // Self-heal silencioso: o reverse lookup chat→user só foi criado
+    // pra binds feitos depois da feature do botão inline. Pra contas
+    // antigas, repomos a chave em toda checada de status (idempotente).
+    void rebuildReverseBinding(userId, binding.chatId).catch(() => undefined);
+  }
   const botUsername = configured
     ? (await getBotUsername()) ?? undefined
     : undefined;
