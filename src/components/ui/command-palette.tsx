@@ -14,6 +14,7 @@ import {
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { useToast } from "@/components/ui/toast";
 import { moduleCatalog } from "@/lib/mock-data";
+import { formatDateKey } from "@/lib/utils";
 
 type SearchItem = {
   id: string;
@@ -63,7 +64,8 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const todayKey = new Date().toISOString().slice(0, 10);
+  // Horário LOCAL — vira à meia-noite do fuso do usuário, não em UTC.
+  const todayKey = formatDateKey(new Date());
 
   const openPalette = useCallback(() => {
     setOpen(true);
