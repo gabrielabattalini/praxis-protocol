@@ -1,8 +1,4 @@
-export function todayDateString() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-export function toDate(date: string) {
+function toDate(date: string) {
   return new Date(`${date}T00:00:00`);
 }
 
@@ -20,32 +16,6 @@ export function isSameWeek(date: string, referenceDate: Date) {
     getStartOfWeek(toDate(date)).getTime() ===
     getStartOfWeek(referenceDate).getTime()
   );
-}
-
-export function parseIntegerInput(value: string) {
-  const normalized = value.trim();
-  if (!normalized) return 0;
-  const nextValue = Number(normalized);
-  return Number.isFinite(nextValue) ? Math.max(0, Math.round(nextValue)) : 0;
-}
-
-export function parseDecimalInput(value: string) {
-  const normalized = value.replace(",", ".").trim();
-  if (!normalized) return 0;
-  const nextValue = Number(normalized);
-  return Number.isFinite(nextValue) ? nextValue : 0;
-}
-
-export function roundToOneDecimal(value: number) {
-  return Math.round(value * 10) / 10;
-}
-
-export function formatDateLabel(date: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    weekday: "short",
-  }).format(toDate(date));
 }
 
 export function formatMinutes(value: number) {

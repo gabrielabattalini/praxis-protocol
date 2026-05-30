@@ -440,8 +440,3 @@ export async function sendTelegramTest(
   }
   return result;
 }
-
-/** True when a durable cross-device backend is configured. */
-export function isTelegramStoreDurable() {
-  return KV_ENABLED;
-}

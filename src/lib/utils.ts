@@ -111,10 +111,6 @@ export function sumFinanceLine(line: { monthly: Record<FinanceMonthId, number> }
   );
 }
 
-export function isFinanceCardPaymentMethod(method: FinancePaymentMethod) {
-  return method === "credit-card" || method === "debit-card";
-}
-
 export function isFinanceCreditCardPaymentMethod(method: FinancePaymentMethod) {
   return method === "credit-card";
 }
@@ -255,31 +251,14 @@ export function getFinanceMonthSummaries(budget: FinanceYearBudget) {
   });
 }
 
-export function formatCompact(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
-}
-
 const taskXpByDifficulty: Record<TaskDifficulty, number> = {
   easy: 25,
   medium: 40,
   hard: 55,
 };
 
-const taskDifficultyLabels: Record<TaskDifficulty, string> = {
-  easy: "Fácil",
-  medium: "Média",
-  hard: "Difícil",
-};
-
 export function getTaskXpFromDifficulty(difficulty: TaskDifficulty) {
   return taskXpByDifficulty[difficulty];
-}
-
-export function taskDifficultyLabel(difficulty: TaskDifficulty) {
-  return taskDifficultyLabels[difficulty];
 }
 
 export function getTaskDifficultyFromXp(xp: number): TaskDifficulty {

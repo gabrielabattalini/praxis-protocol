@@ -215,22 +215,6 @@ export function getComputedRemainingForColumn(
   );
 }
 
-export function getComputedCellValue(
-  column: WorkColumn,
-  row: WorkRow,
-  columns: WorkColumn[],
-  referenceDate: Date = new Date(),
-): { remainingDays: number | null; urgency: string } {
-  const remainingDays = getComputedRemainingForColumn(
-    column,
-    row,
-    columns,
-    referenceDate,
-  );
-  const urgency = computeUrgencyLabel(remainingDays);
-  return { remainingDays, urgency };
-}
-
 export function defaultColumnsForLegalWork(): WorkColumn[] {
   return [
     { id: makeColumnId(), label: "Cliente", type: "text", width: 240 },

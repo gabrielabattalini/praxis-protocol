@@ -1,6 +1,5 @@
 ﻿import type {
   Achievement,
-  AppearanceRoutineCategory,
   AppearanceRoutineTemplate,
   DashboardSectionId,
   DailyNutritionTargets,
@@ -832,66 +831,6 @@ export const financeBudgetSeed: FinanceYearBudget = {
   ],
 };
 
-export const appearanceCategories: AppearanceRoutineCategory[] = [
-  {
-    id: "massage",
-    name: "Massagens Faciais",
-    description: "Técnicas de drenagem, tonificação e relaxamento.",
-    routines: 3,
-    points: "+15 pts / rotina",
-  },
-  {
-    id: "skincare",
-    name: "Rotinas de Skincare",
-    description: "Limpeza, hidratação e proteção para a semana inteira.",
-    routines: 3,
-    points: "+20 pts / rotina",
-  },
-  {
-    id: "targeted",
-    name: "Tratamentos Direcionados",
-    description: "Protocolos para acne, manchas e textura.",
-    routines: 3,
-    points: "+25 pts / rotina",
-  },
-  {
-    id: "body",
-    name: "Cuidados Corporais",
-    description: "Rotinas de banho premium, hidratação e recuperação.",
-    routines: 2,
-    points: "+18 pts / rotina",
-  },
-];
-export const appearanceCareCategories: AppearanceRoutineCategory[] = [
-  {
-    id: "standard",
-    name: "Padrão",
-    description: "Rotinas base de manhã e noite para manter consistência visual.",
-    routines: 2,
-    points: "+20 XP / rotina",
-  },
-  {
-    id: "skincare",
-    name: "Skincare",
-    description: "Limpeza, hidratação, proteção e reparo para o rosto.",
-    routines: 3,
-    points: "+25 XP / rotina",
-  },
-  {
-    id: "body",
-    name: "Corpo",
-    description: "Banho premium, hidratação corporal e recuperação visual.",
-    routines: 2,
-    points: "+18 XP / rotina",
-  },
-  {
-    id: "grooming",
-    name: "Grooming",
-    description: "Cabelo, barba, unhas e outros acabamentos de presença.",
-    routines: 2,
-    points: "+22 XP / rotina",
-  },
-];
 
 export const appearanceRoutineTemplates: AppearanceRoutineTemplate[] = [
   {
@@ -999,25 +938,6 @@ export const appearanceRoutineTemplates: AppearanceRoutineTemplate[] = [
     steps: ["Barba ou depilação", "Unhas ou mãos", "Checagem final do visual"],
   },
 ];
-
-export const workoutCatalog = {
-  gym: [
-    "Supino reto com barra",
-    "Agachamento livre",
-    "Levantamento terra",
-    "Remada curvada",
-    "Desenvolvimento com halteres",
-    "Leg press 45°",
-  ],
-  calisthenics: [
-    "Flexão tradicional",
-    "Pike push-up",
-    "Barra fixa",
-    "Australian pull-up",
-    "Agachamento livre",
-    "Prancha isométrica",
-  ],
-};
 
 export const nutritionGoals: Record<
   NutritionGoalId,
@@ -2595,19 +2515,6 @@ export const initialPersistedState: PersistedState = {
   customQuotes: [],
   hiddenQuotes: [],
 };
-
-export function getRankFromPoints(points: number) {
-  if (points >= 100000) return { label: "Transcendente", tier: "III" };
-  if (points >= 60000) return { label: "Lenda", tier: "III" };
-  if (points >= 40000) return { label: "Grão-Mestre", tier: "II" };
-  if (points >= 25000) return { label: "Mestre", tier: "III" };
-  if (points >= 15000) return { label: "Elite", tier: "II" };
-  if (points >= 10000) return { label: "Veterano", tier: "II" };
-  if (points >= 6000) return { label: "Guerreiro", tier: "I" };
-  if (points >= 3000) return { label: "Dedicado", tier: "III" };
-  if (points >= 1000) return { label: "Aprendiz", tier: "II" };
-  return { label: "Iniciante", tier: "I" };
-}
 
 const maxUserLevel = 100;
 const baseXpPerLevel = 120;

@@ -1,4 +1,4 @@
-import type { WorkControlEntry, WorkControlStatus } from "@/lib/types";
+import type { WorkControlEntry } from "@/lib/types";
 
 const DAY_IN_MS = 1000 * 60 * 60 * 24;
 
@@ -19,28 +19,6 @@ export function getWorkControlRemainingDays(
     (startOfDay(deadline).getTime() - startOfDay(referenceDate).getTime()) /
       DAY_IN_MS,
   );
-}
-
-export function getWorkControlStatus(
-  entry: Pick<WorkControlEntry, "fatalDeadline">,
-  referenceDate: Date = new Date(),
-): WorkControlStatus {
-  const remainingDays = getWorkControlRemainingDays(
-    entry.fatalDeadline,
-    referenceDate,
-  );
-
-  if (remainingDays === null) return "Sem prazo";
-  if (remainingDays < 0) return "Vencido";
-  if (remainingDays === 0) return "Hoje";
-  if (remainingDays <= 3) return "Urgente";
-  if (remainingDays <= 5) return "Atenção";
-  return "Normal";
-}
-
-export function isWorkControlCompleted(progressLabel: string) {
-  const normalized = progressLabel.trim().toLowerCase();
-  return normalized === "concluido" || normalized === "concluído";
 }
 
 export function normalizeWorkControlEntry(

@@ -273,16 +273,6 @@ export interface Achievement {
   unlocked: boolean;
 }
 
-export interface RankingEntry {
-  id: string;
-  name: string;
-  username: string;
-  totalXp: number;
-  level: number;
-  rankTier: RankTier;
-  rankLabel: string;
-}
-
 export interface ArenaStats {
   victories: number;
   matches: number;
@@ -290,14 +280,6 @@ export interface ArenaStats {
   lastOpponent?: string;
   lastResult?: string;
   combatLog: string[];
-}
-
-export interface Friend {
-  id: string;
-  name: string;
-  username: string;
-  status: "online" | "offline" | "pending";
-  mutualFriends: number;
 }
 
 export interface AppSettings {
@@ -643,16 +625,6 @@ export interface FinanceBudgetLine {
   settledAmounts?: Partial<Record<FinanceMonthId, number>>;
 }
 
-export interface FinanceMonthSummary {
-  id: FinanceMonthId;
-  label: string;
-  income: number;
-  expenses: number;
-  balance: number;
-  cardExpenses: number;
-  cashExpenses: number;
-}
-
 export interface HouseholdSupplyItem {
   id: string;
   name: string;
@@ -663,13 +635,6 @@ export interface HouseholdSupplyItem {
   link?: string;
 }
 
-export type WorkControlStatus =
-  | "Vencido"
-  | "Hoje"
-  | "Urgente"
-  | "Atenção"
-  | "Normal"
-  | "Sem prazo";
 
 export interface WorkControlEntry {
   id: string;
@@ -694,14 +659,6 @@ export type ShoppingModulesState = Record<
   ShoppingModuleScope,
   ShoppingModuleStoredState
 >;
-
-export interface AppearanceRoutineCategory {
-  id: string;
-  name: string;
-  description: string;
-  routines: number;
-  points: string;
-}
 
 export interface AppearanceRoutineTemplate {
   id: string;
