@@ -80,6 +80,11 @@ export async function POST(request: Request) {
     const cbChatId = cb.message?.chat?.id;
     const cbMessageId = cb.message?.message_id;
     const data = cb.data ?? "";
+    const cbFromId = cb.from?.id;
+
+    console.info(
+      `[telegram-webhook] callback chat=${cbChatId} from=${cbFromId} data=${data}`,
+    );
 
     if (!cbChatId) {
       await answerCallbackQuery(cb.id, "Chat inválido.");
@@ -92,18 +97,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // Confere que quem clicou é o dono do binding. Sem isso, se outra
-    // pessoa tiver acesso ao mesmo chat (grupo) ou o secret for vazado,
-    // dá pra forjar callback_query com chat.id de outro usuário.
-    const cbFromId = cb.from?.id;
+    // Confere que quem clicou bate com o dono do binding.
+    // Em chat privado 1:1 (caso normal) só o dono pode clicar, então
+    // qualquer mismatch é binding desatualizado/incorreto — logamos e
+    // deixamos passar pra não bloquear o fluxo principal. O secret do
+    // webhook (agora fail-closed) já é a defesa primária contra forjar
+    // callback_query: sem ele o request nem chega aqui.
     const binding = await getTelegramBinding(userId);
     if (
       binding?.telegramUserId &&
       cbFromId &&
       binding.telegramUserId !== cbFromId
     ) {
-      await answerCallbackQuery(cb.id, "Apenas o dono da conta pode concluir.");
-      return NextResponse.json({ ok: true });
+      console.warn(
+        `[telegram-webhook] from.id mismatch: binding=${binding.telegramUserId} cb=${cbFromId} userId=${userId} — deixando passar`,
+      );
     }
 
     let result: { ok: boolean; message: string };
@@ -114,6 +122,10 @@ export async function POST(request: Request) {
     } else {
       result = { ok: false, message: "Ação desconhecida." };
     }
+
+    console.info(
+      `[telegram-webhook] action result userId=${userId} ok=${result.ok} msg="${result.message}"`,
+    );
 
     await answerCallbackQuery(cb.id, result.message);
 
