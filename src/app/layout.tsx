@@ -3,6 +3,7 @@ import { ptBR } from "@clerk/localizations";
 import { Instrument_Serif, Inter, Rajdhani, Space_Grotesk } from "next/font/google";
 import { AppStoreProvider } from "@/components/providers/app-store-provider";
 import { AuthClientProvider } from "@/components/providers/auth-client-provider";
+import { DeploymentSkewRecovery } from "@/components/providers/deployment-skew-recovery";
 import { NotificationsProvider } from "@/components/providers/notifications-provider";
 import { clerkAppearance } from "@/lib/clerk-ui";
 import "./globals.css";
@@ -74,6 +75,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${spaceGrotesk.variable} ${rajdhani.variable} ${instrumentSerif.variable} bg-[var(--background)] font-sans antialiased`}
       >
+        <DeploymentSkewRecovery />
         <AuthClientProvider
           clerkProps={{
             appearance: clerkAppearance,
