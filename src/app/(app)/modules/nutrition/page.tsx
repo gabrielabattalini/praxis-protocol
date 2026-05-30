@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
+import { HydrationControls } from "@/components/nutrition/hydration-controls";
 import { initialPersistedState, nutritionGoals } from "@/lib/mock-data";
 import type {
   BasalMetabolicRateSource,
@@ -2803,62 +2804,7 @@ export default function NutritionModulePage() {
           </div>
         </div>
 
-        {/* Hydration strip — user feedback: previous version had buttons
-            too thin to tap comfortably and the content drifted to the
-            right via ml-auto. Bumped: top label + count row centered;
-            quick-add buttons each ~84px tall-equivalent (py-3 px-5,
-            text-sm) and laid out in a centered 3-up grid that stacks on
-            very narrow phones. */}
-        <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-4 py-4">
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <span className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
-              Hidratação
-            </span>
-            <span className="text-base font-semibold text-white">
-              {formatPoints(Math.round(todayWaterConsumed))} /{" "}
-              {formatPoints(waterTarget)} ml
-            </span>
-            <span className="rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.08)] px-2 py-0.5 text-[11px] text-[var(--accent)]">
-              {Math.round(Math.min(waterProgress, 100))}%
-            </span>
-            <button
-              type="button"
-              aria-label="Editar consumo de água"
-              title="Editar consumo de água"
-              onClick={() => {
-                const raw = window.prompt(
-                  "Quanto de água você consumiu hoje? (em ml)",
-                  String(Math.round(todayWaterConsumed)),
-                );
-                if (raw === null) return;
-                const parsed = Number(raw.replace(",", ".").trim());
-                if (!Number.isFinite(parsed) || parsed < 0) {
-                  window.alert("Valor inválido. Use só números, ex.: 1500");
-                  return;
-                }
-                actions.setWaterConsumed({
-                  date: todayKey,
-                  consumedMl: Math.round(parsed),
-                });
-              }}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-zinc-700 text-zinc-400 transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-            >
-              <PencilLine className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            {waterQuickActions.map((amount) => (
-              <button
-                key={amount}
-                type="button"
-                onClick={() => addWater(amount)}
-                className="rounded-sm border border-zinc-800 bg-[rgba(18,18,20,0.96)] px-3 py-3 text-sm font-semibold text-zinc-200 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"
-              >
-                +{formatPoints(amount)} ml
-              </button>
-            ))}
-          </div>
-        </div>
+        <HydrationControls />
       </section>
 
       {/* "Faixas para montar a dieta" + "Progresso da meta" panels were
