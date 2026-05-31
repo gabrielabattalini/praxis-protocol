@@ -479,16 +479,23 @@ export default function SleepModulePage() {
   const targetLineOffset = Math.min(100, (recommendedHours / chartMaxHours) * 100);
 
   function updateDayPlan(day: Weekday, patch: Partial<SleepDayPlan>) {
-    setSleepPlan((current) => ({
-      ...current,
-      days: {
-        ...current.days,
-        [day]: {
-          ...current.days[day],
-          ...patch,
-        },
-      },
-    }));
+    setSleepPlan((current) => {
+      const currentDay = current.days[day];
+      const nextDay = { ...currentDay, ...patch };
+      // Ao HABILITAR um dia sem times preenchidos, copia um default
+      // razoável. Sem isso o TimePickerField mostrava "00:00" nos
+      // selects (fallback visual) mas o state mantinha bedtime="" /
+      // wakeTime="", aí a task era gerada sem scheduledTime e
+      // aparecia em "Sem horário" na agenda.
+      if (patch.enabled === true && !currentDay.enabled) {
+        if (!nextDay.bedtime) nextDay.bedtime = "23:00";
+        if (!nextDay.wakeTime) nextDay.wakeTime = "07:00";
+      }
+      return {
+        ...current,
+        days: { ...current.days, [day]: nextDay },
+      };
+    });
   }
 
   function saveSleepLog() {
@@ -557,6 +564,14 @@ export default function SleepModulePage() {
       const wakeDay = item.id;
 
       if (!dayPlan.enabled) {
+        return;
+      }
+      // Não gera task com horário vazio — ia parar em "Sem horário" e
+      // notificação nunca disparava. Bug residual do TimePickerField
+      // que mostrava "00:00" no select mesmo com bedtime="" no state.
+      const bedtimeTrim = dayPlan.bedtime?.trim() ?? "";
+      const wakeTimeTrim = dayPlan.wakeTime?.trim() ?? "";
+      if (!bedtimeTrim || !wakeTimeTrim) {
         return;
       }
 
