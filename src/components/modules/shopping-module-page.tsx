@@ -9,6 +9,7 @@ import {
   LoaderCircle,
   PencilLine,
   Plus,
+  RefreshCw,
   Search,
   ShoppingBasket,
   Trash2,
@@ -112,6 +113,19 @@ function safeHref(url: string | undefined | null): string | undefined {
     /* não é uma URL válida — descarta */
   }
   return undefined;
+}
+
+// Nome amigável da loja a partir do link (ex.: "mercadolivre.com.br").
+function storeNameFromUrl(url: string | undefined | null): string | undefined {
+  if (!url) return undefined;
+  try {
+    return new URL(url.trim()).hostname
+      .toLowerCase()
+      .replace(/^www\./, "")
+      .replace(/^lista\.|^produto\./, "");
+  } catch {
+    return undefined;
+  }
 }
 
 function makeId(prefix: string) {
@@ -295,7 +309,9 @@ function getPricingOption(
     const comparable = getComparablePriceFromQuantity(fallbackPrice, item.quantity);
     return {
       kind: "online",
-      sourceName: "Planilha base",
+      // Preço veio do link salvo (refresh por URL) → mostra a loja.
+      // Sem link, é o valor base da planilha/cadastro manual.
+      sourceName: storeNameFromUrl(item.referenceUrl) ?? "Planilha base",
       title: item.name,
       totalPrice: fallbackPrice,
       quantityLabel: item.quantity || undefined,
@@ -343,6 +359,13 @@ export function ShoppingModulePage({
   const [searchResultsExpanded, setSearchResultsExpanded] = useState(true);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [searchingItemId, setSearchingItemId] = useState<string | null>(null);
+  const [refreshingPriceItemId, setRefreshingPriceItemId] = useState<
+    string | null
+  >(null);
+  const [bulkPriceProgress, setBulkPriceProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
   const [feedback, setFeedback] = useState("");
   const [searchError, setSearchError] = useState("");
   const [tableSearch, setTableSearch] = useState("");
@@ -1357,6 +1380,109 @@ export function ShoppingModulePage({
     }
   }
 
+  async function fetchPriceForUrl(url: string): Promise<{
+    ok: boolean;
+    price?: number;
+    sourceName?: string;
+    error?: string;
+  }> {
+    try {
+      const response = await fetch(
+        `/api/shopping-price?url=${encodeURIComponent(url)}`,
+        { cache: "no-store" },
+      );
+      return (await response.json()) as {
+        ok: boolean;
+        price?: number;
+        sourceName?: string;
+        error?: string;
+      };
+    } catch {
+      return { ok: false, error: "Falha de rede ao ler o preço." };
+    }
+  }
+
+  function applyPriceToItem(itemId: string, price: number) {
+    updateModuleState((current) => ({
+      ...current,
+      items: current.items.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              manualUnitPrice: price,
+              updatedAt: new Date().toISOString(),
+            }
+          : item,
+      ),
+    }));
+  }
+
+  // Atualiza o preço de UM item lendo a página do link salvo.
+  async function runPriceRefresh(item: ShoppingTrackedItem) {
+    const url = item.referenceUrl?.trim();
+    if (!url) {
+      setSearchError("Esse item não tem link salvo pra ler o preço.");
+      return;
+    }
+    setRefreshingPriceItemId(item.id);
+    setSearchError("");
+    setFeedback("");
+    try {
+      const result = await fetchPriceForUrl(url);
+      if (!result.ok || !result.price) {
+        setSearchError(result.error || `Não consegui ler o preço de ${item.name}.`);
+        return;
+      }
+      applyPriceToItem(item.id, result.price);
+      setFeedback(
+        `Preço atualizado: ${formatCurrency(result.price)}${
+          result.sourceName ? ` (${result.sourceName})` : ""
+        } — ${item.name}.`,
+      );
+    } finally {
+      setRefreshingPriceItemId(null);
+    }
+  }
+
+  // Percorre todos os itens com link e atualiza o preço de cada um.
+  // Sequencial de propósito: o leitor pode subir um browser headless por
+  // página, então paralelizar derrubaria a memória do serverless.
+  async function runAllPriceRefresh() {
+    const targets = storedState.items.filter((item) =>
+      item.referenceUrl?.trim(),
+    );
+    if (targets.length === 0) {
+      setSearchError("Nenhum item tem link salvo pra atualizar.");
+      return;
+    }
+    setSearchError("");
+    setFeedback("");
+    setBulkPriceProgress({ done: 0, total: targets.length });
+    let updated = 0;
+    let failed = 0;
+    for (let index = 0; index < targets.length; index += 1) {
+      const item = targets[index];
+      try {
+        const result = await fetchPriceForUrl(item.referenceUrl!.trim());
+        if (result.ok && result.price) {
+          applyPriceToItem(item.id, result.price);
+          updated += 1;
+        } else {
+          failed += 1;
+        }
+      } catch {
+        failed += 1;
+      }
+      setBulkPriceProgress({ done: index + 1, total: targets.length });
+    }
+    setBulkPriceProgress(null);
+    setFeedback(
+      `Preços atualizados: ${updated} de ${targets.length}.${
+        failed ? ` ${failed} não deram (sem preço legível ou loja não suportada).` : ""
+      }`,
+    );
+  }
+
   function updateItemFinancePlan(
     itemId: string,
     patch: Partial<Pick<ShoppingTrackedItem, "dailyDose" | "monthlyUnits" | "includeInFinance" | "preferredResultId">>,
@@ -1722,6 +1848,25 @@ export function ShoppingModulePage({
                                   >
                                     {searchingItemId === item.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                                     Buscar
+                                  </button>
+                                ) : null}
+                                {safeHref(item.referenceUrl) ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => runPriceRefresh(item)}
+                                    disabled={
+                                      refreshingPriceItemId === item.id ||
+                                      bulkPriceProgress !== null
+                                    }
+                                    title="Ler o preço atual abrindo o link salvo"
+                                    className="praxis-button-ghost inline-flex items-center gap-2 px-3 py-2"
+                                  >
+                                    {refreshingPriceItemId === item.id ? (
+                                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <RefreshCw className="h-4 w-4" />
+                                    )}
+                                    Atualizar preço
                                   </button>
                                 ) : null}
                                 <button type="button" onClick={() => startEditing(item)} className="praxis-button-ghost inline-flex items-center gap-2 px-3 py-2">
