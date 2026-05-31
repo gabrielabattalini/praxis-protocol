@@ -39,7 +39,7 @@ export async function completeTaskForUser(
 
   if (task) {
     if (task.completed) {
-      return { ok: true, message: "Já estava concluída." };
+      return { ok: true, message: "✓ Essa tarefa já estava concluída no sistema." };
     }
     const todayKey = new Date().toISOString().slice(0, 10);
     const nextDates = Array.from(
@@ -86,7 +86,7 @@ export async function completeTaskForUser(
       targetItem.completedDates?.includes(todayKey) ||
       targetItem.completedAt?.slice(0, 10) === todayKey;
     if (alreadyDone) {
-      return { ok: true, message: "Já estava concluído." };
+      return { ok: true, message: "✓ Esse item já estava concluído no sistema." };
     }
     const nextDates = Array.from(
       new Set([...(targetItem.completedDates ?? []), todayKey]),
@@ -145,6 +145,24 @@ export async function completeMealBlockForUser(
   }
 
   const todayKey = new Date().toISOString().slice(0, 10);
+
+  // Já concluído no sistema? (todos os itens marcados pra hoje). Bloco
+  // sem itens cai aqui também — não há o que marcar, então tratamos como
+  // já-feito em vez de fingir uma conclusão.
+  const allDone =
+    block.items.length === 0 ||
+    block.items.every(
+      (it) =>
+        it.completedDates?.includes(todayKey) ||
+        it.completedAt?.slice(0, 10) === todayKey,
+    );
+  if (allDone) {
+    return {
+      ok: true,
+      message: "✓ Isso já estava concluído no sistema.",
+    };
+  }
+
   const now = new Date().toISOString();
   const nextMealPlan = mealPlan.map((b) =>
     b.id !== blockId
