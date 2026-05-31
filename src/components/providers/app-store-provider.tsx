@@ -1039,7 +1039,9 @@ function isMealItemCompletedForDate(
   item: PersistedState["mealPlan"][number]["items"][number],
   date: Date,
 ) {
-  const dateKey = date.toISOString().slice(0, 10);
+  // LOCAL date key — toISOString daria UTC e o leitor discordaria do
+  // escritor (que usa formatDateKey local) após 21h no Brasil.
+  const dateKey = formatDateKey(date);
   if (item.completedDates?.includes(dateKey)) return true;
   // Legacy fallback for items that never wrote into completedDates.
   return Boolean(item.completed && item.completedAt?.slice(0, 10) === dateKey);
@@ -1048,14 +1050,48 @@ function isMealItemCompletedForDate(
 // Migrate the singular legacy completedAt into the completedDates[] array
 // so future hydrations preserve the full history instead of throwing it
 // away. Idempotent: re-running on an already-migrated item is a no-op.
+//
+// Também limpa o "bug do UTC à noite": antes de 2026-05-31, os reducers
+// usavam toISOString().slice(0,10) pra gerar a chave de data, que dá
+// UTC. Cliques após 21h no Brasil (= 00h UTC) gravavam o DIA SEGUINTE
+// em completedDates. Isso deixava o item "feito no futuro" e não-feito
+// hoje. Aqui dropamos qualquer data > hoje (não tem como ser legítima)
+// e adicionamos hoje quando completedAt indica que era esse o intent.
 function migrateMealItemCompletionHistory(
   item: PersistedState["mealPlan"][number]["items"][number],
 ): PersistedState["mealPlan"][number]["items"][number] {
-  const legacyDate = item.completedAt?.slice(0, 10);
-  if (!legacyDate) return item;
-  const current = item.completedDates ?? [];
-  if (current.includes(legacyDate)) return item;
-  return { ...item, completedDates: [...current, legacyDate] };
+  const todayKey = formatDateKey(new Date());
+  const completedAtLocalKey = item.completedAt
+    ? formatDateKey(new Date(item.completedAt))
+    : undefined;
+
+  const rawDates = item.completedDates ?? [];
+  // Drop datas futuras (sempre bug) — mantém todas <= hoje.
+  let cleaned = rawDates.filter((d) => d <= todayKey);
+
+  // Se sobrou uma data futura igual ao completedAt LOCAL = hoje, isso é
+  // o bug clássico: o reducer gravou completedAt-UTC. Adiciona hoje.
+  if (
+    cleaned.length !== rawDates.length &&
+    completedAtLocalKey === todayKey &&
+    !cleaned.includes(todayKey)
+  ) {
+    cleaned = [...cleaned, todayKey].sort();
+  }
+
+  // Migração legacy: completedAt sem entrada correspondente.
+  if (completedAtLocalKey && !cleaned.includes(completedAtLocalKey)) {
+    cleaned = [...cleaned, completedAtLocalKey].sort();
+  }
+
+  // Mudou algo? Só retorna novo objeto se sim (idempotente).
+  if (
+    cleaned.length === rawDates.length &&
+    cleaned.every((d, i) => d === rawDates[i])
+  ) {
+    return item;
+  }
+  return { ...item, completedDates: cleaned };
 }
 
 function normalizeMealPlanCompletion(
@@ -2439,12 +2475,12 @@ function reducer(state: PersistedState, action: Action): PersistedState {
                         const referenceDate = action.payload.dateKey
                           ? new Date(`${action.payload.dateKey}T12:00:00`)
                           : new Date();
-                        const referenceKey = referenceDate
-                          .toISOString()
-                          .slice(0, 10);
-                        const todayKey = new Date()
-                          .toISOString()
-                          .slice(0, 10);
+                        // LOCAL time keys (formatDateKey) — toISOString
+                        // dava UTC e à noite no Brasil (após 21h) gravava
+                        // amanhã em completedDates, deixando a tarefa
+                        // como "feita no futuro" e não-feita hoje.
+                        const referenceKey = formatDateKey(referenceDate);
+                        const todayKey = formatDateKey(new Date());
                         const isReferenceToday = referenceKey === todayKey;
                         const migrated = migrateMealItemCompletionHistory(item);
                         const currentDates = migrated.completedDates ?? [];
