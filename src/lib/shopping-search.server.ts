@@ -1492,6 +1492,23 @@ export interface PriceFromUrlResult {
   sourceName?: string;
   finalUrl?: string;
   error?: string;
+  /** Caminho que carregou o HTML: axios (rápido) ou playwright (com JS). */
+  fetchMode?: "axios" | "playwright";
+  /** Estratégia do extrator que achou o preço. Útil pra diagnosticar. */
+  stage?:
+    | "json-ld"
+    | "meta-og"
+    | "meta-itemprop"
+    | "itemprop-element"
+    | "next-data"
+    | "data-attribute"
+    | "css-class"
+    | "regex-html"
+    | "none";
+  /** HTTP status do fetch axios, quando aplicável. */
+  httpStatus?: number;
+  /** Tamanho do HTML lido (caracteres). 0 = não conseguiu ler. */
+  htmlBytes?: number;
 }
 
 /**
@@ -1516,22 +1533,109 @@ function prettifyStoreHost(hostname: string): string {
   return hostname.replace(/^www\./, "").replace(/^lista\.|^produto\./, "");
 }
 
+type ExtractStage = NonNullable<PriceFromUrlResult["stage"]>;
+
+function deepFindPrice(
+  node: unknown,
+  depth = 0,
+): { price: number; currency?: string } | null {
+  // Procura recursiva em estruturas JSON arbitrárias (__NEXT_DATA__,
+  // window.__INITIAL_STATE__) por chaves de preço. Limitado em
+  // profundidade pra não explodir em estruturas circulares/grandes.
+  if (depth > 8 || !node || typeof node !== "object") return null;
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = deepFindPrice(child, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+  const record = node as Record<string, unknown>;
+  // Chaves comuns que carregam preço numérico nas SPAs brasileiras.
+  const priceKeys = [
+    "price",
+    "currentPrice",
+    "salePrice",
+    "sellingPrice",
+    "finalPrice",
+    "bestPrice",
+    "listPrice",
+    "preco",
+    "precoAtual",
+    "precoFinal",
+    "valor",
+  ];
+  for (const key of priceKeys) {
+    const candidate = record[key];
+    if (candidate != null) {
+      const parsed = parseMachineNumber(candidate);
+      if (parsed > 0) {
+        const currency =
+          typeof record.priceCurrency === "string"
+            ? record.priceCurrency
+            : typeof record.currency === "string"
+              ? record.currency
+              : undefined;
+        return { price: parsed, currency };
+      }
+    }
+  }
+  for (const value of Object.values(record)) {
+    const found = deepFindPrice(value, depth + 1);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * Regex de fallback final: procura "R$ 99,90" no HTML cru, próximo a
+ * marcadores que sugerem preço atual (não preço "de" / riscado / parcelado).
+ * Conservador — só usa se nenhuma estratégia estruturada achou.
+ */
+function extractByRegex(html: string): number {
+  // Normaliza espaços e remove tags pra ler texto bruto.
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ");
+  // R$ seguido de número em formato BR. Captura tanto "R$ 99,90" como "R$99,90".
+  const matches = Array.from(text.matchAll(/R\$\s*([\d.]+,\d{2})/gi));
+  if (matches.length === 0) return 0;
+  // Heurística: pega o MENOR preço (geralmente é o de venda, não o "de" riscado).
+  // Filtra valores absurdos (< 1 ou > 100k).
+  const prices = matches
+    .map((m) => parsePrice(`R$ ${m[1]}`))
+    .filter((p) => p >= 1 && p <= 100000);
+  if (prices.length === 0) return 0;
+  return Math.min(...prices);
+}
+
 function extractProductPriceFromHtml(html: string): {
   price: number;
   currency?: string;
   title?: string;
+  stage: ExtractStage;
 } {
   const $ = cheerio.load(html || "");
   let price = 0;
   let currency: string | undefined;
   let title: string | undefined;
+  let stage: ExtractStage = "none";
 
   // 1. JSON-LD (schema.org/Product / Offer) — caminho mais confiável.
   $("script[type='application/ld+json']").each((_, element) => {
     if (price > 0) return;
     let data: unknown;
     try {
-      data = JSON.parse($(element).text());
+      // Alguns sites incluem "//<![CDATA[ ... //]]>" ou comentários — limpa.
+      const raw = $(element)
+        .text()
+        .replace(/^\s*\/\/<!\[CDATA\[/, "")
+        .replace(/\/\/\]\]>\s*$/, "")
+        .trim();
+      if (!raw) return;
+      data = JSON.parse(raw);
     } catch {
       return;
     }
@@ -1579,16 +1683,17 @@ function extractProductPriceFromHtml(html: string): {
       }
     }
   });
+  if (price > 0) stage = "json-ld";
 
-  // 2. Meta tags (Open Graph / itemprop).
+  // 2. Meta tags Open Graph.
   if (price === 0) {
     const metaPrice =
       $("meta[property='product:price:amount']").attr("content") ||
-      $("meta[property='og:price:amount']").attr("content") ||
-      $("meta[itemprop='price']").attr("content");
+      $("meta[property='og:price:amount']").attr("content");
     const parsed = parseMachineNumber(metaPrice);
     if (parsed > 0) {
       price = parsed;
+      stage = "meta-og";
       currency =
         $("meta[property='product:price:currency']").attr("content") ||
         $("meta[property='og:price:currency']").attr("content") ||
@@ -1596,22 +1701,112 @@ function extractProductPriceFromHtml(html: string): {
     }
   }
 
-  // 3. itemprop="price" no corpo (content/value/texto).
+  // 3. Meta itemprop="price".
+  if (price === 0) {
+    const parsed = parseMachineNumber(
+      $("meta[itemprop='price']").attr("content"),
+    );
+    if (parsed > 0) {
+      price = parsed;
+      stage = "meta-itemprop";
+    }
+  }
+
+  // 4. itemprop="price" no corpo (content/value/texto).
   if (price === 0) {
     const element = $("[itemprop='price']").first();
     const parsed =
       parseMachineNumber(element.attr("content") || element.attr("value")) ||
       parsePrice(element.text());
-    if (parsed > 0) price = parsed;
+    if (parsed > 0) {
+      price = parsed;
+      stage = "itemprop-element";
+    }
   }
 
-  // 4. Classes comuns de preço (Amazon, genérico).
+  // 5. __NEXT_DATA__ / __INITIAL_STATE__ — SPAs Next.js / SSR (Magalu novo,
+  //    gsuplementos, integralmedica). O JSON serializado tem o preço no
+  //    pageProps em algum nível.
   if (price === 0) {
-    const text =
-      $(".a-price .a-offscreen").first().text() ||
-      $(".price, .preco, .sales-price, [class*='price']").first().text();
-    const parsed = parsePrice(text);
-    if (parsed > 0) price = parsed;
+    const nextDataRaw =
+      $("script#__NEXT_DATA__").first().text() ||
+      $("script#__NUXT_DATA__").first().text();
+    if (nextDataRaw) {
+      try {
+        const found = deepFindPrice(JSON.parse(nextDataRaw));
+        if (found) {
+          price = found.price;
+          currency = currency ?? found.currency;
+          stage = "next-data";
+        }
+      } catch {
+        /* json inválido — ignora */
+      }
+    }
+  }
+
+  // 6. data-attributes comuns em e-commerces (Magalu antigo, VTEX, etc.).
+  if (price === 0) {
+    const selectors = [
+      "[data-price]",
+      "[data-product-price]",
+      "[data-testid*='price' i]",
+      "[data-cy*='price' i]",
+      "[data-qa*='price' i]",
+    ];
+    for (const sel of selectors) {
+      const el = $(sel).first();
+      if (el.length === 0) continue;
+      const attrVal =
+        el.attr("data-price") ||
+        el.attr("data-product-price") ||
+        el.attr("content");
+      const parsed = parseMachineNumber(attrVal) || parsePrice(el.text());
+      if (parsed > 0) {
+        price = parsed;
+        stage = "data-attribute";
+        break;
+      }
+    }
+  }
+
+  // 7. Classes comuns de preço (Amazon BR, VTEX, lojas genéricas).
+  if (price === 0) {
+    const selectors = [
+      ".a-price .a-offscreen", // Amazon
+      ".andes-money-amount__fraction", // Mercado Livre
+      ".price-tag-fraction", // Mercado Livre antigo
+      ".product-price", // genérico
+      ".sales-price",
+      ".current-price",
+      ".price-value",
+      ".preco-de-por .preco",
+      ".price__sales-value",
+      ".vtex-product-price-1-x-sellingPriceValue",
+      ".price",
+      ".preco",
+      "[class*='price' i]",
+      "[class*='preco' i]",
+    ];
+    for (const sel of selectors) {
+      const el = $(sel).first();
+      if (el.length === 0) continue;
+      const parsed = parsePrice(el.text());
+      if (parsed > 0) {
+        price = parsed;
+        stage = "css-class";
+        break;
+      }
+    }
+  }
+
+  // 8. Fallback final: regex de R$ no HTML cru.
+  if (price === 0) {
+    const parsed = extractByRegex(html);
+    if (parsed > 0) {
+      price = parsed;
+      stage = "regex-html";
+    }
   }
 
   if (!title) {
@@ -1621,7 +1816,7 @@ function extractProductPriceFromHtml(html: string): {
       undefined;
   }
 
-  return { price, currency, title };
+  return { price, currency, title, stage };
 }
 
 /**
@@ -1650,6 +1845,8 @@ export async function fetchCurrentPriceFromUrl(
   }
 
   const sourceName = prettifyStoreHost(parsed.hostname.toLowerCase());
+  let lastHttpStatus: number | undefined;
+  let lastHtmlBytes = 0;
 
   // 1. Fetch simples (rápido).
   try {
@@ -1665,40 +1862,82 @@ export async function fetchCurrentPriceFromUrl(
       },
       validateStatus: (status) => status >= 200 && status < 400,
     });
+    lastHttpStatus = response.status;
+    const html =
+      typeof response.data === "string" ? response.data : "";
+    lastHtmlBytes = html.length;
     // Revalida o host final (defesa contra open-redirect cross-domain).
     const finalUrl = (response.request?.res?.responseUrl as string) || rawUrl;
     if (isShoppingHostAllowed(finalUrl)) {
-      const { price, currency, title } = extractProductPriceFromHtml(
-        typeof response.data === "string" ? response.data : "",
-      );
+      const { price, currency, title, stage } =
+        extractProductPriceFromHtml(html);
       if (price > 0) {
-        return { ok: true, price, currency, title, sourceName, finalUrl };
+        return {
+          ok: true,
+          price,
+          currency,
+          title,
+          sourceName,
+          finalUrl,
+          fetchMode: "axios",
+          stage,
+          httpStatus: lastHttpStatus,
+          htmlBytes: lastHtmlBytes,
+        };
       }
     }
-  } catch {
-    /* segue pro browser */
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "response" in error &&
+      error.response &&
+      typeof error.response === "object" &&
+      "status" in error.response
+    ) {
+      lastHttpStatus = Number(
+        (error.response as { status: unknown }).status,
+      );
+    }
   }
 
   // 2. Browser headless (JS-pesado / anti-bot). fetchRenderedHtml já
   //    reforça a allowlist e bloqueia redirect de navegação pra fora.
   try {
     const { html, finalUrl } = await fetchRenderedHtml(rawUrl, {
-      timeoutMs: 20000,
-      waitAfterLoadMs: 1500,
+      timeoutMs: 25000,
+      waitAfterLoadMs: 2000,
     });
-    const { price, currency, title } = extractProductPriceFromHtml(html);
+    lastHtmlBytes = html.length;
+    const { price, currency, title, stage } = extractProductPriceFromHtml(html);
     if (price > 0) {
-      return { ok: true, price, currency, title, sourceName, finalUrl };
+      return {
+        ok: true,
+        price,
+        currency,
+        title,
+        sourceName,
+        finalUrl,
+        fetchMode: "playwright",
+        stage,
+        htmlBytes: lastHtmlBytes,
+      };
     }
     return {
       ok: false,
       sourceName,
-      error: "Não encontrei o preço nessa página.",
+      fetchMode: "playwright",
+      stage: "none",
+      htmlBytes: lastHtmlBytes,
+      error: "Não encontrei o preço nessa página (HTML carregou).",
     };
   } catch (error) {
     return {
       ok: false,
       sourceName,
+      fetchMode: "playwright",
+      httpStatus: lastHttpStatus,
+      htmlBytes: lastHtmlBytes,
       error:
         error instanceof Error
           ? error.message
