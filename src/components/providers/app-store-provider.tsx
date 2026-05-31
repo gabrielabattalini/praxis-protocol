@@ -1047,6 +1047,49 @@ function isMealItemCompletedForDate(
   return Boolean(item.completed && item.completedAt?.slice(0, 10) === dateKey);
 }
 
+// Limpa reminders duplicados (mesmo tipo, título, horário, dias) que
+// se acumulam quando o usuário recria rotinas — o reminder antigo fica
+// apontando pra task que sumiu. Mantém UM por (entityType, title,
+// time, weekdays-sorted), preferindo o que ainda tem entityId vivo.
+// Sem isso, o usuário vê N notificações idênticas no Telegram pra
+// "Acordar", "Dormir" etc.
+function dedupeRedundantReminders(
+  reminders: PersistedState["reminders"],
+  tasks: PersistedState["tasks"],
+): PersistedState["reminders"] {
+  if (!Array.isArray(reminders) || reminders.length === 0) return reminders;
+  const liveIds = new Set(tasks.map((t) => t.id));
+  const liveSourceKeys = new Set(
+    tasks.map((t) => t.sourceKey).filter((k): k is string => Boolean(k)),
+  );
+  const isLive = (r: PersistedState["reminders"][number]) =>
+    r.entityType !== "task" ||
+    liveIds.has(r.entityId) ||
+    liveSourceKeys.has(r.entityId);
+
+  const groups = new Map<string, PersistedState["reminders"]>();
+  for (const reminder of reminders) {
+    const weekdaysKey = (reminder.weekdays ?? []).slice().sort().join(",");
+    const key = `${reminder.entityType}|${reminder.title.trim().toLowerCase()}|${reminder.time}|${weekdaysKey}`;
+    const group = groups.get(key) ?? [];
+    group.push(reminder);
+    groups.set(key, group);
+  }
+
+  const next: PersistedState["reminders"] = [];
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      next.push(group[0]);
+      continue;
+    }
+    // Prefere reminders cujo entityId ainda existe. Se todos órfãos,
+    // mantém o primeiro pra preservar a intenção do usuário.
+    const winner = group.find(isLive) ?? group[0];
+    next.push(winner);
+  }
+  return next;
+}
+
 // Migrate the singular legacy completedAt into the completedDates[] array
 // so future hydrations preserve the full history instead of throwing it
 // away. Idempotent: re-running on an already-migrated item is a no-op.
@@ -1164,10 +1207,14 @@ function reducer(state: PersistedState, action: Action): PersistedState {
     case "hydrate": {
       const allowSeed = action.allowSeed ?? true;
       const hydratedState = parseStateValue(action.payload, allowSeed);
-      return syncShoppingFinanceState(
-        hydratedState ?? emptyPersistedState,
-        allowSeed,
-      );
+      const base = hydratedState ?? emptyPersistedState;
+      // Dedup reminders na hidratação — remove duplicatas acumuladas
+      // por rotinas recriadas (mesmo título+horário+dias, ids diferentes).
+      const deduped: PersistedState = {
+        ...base,
+        reminders: dedupeRedundantReminders(base.reminders, base.tasks),
+      };
+      return syncShoppingFinanceState(deduped, allowSeed);
     }
     case "sync-session":
       return {
