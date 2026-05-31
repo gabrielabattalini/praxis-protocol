@@ -238,42 +238,44 @@ function pickBySeed<T>(items: readonly T[], seed: string): T {
  * 64 bytes total — id de meal block + item pode estourar. Retorna null
  * quando não conseguimos codificar (caller esconde o botão).
  *
- * Schedule item ids (de notification-schedule.ts):
- *  - "task:<sourceKey-or-id>"            → callback "t:<id>"
- *  - "meal:<blockId>"                    → callback "mb:<blockId>"
- *  - "reminder:task:<entityId>:<time>"   → callback "t:<entityId>"
- *  - "reminder:meal:<entityId>:<time>"   → callback "mb:<entityId>"
- *  - "reminder:supplement:<id>:<time>"   → callback "mb:<entityId>"
- *  - reminders de workout/cardio         → sem botão (sem action mapeada)
+ * Usa os campos entityType/entityId do schedule item (não parseia a
+ * string do id). O id de reminder é "reminder:<type>:<entityId>:<HH>:<MM>"
+ * — o time tem ":" no meio, então parsear a string deixava o "HH" grudado
+ * no entityId e o callback vinha errado (ex.: "t:meal-intra:21").
+ *
+ *  - task                → callback "t:<entityId>"
+ *  - meal / supplement   → callback "mb:<entityId>"
+ *  - workout / cardio    → sem botão (sem action mapeada)
  */
 function buildCompleteCallbackData(
   item: NotificationScheduleItem,
 ): string | null {
-  if (item.id.startsWith("task:")) {
-    const cb = `t:${item.id.slice("task:".length)}`;
+  // Fallback pros ids de task/meal "puros" (sem campos entityType/Id),
+  // caso algum schedule item antigo não os traga.
+  const entityType =
+    item.entityType ??
+    (item.id.startsWith("task:")
+      ? "task"
+      : item.id.startsWith("meal:")
+        ? "meal"
+        : undefined);
+  const entityId =
+    item.entityId ??
+    (item.id.startsWith("task:")
+      ? item.id.slice("task:".length)
+      : item.id.startsWith("meal:")
+        ? item.id.slice("meal:".length)
+        : undefined);
+
+  if (!entityType || !entityId) return null;
+
+  if (entityType === "task") {
+    const cb = `t:${entityId}`;
     return cb.length <= 64 ? cb : null;
   }
-  if (item.id.startsWith("meal:")) {
-    const cb = `mb:${item.id.slice("meal:".length)}`;
+  if (entityType === "meal" || entityType === "supplement") {
+    const cb = `mb:${entityId}`;
     return cb.length <= 64 ? cb : null;
-  }
-  if (item.id.startsWith("reminder:")) {
-    // "reminder:<entityType>:<entityId>:<time>". Como entityId pode conter
-    // ":", reconstruo do meio (descarta apenas a última parte = time).
-    const parts = item.id.split(":");
-    if (parts.length < 4) return null;
-    const entityType = parts[1];
-    const entityId = parts.slice(2, -1).join(":");
-    if (!entityId) return null;
-    if (entityType === "task") {
-      const cb = `t:${entityId}`;
-      return cb.length <= 64 ? cb : null;
-    }
-    if (entityType === "meal" || entityType === "supplement") {
-      const cb = `mb:${entityId}`;
-      return cb.length <= 64 ? cb : null;
-    }
-    return null;
   }
   return null;
 }
