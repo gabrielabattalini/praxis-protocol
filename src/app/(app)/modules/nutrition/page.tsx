@@ -4547,7 +4547,10 @@ export default function NutritionModulePage() {
                   const cutoff = new Date();
                   cutoff.setHours(0, 0, 0, 0);
                   cutoff.setDate(cutoff.getDate() - (historyRangeDays - 1));
-                  return cutoff.toISOString().slice(0, 10);
+                  // formatDateKey usa horário LOCAL — antes era toISOString
+                  // (UTC) e o histórico podia perder um dia ou puxar um
+                  // a mais perto da meia-noite.
+                  return formatDateKey(cutoff);
                 })()
               : null;
             const filteredHistory = cutoffKey
