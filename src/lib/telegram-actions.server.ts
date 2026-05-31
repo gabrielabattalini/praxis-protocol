@@ -6,13 +6,19 @@ function readState(envelope: { state: unknown }): PersistedState {
 }
 
 /**
- * Aplica a conclusão (toggle ON) de uma tarefa manual no account-state
- * do usuário. Retorna `{ ok, message }` pra ser ecoado no toast do
- * callback_query do Telegram.
+ * Aplica a conclusão (toggle ON) de uma tarefa a partir do callback do
+ * Telegram. Retorna `{ ok, message }` pra ser ecoado no toast.
  *
- * Identificação:
- *   sourceKey === id  → mais comum quando o item veio do scheduleItem
- *                       (cuja id é "task:<sourceKey-or-id>")
+ * O `target` que chega no callback `t:<id>` pode ser:
+ *   1. ID/sourceKey de uma Task em state.tasks (caso primário)
+ *   2. ID de um meal block (rotina renderizada como "task" na agenda —
+ *      o caso "Banho/hidratação", "Intra treino" etc.)
+ *   3. ID de um item dentro de um meal block (suplemento, refeição
+ *      individual marcada via lembrete)
+ *
+ * Antes só cobríamos (1) e qualquer reminder pra rotinas/refeições
+ * caía em "Tarefa não encontrada" — agora a gente tenta (2)/(3) antes
+ * de desistir.
  */
 export async function completeTaskForUser(
   userId: string,
@@ -24,40 +30,100 @@ export async function completeTaskForUser(
   }
   const state = readState(envelope);
   const tasks = state.tasks ?? [];
+  const mealPlan = state.mealPlan ?? [];
+
+  // 1) Task manual em state.tasks
   const task =
-    tasks.find((t) => t.sourceKey === target) ||
-    tasks.find((t) => t.id === target);
+    tasks.find((t) => t.id === target) ||
+    tasks.find((t) => t.sourceKey === target);
 
-  if (!task) {
-    return { ok: false, message: "Tarefa não encontrada." };
+  if (task) {
+    if (task.completed) {
+      return { ok: true, message: "Já estava concluída." };
+    }
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const nextDates = Array.from(
+      new Set([...(task.completedDates ?? []), todayKey]),
+    ).sort();
+    const nextTasks = tasks.map((t) =>
+      t.id === task.id
+        ? {
+            ...t,
+            completed: true,
+            completedAt: new Date().toISOString(),
+            completedDates: nextDates,
+          }
+        : t,
+    );
+    await saveAccountState(userId, {
+      ...envelope,
+      state: { ...state, tasks: nextTasks } as PersistedState,
+      updatedAt: new Date().toISOString(),
+    });
+    return { ok: true, message: `Concluída: ${task.title}` };
   }
-  if (task.completed) {
-    return { ok: true, message: "Já estava concluída." };
+
+  // 2) Meal block inteiro (rotinas que aparecem na agenda como "task")
+  const block = mealPlan.find((b) => b.id === target);
+  if (block) {
+    return completeMealBlockForUser(userId, target);
   }
 
-  const todayKey = new Date().toISOString().slice(0, 10);
-  const nextDates = Array.from(
-    new Set([...(task.completedDates ?? []), todayKey]),
-  ).sort();
+  // 3) Item específico dentro de algum meal block
+  let parentBlock: (typeof mealPlan)[number] | undefined;
+  let targetItem: (typeof mealPlan)[number]["items"][number] | undefined;
+  for (const b of mealPlan) {
+    const found = b.items.find((it) => it.id === target);
+    if (found) {
+      parentBlock = b;
+      targetItem = found;
+      break;
+    }
+  }
+  if (parentBlock && targetItem) {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const alreadyDone =
+      targetItem.completedDates?.includes(todayKey) ||
+      targetItem.completedAt?.slice(0, 10) === todayKey;
+    if (alreadyDone) {
+      return { ok: true, message: "Já estava concluído." };
+    }
+    const nextDates = Array.from(
+      new Set([...(targetItem.completedDates ?? []), todayKey]),
+    ).sort();
+    const nextMealPlan = mealPlan.map((b) =>
+      b.id !== parentBlock!.id
+        ? b
+        : {
+            ...b,
+            items: b.items.map((it) =>
+              it.id !== targetItem!.id
+                ? it
+                : {
+                    ...it,
+                    completed: true,
+                    completedAt: new Date().toISOString(),
+                    completedDates: nextDates,
+                  },
+            ),
+          },
+    );
+    await saveAccountState(userId, {
+      ...envelope,
+      state: { ...state, mealPlan: nextMealPlan } as PersistedState,
+      updatedAt: new Date().toISOString(),
+    });
+    return { ok: true, message: `Concluído: ${targetItem.label}` };
+  }
 
-  const nextTasks = tasks.map((t) =>
-    t.id === task.id
-      ? {
-          ...t,
-          completed: true,
-          completedAt: new Date().toISOString(),
-          completedDates: nextDates,
-        }
-      : t,
+  // Não bateu em nada. Log pra debug nos próximos cliques.
+  console.warn(
+    `[telegram-actions] task-not-found userId=${userId} target=${target} tasksCount=${tasks.length} blocksCount=${mealPlan.length}`,
   );
-
-  await saveAccountState(userId, {
-    ...envelope,
-    state: { ...state, tasks: nextTasks } as PersistedState,
-    updatedAt: new Date().toISOString(),
-  });
-
-  return { ok: true, message: `Concluída: ${task.title}` };
+  return {
+    ok: false,
+    message: "Não encontrei essa tarefa — abra o app e marque por lá.",
+  };
 }
 
 /**
