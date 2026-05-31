@@ -2,7 +2,10 @@ import "server-only";
 
 import axios from "axios";
 import * as cheerio from "cheerio";
-import { fetchRenderedHtml } from "@/lib/shopping-browser-fetch.server";
+import {
+  fetchRenderedHtml,
+  isShoppingHostAllowed,
+} from "@/lib/shopping-browser-fetch.server";
 import { shouldUseBrowserFallback } from "@/lib/shopping-browser-fallback";
 import {
   buildShoppingQueryLabel,
@@ -1468,4 +1471,238 @@ export async function searchShoppingOffers(
     results: scored,
     sources: sourceStates,
   };
+}
+
+/* ───────────────────────────────────────────────────────────────
+   Refresh de preço a partir do LINK do produto.
+
+   Diferente da busca (que varre listagens de várias lojas), aqui a
+   gente já tem a URL exata de UM produto e só quer o preço atual.
+   A maioria das lojas (Mercado Livre, Amazon, Magalu, Drogasil…)
+   expõe o preço de forma padronizada via JSON-LD (schema.org/Product),
+   Open Graph (product:price:amount) ou itemprop="price" — então um
+   extrator genérico cobre quase todas sem código por loja.
+   ─────────────────────────────────────────────────────────────── */
+
+export interface PriceFromUrlResult {
+  ok: boolean;
+  price?: number;
+  currency?: string;
+  title?: string;
+  sourceName?: string;
+  finalUrl?: string;
+  error?: string;
+}
+
+/**
+ * Parser pra valores em formato "máquina" (JSON-LD / meta), onde o ponto
+ * é separador decimal: "129.90" → 129.9, "1299" → 1299. Se vier em
+ * formato BR de exibição ("1.234,56" / "R$ 99,90"), cai no parsePrice.
+ */
+function parseMachineNumber(raw: unknown): number {
+  if (raw == null) return 0;
+  if (typeof raw === "number") return Number.isFinite(raw) && raw > 0 ? raw : 0;
+  const value = String(raw).trim();
+  if (!value) return 0;
+  // Formato máquina: dígitos com no máximo um ponto decimal, sem vírgula.
+  if (/^\d+(\.\d{1,2})?$/.test(value)) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  }
+  return parsePrice(value);
+}
+
+function prettifyStoreHost(hostname: string): string {
+  return hostname.replace(/^www\./, "").replace(/^lista\.|^produto\./, "");
+}
+
+function extractProductPriceFromHtml(html: string): {
+  price: number;
+  currency?: string;
+  title?: string;
+} {
+  const $ = cheerio.load(html || "");
+  let price = 0;
+  let currency: string | undefined;
+  let title: string | undefined;
+
+  // 1. JSON-LD (schema.org/Product / Offer) — caminho mais confiável.
+  $("script[type='application/ld+json']").each((_, element) => {
+    if (price > 0) return;
+    let data: unknown;
+    try {
+      data = JSON.parse($(element).text());
+    } catch {
+      return;
+    }
+    const queue: unknown[] = Array.isArray(data) ? [...data] : [data];
+    let guard = 0;
+    while (queue.length && guard < 200) {
+      guard += 1;
+      const node = queue.shift();
+      if (!node || typeof node !== "object") continue;
+      const record = node as Record<string, unknown>;
+      if (Array.isArray(record["@graph"])) queue.push(...record["@graph"]);
+      const types = ([] as unknown[]).concat(record["@type"] ?? []);
+      const isProduct = types.includes("Product");
+      if (isProduct && !title && typeof record.name === "string") {
+        title = record.name;
+      }
+      const offers = record.offers;
+      const offerList = Array.isArray(offers)
+        ? offers
+        : offers
+          ? [offers]
+          : [];
+      for (const offer of offerList) {
+        if (!offer || typeof offer !== "object") continue;
+        const offerRecord = offer as Record<string, unknown>;
+        const parsed = parseMachineNumber(
+          offerRecord.price ?? offerRecord.lowPrice ?? offerRecord.highPrice,
+        );
+        if (parsed > 0) {
+          price = parsed;
+          if (typeof offerRecord.priceCurrency === "string") {
+            currency = offerRecord.priceCurrency;
+          }
+          break;
+        }
+      }
+      if (price === 0 && record.price != null) {
+        const parsed = parseMachineNumber(record.price);
+        if (parsed > 0) {
+          price = parsed;
+          if (typeof record.priceCurrency === "string") {
+            currency = record.priceCurrency;
+          }
+        }
+      }
+    }
+  });
+
+  // 2. Meta tags (Open Graph / itemprop).
+  if (price === 0) {
+    const metaPrice =
+      $("meta[property='product:price:amount']").attr("content") ||
+      $("meta[property='og:price:amount']").attr("content") ||
+      $("meta[itemprop='price']").attr("content");
+    const parsed = parseMachineNumber(metaPrice);
+    if (parsed > 0) {
+      price = parsed;
+      currency =
+        $("meta[property='product:price:currency']").attr("content") ||
+        $("meta[property='og:price:currency']").attr("content") ||
+        currency;
+    }
+  }
+
+  // 3. itemprop="price" no corpo (content/value/texto).
+  if (price === 0) {
+    const element = $("[itemprop='price']").first();
+    const parsed =
+      parseMachineNumber(element.attr("content") || element.attr("value")) ||
+      parsePrice(element.text());
+    if (parsed > 0) price = parsed;
+  }
+
+  // 4. Classes comuns de preço (Amazon, genérico).
+  if (price === 0) {
+    const text =
+      $(".a-price .a-offscreen").first().text() ||
+      $(".price, .preco, .sales-price, [class*='price']").first().text();
+    const parsed = parsePrice(text);
+    if (parsed > 0) price = parsed;
+  }
+
+  if (!title) {
+    title =
+      $("meta[property='og:title']").attr("content") ||
+      $("title").first().text().trim() ||
+      undefined;
+  }
+
+  return { price, currency, title };
+}
+
+/**
+ * Abre o link de um produto e tenta ler o preço atual. Tenta primeiro um
+ * fetch simples (rápido); se não achar preço, cai pro browser headless
+ * (lojas com muito JS / anti-bot). A allowlist de hosts é a mesma da
+ * busca — host fora dela retorna ok:false com mensagem amigável.
+ */
+export async function fetchCurrentPriceFromUrl(
+  rawUrl: string,
+): Promise<PriceFromUrlResult> {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return { ok: false, error: "Link inválido." };
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return { ok: false, error: "Link inválido." };
+  }
+  if (!isShoppingHostAllowed(rawUrl)) {
+    return {
+      ok: false,
+      error: `Leitura automática ainda não é suportada para ${parsed.hostname}.`,
+    };
+  }
+
+  const sourceName = prettifyStoreHost(parsed.hostname.toLowerCase());
+
+  // 1. Fetch simples (rápido).
+  try {
+    const response = await axios.get<string>(rawUrl, {
+      timeout: 12000,
+      maxRedirects: 5,
+      responseType: "text",
+      headers: {
+        "User-Agent": shuffledUserAgents()[0],
+        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      },
+      validateStatus: (status) => status >= 200 && status < 400,
+    });
+    // Revalida o host final (defesa contra open-redirect cross-domain).
+    const finalUrl = (response.request?.res?.responseUrl as string) || rawUrl;
+    if (isShoppingHostAllowed(finalUrl)) {
+      const { price, currency, title } = extractProductPriceFromHtml(
+        typeof response.data === "string" ? response.data : "",
+      );
+      if (price > 0) {
+        return { ok: true, price, currency, title, sourceName, finalUrl };
+      }
+    }
+  } catch {
+    /* segue pro browser */
+  }
+
+  // 2. Browser headless (JS-pesado / anti-bot). fetchRenderedHtml já
+  //    reforça a allowlist e bloqueia redirect de navegação pra fora.
+  try {
+    const { html, finalUrl } = await fetchRenderedHtml(rawUrl, {
+      timeoutMs: 20000,
+      waitAfterLoadMs: 1500,
+    });
+    const { price, currency, title } = extractProductPriceFromHtml(html);
+    if (price > 0) {
+      return { ok: true, price, currency, title, sourceName, finalUrl };
+    }
+    return {
+      ok: false,
+      sourceName,
+      error: "Não encontrei o preço nessa página.",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      sourceName,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Não foi possível ler a página agora.",
+    };
+  }
 }

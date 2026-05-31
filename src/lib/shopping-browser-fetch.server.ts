@@ -88,6 +88,27 @@ function assertAllowedUrl(rawUrl: string) {
   }
 }
 
+/**
+ * Versão não-lançante da allowlist, pra callers que querem decidir o que
+ * fazer (ex.: refresh de preço por link, que mostra um erro amigável em
+ * vez de quebrar). Mesma regra de sufixo de domínio.
+ */
+export function isShoppingHostAllowed(rawUrl: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return false;
+  }
+  const host = parsed.hostname.toLowerCase();
+  return Array.from(ALLOWED_HOSTS).some(
+    (allowed) => host === allowed || host.endsWith(`.${allowed}`),
+  );
+}
+
 export async function fetchRenderedHtml(
   url: string,
   options: BrowserFetchOptions = {},
