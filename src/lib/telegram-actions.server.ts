@@ -1,8 +1,61 @@
 import { getAccountState, saveAccountState } from "@/lib/account-state.server";
-import type { PersistedState } from "@/lib/types";
+import { getUserTimezone } from "@/lib/notification-center.server";
+import { isTaskCompletedForDate } from "@/lib/utils";
+import type { PersistedState, Task } from "@/lib/types";
 
 function readState(envelope: { state: unknown }): PersistedState {
   return envelope.state as PersistedState;
+}
+
+type MealBlock = NonNullable<PersistedState["mealPlan"]>[number];
+type MealItem = MealBlock["items"][number];
+
+/**
+ * "Hoje" no fuso do usuário (YYYY-MM-DD). O webhook do Telegram roda em
+ * UTC: à noite no Brasil (UTC-3) o `toISOString().slice(0,10)` já estaria
+ * no dia seguinte, gravando a conclusão na data errada e fazendo o app
+ * (que usa data LOCAL) discordar do bot.
+ */
+function todayKeyInTimezone(timezone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+function isMealItemDoneOn(item: MealItem, todayKey: string): boolean {
+  return Boolean(
+    item.completedDates?.includes(todayKey) ||
+      item.completedAt?.slice(0, 10) === todayKey,
+  );
+}
+
+function markTaskDone(task: Task, todayKey: string): Task {
+  const nextDates = Array.from(
+    new Set([...(task.completedDates ?? []), todayKey]),
+  ).sort();
+  return {
+    ...task,
+    completed: true,
+    completedAt: new Date().toISOString(),
+    completedDates: nextDates,
+  };
+}
+
+function markItemDone(item: MealItem, todayKey: string): MealItem {
+  const nextDates = Array.from(
+    new Set([...(item.completedDates ?? []), todayKey]),
+  ).sort();
+  return {
+    ...item,
+    completed: true,
+    completedAt: new Date().toISOString(),
+    completedDates: nextDates,
+  };
 }
 
 /**
@@ -10,15 +63,15 @@ function readState(envelope: { state: unknown }): PersistedState {
  * Telegram. Retorna `{ ok, message }` pra ser ecoado no toast.
  *
  * O `target` que chega no callback `t:<id>` pode ser:
- *   1. ID/sourceKey de uma Task em state.tasks (caso primário)
- *   2. ID de um meal block (rotina renderizada como "task" na agenda —
- *      o caso "Banho/hidratação", "Intra treino" etc.)
- *   3. ID de um item dentro de um meal block (suplemento, refeição
- *      individual marcada via lembrete)
+ *   1. ID/sourceKey de uma Task em state.tasks (tasks manuais, rotinas
+ *      de aparência, treino — tudo que vira Task)
+ *   2. ID de um meal block (rotina/refeição renderizada na agenda)
+ *   3. ID de um item dentro de um meal block
  *
- * Antes só cobríamos (1) e qualquer reminder pra rotinas/refeições
- * caía em "Tarefa não encontrada" — agora a gente tenta (2)/(3) antes
- * de desistir.
+ * A conclusão é DATE-AWARE no fuso do usuário: tarefas recorrentes
+ * carregam `completed: true` de dias anteriores, então checar só esse
+ * booleano dava falso "já concluída". Usamos isTaskCompletedForDate /
+ * completedDates[hoje] como o app faz.
  */
 export async function completeTaskForUser(
   userId: string,
@@ -28,32 +81,29 @@ export async function completeTaskForUser(
   if (!envelope) {
     return { ok: false, message: "Conta não encontrada." };
   }
+  const timezone = await getUserTimezone(userId);
+  const todayKey = todayKeyInTimezone(timezone);
+  const today = new Date(`${todayKey}T12:00:00`);
+
   const state = readState(envelope);
   const tasks = state.tasks ?? [];
   const mealPlan = state.mealPlan ?? [];
 
-  // 1) Task manual em state.tasks
+  // 1) Task em state.tasks (id ou sourceKey)
   const task =
     tasks.find((t) => t.id === target) ||
     tasks.find((t) => t.sourceKey === target);
 
   if (task) {
-    if (task.completed) {
-      return { ok: true, message: "✓ Essa tarefa já estava concluída no sistema." };
+    // Date-aware: recorrentes guardam completed=true de outros dias.
+    if (isTaskCompletedForDate(task, today)) {
+      return {
+        ok: true,
+        message: "✓ Essa tarefa já estava concluída hoje no sistema.",
+      };
     }
-    const todayKey = new Date().toISOString().slice(0, 10);
-    const nextDates = Array.from(
-      new Set([...(task.completedDates ?? []), todayKey]),
-    ).sort();
     const nextTasks = tasks.map((t) =>
-      t.id === task.id
-        ? {
-            ...t,
-            completed: true,
-            completedAt: new Date().toISOString(),
-            completedDates: nextDates,
-          }
-        : t,
+      t.id === task.id ? markTaskDone(t, todayKey) : t,
     );
     await saveAccountState(userId, {
       ...envelope,
@@ -63,15 +113,15 @@ export async function completeTaskForUser(
     return { ok: true, message: `Concluída: ${task.title}` };
   }
 
-  // 2) Meal block inteiro (rotinas que aparecem na agenda como "task")
+  // 2) Meal block inteiro
   const block = mealPlan.find((b) => b.id === target);
   if (block) {
-    return completeMealBlockForUser(userId, target);
+    return completeBlock(userId, envelope, state, mealPlan, block, todayKey);
   }
 
   // 3) Item específico dentro de algum meal block
-  let parentBlock: (typeof mealPlan)[number] | undefined;
-  let targetItem: (typeof mealPlan)[number]["items"][number] | undefined;
+  let parentBlock: MealBlock | undefined;
+  let targetItem: MealItem | undefined;
   for (const b of mealPlan) {
     const found = b.items.find((it) => it.id === target);
     if (found) {
@@ -81,30 +131,19 @@ export async function completeTaskForUser(
     }
   }
   if (parentBlock && targetItem) {
-    const todayKey = new Date().toISOString().slice(0, 10);
-    const alreadyDone =
-      targetItem.completedDates?.includes(todayKey) ||
-      targetItem.completedAt?.slice(0, 10) === todayKey;
-    if (alreadyDone) {
-      return { ok: true, message: "✓ Esse item já estava concluído no sistema." };
+    if (isMealItemDoneOn(targetItem, todayKey)) {
+      return {
+        ok: true,
+        message: "✓ Esse item já estava concluído hoje no sistema.",
+      };
     }
-    const nextDates = Array.from(
-      new Set([...(targetItem.completedDates ?? []), todayKey]),
-    ).sort();
     const nextMealPlan = mealPlan.map((b) =>
       b.id !== parentBlock!.id
         ? b
         : {
             ...b,
             items: b.items.map((it) =>
-              it.id !== targetItem!.id
-                ? it
-                : {
-                    ...it,
-                    completed: true,
-                    completedAt: new Date().toISOString(),
-                    completedDates: nextDates,
-                  },
+              it.id !== targetItem!.id ? it : markItemDone(it, todayKey),
             ),
           },
     );
@@ -116,9 +155,13 @@ export async function completeTaskForUser(
     return { ok: true, message: `Concluído: ${targetItem.label}` };
   }
 
-  // Não bateu em nada. Log pra debug nos próximos cliques.
+  // Não bateu em nada. Loga os ids disponíveis pra diagnosticar o
+  // mismatch (callback id × o que existe no account-state).
   console.warn(
-    `[telegram-actions] task-not-found userId=${userId} target=${target} tasksCount=${tasks.length} blocksCount=${mealPlan.length}`,
+    `[telegram-actions] target-not-found userId=${userId} target=${target} ` +
+      `taskIds=[${tasks.map((t) => t.id).join(",")}] ` +
+      `taskSourceKeys=[${tasks.map((t) => t.sourceKey ?? "").filter(Boolean).join(",")}] ` +
+      `blockIds=[${mealPlan.map((b) => b.id).join(",")}]`,
   );
   return {
     ok: false,
@@ -127,7 +170,7 @@ export async function completeTaskForUser(
 }
 
 /**
- * Marca um bloco inteiro (todos os itens) como concluído.
+ * Conclui um meal block a partir do callback `mb:<blockId>`.
  */
 export async function completeMealBlockForUser(
   userId: string,
@@ -137,46 +180,51 @@ export async function completeMealBlockForUser(
   if (!envelope) {
     return { ok: false, message: "Conta não encontrada." };
   }
+  const timezone = await getUserTimezone(userId);
+  const todayKey = todayKeyInTimezone(timezone);
   const state = readState(envelope);
   const mealPlan = state.mealPlan ?? [];
   const block = mealPlan.find((b) => b.id === blockId);
   if (!block) {
-    return { ok: false, message: "Refeição não encontrada." };
+    // Pode ser que o callback aponte pra uma Task (rotina) cujo id é o
+    // blockId — tenta a rota de task antes de desistir.
+    return completeTaskForUser(userId, blockId);
   }
+  return completeBlock(userId, envelope, state, mealPlan, block, todayKey);
+}
 
-  const todayKey = new Date().toISOString().slice(0, 10);
-
-  // Já concluído no sistema? (todos os itens marcados pra hoje). Bloco
-  // sem itens cai aqui também — não há o que marcar, então tratamos como
-  // já-feito em vez de fingir uma conclusão.
+/**
+ * Núcleo compartilhado: marca todos os itens de um bloco como concluídos
+ * pra hoje. Date-aware — só itens ainda pendentes hoje são marcados.
+ */
+async function completeBlock(
+  userId: string,
+  envelope: { version: number; state: unknown; updatedAt?: string },
+  state: PersistedState,
+  mealPlan: MealBlock[],
+  block: MealBlock,
+  todayKey: string,
+): Promise<{ ok: boolean; message: string }> {
+  // Já concluído hoje? (todos os itens marcados pra hoje). Bloco sem
+  // itens cai aqui — não há o que marcar.
   const allDone =
     block.items.length === 0 ||
-    block.items.every(
-      (it) =>
-        it.completedDates?.includes(todayKey) ||
-        it.completedAt?.slice(0, 10) === todayKey,
-    );
+    block.items.every((it) => isMealItemDoneOn(it, todayKey));
   if (allDone) {
     return {
       ok: true,
-      message: "✓ Isso já estava concluído no sistema.",
+      message: "✓ Isso já estava concluído hoje no sistema.",
     };
   }
 
-  const now = new Date().toISOString();
   const nextMealPlan = mealPlan.map((b) =>
-    b.id !== blockId
+    b.id !== block.id
       ? b
       : {
           ...b,
-          items: b.items.map((it) => ({
-            ...it,
-            completed: true,
-            completedAt: now,
-            completedDates: Array.from(
-              new Set([...(it.completedDates ?? []), todayKey]),
-            ).sort(),
-          })),
+          items: b.items.map((it) =>
+            isMealItemDoneOn(it, todayKey) ? it : markItemDone(it, todayKey),
+          ),
         },
   );
 

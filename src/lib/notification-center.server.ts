@@ -419,6 +419,17 @@ export async function getNotificationStatus(userId: string) {
   return statusFromStore(store, userId);
 }
 
+/**
+ * Timezone que o app sincronizou pro usuário (vem do sync de notificações).
+ * Usado pelas ações do Telegram pra computar "hoje" no fuso do usuário —
+ * o webhook roda em UTC e, sem isso, à noite no Brasil "hoje" já teria
+ * virado pro dia seguinte e a conclusão cairia na data errada.
+ */
+export async function getUserTimezone(userId: string): Promise<string> {
+  const store = await loadStore();
+  return store.schedules[userId]?.timezone || "America/Sao_Paulo";
+}
+
 export async function syncNotificationSchedule(
   userId: string,
   payload: NotificationSyncPayload,
