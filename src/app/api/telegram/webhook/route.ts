@@ -119,6 +119,10 @@ export async function POST(request: Request) {
       result = await completeTaskForUser(userId, data.slice("t:".length));
     } else if (data.startsWith("mb:")) {
       result = await completeMealBlockForUser(userId, data.slice("mb:".length));
+    } else if (data === "noop") {
+      // Clique no botão "✓ Concluído" (já marcado num clique anterior).
+      // Só confirma — não há mais nada a fazer.
+      result = { ok: false, message: "✓ Já concluído." };
     } else {
       result = { ok: false, message: "Ação desconhecida." };
     }
