@@ -1,7 +1,7 @@
 import { getAccountState, saveAccountState } from "@/lib/account-state.server";
 import { getUserTimezone } from "@/lib/notification-center.server";
-import { isTaskCompletedForDate } from "@/lib/utils";
-import type { PersistedState, Task } from "@/lib/types";
+import { isTaskCompletedForDate, isTaskDueForDate } from "@/lib/utils";
+import type { PersistedState, ReminderItem, Task } from "@/lib/types";
 
 function readState(envelope: { state: unknown }): PersistedState {
   return envelope.state as PersistedState;
@@ -90,27 +90,75 @@ export async function completeTaskForUser(
   const mealPlan = state.mealPlan ?? [];
 
   // 1) Task em state.tasks (id ou sourceKey)
-  const task =
+  let task: Task | undefined =
     tasks.find((t) => t.id === target) ||
     tasks.find((t) => t.sourceKey === target);
 
+  // 1b) Fallback órfão: reminders carregam taskId, mas se a task foi
+  // recriada (delete + create) o id muda e o reminder fica apontando
+  // pro fantasma. Tenta achar a task pelo (title + scheduledTime)
+  // do reminder cujo entityId é o target. Acontece bastante em rotinas
+  // recriadas (sono, cardio etc.).
+  if (!task) {
+    const reminders = state.reminders ?? [];
+    const orphanReminder: ReminderItem | undefined = reminders.find(
+      (r) => r.entityType === "task" && r.entityId === target,
+    );
+    if (orphanReminder) {
+      const candidates = tasks.filter(
+        (t) =>
+          t.title.trim() === orphanReminder.title.trim() &&
+          t.scheduledTime === orphanReminder.time &&
+          isTaskDueForDate(t, today),
+      );
+      // Prefere uma ainda pendente hoje; se todas concluídas, pega a
+      // primeira (vai cair em "já concluída hoje").
+      task =
+        candidates.find((t) => !isTaskCompletedForDate(t, today)) ||
+        candidates[0];
+      if (task) {
+        console.info(
+          `[telegram-actions] orphan-resolved userId=${userId} orphanId=${target} → ${task.id} (${task.title})`,
+        );
+      }
+    }
+  }
+
   if (task) {
+    const resolvedTask = task;
     // Date-aware: recorrentes guardam completed=true de outros dias.
-    if (isTaskCompletedForDate(task, today)) {
+    if (isTaskCompletedForDate(resolvedTask, today)) {
       return {
         ok: true,
         message: "✓ Essa tarefa já estava concluída hoje no sistema.",
       };
     }
     const nextTasks = tasks.map((t) =>
-      t.id === task.id ? markTaskDone(t, todayKey) : t,
+      t.id === resolvedTask.id ? markTaskDone(t, todayKey) : t,
     );
+
+    // Auto-heal: se chegou aqui via lookup órfão (target ≠ resolvedTask.id),
+    // reapontamos o reminder pra task atual. Próximo clique vai pelo
+    // caminho rápido e a base se limpa sozinha.
+    let nextReminders = state.reminders;
+    if (target !== resolvedTask.id && state.reminders) {
+      nextReminders = state.reminders.map((r) =>
+        r.entityType === "task" && r.entityId === target
+          ? { ...r, entityId: resolvedTask.id }
+          : r,
+      );
+    }
+
     await saveAccountState(userId, {
       ...envelope,
-      state: { ...state, tasks: nextTasks } as PersistedState,
+      state: {
+        ...state,
+        tasks: nextTasks,
+        ...(nextReminders !== state.reminders ? { reminders: nextReminders } : {}),
+      } as PersistedState,
       updatedAt: new Date().toISOString(),
     });
-    return { ok: true, message: `Concluída: ${task.title}` };
+    return { ok: true, message: `Concluída: ${resolvedTask.title}` };
   }
 
   // 2) Meal block inteiro
