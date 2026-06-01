@@ -88,6 +88,26 @@ export async function GET() {
     })),
   }));
 
+  // Planos de dieta SALVOS (cada vez que o user usa "Salvar plano atual"
+  // gera uma cópia completa). Útil pra recuperar quando o mealPlan live
+  // foi sobrescrito — pode ter uma cópia íntegra aqui.
+  const dietPlansSummary = (state.dietPlans ?? []).map((plan) => ({
+    id: plan.id,
+    name: plan.name,
+    createdAt: plan.createdAt,
+    startDate: plan.startDate,
+    endDate: plan.endDate,
+    isActive: plan.id === state.activeDietPlanId,
+    blockCount: plan.mealPlan?.length ?? 0,
+    blocks: (plan.mealPlan ?? []).map((b) => ({
+      id: b.id,
+      title: b.title,
+      time: b.time,
+      itemCount: b.items.length,
+      itemLabels: b.items.map((it) => it.label),
+    })),
+  }));
+
   return NextResponse.json({
     userId,
     serverNow: new Date().toISOString(),
@@ -99,7 +119,10 @@ export async function GET() {
       appearanceTasks: appearanceTasks.length,
       blocks: mealPlan.length,
       reminders: reminders.length,
+      dietPlans: dietPlansSummary.length,
     },
+    activeDietPlanId: state.activeDietPlanId,
+    dietPlans: dietPlansSummary,
     appearanceTasks: appearanceTasks.map(slimTask),
     matchingByTitle: matchingTasks.map(slimTask),
     blocks,
