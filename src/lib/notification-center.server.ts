@@ -430,6 +430,15 @@ export async function getUserTimezone(userId: string): Promise<string> {
   return store.schedules[userId]?.timezone || "America/Sao_Paulo";
 }
 
+/**
+ * Snapshot do schedule armazenado pra o usuário — usado pelo endpoint
+ * de debug. Mostra exatamente o que o cron itera pra disparar.
+ */
+export async function getNotificationScheduleSnapshot(userId: string) {
+  const store = await loadStore();
+  return store.schedules[userId] ?? null;
+}
+
 export async function syncNotificationSchedule(
   userId: string,
   payload: NotificationSyncPayload,
