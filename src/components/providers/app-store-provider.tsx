@@ -1067,8 +1067,24 @@ function dedupeRedundantReminders(
     liveIds.has(r.entityId) ||
     liveSourceKeys.has(r.entityId);
 
+  // Drop reminders de task ÓRFÃOS (entityId não existe em nenhuma task)
+  // quando há outro reminder VIVO com o mesmo título — sinal claro de que
+  // a task foi recriada e este é resto velho disparando no horário antigo.
+  // É a causa de "vários horários diferentes" de Dormir/Acordar.
+  const liveTitlesWithLiveReminder = new Set(
+    reminders
+      .filter((r) => r.entityType === "task" && isLive(r))
+      .map((r) => r.title.trim().toLowerCase()),
+  );
+  const pruned = reminders.filter((reminder) => {
+    if (reminder.entityType !== "task") return true;
+    if (isLive(reminder)) return true;
+    // Órfão: só remove se existe um vivo com o mesmo título (a recriação).
+    return !liveTitlesWithLiveReminder.has(reminder.title.trim().toLowerCase());
+  });
+
   const groups = new Map<string, PersistedState["reminders"]>();
-  for (const reminder of reminders) {
+  for (const reminder of pruned) {
     const weekdaysKey = (reminder.weekdays ?? []).slice().sort().join(",");
     const key = `${reminder.entityType}|${reminder.title.trim().toLowerCase()}|${reminder.time}|${weekdaysKey}`;
     const group = groups.get(key) ?? [];
@@ -1334,27 +1350,86 @@ function reducer(state: PersistedState, action: Action): PersistedState {
           tasks: [nextTask, ...state.tasks],
         };
       })();
-    case "update-task":
+    case "update-task": {
+      const patch = action.payload.patch;
+      const nextTasks = state.tasks.map((task) =>
+        task.id === action.payload.taskId
+          ? (() => {
+              const nextTask = {
+                ...task,
+                ...patch,
+              };
+
+              return withCalculatedTaskXp(nextTask, state.lifeAreaProfile);
+            })()
+          : task,
+      );
+
+      // Mantém o reminder vinculado em sincronia com a task. Antes só a
+      // task era atualizada — o reminder ficava com o horário/título
+      // ANTIGO, então mudar a hora de dormir/acordar continuava
+      // notificando no horário velho (e acumulando horários diferentes).
+      const touchesTime = patch.scheduledTime !== undefined;
+      const touchesTitle = patch.title !== undefined;
+      let nextReminders = state.reminders;
+      if (touchesTime || touchesTitle) {
+        const updatedTask = nextTasks.find(
+          (t) => t.id === action.payload.taskId,
+        );
+        if (updatedTask) {
+          nextReminders = state.reminders.map((reminder) => {
+            const linked =
+              reminder.entityType === "task" &&
+              (reminder.entityId === updatedTask.id ||
+                (updatedTask.sourceKey != null &&
+                  reminder.entityId === updatedTask.sourceKey));
+            if (!linked) return reminder;
+            return {
+              ...reminder,
+              ...(touchesTime && patch.scheduledTime
+                ? { time: patch.scheduledTime }
+                : {}),
+              ...(touchesTitle && patch.title
+                ? { title: patch.title }
+                : {}),
+            };
+          });
+        }
+      }
+
       return {
         ...state,
-        tasks: state.tasks.map((task) =>
-          task.id === action.payload.taskId
-            ? (() => {
-                const nextTask = {
-                  ...task,
-                  ...action.payload.patch,
-                };
-
-                return withCalculatedTaskXp(nextTask, state.lifeAreaProfile);
-              })()
-            : task,
-        ),
+        tasks: nextTasks,
+        ...(nextReminders !== state.reminders
+          ? { reminders: nextReminders }
+          : {}),
       };
-    case "remove-task":
+    }
+    case "remove-task": {
+      const removed = state.tasks.find((task) => task.id === action.taskId);
+      // Remove também os reminders vinculados (por id ou sourceKey). Sem
+      // isso, deletar uma task deixava o reminder órfão disparando no
+      // horário antigo — a causa de "vários horários diferentes" ao
+      // alterar a hora de dormir/acordar (o sync remove + recria tasks).
+      const nextReminders = removed
+        ? state.reminders.filter(
+            (reminder) =>
+              !(
+                reminder.entityType === "task" &&
+                (reminder.entityId === removed.id ||
+                  (removed.sourceKey != null &&
+                    reminder.entityId === removed.sourceKey))
+              ),
+          )
+        : state.reminders;
       return {
         ...state,
         tasks: state.tasks.filter((task) => task.id !== action.taskId),
+        ...(nextReminders !== state.reminders
+          ? { reminders: nextReminders }
+          : {}),
       };
+    }
     case "add-work-control-entry":
       return {
         ...state,
