@@ -39,6 +39,77 @@ function kvKey(userId: string) {
   return `praxis:account-state:${userId}`;
 }
 
+function kvHistoryKey(userId: string) {
+  return `praxis:account-state:${userId}:history`;
+}
+
+const HISTORY_MAX_ENTRIES = 10;
+
+/**
+ * Empilha a versão atual no histórico do usuário antes de gravar a nova.
+ * Mantém as N últimas (LPUSH + LTRIM 0..N-1). Sem await crítico — falha
+ * de histórico não pode bloquear o save principal.
+ */
+async function kvPushHistory(
+  userId: string,
+  envelope: PersistedAccountEnvelope,
+): Promise<void> {
+  try {
+    const key = kvHistoryKey(userId);
+    const serialized = JSON.stringify(envelope);
+    // Upstash REST: pipeline POST /pipeline com [["LPUSH",key,value],["LTRIM",key,0,N-1]]
+    await fetch(`${KV_URL}/pipeline`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${KV_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify([
+        ["LPUSH", key, serialized],
+        ["LTRIM", key, "0", String(HISTORY_MAX_ENTRIES - 1)],
+      ]),
+      cache: "no-store",
+    });
+  } catch (error) {
+    // Histórico é best-effort. Não derruba o save principal.
+    console.warn("[account-state] history push failed:", error);
+  }
+}
+
+/**
+ * Lê as versões anteriores do account-state (mais recente primeiro).
+ * Usado por endpoint de recuperação.
+ */
+export async function getAccountStateHistory(
+  userId: string,
+): Promise<PersistedAccountEnvelope[]> {
+  if (!KV_ENABLED) return [];
+  try {
+    const response = await fetch(
+      `${KV_URL}/lrange/${encodeURIComponent(kvHistoryKey(userId))}/0/${HISTORY_MAX_ENTRIES - 1}`,
+      {
+        headers: { Authorization: `Bearer ${KV_TOKEN}` },
+        cache: "no-store",
+      },
+    );
+    if (!response.ok) return [];
+    const payload = (await response.json()) as { result?: string[] };
+    if (!Array.isArray(payload.result)) return [];
+    return payload.result
+      .map((raw) => {
+        try {
+          return JSON.parse(raw) as PersistedAccountEnvelope;
+        } catch {
+          return null;
+        }
+      })
+      .filter((entry): entry is PersistedAccountEnvelope => entry !== null);
+  } catch (error) {
+    console.error("[account-state] history read failed:", error);
+    return [];
+  }
+}
+
 async function kvGet(
   userId: string,
 ): Promise<PersistedAccountEnvelope | null> {
@@ -134,6 +205,14 @@ export async function saveAccountState(
   };
 
   if (KV_ENABLED) {
+    // Empilha a versão CORRENTE no histórico ANTES de sobrescrever.
+    // Se o save de hoje destruir dados (ex.: duplicação bugada como já
+    // aconteceu), dá pra restaurar pela versão anterior. Mantém as 10
+    // últimas. Best-effort: erro de histórico não bloqueia o save.
+    const current = await kvGet(userId);
+    if (current) {
+      await kvPushHistory(userId, current);
+    }
     await kvSet(userId, envelope);
     return envelope;
   }

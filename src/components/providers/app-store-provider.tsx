@@ -2146,14 +2146,29 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         ),
       };
     case "duplicate-diet-plan": {
-      const sourcePlan = state.dietPlans.find((plan) => plan.id === action.planId);
-      if (!sourcePlan) return state;
+      const sourcePlanRaw = state.dietPlans.find(
+        (plan) => plan.id === action.planId,
+      );
+      if (!sourcePlanRaw) return state;
+
+      // CRÍTICO: se o plano sendo duplicado é o ATIVO, primeiro garantimos
+      // que a cópia salva tem as edições live mais recentes. Sem isso,
+      // duplicar = "fotografar versão velha" + sobrescrever live com ela
+      // → perda silenciosa de tudo que o usuário editou desde a última
+      // ativação. Foi como o usuário perdeu refeições inteiras.
+      const persistedPlans =
+        sourcePlanRaw.id === state.activeDietPlanId
+          ? snapshotLiveDietIntoActivePlan(state)
+          : state.dietPlans;
+      const sourcePlan =
+        persistedPlans.find((plan) => plan.id === action.planId) ??
+        sourcePlanRaw;
 
       const duplicatedPlanId = makeId("diet");
       const duplicatedPlan: SavedDietPlan = {
         ...sourcePlan,
         id: duplicatedPlanId,
-        name: createDuplicatedDietPlanName(sourcePlan.name, state.dietPlans),
+        name: createDuplicatedDietPlanName(sourcePlan.name, persistedPlans),
         createdAt: new Date().toISOString(),
         mealPlan: clearMealPlanCompletion(sourcePlan.mealPlan),
         nutritionTargets: { ...sourcePlan.nutritionTargets },
@@ -2167,7 +2182,7 @@ function reducer(state: PersistedState, action: Action): PersistedState {
 
       return {
         ...state,
-        dietPlans: [duplicatedPlan, ...state.dietPlans],
+        dietPlans: [duplicatedPlan, ...persistedPlans],
         mealPlan: clearMealPlanCompletion(duplicatedPlan.mealPlan),
         nutritionGoal: duplicatedPlan.nutritionGoal,
         dailyNutritionTargets: normalizeDailyNutritionTargets(
