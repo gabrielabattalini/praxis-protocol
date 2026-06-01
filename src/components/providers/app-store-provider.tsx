@@ -1202,6 +1202,33 @@ function normalizeWorkControlEntries(
   return entries.map((entry) => normalizeWorkControlEntry(entry));
 }
 
+// Snapshot do estado de dieta LIVE de volta pro plano ativo. As edições
+// de refeição (add/remove/update item, metas, day types, substituições)
+// só mexem nos slices top-level (state.mealPlan etc.), nunca no
+// dietPlans[ativo]. Sem este snapshot, trocar de plano e voltar recarrega
+// a cópia velha do plano e as edições somem. Chamado antes de qualquer
+// troca/remoção de plano.
+function snapshotLiveDietIntoActivePlan(
+  state: PersistedState,
+): PersistedState["dietPlans"] {
+  if (!state.activeDietPlanId) return state.dietPlans;
+  let found = false;
+  const nextPlans = state.dietPlans.map((plan) => {
+    if (plan.id !== state.activeDietPlanId) return plan;
+    found = true;
+    return {
+      ...plan,
+      mealPlan: clearMealPlanCompletion(state.mealPlan),
+      nutritionGoal: state.nutritionGoal,
+      nutritionTargets: state.dailyNutritionTargets,
+      dayTypes: state.dietDayTypes,
+      workoutLinkSettings: state.dietWorkoutLink,
+      foodSubstitutions: state.foodSubstitutions,
+    };
+  });
+  return found ? nextPlans : state.dietPlans;
+}
+
 function reducer(state: PersistedState, action: Action): PersistedState {
   switch (action.type) {
     case "hydrate": {
@@ -2141,19 +2168,31 @@ function reducer(state: PersistedState, action: Action): PersistedState {
     case "activate-diet-plan": {
       const nextPlan = state.dietPlans.find((plan) => plan.id === action.planId);
       if (!nextPlan) return state;
+      // Já está ativo? Não faz nada (evita descartar edições com um
+      // snapshot redundante).
+      if (state.activeDietPlanId === action.planId) return state;
+
+      // Salva as edições do plano atual ANTES de carregar o próximo.
+      // Sem isso, alterar a dieta (ex.: excluir item) e trocar de plano
+      // perdia a alteração — o slice live era sobrescrito pela cópia
+      // velha do plano destino.
+      const persistedPlans = snapshotLiveDietIntoActivePlan(state);
+      const freshNextPlan =
+        persistedPlans.find((plan) => plan.id === action.planId) ?? nextPlan;
 
       return {
         ...state,
-        mealPlan: clearMealPlanCompletion(nextPlan.mealPlan),
-        nutritionGoal: nextPlan.nutritionGoal,
+        dietPlans: persistedPlans,
+        mealPlan: clearMealPlanCompletion(freshNextPlan.mealPlan),
+        nutritionGoal: freshNextPlan.nutritionGoal,
         dailyNutritionTargets: normalizeDailyNutritionTargets(
-          nextPlan.nutritionTargets,
+          freshNextPlan.nutritionTargets,
           getActivityMultiplierFromTrainingDaysForState(state),
         ),
-        dietDayTypes: nextPlan.dayTypes,
-        dietWorkoutLink: nextPlan.workoutLinkSettings,
-        foodSubstitutions: nextPlan.foodSubstitutions,
-        activeDietPlanId: nextPlan.id,
+        dietDayTypes: freshNextPlan.dayTypes,
+        dietWorkoutLink: freshNextPlan.workoutLinkSettings,
+        foodSubstitutions: freshNextPlan.foodSubstitutions,
+        activeDietPlanId: freshNextPlan.id,
       };
     }
     case "restore-default-meal-plan": {
