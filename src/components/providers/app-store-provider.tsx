@@ -2165,12 +2165,24 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         sourcePlanRaw;
 
       const duplicatedPlanId = makeId("diet");
+      // Regenera IDs dos blocks + items pra evitar colisão com o sourcePlan.
+      // Sem isso, drafts de edição (indexados por id) "vazavam" entre o
+      // original e a cópia: editar a cópia mudava visualmente o original
+      // ao trocar de plano, e vice-versa.
+      const clonedMealPlan = sourcePlan.mealPlan.map((block) => ({
+        ...block,
+        id: makeId("meal-block"),
+        items: block.items.map((item) => ({
+          ...item,
+          id: makeId("meal-item"),
+        })),
+      }));
       const duplicatedPlan: SavedDietPlan = {
         ...sourcePlan,
         id: duplicatedPlanId,
         name: createDuplicatedDietPlanName(sourcePlan.name, persistedPlans),
         createdAt: new Date().toISOString(),
-        mealPlan: clearMealPlanCompletion(sourcePlan.mealPlan),
+        mealPlan: clearMealPlanCompletion(clonedMealPlan),
         nutritionTargets: { ...sourcePlan.nutritionTargets },
         dayTypes: { ...sourcePlan.dayTypes },
         workoutLinkSettings: { ...sourcePlan.workoutLinkSettings },
