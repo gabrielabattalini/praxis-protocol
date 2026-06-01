@@ -1067,20 +1067,15 @@ function dedupeRedundantReminders(
     liveIds.has(r.entityId) ||
     liveSourceKeys.has(r.entityId);
 
-  // Drop reminders de task ÓRFÃOS (entityId não existe em nenhuma task)
-  // quando há outro reminder VIVO com o mesmo título — sinal claro de que
-  // a task foi recriada e este é resto velho disparando no horário antigo.
-  // É a causa de "vários horários diferentes" de Dormir/Acordar.
-  const liveTitlesWithLiveReminder = new Set(
-    reminders
-      .filter((r) => r.entityType === "task" && isLive(r))
-      .map((r) => r.title.trim().toLowerCase()),
-  );
+  // Drop TODO reminder de task ÓRFÃO (entityId não existe em nenhuma
+  // task viva, nem por id nem por sourceKey). Não tem como funcionar:
+  // a notificação dispara mas o botão "Concluir" cai em "tarefa não
+  // encontrada" (a menos que o bot resolva por title+time, o que falha
+  // se a task foi apagada de vez — caso "sdaasdasd"). Sem isso o
+  // usuário recebia spam de lembretes de tarefas que não existem mais.
   const pruned = reminders.filter((reminder) => {
     if (reminder.entityType !== "task") return true;
-    if (isLive(reminder)) return true;
-    // Órfão: só remove se existe um vivo com o mesmo título (a recriação).
-    return !liveTitlesWithLiveReminder.has(reminder.title.trim().toLowerCase());
+    return isLive(reminder);
   });
 
   const groups = new Map<string, PersistedState["reminders"]>();
