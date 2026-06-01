@@ -657,61 +657,74 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
       });
     }
 
-    // Envia 1 mensagem Telegram contendo todos os items que dispararam
-    // neste run, formatadas de forma enxuta (sem body verbose nem cue).
+    // Envia UMA mensagem Telegram POR item que disparou — cada uma com
+    // seu próprio botão "✓ Concluir". Antes mandava tudo agrupado numa
+    // mensagem só, e o botão só aparecia quando havia exatamente 1 item;
+    // com 2+ no mesmo horário o usuário ficava sem como concluir.
     if (telegramBatch.length > 0) {
-      try {
-        const rawLines = telegramBatch.map((entry) => {
-          const isPreWarning = entry.id.endsWith(`:pre${PRE_WARNING_MIN}`);
-          const baseTitle = entry.title
-            .replace(/^⏰ Em \d+ min: /, "")
-            .replace(/^🔔 /, "");
-          const prefix = isPreWarning ? "⏰" : "🔔";
-          const inMin = isPreWarning ? ` (em ${PRE_WARNING_MIN}min)` : "";
-          return `${prefix} ${entry.time} ${baseTitle}${inMin}`;
-        });
-        // Dedup linhas idênticas — tarefas/lembretes com mesmo título e
-        // horário (ex.: cardio duplicado no schedule) não aparecem 2x.
-        const lines = [...new Set(rawLines)];
-        const header =
-          lines.length === 1 ? lines[0] : `Lembretes Praxis:\n${lines.join("\n")}`;
-        // Anexa 1 frase motivacional (nativa do Praxis + personalizadas do
-        // usuário, que vêm no schedule via sync). Exclui as nativas que o
-        // usuário escondeu nas Configurações. Escolha rotativa por dia.
-        const hiddenSet = new Set(schedule.hiddenQuotes ?? []);
-        const quotePool = [
-          ...getLoadingCuePool()
-            .filter((cue) => !hiddenSet.has(cue.text))
-            .map((cue) => `${cue.text} — ${cue.eyebrow}`),
-          ...(schedule.customQuotes ?? []),
-        ];
-        const quote =
-          quotePool.length > 0
-            ? pickBySeed(quotePool, `${userId}|${zonedNow.dateKey}|${zonedNow.hourMinute}`)
-            : "";
-        const message = quote ? `${header}\n\n${quote}` : header;
+      // Dedup por (título + horário): tarefas/lembretes idênticos (ex.:
+      // cardio duplicado no schedule) não viram 2 mensagens.
+      const seen = new Set<string>();
+      const uniqueItems = telegramBatch.filter((entry) => {
+        const baseTitle = entry.title
+          .replace(/^⏰ Em \d+ min: /, "")
+          .replace(/^🔔 /, "");
+        const dedupKey = `${entry.time}|${baseTitle.trim().toLowerCase()}`;
+        if (seen.has(dedupKey)) return false;
+        seen.add(dedupKey);
+        return true;
+      });
 
-        // Inline keyboard só faz sentido quando o batch tem 1 item ON-TIME
-        // (não pre-warning). Multi-item agruparia ações ambíguas; pre-
-        // warning marca como feito 5min antes do horário, esquisito.
+      // Frase motivacional vai só na ÚLTIMA mensagem do lote, pra não
+      // repetir a mesma citação em cada item.
+      const hiddenSet = new Set(schedule.hiddenQuotes ?? []);
+      const quotePool = [
+        ...getLoadingCuePool()
+          .filter((cue) => !hiddenSet.has(cue.text))
+          .map((cue) => `${cue.text} — ${cue.eyebrow}`),
+        ...(schedule.customQuotes ?? []),
+      ];
+      const quote =
+        quotePool.length > 0
+          ? pickBySeed(
+              quotePool,
+              `${userId}|${zonedNow.dateKey}|${zonedNow.hourMinute}`,
+            )
+          : "";
+
+      for (let index = 0; index < uniqueItems.length; index += 1) {
+        const entry = uniqueItems[index];
+        const isPreWarning = entry.id.endsWith(`:pre${PRE_WARNING_MIN}`);
+        const baseTitle = entry.title
+          .replace(/^⏰ Em \d+ min: /, "")
+          .replace(/^🔔 /, "");
+        const prefix = isPreWarning ? "⏰" : "🔔";
+        const inMin = isPreWarning ? ` (em ${PRE_WARNING_MIN}min)` : "";
+        const headerLine = `${prefix} ${entry.time} ${baseTitle}${inMin}`;
+
+        const isLast = index === uniqueItems.length - 1;
+        const message = isLast && quote ? `${headerLine}\n\n${quote}` : headerLine;
+
+        // Botão "✓ Concluir" por item — exceto em pre-warning (marcar
+        // como feito 5min antes do horário é esquisito).
         let inlineKeyboard;
-        if (telegramBatch.length === 1) {
-          const only = telegramBatch[0];
-          const isPreWarning = only.id.endsWith(`:pre${PRE_WARNING_MIN}`);
-          if (!isPreWarning) {
-            const cbData = buildCompleteCallbackData(only);
-            if (cbData) {
-              inlineKeyboard = [[{ text: "✓ Concluir", callback_data: cbData }]];
-            }
+        if (!isPreWarning) {
+          const cbData = buildCompleteCallbackData(entry);
+          if (cbData) {
+            inlineKeyboard = [[{ text: "✓ Concluir", callback_data: cbData }]];
           }
         }
 
-        const tg = await sendTelegramToUser(userId, message, { inlineKeyboard });
-        if (tg.ok && !tg.skipped) {
-          summary.notificationsSent += 1;
+        try {
+          const tg = await sendTelegramToUser(userId, message, {
+            inlineKeyboard,
+          });
+          if (tg.ok && !tg.skipped) {
+            summary.notificationsSent += 1;
+          }
+        } catch {
+          /* swallow — Telegram is a best-effort secondary channel */
         }
-      } catch {
-        /* swallow — Telegram is a best-effort secondary channel */
       }
     }
 
