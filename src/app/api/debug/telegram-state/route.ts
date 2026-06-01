@@ -1,7 +1,10 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getAccountState } from "@/lib/account-state.server";
-import { getUserTimezone } from "@/lib/notification-center.server";
+import {
+  getNotificationScheduleSnapshot,
+  getUserTimezone,
+} from "@/lib/notification-center.server";
 import type { PersistedState, Task } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -105,5 +108,27 @@ export async function GET() {
     allTaskSourceKeys: tasks
       .map((t) => t.sourceKey)
       .filter((k): k is string => Boolean(k)),
+    // Snapshot do schedule armazenado pelo servidor — é o que o cron
+    // itera pra disparar. Útil pra diagnosticar quando uma notificação
+    // dispara sem botão (entityType/entityId ausentes ou inválidos).
+    schedule: await (async () => {
+      const snap = await getNotificationScheduleSnapshot(userId);
+      if (!snap) return null;
+      return {
+        timezone: snap.timezone,
+        syncedAt: snap.syncedAt,
+        itemCount: snap.items.length,
+        items: snap.items.map((item) => ({
+          id: item.id,
+          title: item.title,
+          time: item.time,
+          entityType: item.entityType,
+          entityId: item.entityId,
+          enabled: item.enabled,
+          source: item.source,
+          weekdays: item.weekdays,
+        })),
+      };
+    })(),
   });
 }
