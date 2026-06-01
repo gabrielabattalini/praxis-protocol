@@ -1206,6 +1206,20 @@ export default function NutritionModulePage() {
   >({});
   const [isAddMealPanelOpen, setIsAddMealPanelOpen] = useState(false);
   const [isQuickAddFoodPanelOpen, setIsQuickAddFoodPanelOpen] = useState(false);
+
+  // Limpa drafts/UI state ao trocar de plano. Sem isso, drafts são
+  // indexados por block.id e "vazavam" entre planos quando os IDs
+  // coincidiam (caso de duplicações antigas que reusavam ids).
+  useEffect(() => {
+    setMealBlockEditDrafts({});
+    setMealItemEditDrafts({});
+    setMealItemDrafts({});
+    setManualFoodFormOpenByBlock({});
+    setExpandedMealBlocks({});
+    setMealFoodComposerOpenByBlock({});
+    setEditingMealBlockId(null);
+    setEditingMealItemId(null);
+  }, [state.activeDietPlanId]);
   const [libraryFoodDraft, setLibraryFoodDraft] = useState<ManualFoodDraft>(
     createEmptyManualFoodDraft(),
   );
