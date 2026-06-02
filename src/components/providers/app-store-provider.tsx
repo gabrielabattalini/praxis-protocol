@@ -95,6 +95,7 @@ import {
   roundCurrencyValue,
   getActivityMultiplierFromTrainingDays,
   resolveBasalMetabolicRate,
+  weekdayFromDate,
 } from "@/lib/utils";
 import { normalizeWorkControlEntry } from "@/lib/work-control";
 
@@ -5862,6 +5863,34 @@ export function AppStoreProvider({
     if (!hydrated) return;
     document.documentElement.dataset.theme = state.settings.theme;
   }, [hydrated, state.settings.theme]);
+
+  // Auto-switch da dieta ativa baseado no mapa weekday → planId
+  // (state.dietWeekSchedule). A UI permite configurar qual plano usar
+  // em cada dia da semana, mas até agora nada consumia esse mapa pra
+  // ativar automaticamente. Checa na hidratação e a cada minuto pra
+  // pegar a virada da meia-noite local.
+  useEffect(() => {
+    if (!hydrated) return;
+    const tick = () => {
+      const todayWeekday = weekdayFromDate(new Date());
+      const targetPlanId = state.dietWeekSchedule?.[todayWeekday];
+      if (!targetPlanId) return; // dia sem mapeamento — respeita o ativo manual
+      if (targetPlanId === state.activeDietPlanId) return;
+      // Só ativa se o plano alvo realmente existe (evita ficar piscando
+      // pra um id órfão que ficou no mapa de uma exclusão).
+      const exists = state.dietPlans.some((plan) => plan.id === targetPlanId);
+      if (!exists) return;
+      dispatch({ type: "activate-diet-plan", planId: targetPlanId });
+    };
+    tick();
+    const interval = window.setInterval(tick, 60_000);
+    return () => window.clearInterval(interval);
+  }, [
+    hydrated,
+    state.dietWeekSchedule,
+    state.activeDietPlanId,
+    state.dietPlans,
+  ]);
 
   const value: AppStoreValue = {
     hydrated,
