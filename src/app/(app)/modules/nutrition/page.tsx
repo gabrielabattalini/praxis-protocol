@@ -1127,6 +1127,7 @@ export default function NutritionModulePage() {
   // available — see the effect below if we ever need to reset on switch).
   const [isCreateDietPanelOpen, setIsCreateDietPanelOpen] = useState(false);
   const [newDietGoal, setNewDietGoal] = useState<NutritionGoalId>("maintain");
+  const [showDietSavedToast, setShowDietSavedToast] = useState(false);
   // Inline rename for the active diet — pencil button on the header
   // swaps the name h2 for an editable input. Keeping it local (vs the
   // existing dietPlanEditDraft used by the deeper edit form) so the
@@ -2617,6 +2618,26 @@ export default function NutritionModulePage() {
                 <Copy className="h-4 w-4" />
                 Duplicar
               </button>
+            ) : null}
+            {activeDietPlan ? (
+              <button
+                type="button"
+                onClick={() => {
+                  actions.commitLiveDietToActivePlan();
+                  setShowDietSavedToast(true);
+                  window.setTimeout(() => setShowDietSavedToast(false), 2500);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-3 py-2 text-sm font-medium text-zinc-200 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"
+                title={`Gravar as refeições atuais dentro de "${activeDietPlan.name}" (fixa o que está na tela)`}
+              >
+                <Save className="h-4 w-4" />
+                Salvar no plano
+              </button>
+            ) : null}
+            {showDietSavedToast ? (
+              <span className="text-xs font-medium text-emerald-300">
+                ✓ Refeições salvas no plano
+              </span>
             ) : null}
             {activeDietPlan ? (
               <button

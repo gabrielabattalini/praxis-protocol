@@ -290,6 +290,11 @@ type AppStoreValue = {
       >;
     }) => void;
     activateDietPlan: (planId: string) => void;
+    /** Grava o estado de dieta LIVE (mealPlan, metas, etc.) de volta no
+     *  plano ativo. Recuperação: quando o live diverge do plano salvo
+     *  (ex.: edições que não foram snapshotadas), fixa o live como
+     *  verdade no plano e impede que o auto-switch o sobrescreva. */
+    commitLiveDietToActivePlan: () => void;
     /** Replace the live meal plan with the default seed (IF 16:8 cutting plan)
      *  and merge any missing foods from the seed into the food database.
      *  Use when the user wiped their plan and wants the default back. */
@@ -752,6 +757,7 @@ type Action =
   | { type: "duplicate-diet-plan"; planId: string }
   | { type: "remove-diet-plan"; planId: string }
   | { type: "activate-diet-plan"; planId: string }
+  | { type: "commit-live-diet-to-active-plan" }
   | { type: "restore-default-meal-plan" }
   | {
       type: "add-nutrition-daily-extra";
@@ -2292,6 +2298,16 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         foodSubstitutions: freshNextPlan.foodSubstitutions,
         activeDietPlanId: freshNextPlan.id,
       };
+    }
+    case "commit-live-diet-to-active-plan": {
+      // Fixa o estado de dieta LIVE no plano ativo. Usado pra recuperar
+      // quando o live (mealPlan visível) diverge do plano salvo. Não
+      // altera o live em si — só atualiza a cópia salva pra refletir o
+      // que está na tela. Idempotente.
+      if (!state.activeDietPlanId) return state;
+      const persistedPlans = snapshotLiveDietIntoActivePlan(state);
+      if (persistedPlans === state.dietPlans) return state;
+      return { ...state, dietPlans: persistedPlans };
     }
     case "restore-default-meal-plan": {
       // Merge missing seed foods (by id) into the user's food database, then
@@ -6083,6 +6099,9 @@ export function AppStoreProvider({
       },
       activateDietPlan(planId) {
         dispatch({ type: "activate-diet-plan", planId });
+      },
+      commitLiveDietToActivePlan() {
+        dispatch({ type: "commit-live-diet-to-active-plan" });
       },
       restoreDefaultMealPlan() {
         dispatch({ type: "restore-default-meal-plan" });
