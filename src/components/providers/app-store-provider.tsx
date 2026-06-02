@@ -5866,15 +5866,21 @@ export function AppStoreProvider({
 
   // Auto-switch da dieta ativa baseado no mapa weekday → planId
   // (state.dietWeekSchedule). A UI permite configurar qual plano usar
-  // em cada dia da semana, mas até agora nada consumia esse mapa pra
-  // ativar automaticamente. Checa na hidratação e a cada minuto pra
-  // pegar a virada da meia-noite local.
+  // em cada dia da semana.
+  //
+  // UX: roda APENAS quando o weekday muda (virada de meia-noite local)
+  // ou na primeira hidratação. Durante o dia, NÃO sobrescreve trocas
+  // manuais — senão o usuário não conseguia trocar o plano pelo seletor
+  // (auto-switch revertia em até 60s).
+  const lastAutoSwitchWeekdayRef = useRef<Weekday | null>(null);
   useEffect(() => {
     if (!hydrated) return;
     const tick = () => {
       const todayWeekday = weekdayFromDate(new Date());
+      if (lastAutoSwitchWeekdayRef.current === todayWeekday) return;
+      lastAutoSwitchWeekdayRef.current = todayWeekday;
       const targetPlanId = state.dietWeekSchedule?.[todayWeekday];
-      if (!targetPlanId) return; // dia sem mapeamento — respeita o ativo manual
+      if (!targetPlanId) return; // dia sem mapeamento — respeita ativo manual
       if (targetPlanId === state.activeDietPlanId) return;
       // Só ativa se o plano alvo realmente existe (evita ficar piscando
       // pra um id órfão que ficou no mapa de uma exclusão).
@@ -5883,14 +5889,13 @@ export function AppStoreProvider({
       dispatch({ type: "activate-diet-plan", planId: targetPlanId });
     };
     tick();
+    // Checa a cada minuto pra detectar a virada da meia-noite.
     const interval = window.setInterval(tick, 60_000);
     return () => window.clearInterval(interval);
-  }, [
-    hydrated,
-    state.dietWeekSchedule,
-    state.activeDietPlanId,
-    state.dietPlans,
-  ]);
+    // Deps NÃO incluem activeDietPlanId — senão re-rodaria a cada troca
+    // manual e voltaria pro plano do mapa. dietWeekSchedule/dietPlans
+    // mudam raramente; quando mudam, o tick reavalia naturalmente.
+  }, [hydrated, state.dietWeekSchedule, state.dietPlans]);
 
   const value: AppStoreValue = {
     hydrated,
