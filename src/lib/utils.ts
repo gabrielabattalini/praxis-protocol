@@ -470,7 +470,7 @@ export function isTaskCompletedForDate(
   }
 }
 
-function weekdayFromDate(referenceDate: Date): Weekday {
+export function weekdayFromDate(referenceDate: Date): Weekday {
   const mapping: Record<number, Weekday> = {
     0: "sunday",
     1: "monday",
