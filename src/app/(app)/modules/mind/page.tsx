@@ -1,20 +1,22 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ArrowRight,
   Brain,
   CheckCircle2,
   NotebookPen,
+  Pencil,
   Plus,
   Sparkles,
   TimerReset,
   Trash2,
+  X,
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
-import type { Weekday } from "@/lib/types";
+import type { Task, Weekday } from "@/lib/types";
 import {
   formatRecurrence,
   isTaskCompletedForDate,
@@ -128,6 +130,20 @@ export default function MindModulePage() {
     "thursday",
     "friday",
   ]);
+  // editingTaskId !== null muda o saveTask pra updateTask (edição) em
+  // vez de addTask (criação). Padrão consistente entre os módulos de
+  // tarefas (Mente, Casa, Saúde, Aparência).
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  function resetForm() {
+    setTitle("");
+    setDescription("");
+    setScheduledTime("07:00");
+    setRecurrenceKind("selected-weekdays");
+    setWeekdays(["monday", "tuesday", "wednesday", "thursday", "friday"]);
+    setEditingTaskId(null);
+  }
 
   function applyPreset(presetId: string) {
     const preset = mindPresets.find((item) => item.id === presetId);
@@ -138,6 +154,29 @@ export default function MindModulePage() {
     setScheduledTime(preset.scheduledTime);
     setRecurrenceKind("selected-weekdays");
     setWeekdays(preset.weekdays);
+    setEditingTaskId(null);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  function startEditingTask(task: Task) {
+    setTitle(task.title);
+    setDescription(task.description);
+    setScheduledTime(task.scheduledTime ?? "");
+    if (task.recurrence.kind === "daily") {
+      setRecurrenceKind("daily");
+    } else {
+      setRecurrenceKind("selected-weekdays");
+      const taskWeekdays =
+        task.recurrence.kind === "selected-weekdays" &&
+        task.recurrence.weekdays?.length
+          ? task.recurrence.weekdays
+          : task.recurrence.kind === "weekly-fixed" && task.recurrence.weekday
+            ? [task.recurrence.weekday]
+            : [todayWeekday];
+      setWeekdays(taskWeekdays);
+    }
+    setEditingTaskId(task.id);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   function toggleWeekday(day: Weekday) {
@@ -152,27 +191,37 @@ export default function MindModulePage() {
     event.preventDefault();
     if (!title.trim()) return;
 
-    actions.addTask({
-      title: title.trim(),
-      description: description.trim(),
-      category: "mindfulness",
-      moduleId: "mind",
-      scheduledTime: scheduledTime || undefined,
-      difficulty: "hard",
-      recurrence:
-        recurrenceKind === "daily"
-          ? { kind: "daily" }
-          : {
-              kind: "selected-weekdays",
-              weekdays: weekdays.length ? weekdays : [todayWeekday],
-            },
-    });
+    const recurrence =
+      recurrenceKind === "daily"
+        ? ({ kind: "daily" } as const)
+        : ({
+            kind: "selected-weekdays" as const,
+            weekdays: weekdays.length ? weekdays : [todayWeekday],
+          } as const);
 
-    setTitle("");
-    setDescription("");
-    setScheduledTime("07:00");
-    setRecurrenceKind("selected-weekdays");
-    setWeekdays(["monday", "tuesday", "wednesday", "thursday", "friday"]);
+    if (editingTaskId) {
+      actions.updateTask({
+        taskId: editingTaskId,
+        patch: {
+          title: title.trim(),
+          description: description.trim(),
+          scheduledTime: scheduledTime || undefined,
+          recurrence,
+        },
+      });
+    } else {
+      actions.addTask({
+        title: title.trim(),
+        description: description.trim(),
+        category: "mindfulness",
+        moduleId: "mind",
+        scheduledTime: scheduledTime || undefined,
+        difficulty: "hard",
+        recurrence,
+      });
+    }
+
+    resetForm();
   }
 
   return (
@@ -247,9 +296,13 @@ export default function MindModulePage() {
           <div className="flex items-center gap-3">
             <Brain className="h-6 w-6 text-[var(--accent)]" />
             <div>
-              <p className="praxis-label text-[var(--accent)]">Nova tarefa</p>
+              <p className="praxis-label text-[var(--accent)]">
+                {editingTaskId ? "Editar tarefa" : "Nova tarefa"}
+              </p>
               <h2 className="praxis-title text-2xl">
-                Planejamento mental
+                {editingTaskId
+                  ? "Ajuste os campos abaixo"
+                  : "Planejamento mental"}
               </h2>
             </div>
           </div>
@@ -267,7 +320,7 @@ export default function MindModulePage() {
             ))}
           </div>
 
-          <form className="space-y-4" onSubmit={saveTask}>
+          <form ref={formRef} className="space-y-4" onSubmit={saveTask}>
             <label className="block space-y-2">
               <span className="praxis-label text-[var(--accent)]">Título</span>
               <input
@@ -352,13 +405,34 @@ export default function MindModulePage() {
               </div>
             ) : null}
 
-            <button
-              type="submit"
-              className="praxis-button inline-flex w-full items-center justify-center gap-2 px-4 py-3"
-            >
-              <Plus className="h-4 w-4" />
-              Criar tarefa mental
-            </button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="submit"
+                className="praxis-button inline-flex flex-1 items-center justify-center gap-2 px-4 py-3"
+              >
+                {editingTaskId ? (
+                  <>
+                    <Pencil className="h-4 w-4" />
+                    Salvar alterações
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4" />
+                    Criar tarefa mental
+                  </>
+                )}
+              </button>
+              {editingTaskId ? (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="praxis-button-ghost inline-flex items-center justify-center gap-2 px-4 py-3"
+                >
+                  <X className="h-4 w-4" />
+                  Cancelar
+                </button>
+              ) : null}
+            </div>
           </form>
         </GlassPanel>
 
@@ -375,11 +449,17 @@ export default function MindModulePage() {
               <div className="space-y-3">
                 {mindTasksToday.map((task) => {
                   const completedForToday = isTaskCompletedForDate(task, today);
+                  const isEditing = editingTaskId === task.id;
 
                   return (
                     <div
                       key={task.id}
                       className="praxis-panel rounded-sm p-4"
+                      style={
+                        isEditing
+                          ? { borderColor: "rgba(251,146,60,0.34)" }
+                          : undefined
+                      }
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -403,7 +483,7 @@ export default function MindModulePage() {
                         </span>
                       </div>
 
-                      <div className="mt-4 flex gap-2">
+                      <div className="mt-4 flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => actions.toggleTask(task.id)}
@@ -418,7 +498,18 @@ export default function MindModulePage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => actions.removeTask(task.id)}
+                          onClick={() => startEditingTask(task)}
+                          className="inline-flex items-center gap-2 rounded-sm border border-[rgba(251,146,60,0.22)] bg-[rgba(251,146,60,0.08)] px-3 py-2 text-xs text-[var(--accent)]"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          {isEditing ? "Editando…" : "Editar"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (editingTaskId === task.id) resetForm();
+                            actions.removeTask(task.id);
+                          }}
                           className="inline-flex items-center gap-2 rounded-sm border border-zinc-800 bg-black/50 px-3 py-2 text-xs text-zinc-400"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -459,6 +550,14 @@ export default function MindModulePage() {
                       {preset.weekdays.map(weekdayLongLabel).join(", ")}
                     </span>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset(preset.id)}
+                    className="praxis-button mt-4 inline-flex w-full items-center justify-center gap-2 px-3 py-2 text-xs"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Adicionar como tarefa
+                  </button>
                 </div>
               ))}
             </div>
@@ -473,11 +572,17 @@ export default function MindModulePage() {
               <div className="space-y-3">
                 {mindTasks.map((task) => {
                   const completedForToday = isTaskCompletedForDate(task, today);
+                  const isEditing = editingTaskId === task.id;
 
                   return (
                     <div
                       key={task.id}
                       className="praxis-panel rounded-sm p-4"
+                      style={
+                        isEditing
+                          ? { borderColor: "rgba(251,146,60,0.34)" }
+                          : undefined
+                      }
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -501,7 +606,7 @@ export default function MindModulePage() {
                         </span>
                       </div>
 
-                      <div className="mt-4 flex gap-2">
+                      <div className="mt-4 flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => actions.toggleTask(task.id)}
@@ -516,7 +621,18 @@ export default function MindModulePage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => actions.removeTask(task.id)}
+                          onClick={() => startEditingTask(task)}
+                          className="inline-flex items-center gap-2 rounded-sm border border-[rgba(251,146,60,0.22)] bg-[rgba(251,146,60,0.08)] px-3 py-2 text-xs text-[var(--accent)]"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          {isEditing ? "Editando…" : "Editar"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (editingTaskId === task.id) resetForm();
+                            actions.removeTask(task.id);
+                          }}
                           className="inline-flex items-center gap-2 rounded-sm border border-zinc-800 bg-black/50 px-3 py-2 text-xs text-zinc-400"
                         >
                           <Trash2 className="h-4 w-4" />

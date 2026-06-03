@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
   HeartPulse,
+  Pencil,
   Plus,
   Shield,
   Stethoscope,
   Trash2,
+  X,
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
@@ -272,6 +274,8 @@ export default function HealthModulePage() {
   const [intervalDays, setIntervalDays] = useState(180);
   const [weekdays, setWeekdays] = useState<Weekday[]>(["sunday"]);
   const [dayOfMonth, setDayOfMonth] = useState(5);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const healthTasks = state.tasks
     .filter((task) => task.moduleId === "health")
@@ -389,6 +393,17 @@ export default function HealthModulePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [healthHistory]);
 
+  function resetForm() {
+    setTitle("");
+    setDescription("");
+    setScheduledTime("08:30");
+    setRecurrenceKind("interval-days");
+    setIntervalDays(180);
+    setWeekdays(["sunday"]);
+    setDayOfMonth(5);
+    setEditingTaskId(null);
+  }
+
   function applyPreset(presetId: string) {
     const preset = healthPresets.find((item) => item.id === presetId);
     if (!preset) return;
@@ -412,6 +427,43 @@ export default function HealthModulePage() {
         setIntervalDays(preset.recurrence.intervalDays ?? 180);
         break;
     }
+    setEditingTaskId(null);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  function startEditingTask(task: Task) {
+    setTitle(task.title);
+    setDescription(task.description);
+    setScheduledTime(task.scheduledTime ?? "");
+
+    switch (task.recurrence.kind) {
+      case "selected-weekdays":
+        setRecurrenceKind("selected-weekdays");
+        setWeekdays(
+          task.recurrence.weekdays?.length
+            ? task.recurrence.weekdays
+            : [todayWeekday],
+        );
+        break;
+      case "monthly":
+        setRecurrenceKind("monthly");
+        setDayOfMonth(task.recurrence.dayOfMonth ?? 5);
+        break;
+      case "interval-days":
+        setRecurrenceKind("interval-days");
+        setIntervalDays(task.recurrence.intervalDays ?? 180);
+        break;
+      default:
+        // Recorrências fora dos 3 tipos suportados pelo módulo
+        // (daily, weekly-fixed, etc.) caem em interval-days como
+        // fallback editável.
+        setRecurrenceKind("interval-days");
+        setIntervalDays(180);
+        break;
+    }
+
+    setEditingTaskId(task.id);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   function toggleWeekday(day: Weekday) {
@@ -434,23 +486,30 @@ export default function HealthModulePage() {
       dayOfMonth,
     );
 
-    actions.addTask({
-      title: title.trim(),
-      description: description.trim(),
-      category: "health",
-      moduleId: "health",
-      scheduledTime: scheduledTime || undefined,
-      difficulty: getHealthDifficulty(recurrenceKind, intervalDays),
-      recurrence,
-    });
+    if (editingTaskId) {
+      actions.updateTask({
+        taskId: editingTaskId,
+        patch: {
+          title: title.trim(),
+          description: description.trim(),
+          scheduledTime: scheduledTime || undefined,
+          difficulty: getHealthDifficulty(recurrenceKind, intervalDays),
+          recurrence,
+        },
+      });
+    } else {
+      actions.addTask({
+        title: title.trim(),
+        description: description.trim(),
+        category: "health",
+        moduleId: "health",
+        scheduledTime: scheduledTime || undefined,
+        difficulty: getHealthDifficulty(recurrenceKind, intervalDays),
+        recurrence,
+      });
+    }
 
-    setTitle("");
-    setDescription("");
-    setScheduledTime("08:30");
-    setRecurrenceKind("interval-days");
-    setIntervalDays(180);
-    setWeekdays(["sunday"]);
-    setDayOfMonth(5);
+    resetForm();
   }
 
   return (
@@ -585,8 +644,14 @@ export default function HealthModulePage() {
           <div className="flex items-center gap-3">
             <Stethoscope className="h-6 w-6 text-[var(--accent)]" />
             <div>
-              <p className="praxis-label text-[var(--accent)]">Novo protocolo</p>
-              <h2 className="praxis-title text-2xl">Planejamento de saúde</h2>
+              <p className="praxis-label text-[var(--accent)]">
+                {editingTaskId ? "Editar protocolo" : "Novo protocolo"}
+              </p>
+              <h2 className="praxis-title text-2xl">
+                {editingTaskId
+                  ? "Ajuste os campos abaixo"
+                  : "Planejamento de saúde"}
+              </h2>
             </div>
           </div>
 
@@ -603,7 +668,7 @@ export default function HealthModulePage() {
             ))}
           </div>
 
-          <form className="space-y-4" onSubmit={saveTask}>
+          <form ref={formRef} className="space-y-4" onSubmit={saveTask}>
             <label className="block space-y-2">
               <span className="praxis-label text-[var(--accent)]">Título</span>
               <input
@@ -708,13 +773,34 @@ export default function HealthModulePage() {
               </p>
             </div>
 
-            <button
-              type="submit"
-              className="praxis-button flex w-full items-center justify-center gap-2 px-4 py-3"
-            >
-              <Plus className="h-4 w-4" />
-              Criar protocolo de saúde
-            </button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="submit"
+                className="praxis-button flex flex-1 items-center justify-center gap-2 px-4 py-3"
+              >
+                {editingTaskId ? (
+                  <>
+                    <Pencil className="h-4 w-4" />
+                    Salvar alterações
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4" />
+                    Criar protocolo de saúde
+                  </>
+                )}
+              </button>
+              {editingTaskId ? (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="praxis-button-ghost inline-flex items-center justify-center gap-2 px-4 py-3"
+                >
+                  <X className="h-4 w-4" />
+                  Cancelar
+                </button>
+              ) : null}
+            </div>
           </form>
         </GlassPanel>
 
@@ -732,11 +818,17 @@ export default function HealthModulePage() {
               <div className="space-y-3">
                 {healthTasksToday.map((task) => {
                   const completed = isTaskCompletedForDate(task, today);
+                  const isEditing = editingTaskId === task.id;
 
                   return (
                     <div
                       key={task.id}
-                      className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] p-4"
+                      className="rounded-sm border bg-[rgba(14,14,17,0.96)] p-4"
+                      style={{
+                        borderColor: isEditing
+                          ? "rgba(251,146,60,0.34)"
+                          : "rgb(39 39 42)",
+                      }}
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="space-y-2">
@@ -777,7 +869,18 @@ export default function HealthModulePage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => actions.removeTask(task.id)}
+                          onClick={() => startEditingTask(task)}
+                          className="praxis-button-ghost px-3 py-2 text-[var(--accent)]"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          {isEditing ? "Editando…" : "Editar"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (editingTaskId === task.id) resetForm();
+                            actions.removeTask(task.id);
+                          }}
                           className="praxis-button-ghost px-3 py-2 text-red-300 hover:border-red-400/30 hover:text-red-200"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -810,11 +913,17 @@ export default function HealthModulePage() {
                 {healthTasks.map((task) => {
                   const completed = isTaskCompletedForDate(task, today);
                   const dueNow = isTaskDueForDate(task, today);
+                  const isEditing = editingTaskId === task.id;
 
                   return (
                     <div
                       key={task.id}
-                      className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.98)] p-4"
+                      className="rounded-sm border bg-[rgba(14,14,17,0.98)] p-4"
+                      style={{
+                        borderColor: isEditing
+                          ? "rgba(251,146,60,0.34)"
+                          : "rgb(39 39 42)",
+                      }}
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="space-y-2">
@@ -848,6 +957,28 @@ export default function HealthModulePage() {
                         <span>{cadenceBadgeLabel(task.recurrence)}</span>
                         <span>•</span>
                         <span>{completed ? "Concluído no ciclo atual" : "Pendente"}</span>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => startEditingTask(task)}
+                          className="praxis-button-ghost px-3 py-2 text-[var(--accent)]"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          {isEditing ? "Editando…" : "Editar"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (editingTaskId === task.id) resetForm();
+                            actions.removeTask(task.id);
+                          }}
+                          className="praxis-button-ghost px-3 py-2 text-red-300 hover:border-red-400/30 hover:text-red-200"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Remover
+                        </button>
                       </div>
                     </div>
                   );

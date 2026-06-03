@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   CheckCircle2,
   House,
+  Pencil,
   Plus,
   Trash2,
+  X,
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
-import type { TaskDifficulty, Weekday } from "@/lib/types";
+import type { Task, TaskDifficulty, Weekday } from "@/lib/types";
 import {
+  formatRecurrence,
   getTaskDifficultyFromXp,
   isTaskDueForDate,
   isTaskCompletedForDate,
@@ -137,6 +140,18 @@ export default function HomeModulePage() {
     "wednesday",
     "friday",
   ]);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  function resetForm() {
+    setTitle("");
+    setDescription("");
+    setScheduledTime("09:00");
+    setDifficulty("medium");
+    setRecurrenceKind("selected-weekdays");
+    setWeekdays(["monday", "wednesday", "friday"]);
+    setEditingTaskId(null);
+  }
 
   function applyPreset(presetId: string) {
     const preset = homePresets.find((item) => item.id === presetId);
@@ -148,6 +163,30 @@ export default function HomeModulePage() {
     setDifficulty(getTaskDifficultyFromXp(preset.xp));
     setRecurrenceKind("selected-weekdays");
     setWeekdays(preset.weekdays);
+    setEditingTaskId(null);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  function startEditingTask(task: Task) {
+    setTitle(task.title);
+    setDescription(task.description);
+    setScheduledTime(task.scheduledTime ?? "");
+    setDifficulty(task.difficulty ?? getTaskDifficultyFromXp(task.xp));
+    if (task.recurrence.kind === "daily") {
+      setRecurrenceKind("daily");
+    } else {
+      setRecurrenceKind("selected-weekdays");
+      const taskWeekdays =
+        task.recurrence.kind === "selected-weekdays" &&
+        task.recurrence.weekdays?.length
+          ? task.recurrence.weekdays
+          : task.recurrence.kind === "weekly-fixed" && task.recurrence.weekday
+            ? [task.recurrence.weekday]
+            : [todayWeekday];
+      setWeekdays(taskWeekdays);
+    }
+    setEditingTaskId(task.id);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   function toggleWeekday(day: Weekday) {
@@ -162,28 +201,38 @@ export default function HomeModulePage() {
     event.preventDefault();
     if (!title.trim()) return;
 
-    actions.addTask({
-      title: title.trim(),
-      description: description.trim(),
-      category: "productivity",
-      moduleId: "home",
-      scheduledTime: scheduledTime || undefined,
-      difficulty,
-      recurrence:
-        recurrenceKind === "daily"
-          ? { kind: "daily" }
-          : {
-              kind: "selected-weekdays",
-              weekdays: weekdays.length ? weekdays : [todayWeekday],
-            },
-    });
+    const recurrence =
+      recurrenceKind === "daily"
+        ? ({ kind: "daily" } as const)
+        : ({
+            kind: "selected-weekdays" as const,
+            weekdays: weekdays.length ? weekdays : [todayWeekday],
+          } as const);
 
-    setTitle("");
-    setDescription("");
-    setScheduledTime("09:00");
-    setDifficulty("medium");
-    setRecurrenceKind("selected-weekdays");
-    setWeekdays(["monday", "wednesday", "friday"]);
+    if (editingTaskId) {
+      actions.updateTask({
+        taskId: editingTaskId,
+        patch: {
+          title: title.trim(),
+          description: description.trim(),
+          scheduledTime: scheduledTime || undefined,
+          difficulty,
+          recurrence,
+        },
+      });
+    } else {
+      actions.addTask({
+        title: title.trim(),
+        description: description.trim(),
+        category: "productivity",
+        moduleId: "home",
+        scheduledTime: scheduledTime || undefined,
+        difficulty,
+        recurrence,
+      });
+    }
+
+    resetForm();
   }
 
   return (
@@ -270,9 +319,13 @@ export default function HomeModulePage() {
             <div className="flex items-center gap-3">
               <House className="h-6 w-6 text-[var(--accent)]" />
               <div>
-                <p className="praxis-label text-[var(--accent)]">Nova tarefa</p>
+                <p className="praxis-label text-[var(--accent)]">
+                  {editingTaskId ? "Editar tarefa" : "Nova tarefa"}
+                </p>
                 <h2 className="praxis-title text-2xl">
-                  Planejamento da casa
+                  {editingTaskId
+                    ? "Ajuste os campos abaixo"
+                    : "Planejamento da casa"}
                 </h2>
               </div>
             </div>
@@ -290,7 +343,7 @@ export default function HomeModulePage() {
               ))}
             </div>
 
-            <form className="space-y-4" onSubmit={saveTask}>
+            <form ref={formRef} className="space-y-4" onSubmit={saveTask}>
               <label className="block space-y-2">
                 <span className="praxis-label text-[var(--accent)]">Título</span>
                 <input
@@ -379,13 +432,34 @@ export default function HomeModulePage() {
                 </div>
               ) : null}
 
-              <button
-                type="submit"
-                className="praxis-button inline-flex w-full items-center justify-center gap-2 px-4 py-3"
-              >
-                <Plus className="h-4 w-4" />
-                Criar tarefa da casa
-              </button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="submit"
+                  className="praxis-button inline-flex flex-1 items-center justify-center gap-2 px-4 py-3"
+                >
+                  {editingTaskId ? (
+                    <>
+                      <Pencil className="h-4 w-4" />
+                      Salvar alterações
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4" />
+                      Criar tarefa da casa
+                    </>
+                  )}
+                </button>
+                {editingTaskId ? (
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="praxis-button-ghost inline-flex items-center justify-center gap-2 px-4 py-3"
+                  >
+                    <X className="h-4 w-4" />
+                    Cancelar
+                  </button>
+                ) : null}
+              </div>
             </form>
           </GlassPanel>
 
@@ -404,11 +478,17 @@ export default function HomeModulePage() {
               <div className="space-y-3">
                 {homeTasksToday.map((task) => {
                   const completedForToday = isTaskCompletedForDate(task, today);
+                  const isEditing = editingTaskId === task.id;
 
                   return (
                     <div
                       key={task.id}
                       className="praxis-panel rounded-sm p-4"
+                      style={
+                        isEditing
+                          ? { borderColor: "rgba(251,146,60,0.34)" }
+                          : undefined
+                      }
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -434,7 +514,7 @@ export default function HomeModulePage() {
                         </span>
                       </div>
 
-                      <div className="mt-4 flex gap-2">
+                      <div className="mt-4 flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => actions.toggleTask(task.id)}
@@ -449,7 +529,18 @@ export default function HomeModulePage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => actions.removeTask(task.id)}
+                          onClick={() => startEditingTask(task)}
+                          className="inline-flex items-center gap-2 rounded-sm border border-[rgba(251,146,60,0.22)] bg-[rgba(251,146,60,0.08)] px-3 py-2 text-xs text-[var(--accent)]"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          {isEditing ? "Editando…" : "Editar"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (editingTaskId === task.id) resetForm();
+                            actions.removeTask(task.id);
+                          }}
                           className="inline-flex items-center gap-2 rounded-sm border border-zinc-800 bg-black/50 px-3 py-2 text-xs text-zinc-400"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -464,6 +555,97 @@ export default function HomeModulePage() {
               <div className="rounded-sm border border-dashed border-zinc-800 bg-black/40 p-5 text-sm leading-6 text-zinc-500">
                 Nenhuma tarefa da casa cai em{" "}
                 {weekdayLongLabel(todayWeekday).toLowerCase()}.
+              </div>
+            )}
+          </GlassPanel>
+
+          {/* Lista completa de tarefas do módulo (não só as de hoje) — pra
+              edição/remoção de qualquer uma. */}
+          <GlassPanel className="space-y-4">
+            <div className="flex items-center gap-2 text-[var(--accent)]">
+              <House className="h-4 w-4" />
+              Tarefas do módulo
+            </div>
+            {homeTasks.length ? (
+              <div className="space-y-3">
+                {homeTasks.map((task) => {
+                  const completedForToday = isTaskCompletedForDate(task, today);
+                  const isEditing = editingTaskId === task.id;
+
+                  return (
+                    <div
+                      key={task.id}
+                      className="praxis-panel rounded-sm p-4"
+                      style={
+                        isEditing
+                          ? { borderColor: "rgba(251,146,60,0.34)" }
+                          : undefined
+                      }
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap gap-2 text-xs">
+                            <span className="rounded-sm border border-zinc-800 bg-black/50 px-3 py-2 text-zinc-400">
+                              {formatRecurrence(task.recurrence)}
+                            </span>
+                            {task.scheduledTime ? (
+                              <span className="rounded-sm border border-zinc-800 bg-black/50 px-3 py-2 text-zinc-400">
+                                {task.scheduledTime}
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-3 truncate font-medium text-zinc-100">
+                            {task.title}
+                          </p>
+                          <p className="mt-2 line-clamp-2 text-sm leading-6 text-zinc-500">
+                            {task.description}
+                          </p>
+                        </div>
+                        <span className="rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] px-3 py-2 text-xs text-[var(--accent)]">
+                          +{task.xp} XP
+                        </span>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => actions.toggleTask(task.id)}
+                          className={`inline-flex items-center gap-2 rounded-sm border px-3 py-2 text-xs ${
+                            completedForToday
+                              ? "border-zinc-800 bg-black/50 text-zinc-500"
+                              : "border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] text-zinc-100"
+                          }`}
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          {completedForToday ? "Concluída" : "Concluir"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => startEditingTask(task)}
+                          className="inline-flex items-center gap-2 rounded-sm border border-[rgba(251,146,60,0.22)] bg-[rgba(251,146,60,0.08)] px-3 py-2 text-xs text-[var(--accent)]"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          {isEditing ? "Editando…" : "Editar"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (editingTaskId === task.id) resetForm();
+                            actions.removeTask(task.id);
+                          }}
+                          className="inline-flex items-center gap-2 rounded-sm border border-zinc-800 bg-black/50 px-3 py-2 text-xs text-zinc-400"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Remover
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-sm border border-dashed border-zinc-800 bg-black/40 p-5 text-sm leading-6 text-zinc-500">
+                Crie a primeira tarefa da casa pra ela aparecer aqui.
               </div>
             )}
           </GlassPanel>
@@ -490,6 +672,14 @@ export default function HomeModulePage() {
                       {preset.weekdays.map(weekdayLongLabel).join(", ")}
                     </span>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset(preset.id)}
+                    className="praxis-button mt-4 inline-flex w-full items-center justify-center gap-2 px-3 py-2 text-xs"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Adicionar como tarefa
+                  </button>
                 </div>
               ))}
             </div>
