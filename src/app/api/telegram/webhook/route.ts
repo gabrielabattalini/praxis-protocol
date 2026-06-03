@@ -12,6 +12,7 @@ import {
 import {
   completeMealBlockForUser,
   completeTaskForUser,
+  completeWorkoutDayForUser,
 } from "@/lib/telegram-actions.server";
 
 export const runtime = "nodejs";
@@ -119,6 +120,9 @@ export async function POST(request: Request) {
       result = await completeTaskForUser(userId, data.slice("t:".length));
     } else if (data.startsWith("mb:")) {
       result = await completeMealBlockForUser(userId, data.slice("mb:".length));
+    } else if (data.startsWith("wd:")) {
+      // Workout day completion: marca o dia inteiro como feito.
+      result = await completeWorkoutDayForUser(userId, data.slice("wd:".length));
     } else if (data === "noop") {
       // Clique no botão "✓ Concluído" (já marcado num clique anterior).
       // Só confirma — não há mais nada a fazer.

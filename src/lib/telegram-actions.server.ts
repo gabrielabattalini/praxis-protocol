@@ -1,7 +1,12 @@
 import { getAccountState, saveAccountState } from "@/lib/account-state.server";
 import { getUserTimezone } from "@/lib/notification-center.server";
-import { isTaskCompletedForDate, isTaskDueForDate } from "@/lib/utils";
-import type { PersistedState, ReminderItem, Task } from "@/lib/types";
+import { isTaskCompletedForDate, isTaskDueForDate, makeId } from "@/lib/utils";
+import type {
+  PersistedState,
+  ReminderItem,
+  Task,
+  WorkoutDayCompletion,
+} from "@/lib/types";
 
 function readState(envelope: { state: unknown }): PersistedState {
   return envelope.state as PersistedState;
@@ -283,4 +288,83 @@ async function completeBlock(
   });
 
   return { ok: true, message: `Concluído: ${block.title}` };
+}
+
+/**
+ * Marca um dia de treino como concluído (callback `wd:<dayId>` do
+ * Telegram). Cria entry em workoutDayCompletions com a mesma estrutura
+ * que o app gera no toggleWorkoutDayCompleted — assim o dashboard de
+ * treino reflete a conclusão automaticamente.
+ *
+ * Date-aware no fuso do usuário. Se já existe completion pra
+ * (programId, dayId, hoje), retorna "já concluído".
+ */
+export async function completeWorkoutDayForUser(
+  userId: string,
+  dayId: string,
+): Promise<{ ok: boolean; message: string }> {
+  const envelope = await getAccountState(userId);
+  if (!envelope) {
+    return { ok: false, message: "Conta não encontrada." };
+  }
+  const timezone = await getUserTimezone(userId);
+  const todayKey = todayKeyInTimezone(timezone);
+  const state = readState(envelope);
+
+  // Acha o programa ativo e o dia. Tenta primeiro nos workoutPrograms
+  // (estrutura nova), depois no workoutPlan legacy.
+  const programs = state.workoutPrograms ?? [];
+  const activeProgram =
+    programs.find((p) => p.id === state.activeWorkoutProgramId) ?? programs[0];
+  const day =
+    activeProgram?.workoutPlan?.find((d) => d.id === dayId) ??
+    state.workoutPlan?.find((d) => d.id === dayId);
+
+  if (!day) {
+    console.warn(
+      `[telegram-actions] workout-day-not-found userId=${userId} dayId=${dayId} ` +
+        `activeProgramId=${state.activeWorkoutProgramId} ` +
+        `daysAvailable=[${(activeProgram?.workoutPlan ?? state.workoutPlan ?? []).map((d) => d.id).join(",")}]`,
+    );
+    return {
+      ok: false,
+      message: "Não encontrei esse treino — abra o app e marque por lá.",
+    };
+  }
+
+  const programId =
+    activeProgram?.id ?? state.activeWorkoutProgramId ?? "";
+  const completions = state.workoutDayCompletions ?? [];
+  const alreadyDone = completions.some(
+    (c) =>
+      c.programId === programId &&
+      c.dayId === dayId &&
+      c.dateKey === todayKey,
+  );
+  if (alreadyDone) {
+    return {
+      ok: true,
+      message: "✓ Esse treino já estava concluído hoje no sistema.",
+    };
+  }
+
+  const newCompletion: WorkoutDayCompletion = {
+    id: makeId("workout-day"),
+    programId,
+    dayId,
+    dayTitle: day.title,
+    dateKey: todayKey,
+    completedAt: new Date().toISOString(),
+  };
+
+  await saveAccountState(userId, {
+    ...envelope,
+    state: {
+      ...state,
+      workoutDayCompletions: [newCompletion, ...completions],
+    } as PersistedState,
+    updatedAt: new Date().toISOString(),
+  });
+
+  return { ok: true, message: `Concluído: ${day.title}` };
 }
