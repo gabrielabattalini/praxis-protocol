@@ -1474,11 +1474,37 @@ export default function WorkoutModulePage() {
                                 Repetições {exercise.repRange}
                               </span>
                             </div>
-                            <p className="mt-3 text-sm leading-6 text-zinc-500">
-                              {latestEntry
-                                ? `Último registro em ${formatWorkoutDateTime(latestEntry.loggedAt)}: ${formatWorkoutSetSummary(latestEntry.sets)}`
-                                : "Ainda sem registro salvo para este exercício."}
-                            </p>
+                            {latestEntry ? (
+                              <div className="mt-3 text-xs leading-5 text-zinc-500">
+                                <p>
+                                  Último registro em{" "}
+                                  <span className="text-zinc-400">
+                                    {formatWorkoutDateTime(latestEntry.loggedAt)}
+                                  </span>
+                                </p>
+                                <ul className="mt-1 space-y-0.5 font-mono tabular-nums">
+                                  {latestEntry.sets.map((set) => (
+                                    <li
+                                      key={set.setNumber}
+                                      className="flex gap-3 text-[11px] text-zinc-400"
+                                    >
+                                      <span className="w-6 text-zinc-500">
+                                        {set.setNumber}ª
+                                      </span>
+                                      <span>
+                                        {set.weightKg} kg{" "}
+                                        <span className="text-zinc-600">×</span>{" "}
+                                        {set.repetitions}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : (
+                              <p className="mt-3 text-sm leading-6 text-zinc-500">
+                                Ainda sem registro salvo para este exercício.
+                              </p>
+                            )}
                           </div>
                         </button>
 
