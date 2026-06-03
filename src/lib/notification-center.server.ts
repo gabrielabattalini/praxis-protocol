@@ -277,6 +277,15 @@ function buildCompleteCallbackData(
     const cb = `mb:${entityId}`;
     return cb.length <= 64 ? cb : null;
   }
+  if (entityType === "workout") {
+    // wd: = workout day completion. Marca o dia inteiro como concluído
+    // (mesma entrada que toggleWorkoutDayCompleted gera no app).
+    const cb = `wd:${entityId}`;
+    return cb.length <= 64 ? cb : null;
+  }
+  // cardio: ainda sem ação dedicada — o reminder de cardio sempre vem
+  // como entityType="task" no usuário típico (cardio-target-* é Task),
+  // então o caminho "task" já cobre. Reservado pra futuro.
   return null;
 }
 
