@@ -435,14 +435,30 @@ export default function ToolsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
+  // actions é objeto literal recriado a cada render do provider — pôr
+  // como dep do useEffect aqui criava loop (setModuleState → re-render
+  // → actions novo → effect re-roda…), travando a página de Tools.
+  const toolsActionsRef = useRef(actions);
+  toolsActionsRef.current = actions;
+  const lastDiarySavedRef = useRef<string>("");
+  const lastCountdownSavedRef = useRef<string>("");
   useEffect(() => {
     if (typeof window === "undefined") return;
-    actions.setModuleState(`quick-diary-${userId}`, diaryState);
-  }, [actions, diaryState, userId]);
+    const serialized = JSON.stringify(diaryState);
+    if (lastDiarySavedRef.current === serialized) return;
+    lastDiarySavedRef.current = serialized;
+    toolsActionsRef.current.setModuleState(`quick-diary-${userId}`, diaryState);
+  }, [diaryState, userId]);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    actions.setModuleState(`countdown-${userId}`, countdownState);
-  }, [actions, countdownState, userId]);
+    const serialized = JSON.stringify(countdownState);
+    if (lastCountdownSavedRef.current === serialized) return;
+    lastCountdownSavedRef.current = serialized;
+    toolsActionsRef.current.setModuleState(
+      `countdown-${userId}`,
+      countdownState,
+    );
+  }, [countdownState, userId]);
 
   useEffect(() => {
     if (activeAppId !== "countdown") return;
