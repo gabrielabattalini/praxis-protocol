@@ -554,7 +554,31 @@ export default function TasksPage() {
       });
 
     const workoutAgendaItems = activeWorkoutPlan
-      .filter((day) => day.weekday === targetWeekday && !day.isRestDay)
+      .filter((day) => {
+        if (day.isRestDay) return false;
+        // Match igual ao lib/agenda.ts: agendamento canônico do dia OU
+        // multi-select da reminder.weekdays OU atividade off-schedule
+        // (log de carga / marcação manual) registrada nessa data.
+        const reminder = state.reminders.find(
+          (item) => item.entityId === day.id && item.entityType === "workout",
+        );
+        const scheduled =
+          Array.isArray(reminder?.weekdays) && reminder.weekdays.length > 0
+            ? reminder.weekdays.includes(targetWeekday)
+            : day.weekday === targetWeekday;
+        if (scheduled) return true;
+        const hasLogOnDate = state.workoutLoadEntries.some(
+          (entry) =>
+            entry.dayId === day.id &&
+            entry.loggedAt.slice(0, 10) === targetDateKey,
+        );
+        if (hasLogOnDate) return true;
+        return state.workoutDayCompletions.some(
+          (completion) =>
+            completion.dayId === day.id &&
+            completion.dateKey === targetDateKey,
+        );
+      })
       .map<AgendaItem>((day) => {
         const reminder = state.reminders.find(
           (item) => item.entityId === day.id && item.entityType === "workout",
@@ -635,6 +659,18 @@ export default function TasksPage() {
     (phase) => phase.items.length,
   );
   const featuredAgendaItemId = pendingAgenda[0]?.id ?? activeTimelineItems[0]?.id;
+  // "Treinar outro hoje": dias do programa que NÃO estão na agenda do
+  // dia selecionado. Permite trazer pra hoje um treino agendado pra
+  // outro dia da semana (ex.: usuário trocou peito da terça pela quarta).
+  // Pega o conjunto de workoutDayId já presentes pra evitar duplicar.
+  const todaysWorkoutDayIds = new Set(
+    activeTimelineItems
+      .map((item) => item.workoutDayId)
+      .filter((id): id is string => Boolean(id)),
+  );
+  const otherWorkoutDays = activeWorkoutPlan.filter(
+    (day) => !day.isRestDay && !todaysWorkoutDayIds.has(day.id),
+  );
   const selectedDateSummaryLabel = selectedDate.toLocaleDateString("pt-BR", {
     weekday: "long",
     day: "2-digit",
@@ -659,9 +695,33 @@ export default function TasksPage() {
       return reminder ? reminderMatchesToday(reminder.weekdays, targetWeekday) : true;
     }).length;
 
-    const workoutCount = activeWorkoutPlan.filter(
-      (day) => day.weekday === targetWeekday && !day.isRestDay,
-    ).length;
+    // Mesmo critério de visibilidade do buildAgendaForDate: agendado
+    // pelo weekday, pelo reminder.weekdays OU off-schedule (com log /
+    // marcação manual nessa data). Mantém o número do dia no
+    // calendário em sincronia com o que o usuário vai ver ao abrir.
+    const targetDateKey = formatDateKey(targetDate);
+    const workoutCount = activeWorkoutPlan.filter((day) => {
+      if (day.isRestDay) return false;
+      const reminder = state.reminders.find(
+        (item) => item.entityId === day.id && item.entityType === "workout",
+      );
+      const scheduled =
+        Array.isArray(reminder?.weekdays) && reminder.weekdays.length > 0
+          ? reminder.weekdays.includes(targetWeekday)
+          : day.weekday === targetWeekday;
+      if (scheduled) return true;
+      const hasLogOnDate = state.workoutLoadEntries.some(
+        (entry) =>
+          entry.dayId === day.id &&
+          entry.loggedAt.slice(0, 10) === targetDateKey,
+      );
+      if (hasLogOnDate) return true;
+      return state.workoutDayCompletions.some(
+        (completion) =>
+          completion.dayId === day.id &&
+          completion.dateKey === targetDateKey,
+      );
+    }).length;
 
     return tasksCount + mealCount + workoutCount;
   }
@@ -1827,6 +1887,131 @@ export default function TasksPage() {
             </div>
           </div>
         )}
+
+        {/* "Treinar outro hoje": só na visualização de HOJE. Permite
+            trazer pra agenda um treino do programa agendado pra outro
+            dia. Routeia pro módulo de Treino (pra logar carga) ou
+            marca direto como feito via toggleWorkoutDayCompleted. */}
+        {isSelectedDateToday && otherWorkoutDays.length > 0 ? (
+          <div
+            style={{
+              marginTop: 16,
+              paddingTop: 16,
+              borderTop: "1px dashed rgba(39,39,42,0.6)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 6,
+              }}
+            >
+              <span
+                className="badge badge-sm"
+                style={{
+                  borderColor: "rgba(251,146,60,0.3)",
+                  background: "rgba(251,146,60,0.08)",
+                  color: "var(--accent)",
+                }}
+              >
+                Treinar outro hoje
+              </span>
+              <span
+                style={{
+                  marginLeft: "auto",
+                  fontSize: 10,
+                  color: "#71717a",
+                }}
+              >
+                {otherWorkoutDays.length} disponíveis
+              </span>
+            </div>
+            <p
+              style={{
+                fontSize: 11,
+                color: "#71717a",
+                margin: "0 0 10px 0",
+                lineHeight: 1.5,
+              }}
+            >
+              Trocou o dia do treino? Traga um dos outros dias do programa
+              pra hoje — aparece na agenda quando você começar a registrar
+              ou marcar como feito.
+            </p>
+            <div style={{ display: "grid", gap: 8 }}>
+              {otherWorkoutDays.map((day) => (
+                <div
+                  key={day.id}
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(39,39,42,0.6)",
+                    background: "rgba(14,14,17,0.6)",
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "var(--fg)",
+                      }}
+                    >
+                      {day.title}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#71717a" }}>
+                      Agendado para {weekdayLongLabel(day.weekday)}
+                      {day.focus ? ` · ${day.focus}` : ""}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 6,
+                      flexWrap: "wrap",
+                      justifyContent: "flex-end",
+                    }}
+                  >
+                    <Link
+                      href={`/modules/workout?dayId=${day.id}`}
+                      className="v2-btn v2-btn-sm v2-btn-ok"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Treinar hoje
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        actions.toggleWorkoutDayCompleted({
+                          dayId: day.id,
+                          dateKey: todayKey,
+                        });
+                        toast.push({
+                          message: `Treino "${day.title}" marcado como feito hoje.`,
+                          undo: () =>
+                            actions.toggleWorkoutDayCompleted({
+                              dayId: day.id,
+                              dateKey: todayKey,
+                            }),
+                        });
+                      }}
+                      className="v2-btn v2-btn-sm v2-btn-ghost"
+                    >
+                      Marcar como feito
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
