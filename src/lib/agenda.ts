@@ -192,10 +192,24 @@ export function buildAgendaEvents(
         (item) =>
           item.entityType === "workout" && item.entityId === day.id,
       );
-      if (Array.isArray(reminder?.weekdays) && reminder.weekdays.length > 0) {
-        return reminder.weekdays.includes(weekday);
-      }
-      return day.weekday === weekday;
+      const scheduled =
+        Array.isArray(reminder?.weekdays) && reminder.weekdays.length > 0
+          ? reminder.weekdays.includes(weekday)
+          : day.weekday === weekday;
+      if (scheduled) return true;
+      // Off-schedule activity: o usuário pode trocar o treino do dia
+      // (fez Peito numa quarta mesmo agendado pra terça). Surface o
+      // treino na agenda do dia em que foi efetivamente feito, seja
+      // via log de carga ou marcação manual.
+      const hasLogOnDate = workoutLoadEntries.some(
+        (entry) =>
+          entry.dayId === day.id && entry.loggedAt.slice(0, 10) === dateKey,
+      );
+      if (hasLogOnDate) return true;
+      return workoutDayCompletions.some(
+        (completion) =>
+          completion.dayId === day.id && completion.dateKey === dateKey,
+      );
     })
     .map<AgendaEvent>((day) => {
       const reminder = reminders.find(
