@@ -1280,14 +1280,31 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         tasks: state.tasks.map((task) =>
           task.id === action.taskId
             ? (() => {
+                // toggleTask sempre age sobre HOJE. O registro durável da
+                // conclusão é o array completedDates (por data, fonte de
+                // verdade de isTaskCompletedForDate). O par legado
+                // completed/completedAt é mantido em paralelo só pra
+                // retrocompat (interval-days e leitores antigos).
+                //
+                // Antes esse reducer só escrevia completedAt — um slot
+                // único que só "lembra" de UM dia. Pra tarefas recorrentes
+                // de saúde isso fazia a conclusão vazar entre dias: marcar
+                // hoje apagava a conclusão de ontem, e a tarefa voltava a
+                // aparecer como pendente ao navegar pelas datas. Agora
+                // grava também em completedDates (igual à hidratação),
+                // então cada dia guarda sua própria baixa.
+                const todayKey = formatDateKey(new Date());
                 const completedForCurrentDate = isTaskCompletedForDate(task, new Date());
+                const nextCompleted = !completedForCurrentDate;
+                const currentDates = task.completedDates ?? [];
                 return {
                   ...task,
-                  completed: !completedForCurrentDate,
+                  completed: nextCompleted,
                   deferUntilDate: undefined,
-                  completedAt: !completedForCurrentDate
-                    ? new Date().toISOString()
-                    : undefined,
+                  completedAt: nextCompleted ? new Date().toISOString() : undefined,
+                  completedDates: nextCompleted
+                    ? Array.from(new Set([...currentDates, todayKey])).sort()
+                    : currentDates.filter((entry) => entry !== todayKey),
                 };
               })()
             : task,
