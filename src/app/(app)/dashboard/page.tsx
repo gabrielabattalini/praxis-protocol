@@ -684,8 +684,15 @@ export default function DashboardPage() {
               // Meta was "time · description" — the description usually
               // just restates the title (e.g. "Acordar às 8h da manhã"
               // for a task already titled "Acordar"). Showing only the
-              // time keeps signal, drops noise.
-              meta={item.time ?? "Sem horário"}
+              // time keeps signal, drops noise. Itens sem horário fixo,
+              // como a hidratação diária, mostram um rótulo próprio em
+              // vez do genérico "Sem horário".
+              meta={
+                item.time ??
+                (/hidrata/i.test(item.title)
+                  ? "Hidratação Diária"
+                  : "Sem horário")
+              }
               xp={`+${item.xp ?? 0} XP`}
               difficulty={difficultyForItem(item)}
               state={item.completed ? "done" : "pending"}
