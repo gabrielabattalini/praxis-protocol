@@ -24,7 +24,8 @@ type SettingsTab =
   | "notifications"
   | "quotes"
   | "modules"
-  | "subscription";
+  | "subscription"
+  | "backup";
 
 const settingsTabs: Array<{ id: SettingsTab; label: string }> = [
   { id: "account", label: "Conta" },
@@ -33,6 +34,7 @@ const settingsTabs: Array<{ id: SettingsTab; label: string }> = [
   { id: "quotes", label: "Frases" },
   { id: "modules", label: "Módulos" },
   { id: "subscription", label: "Assinatura" },
+  { id: "backup", label: "Backup" },
 ];
 
 const toggles: Array<{
@@ -1141,7 +1143,176 @@ function TabContent({
     );
   }
 
+  if (tab === "backup") {
+    return <BackupTab />;
+  }
+
   return null;
+}
+
+function BackupTab() {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{
+    kind: "ok" | "error" | "info";
+    text: string;
+  } | null>(null);
+
+  async function handleDownload() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/account/export", {
+        credentials: "same-origin",
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      // Tenta extrair filename do Content-Disposition; fallback ISO local.
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const match = disposition.match(/filename="([^"]+)"/);
+      a.download =
+        match?.[1] ??
+        `praxis-backup-${new Date()
+          .toISOString()
+          .slice(0, 19)
+          .replace(/[:T]/g, "-")}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      setMessage({ kind: "ok", text: "Backup baixado. Guarde o arquivo em local seguro." });
+    } catch (error) {
+      setMessage({
+        kind: "error",
+        text: `Falha ao baixar backup: ${error instanceof Error ? error.message : "erro desconhecido"}`,
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRestore(file: File) {
+    const confirmed = window.confirm(
+      `Restaurar este backup vai SUBSTITUIR seu estado atual no servidor.\n\nA versão atual será guardada no histórico automático (últimas 10), então dá pra desfazer depois.\n\nArquivo: ${file.name}\nTamanho: ${(file.size / 1024).toFixed(1)} KB\n\nConfirmar restauração?`,
+    );
+    if (!confirmed) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const text = await file.text();
+      // Valida JSON antes de mandar pro servidor.
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        throw new Error("arquivo não é um JSON válido");
+      }
+      const response = await fetch("/api/account/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(parsed),
+      });
+      const payload = (await response
+        .json()
+        .catch(() => ({}))) as Record<string, unknown>;
+      if (!response.ok) {
+        const errorMsg =
+          typeof payload.message === "string"
+            ? payload.message
+            : typeof payload.error === "string"
+              ? String(payload.error)
+              : `HTTP ${response.status}`;
+        throw new Error(errorMsg);
+      }
+      setMessage({
+        kind: "ok",
+        text: "Backup restaurado. Recarregue o app pra ver o estado restaurado.",
+      });
+    } catch (error) {
+      setMessage({
+        kind: "error",
+        text: `Falha ao restaurar: ${error instanceof Error ? error.message : "erro desconhecido"}`,
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <RxLabel>BACKUP E RESTAURAÇÃO</RxLabel>
+        <p className="mt-2 text-sm text-zinc-400">
+          Baixe um arquivo JSON com todo o estado da sua conta (tarefas,
+          dieta, treino, finanças, etc.) e restaure depois se algo der
+          errado. O backup é só seu — vinculado ao seu login.
+        </p>
+      </div>
+
+      <section className="space-y-3 rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.6)] p-4">
+        <h3 className="text-sm font-semibold text-zinc-100">
+          Baixar backup
+        </h3>
+        <p className="text-sm text-zinc-400">
+          Gera um arquivo <code>praxis-backup-AAAA-MM-DD-HH-MM-SS.json</code>{" "}
+          com tudo do seu estado neste momento.
+        </p>
+        <button
+          type="button"
+          onClick={handleDownload}
+          disabled={busy}
+          className="inline-flex items-center gap-2 rounded-sm border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-black transition disabled:opacity-60"
+        >
+          {busy ? "Processando…" : "Baixar backup agora"}
+        </button>
+      </section>
+
+      <section className="space-y-3 rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.6)] p-4">
+        <h3 className="text-sm font-semibold text-zinc-100">
+          Restaurar de um backup
+        </h3>
+        <p className="text-sm text-zinc-400">
+          Selecione um arquivo <code>.json</code> gerado por este app.
+          Vai <strong>substituir</strong> o estado atual da sua conta. A
+          versão de hoje fica no histórico automático.
+        </p>
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-zinc-700 bg-[rgba(18,18,20,0.96)] px-4 py-2 text-sm font-semibold text-zinc-100 transition hover:border-[var(--accent)] hover:text-[var(--accent)]">
+          {busy ? "Processando…" : "Selecionar arquivo de backup"}
+          <input
+            type="file"
+            accept="application/json,.json"
+            disabled={busy}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void handleRestore(file);
+              // Reseta pra permitir re-selecionar o mesmo arquivo.
+              event.target.value = "";
+            }}
+            className="hidden"
+          />
+        </label>
+      </section>
+
+      {message ? (
+        <p
+          className={`text-sm ${
+            message.kind === "ok"
+              ? "text-emerald-300"
+              : message.kind === "error"
+                ? "text-rose-300"
+                : "text-zinc-300"
+          }`}
+        >
+          {message.text}
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 export default function SettingsPage() {
