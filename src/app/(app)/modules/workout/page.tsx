@@ -1546,6 +1546,9 @@ export default function WorkoutModulePage() {
                             {Array.from({ length: exercise.sets }, (_, index) => {
                               const setNumber = index + 1;
                               const key = draftSetKey(activeDay.id, exercise.id, setNumber);
+                              const prevSet = latestEntry?.sets.find(
+                                (s) => s.setNumber === setNumber,
+                              );
 
                               return (
                                 <div
@@ -1564,9 +1567,19 @@ export default function WorkoutModulePage() {
                                     </div>
                                   </div>
                                   <div>
-                                    <label className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
-                                      Peso (kg)
-                                    </label>
+                                    <div className="flex items-baseline justify-between gap-2">
+                                      <label className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
+                                        Peso (kg)
+                                      </label>
+                                      {prevSet ? (
+                                        <span className="font-mono text-[0.7rem] tabular-nums text-zinc-500">
+                                          último{" "}
+                                          <span className="text-zinc-300">
+                                            {prevSet.weightKg} kg
+                                          </span>
+                                        </span>
+                                      ) : null}
+                                    </div>
                                     <input
                                       value={draftLoads[key] ?? ""}
                                       onChange={(event) =>
@@ -1580,14 +1593,26 @@ export default function WorkoutModulePage() {
                                       type="number"
                                       min={0}
                                       step="0.5"
-                                      placeholder="Ex.: 20"
+                                      placeholder={
+                                        prevSet ? String(prevSet.weightKg) : "Ex.: 20"
+                                      }
                                       className={`${compactFieldClassName} mt-2`}
                                     />
                                   </div>
                                   <div>
-                                    <label className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
-                                      Repetições
-                                    </label>
+                                    <div className="flex items-baseline justify-between gap-2">
+                                      <label className="font-label text-[0.55rem] uppercase tracking-widest text-zinc-500">
+                                        Repetições
+                                      </label>
+                                      {prevSet ? (
+                                        <span className="font-mono text-[0.7rem] tabular-nums text-zinc-500">
+                                          último{" "}
+                                          <span className="text-zinc-300">
+                                            {prevSet.repetitions}
+                                          </span>
+                                        </span>
+                                      ) : null}
+                                    </div>
                                     <input
                                       value={draftLoadRepetitions[key] ?? ""}
                                       onChange={(event) =>
@@ -1600,7 +1625,9 @@ export default function WorkoutModulePage() {
                                       }
                                       type="number"
                                       min={1}
-                                      placeholder="Ex.: 10"
+                                      placeholder={
+                                        prevSet ? String(prevSet.repetitions) : "Ex.: 10"
+                                      }
                                       className={`${compactFieldClassName} mt-2`}
                                     />
                                   </div>
