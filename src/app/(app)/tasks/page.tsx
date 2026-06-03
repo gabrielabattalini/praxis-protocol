@@ -74,6 +74,7 @@ type AgendaItem = {
   workoutDayId?: string;
   workoutLoggedToday?: boolean;
   workoutMarkedCompleted?: boolean;
+  workoutLoadEntryIds?: string[];
   canPostpone?: boolean;
   postponeLabel?: string;
   points?: number;
@@ -564,9 +565,14 @@ export default function TasksPage() {
             (left, right) =>
               new Date(right.loggedAt).getTime() - new Date(left.loggedAt).getTime(),
           )[0];
-        const loggedForTargetDate = state.workoutLoadEntries.some(
-          (entry) => entry.dayId === day.id && entry.loggedAt.slice(0, 10) === targetDateKey,
-        );
+        const workoutLoadEntryIdsForDate = state.workoutLoadEntries
+          .filter(
+            (entry) =>
+              entry.dayId === day.id &&
+              entry.loggedAt.slice(0, 10) === targetDateKey,
+          )
+          .map((entry) => entry.id);
+        const loggedForTargetDate = workoutLoadEntryIdsForDate.length > 0;
         const markedCompleted = state.workoutDayCompletions.some(
           (completion) =>
             completion.dayId === day.id &&
@@ -601,6 +607,7 @@ export default function TasksPage() {
           workoutDayId: day.id,
           workoutLoggedToday: loggedForTargetDate,
           workoutMarkedCompleted: markedCompleted,
+          workoutLoadEntryIds: workoutLoadEntryIdsForDate,
           stats: [
             pluralize(day.exercises.length, "exercício"),
             latestDayLog
@@ -1043,13 +1050,43 @@ export default function TasksPage() {
               </>
             ) : item.workoutDayId ? (
               item.workoutLoggedToday ? (
-                <div className="v2-btn v2-btn-sm" style={{ cursor: "default" }}>
+                // Antes era uma div estática "Treino salvo no histórico" —
+                // bloqueava qualquer desfazer caso o usuário tivesse salvo
+                // sem querer. Agora é um botão que apaga os registros de
+                // carga deste dia (e a marcação manual, se houver), com
+                // confirm pra evitar deletar log real por engano.
+                <button
+                  type="button"
+                  onClick={() => {
+                    const entryIds = item.workoutLoadEntryIds ?? [];
+                    if (
+                      !window.confirm(
+                        `Desfazer "${item.title}"? Isso vai remover ${entryIds.length} registro(s) de carga salvos no histórico — não dá pra desfazer depois.`,
+                      )
+                    ) {
+                      return;
+                    }
+                    if (entryIds.length > 0) {
+                      actions.removeWorkoutLoadBatch(entryIds);
+                    }
+                    if (item.workoutMarkedCompleted) {
+                      actions.toggleWorkoutDayCompleted({
+                        dayId: item.workoutDayId!,
+                        dateKey: selectedDateKey,
+                      });
+                    }
+                    toast.push({
+                      message: `Treino "${item.title}" desfeito.`,
+                    });
+                  }}
+                  className="v2-btn v2-btn-sm v2-btn-ghost"
+                >
                   <CheckCircle2
                     className="h-3.5 w-3.5"
                     style={{ color: "var(--ok)" }}
                   />
-                  Treino salvo no histórico
-                </div>
+                  Treino salvo · desfazer
+                </button>
               ) : (
                 <button
                   type="button"
