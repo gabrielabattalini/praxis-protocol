@@ -332,6 +332,13 @@ export function FinanceFuelPlanner() {
     );
   }, [active]);
 
+  // km rodados depende só dos km/dia (igual pros dois combustíveis no flex).
+  const weeklyKm = useMemo(
+    () => dayOrder.reduce((sum, d) => sum + Math.max(0, active.daysKm[d] || 0), 0),
+    [active],
+  );
+  const monthlyKm = weeklyKm * (52 / 12);
+
   function updateActiveVehicle(patch: Partial<Vehicle>) {
     setState((current) => ({
       ...current,
@@ -617,6 +624,24 @@ export function FinanceFuelPlanner() {
           </div>
         </div>
 
+        {/* km rodados — independente do combustível */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-sm border border-zinc-800 bg-black/40 p-4">
+            <p className="praxis-label text-zinc-500">km rodados / semana</p>
+            <p className="mt-2 text-2xl font-semibold text-white">
+              {weeklyKm.toFixed(1)}{" "}
+              <span className="text-base font-normal text-zinc-500">km</span>
+            </p>
+          </div>
+          <div className="rounded-sm border border-zinc-800 bg-black/40 p-4">
+            <p className="praxis-label text-zinc-500">km rodados / mês</p>
+            <p className="mt-2 text-2xl font-semibold text-white">
+              {monthlyKm.toFixed(1)}{" "}
+              <span className="text-base font-normal text-zinc-500">km</span>
+            </p>
+          </div>
+        </div>
+
         {/* Per-fuel config — single OR flex */}
         {active.fuelType === "flex" && active.flexAlt ? (
           <FlexConfig
@@ -713,7 +738,7 @@ function SingleFuelConfig(props: {
           />
         </label>
         <label className="text-sm text-zinc-400">
-          Preço por litro
+          Preço por litro de combustível
           <input
             type="number"
             min="0"
@@ -787,7 +812,7 @@ function FlexConfig(props: {
                 />
               </label>
               <label className="text-sm text-zinc-400">
-                Preço por litro
+                Preço por litro de combustível
                 <input
                   type="number"
                   min="0"
