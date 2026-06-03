@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Fuel, RotateCcw } from "lucide-react";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { useAppStore } from "@/components/providers/app-store-provider";
@@ -135,6 +135,19 @@ export function FinanceFuelPlanner() {
   });
   const [hydrated, setHydrated] = useState(false);
 
+  // actions é objeto literal recriado a cada render do provider (sem
+  // useMemo lá), então pôr `actions` nas deps do useEffect criava loop
+  // infinito (setModuleState → re-render do provider → actions novo →
+  // effect re-roda → setModuleState…), travando a página. Ref absorve
+  // a referência sem entrar nas deps.
+  const actionsRef = useRef(actions);
+  actionsRef.current = actions;
+
+  // Dedup adicional: só persiste se o state local diverge do último
+  // valor enviado. Defesa em profundidade caso `state` ganhe identidade
+  // nova sem mudança real.
+  const lastSavedRef = useRef<string>("");
+
   // On mount, migrate any legacy localStorage data into KV and clean up.
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -151,8 +164,11 @@ export function FinanceFuelPlanner() {
   // remote data with our initial-state default.
   useEffect(() => {
     if (!hydrated) return;
-    actions.setModuleState(fuelModuleKey, state);
-  }, [actions, hydrated, state]);
+    const serialized = JSON.stringify(state);
+    if (lastSavedRef.current === serialized) return;
+    lastSavedRef.current = serialized;
+    actionsRef.current.setModuleState(fuelModuleKey, state);
+  }, [hydrated, state]);
 
   const active = state[state.activeFuelType];
 
