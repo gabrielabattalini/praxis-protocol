@@ -1475,20 +1475,20 @@ export default function WorkoutModulePage() {
                               </span>
                             </div>
                             {latestEntry ? (
-                              <div className="mt-3 text-xs leading-5 text-zinc-500">
+                              <div className="mt-3 text-sm leading-5 text-zinc-500">
                                 <p>
                                   Último registro em{" "}
                                   <span className="text-zinc-400">
                                     {formatWorkoutDateTime(latestEntry.loggedAt)}
                                   </span>
                                 </p>
-                                <ul className="mt-1 space-y-0.5 font-mono tabular-nums">
+                                <ul className="mt-1.5 space-y-0.5 font-mono tabular-nums">
                                   {latestEntry.sets.map((set) => (
                                     <li
                                       key={set.setNumber}
-                                      className="flex gap-3 text-[11px] text-zinc-400"
+                                      className="flex gap-3 text-[13px] text-zinc-300"
                                     >
-                                      <span className="w-6 text-zinc-500">
+                                      <span className="w-7 text-zinc-500">
                                         {set.setNumber}ª
                                       </span>
                                       <span>
