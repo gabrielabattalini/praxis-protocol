@@ -131,6 +131,23 @@ function taskNotificationId(task: Task) {
   return `task:${task.sourceKey || task.id}`;
 }
 
+// Data (YYYY-MM-DD) da conclusão mais recente da task — considera tanto
+// completedAt (toggle do módulo/missões) quanto completedDates (toggle
+// por data no calendário). Usada pra ancorar tarefas interval-days no
+// ciclo correto.
+function latestCompletionKey(task: Task): string | null {
+  const keys: string[] = [];
+  if (task.completedAt) {
+    const parsed = new Date(task.completedAt);
+    if (!Number.isNaN(parsed.getTime())) keys.push(localDateKey(parsed));
+  }
+  if (task.completedDates?.length) {
+    keys.push(...task.completedDates);
+  }
+  if (keys.length === 0) return null;
+  return keys.sort().at(-1) ?? null;
+}
+
 function reminderNotificationId(reminder: ReminderItem) {
   return `reminder:${reminder.entityType}:${reminder.entityId}:${reminder.time}`;
 }
@@ -181,9 +198,21 @@ export function buildNotificationSyncPayload(
     .flatMap<NotificationScheduleItem>((task) => {
       const time = normalizeTime(task.scheduledTime);
       const route = task.moduleId ? notificationRouteByModuleId[task.moduleId] : "/tasks";
+      // Interval-days ancora na ÚLTIMA conclusão — não no dia do sync.
+      // Antes o anchor virava todayKey a cada sincronização, e como o
+      // dispatch dispara quando diffDays % intervalDays === 0, dava 0 %
+      // N === 0 TODO dia → tarefas como "consulta odontológica a cada
+      // 180 dias" notificavam diariamente mesmo já concluídas. Ancorando
+      // na conclusão, o próximo disparo cai em conclusão + intervalDays
+      // (uma vez por ciclo). Nunca concluída → cai no anchor padrão
+      // (hoje) = vence agora.
+      const completionKey =
+        task.recurrence.kind === "interval-days"
+          ? latestCompletionKey(task)
+          : null;
       const schedule = recurrenceToSchedule(
         task.recurrence,
-        task.deferUntilDate || todayKey,
+        completionKey || task.deferUntilDate || todayKey,
       );
 
       if (!time || !schedule) {
