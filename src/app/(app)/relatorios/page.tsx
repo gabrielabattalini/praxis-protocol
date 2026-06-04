@@ -219,41 +219,10 @@ export default function WeeklyReportPage() {
         )}
       </GlassPanel>
 
-      {/* Activities executed */}
-      <GlassPanel className="space-y-4">
-        <div>
-          <p className="praxis-label text-[var(--accent)]">Atividades</p>
-          <h2 className="praxis-title text-2xl">O que foi executado</h2>
-        </div>
-        {report.activities.length ? (
-          <div className="space-y-2">
-            {report.activities.map((activity) => (
-              <div
-                key={activity.key}
-                className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.92)] px-4 py-3"
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}
-              >
-                <div style={{ minWidth: 0 }}>
-                  <p className="truncate" style={{ fontSize: 14, color: "var(--fg)", fontWeight: 500 }}>
-                    {activity.title}
-                  </p>
-                  <p style={{ fontSize: 11, color: "var(--fg-3)" }}>{activity.module}</p>
-                </div>
-                <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: percentColor(activity.percent) }}>
-                    {activity.percent}%
-                  </span>
-                  <span style={{ fontSize: 11, color: "var(--fg-3)", marginLeft: 6 }}>
-                    {activity.completed}/{activity.scheduled}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-zinc-500">Nada agendado nesta semana.</p>
-        )}
-      </GlassPanel>
+      {/* "Atividades · O que foi executado" removida — duplicava a
+          visão de "Por módulo · Aderência" acima. A granularidade por
+          atividade individual continua disponível no PDF, na seção
+          "Ficou pra trás" e no resumo do relatório. */}
 
       {/* Left behind + what to improve */}
       <GlassPanel className="space-y-4">
