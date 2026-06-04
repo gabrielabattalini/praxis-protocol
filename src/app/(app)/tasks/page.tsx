@@ -32,6 +32,7 @@ import type {
 import {
   formatDateKey,
   formatRecurrence,
+  isMealItemCompletedForDateKey,
   isTaskCompletedForDate,
   isTaskDueForDate,
   weekdayLongLabel,
@@ -368,14 +369,9 @@ function normalizeAgendaTimeForDayOrder(time?: string) {
   return minutes;
 }
 
-function isMealItemCompletedForDateKey(item: MealPlanItem, dateKey: string) {
-  // Lê dos dois: completedDates (novo, persiste histórico de qualquer dia)
-  // e completedAt (legacy, ainda usado pelo dia atual). Sem isto o botão
-  // "Concluir" da refeição não reagia visualmente porque o reducer escreve
-  // em completedDates mas a UI olhava só completedAt.
-  if (item.completedDates?.includes(dateKey)) return true;
-  return Boolean(item.completedAt?.slice(0, 10) === dateKey);
-}
+// isMealItemCompletedForDateKey vive em @/lib/utils — a versão local
+// daqui virou apenas um wrapper antes; agora tasks/page consome direto
+// a fonte única (também usada por agenda.ts e relatório semanal).
 
 function getAgendaPhaseId(time?: string): AgendaPhaseId {
   const minutes = parseAgendaTimeMinutes(time);

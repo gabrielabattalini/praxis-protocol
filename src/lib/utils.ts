@@ -10,6 +10,7 @@
   LifeAreaProfile,
   ModuleId,
   NutritionMacros,
+  MealPlanItem,
   RankTier,
   Task,
   TaskDifficulty,
@@ -468,6 +469,27 @@ export function isTaskCompletedForDate(
     default:
       return task.completed;
   }
+}
+
+/**
+ * Item de refeição concluído em UMA data específica (YYYY-MM-DD).
+ *
+ * Fonte única de verdade pra agenda, missões, relatório semanal, etc.
+ * O reducer grava em completedDates (histórico por data); completedAt é
+ * legacy mas ainda é usado por itens antigos não migrados.
+ *
+ * Antes essa função vivia inline nos consumidores; o agenda.ts ficou de
+ * fora e olhava só item.completed (boolean único), o que fazia conclusão
+ * de refeição passada não aparecer na agenda nem no relatório semanal.
+ */
+export function isMealItemCompletedForDateKey(
+  item: Pick<MealPlanItem, "completed" | "completedAt" | "completedDates">,
+  dateKey: string,
+) {
+  if (item.completedDates?.includes(dateKey)) return true;
+  return Boolean(
+    item.completed && item.completedAt?.slice(0, 10) === dateKey,
+  );
 }
 
 export function weekdayFromDate(referenceDate: Date): Weekday {
