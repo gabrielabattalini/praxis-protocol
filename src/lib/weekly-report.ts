@@ -130,17 +130,25 @@ export function buildWeeklyReport(
   // Agrega atividades (mesma tarefa/bloco ao longo dos 7 dias) e módulos.
   const activityMap = new Map<string, WeeklyReportActivity>();
   const moduleMap = new Map<string, WeeklyReportModule>();
+  // Pra treinos, conta apenas as aparições CANONICAL (não off-schedule)
+  // como "scheduled". Quando o usuário fez o treino fora do dia agendado
+  // (canonical=quarta, executado=quinta), antes ficava 1/2 — agora 1/1.
+  // Sem isso a aderência ficava artificialmente baixa pra quem
+  // remaneja o treino dentro da semana.
+  const workoutCanonical = new Map<string, number>();
+  const workoutCompletedCount = new Map<string, number>();
   let xpEarned = 0;
 
   for (const day of week) {
     for (const item of day.items) {
       const moduleName = item.sourceLabel || "Outros";
-      // Agrupa por MÓDULO + TÍTULO em vez do id da entidade. Hábitos
-      // recorrentes muitas vezes existem como tarefas separadas (uma
-      // "Acordar" por dia da semana, vários "Cardio", etc.) — agrupar
-      // por id deixava cada uma numa linha (0/1) repetida. Por título
-      // dentro do módulo, todas viram uma só atividade ("Acordar 0/7").
-      const activityKey = `${moduleName}::${item.title.trim().toLowerCase()}`;
+      const isWorkout = item.kind === "workout";
+      // Treinos agrupam por workoutDayId (sessão única no programa),
+      // outros itens por módulo+título (hábito recorrente).
+      const activityKey =
+        isWorkout && item.workoutDayId
+          ? `workout::${item.workoutDayId}`
+          : `${moduleName}::${item.title.trim().toLowerCase()}`;
 
       const activity =
         activityMap.get(activityKey) ??
@@ -153,35 +161,84 @@ export function buildWeeklyReport(
           missed: 0,
           percent: 0,
         };
-      activity.scheduled += 1;
-      if (item.completed) {
-        activity.completed += 1;
-        xpEarned += item.xp ?? 0;
+
+      if (isWorkout && item.workoutDayId) {
+        if (!item.isOffSchedule) {
+          workoutCanonical.set(
+            activityKey,
+            (workoutCanonical.get(activityKey) ?? 0) + 1,
+          );
+        }
+        if (item.completed) {
+          workoutCompletedCount.set(
+            activityKey,
+            (workoutCompletedCount.get(activityKey) ?? 0) + 1,
+          );
+        }
+      } else {
+        activity.scheduled += 1;
+        if (item.completed) activity.completed += 1;
       }
+      if (item.completed) xpEarned += item.xp ?? 0;
       activityMap.set(activityKey, activity);
 
+      // Módulo segue mesma lógica: aparição off-schedule NÃO adiciona
+      // um "scheduled" novo (foi a mesma sessão remanejada de dia).
       const mod =
         moduleMap.get(moduleName) ??
         { module: moduleName, scheduled: 0, completed: 0, percent: 0 };
-      mod.scheduled += 1;
+      if (isWorkout) {
+        if (!item.isOffSchedule) mod.scheduled += 1;
+      } else {
+        mod.scheduled += 1;
+      }
       if (item.completed) mod.completed += 1;
       moduleMap.set(moduleName, mod);
     }
   }
 
   const activities = Array.from(activityMap.values())
-    .map((activity) => ({
-      ...activity,
-      missed: activity.scheduled - activity.completed,
-      percent: percentOf(activity.completed, activity.scheduled),
-    }))
+    .map((activity) => {
+      // Treinos: scheduled vem do conjunto canonical (capturado no
+      // workoutCanonical). Se o usuário fez off-schedule num treino
+      // não-agendado essa semana, ainda conta como 1 sessão prevista
+      // (o usuário "criou" a sessão ao executá-la). Completed é capado
+      // pelo scheduled pra não passar de 100% quando há sobra.
+      if (activity.key.startsWith("workout::")) {
+        const canonical = workoutCanonical.get(activity.key) ?? 0;
+        const done = workoutCompletedCount.get(activity.key) ?? 0;
+        const scheduled = canonical > 0 ? canonical : done;
+        const completed = Math.min(done, scheduled);
+        return {
+          ...activity,
+          scheduled,
+          completed,
+          missed: scheduled - completed,
+          percent: percentOf(completed, scheduled),
+        };
+      }
+      return {
+        ...activity,
+        missed: activity.scheduled - activity.completed,
+        percent: percentOf(activity.completed, activity.scheduled),
+      };
+    })
     .sort((left, right) => {
       if (right.percent !== left.percent) return right.percent - left.percent;
       return left.title.localeCompare(right.title);
     });
 
   const modules = Array.from(moduleMap.values())
-    .map((mod) => ({ ...mod, percent: percentOf(mod.completed, mod.scheduled) }))
+    .map((mod) => {
+      // Cap completed pelo scheduled — execuções extras off-schedule
+      // não devem inflar o módulo acima de 100%.
+      const completed = Math.min(mod.completed, mod.scheduled);
+      return {
+        ...mod,
+        completed,
+        percent: percentOf(completed, mod.scheduled),
+      };
+    })
     .sort((left, right) => {
       if (right.percent !== left.percent) return right.percent - left.percent;
       return left.module.localeCompare(right.module);

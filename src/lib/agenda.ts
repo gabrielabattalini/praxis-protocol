@@ -21,6 +21,12 @@ export type AgendaEvent = {
   completed: boolean;
   route: string;
   xp?: number;
+  // Só populados pra kind="workout" — usados pelo agregador do
+  // relatório semanal pra contar uma sessão por workout day em vez
+  // de duplicar quando o usuário fez off-schedule (canonical=quarta,
+  // executado=quinta gerava antes scheduled=2, completed=1).
+  workoutDayId?: string;
+  isOffSchedule?: boolean;
 };
 
 export type AgendaDaySummary = {
@@ -181,49 +187,33 @@ export function buildAgendaEvents(
     });
 
   const workoutBlocks = activeWorkoutPlan
-    .filter((day) => {
-      if (day.isRestDay) return false;
-      // Day fires on the current weekday if EITHER:
-      //  • it's the day's canonical assigned weekday, OR
-      //  • the user picked extra weekdays via the workout reminder's
-      //    multi-select (reminder.weekdays). The chip row in the
-      //    workout module writes them into reminder.weekdays.
+    .map((day) => {
+      if (day.isRestDay) return null;
       const reminder = reminders.find(
         (item) =>
           item.entityType === "workout" && item.entityId === day.id,
       );
+      // scheduled = aparece nesse weekday por agendamento canônico do
+      // dia OU pelo multi-select de reminder.weekdays. Se nenhum,
+      // ainda incluímos quando há atividade real na data (log de carga
+      // ou marcação manual) → isso é "off-schedule" e o relatório não
+      // conta esse dia como uma sessão A MAIS no scheduled.
       const scheduled =
         Array.isArray(reminder?.weekdays) && reminder.weekdays.length > 0
           ? reminder.weekdays.includes(weekday)
           : day.weekday === weekday;
-      if (scheduled) return true;
-      // Off-schedule activity: o usuário pode trocar o treino do dia
-      // (fez Peito numa quarta mesmo agendado pra terça). Surface o
-      // treino na agenda do dia em que foi efetivamente feito, seja
-      // via log de carga ou marcação manual.
       const hasLogOnDate = workoutLoadEntries.some(
         (entry) =>
           entry.dayId === day.id && entry.loggedAt.slice(0, 10) === dateKey,
       );
-      if (hasLogOnDate) return true;
-      return workoutDayCompletions.some(
+      const hasCompletionOnDate = workoutDayCompletions.some(
         (completion) =>
           completion.dayId === day.id && completion.dateKey === dateKey,
       );
-    })
-    .map<AgendaEvent>((day) => {
-      const reminder = reminders.find(
-        (item) => item.entityId === day.id && item.entityType === "workout",
-      );
-      const completed =
-        workoutDayCompletions.some(
-          (completion) => completion.dayId === day.id && completion.dateKey === dateKey,
-        ) ||
-        workoutLoadEntries.some(
-          (entry) => entry.dayId === day.id && entry.loggedAt.slice(0, 10) === dateKey,
-        );
+      if (!scheduled && !hasLogOnDate && !hasCompletionOnDate) return null;
 
-      return {
+      const completed = hasLogOnDate || hasCompletionOnDate;
+      const event: AgendaEvent = {
         id: `workout-${day.id}-${dateKey}`,
         kind: "workout",
         title: day.title,
@@ -236,8 +226,12 @@ export function buildAgendaEvents(
         time: reminder?.time || "17:30",
         completed,
         route: `/modules/workout?dayId=${day.id}`,
+        workoutDayId: day.id,
+        isOffSchedule: !scheduled,
       };
-    });
+      return event;
+    })
+    .filter((event): event is AgendaEvent => event !== null);
 
   return [
     ...manualTasks,
