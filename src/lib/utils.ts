@@ -694,16 +694,18 @@ type CardioTypeForEstimate =
   | "running"
   | "bike"
   | "elliptical"
-  | "stairs";
+  | "stairs"
+  | "treadmill";
 
 /** METs por tipo de cardio (intensidade moderada). Usado quando a
- *  meta do dia está em MINUTOS. */
+ *  meta do dia está em MINUTOS. Esteira ~ corrida. */
 const CARDIO_METS: Record<CardioTypeForEstimate, number> = {
   walking: 3.8,
   running: 9.0,
   bike: 7.0,
   elliptical: 5.0,
   stairs: 8.0,
+  treadmill: 9.0,
 };
 
 /** kcal por kg de peso por km percorrido. Usado quando a meta do dia
@@ -714,15 +716,109 @@ const CARDIO_KCAL_PER_KG_KM: Record<CardioTypeForEstimate, number> = {
   bike: 0.3,
   elliptical: 0.9,
   stairs: 1.2,
+  treadmill: 1.0,
 };
 
 function coerceCardioTypeForEstimate(value: unknown): CardioTypeForEstimate {
   return value === "walking" ||
     value === "bike" ||
     value === "elliptical" ||
-    value === "stairs"
+    value === "stairs" ||
+    value === "treadmill"
     ? value
     : "running";
+}
+
+export type CardioEstimateInput = {
+  type?: unknown;
+  /** Inclinação % (só faz diferença em esteira/corrida/caminhada). */
+  inclinePct?: number;
+  distanceKm?: number;
+  durationSeconds?: number;
+  speedKmh?: number;
+  /** FC média da sessão em bpm — quando presente, é o sinal mais forte. */
+  avgHeartRate?: number;
+};
+
+export type CardioEstimateProfile = {
+  bodyWeightKg: number;
+  ageYears?: number;
+  biologicalSex?: BiologicalSex;
+};
+
+/**
+ * Estima o gasto calórico de UMA sessão de cardio, escolhendo o método
+ * mais confiável conforme os dados disponíveis (cascata, do melhor pro
+ * pior):
+ *   1. FC média (Keytel et al.) — usa peso, idade e sexo. Mais preciso
+ *      porque a FC reflete o esforço real, não só a mecânica.
+ *   2. ACSM (esteira/corrida/caminhada com velocidade + inclinação) —
+ *      a inclinação entra de verdade no gasto aqui.
+ *   3. METs por tipo (quando há tempo mas não velocidade).
+ *   4. kcal/kg/km (quando só há distância).
+ * Retorna 0 se não der pra estimar nada.
+ */
+export function estimateCardioSessionKcal(
+  input: CardioEstimateInput,
+  profile: CardioEstimateProfile,
+): number {
+  const weight = Math.max(1, profile.bodyWeightKg || 0);
+  const type = coerceCardioTypeForEstimate(input.type);
+  const incline = Math.max(0, Number(input.inclinePct) || 0);
+  const distanceKm = Math.max(0, Number(input.distanceKm) || 0);
+  const durationSeconds = Math.max(0, Number(input.durationSeconds) || 0);
+  const explicitSpeed = Math.max(0, Number(input.speedKmh) || 0);
+  const hr = Math.max(0, Number(input.avgHeartRate) || 0);
+
+  // Tempo em minutos: explícito, ou derivado de distância/velocidade.
+  let durationMin = durationSeconds > 0 ? durationSeconds / 60 : 0;
+  // Velocidade: explícita, ou derivada de distância/tempo.
+  let speedKmh = explicitSpeed;
+  if (speedKmh <= 0 && distanceKm > 0 && durationMin > 0) {
+    speedKmh = distanceKm / (durationMin / 60);
+  }
+  if (durationMin <= 0 && distanceKm > 0 && speedKmh > 0) {
+    durationMin = (distanceKm / speedKmh) * 60;
+  }
+
+  // 1) FC média (Keytel). Precisa de tempo > 0.
+  if (hr > 0 && durationMin > 0) {
+    const age = Math.max(1, Number(profile.ageYears) || 30);
+    const isMale = profile.biologicalSex !== "female";
+    const kcalPerMin = isMale
+      ? (-55.0969 + 0.6309 * hr + 0.1988 * weight + 0.2017 * age) / 4.184
+      : (-20.4022 + 0.4472 * hr - 0.1263 * weight + 0.074 * age) / 4.184;
+    if (kcalPerMin > 0) return Math.round(kcalPerMin * durationMin);
+  }
+
+  // 2) ACSM — esteira/corrida/caminhada com velocidade (+ inclinação).
+  if (
+    durationMin > 0 &&
+    speedKmh > 0 &&
+    (type === "treadmill" || type === "running" || type === "walking")
+  ) {
+    const vMetersPerMin = (speedKmh * 1000) / 60;
+    const grade = incline / 100;
+    // Caminhada (lento) vs corrida (rápido). Limiar ~ 6.4 km/h.
+    const isWalk = type === "walking" || speedKmh < 6.4;
+    const vo2 = isWalk
+      ? 3.5 + 0.1 * vMetersPerMin + 1.8 * vMetersPerMin * grade
+      : 3.5 + 0.2 * vMetersPerMin + 0.9 * vMetersPerMin * grade;
+    const kcalPerMin = ((vo2 * weight) / 1000) * 5;
+    if (kcalPerMin > 0) return Math.round(kcalPerMin * durationMin);
+  }
+
+  // 3) METs por tipo (tem tempo mas não dá pra ACSM).
+  if (durationMin > 0) {
+    return Math.round(((CARDIO_METS[type] * 3.5 * weight) / 200) * durationMin);
+  }
+
+  // 4) Só distância → kcal/kg/km.
+  if (distanceKm > 0) {
+    return Math.round(distanceKm * weight * CARDIO_KCAL_PER_KG_KM[type]);
+  }
+
+  return 0;
 }
 
 /**
@@ -743,6 +839,9 @@ function coerceCardioTypeForEstimate(value: unknown): CardioTypeForEstimate {
 export function estimateCardioKcalPerDayFromModuleState(
   moduleState: Record<string, unknown> | undefined | null,
   bodyWeightKg: number,
+  // Idade/sexo opcionais — quando o plano tem FC prevista, a fórmula de
+  // FC (Keytel) precisa deles. Sem isso, cai pra ACSM/METs/distância.
+  profile?: { ageYears?: number; biologicalSex?: BiologicalSex },
 ): number {
   const weight = Math.max(1, bodyWeightKg);
   const runState = moduleState?.[RUN_MODULE_STATE_KEY];
@@ -758,16 +857,32 @@ export function estimateCardioKcalPerDayFromModuleState(
       minutes?: unknown;
       metric?: unknown;
       type?: unknown;
+      inclinePct?: unknown;
+      speedKmh?: unknown;
+      avgHeartRate?: unknown;
     };
-    const type = coerceCardioTypeForEstimate(target.type);
     const metric = target.metric === "minutes" ? "minutes" : "km";
-    if (metric === "km") {
-      const km = Math.max(0, Number(target.km) || 0);
-      weeklyKcal += km * weight * CARDIO_KCAL_PER_KG_KM[type];
-    } else {
-      const minutes = Math.max(0, Number(target.minutes) || 0);
-      weeklyKcal += ((CARDIO_METS[type] * 3.5 * weight) / 200) * minutes;
-    }
+    const km = metric === "km" ? Math.max(0, Number(target.km) || 0) : 0;
+    const minutes =
+      metric === "minutes" ? Math.max(0, Number(target.minutes) || 0) : 0;
+    if (km <= 0 && minutes <= 0) continue;
+    // Reusa o estimador de sessão pra que inclinação/velocidade/FC do
+    // plano (ex.: esteira 5% a 8 km/h) entrem no gasto.
+    weeklyKcal += estimateCardioSessionKcal(
+      {
+        type: target.type,
+        inclinePct: Number(target.inclinePct) || 0,
+        speedKmh: Number(target.speedKmh) || 0,
+        distanceKm: km,
+        durationSeconds: minutes * 60,
+        avgHeartRate: Number(target.avgHeartRate) || 0,
+      },
+      {
+        bodyWeightKg: weight,
+        ageYears: profile?.ageYears,
+        biologicalSex: profile?.biologicalSex,
+      },
+    );
   }
 
   return Math.round(weeklyKcal / 7);

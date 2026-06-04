@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronUp,
   Clock3,
+  Flame,
   Plus,
   TimerReset,
   Trash2,
@@ -14,9 +15,36 @@ import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { ProgressCurveChart } from "@/components/ui/progress-curve-chart";
 import { formatMinutes, getStartOfWeek, sortEntriesByDate } from "@/lib/module-page-utils";
+import { estimateCardioSessionKcal } from "@/lib/utils";
 import type { PersistedState, Weekday } from "@/lib/types";
 
-type CardioType = "walking" | "running" | "bike" | "elliptical" | "stairs";
+type CardioType =
+  | "walking"
+  | "running"
+  | "bike"
+  | "elliptical"
+  | "stairs"
+  | "treadmill";
+
+/** Esteira é o único tipo com inclinação — corrida/caminhada (ao ar
+ *  livre), bike, elíptico e escada não têm. */
+function cardioTypeHasIncline(type: CardioType) {
+  return type === "treadmill";
+}
+
+/** Detalhes ricos compartilhados entre a sessão registrada (RunEntry) e
+ *  a meta planejada (DailyTarget). Todos opcionais — o estimador usa o
+ *  que tiver. */
+type CardioRichDetail = {
+  /** Inclinação % (só esteira). */
+  inclinePct: number;
+  /** Velocidade km/h. */
+  speedKmh: number;
+  /** FC média da sessão em bpm. */
+  avgHeartRate: number;
+  /** Calorias que a máquina mostrou (esteira/elíptico/etc.). */
+  machineKcal: number;
+};
 
 type RunEntry = {
   id: string;
@@ -25,6 +53,14 @@ type RunEntry = {
   weekday: Weekday;
   distanceKm: number;
   durationSeconds: number;
+  type?: CardioType;
+  inclinePct?: number;
+  speedKmh?: number;
+  avgHeartRate?: number;
+  /** Caloria mostrada na máquina (registro do usuário). */
+  machineKcal?: number;
+  /** Estimativa do app calculada no momento do registro. */
+  estimatedKcal?: number;
 };
 
 /** Qual unidade está ativa como meta do dia. "km" = distância, "minutes" =
@@ -39,6 +75,11 @@ type DailyTarget = {
   metric: DailyTargetMetric;
   time: string;
   type: CardioType;
+  /** Detalhes ricos do planejamento (esteira a X km/h e Y% etc.). */
+  inclinePct: number;
+  speedKmh: number;
+  avgHeartRate: number;
+  machineKcal: number;
 };
 
 type RunState = {
@@ -51,6 +92,11 @@ type RunFormState = {
   distanceKm: string;
   minutes: string;
   seconds: string;
+  type: CardioType;
+  inclinePct: string;
+  speedKmh: string;
+  avgHeartRate: string;
+  machineKcal: string;
 };
 
 const weekdayItems: Array<{ id: Weekday; label: string }> = [
@@ -66,6 +112,7 @@ const weekdayItems: Array<{ id: Weekday; label: string }> = [
 const cardioTypeItems: Array<{ id: CardioType; label: string }> = [
   { id: "running", label: "Corrida" },
   { id: "walking", label: "Caminhada" },
+  { id: "treadmill", label: "Esteira" },
   { id: "bike", label: "Bike" },
   { id: "elliptical", label: "Elíptico" },
   { id: "stairs", label: "Escada" },
@@ -87,6 +134,10 @@ function createEmptyTargets(defaultType: CardioType = "running") {
         metric: "km",
         time: "",
         type: defaultType,
+        inclinePct: 0,
+        speedKmh: 0,
+        avgHeartRate: 0,
+        machineKcal: 0,
       };
       return accumulator;
     },
@@ -149,6 +200,10 @@ function normalizeRunState(raw: unknown, defaultType: CardioType): RunState {
         metric: "km",
         time: "",
         type: defaultType,
+        inclinePct: 0,
+        speedKmh: 0,
+        avgHeartRate: 0,
+        machineKcal: 0,
       };
     } else if (stored && typeof stored === "object") {
       const entry = stored as Partial<DailyTarget>;
@@ -158,6 +213,11 @@ function normalizeRunState(raw: unknown, defaultType: CardioType): RunState {
         metric: coerceMetric(entry.metric),
         time: normalizeTimeValue(entry.time),
         type: coerceCardioType(entry.type, defaultType),
+        // Campos ricos (v3) — default 0 pra quem salvou antes deles.
+        inclinePct: Math.max(0, Number(entry.inclinePct) || 0),
+        speedKmh: Math.max(0, Number(entry.speedKmh) || 0),
+        avgHeartRate: Math.max(0, Number(entry.avgHeartRate) || 0),
+        machineKcal: Math.max(0, Number(entry.machineKcal) || 0),
       };
     }
   }
@@ -281,6 +341,27 @@ function cardioPreferenceLabel(
   return "Escada";
 }
 
+/** Label pra CardioType (inclui Esteira). preferredCardio do perfil não
+ *  tem treadmill, então este é o label usado pros tipos da meta/sessão. */
+function cardioTypeLabel(type: CardioType) {
+  return cardioTypeItems.find((item) => item.id === type)?.label ?? "Cardio";
+}
+
+/** Form de "Lançar cardio" zerado, mantendo o tipo escolhido. */
+function makeEmptyRunForm(type: CardioType): RunFormState {
+  return {
+    date: localDateKey(),
+    distanceKm: "",
+    minutes: "",
+    seconds: "",
+    type,
+    inclinePct: "",
+    speedKmh: "",
+    avgHeartRate: "",
+    machineKcal: "",
+  };
+}
+
 function recommendedDays(count: number): Weekday[] {
   if (count <= 3) return ["monday", "wednesday", "saturday"];
   if (count === 4) return ["monday", "tuesday", "thursday", "saturday"];
@@ -297,18 +378,20 @@ export default function RunModulePage() {
     dailyTargets: createEmptyTargets(),
     entries: [],
   }));
-  const [form, setForm] = useState<RunFormState>({
-    date: localDateKey(),
-    distanceKm: "",
-    minutes: "",
-    seconds: "",
-  });
+  const [form, setForm] = useState<RunFormState>(() =>
+    makeEmptyRunForm(coerceCardioType(profile.preferredCardio, "running")),
+  );
   const [feedback, setFeedback] = useState("");
   // Toggle for the "Recomendação semanal de cardio" panel — começa
   // COLAPSADO por padrão a pedido do usuário (só o header visível com
   // o botão "Expandir"). Quando aberto mostra KPI grid + base usada +
   // contexto + botão "Aplicar sugestão na semana".
   const [recommendationExpanded, setRecommendationExpanded] = useState(false);
+  // Qual dia da semana está com o painel "detalhes" (velocidade,
+  // inclinação, FC, calorias) aberto na Meta por dia. Só um por vez.
+  const [expandedTargetDay, setExpandedTargetDay] = useState<Weekday | null>(
+    null,
+  );
 
   const defaultTypeRef = useRef(defaultCardioType);
   defaultTypeRef.current = defaultCardioType;
@@ -395,7 +478,7 @@ export default function RunModulePage() {
         return;
       }
 
-      const typeLabel = cardioPreferenceLabel(target.type);
+      const typeLabel = cardioTypeLabel(target.type);
       const goalLabel =
         target.metric === "km" ? `${target.km} km` : `${target.minutes} min`;
       const key = `cardio-target-${item.id}`;
@@ -609,6 +692,12 @@ export default function RunModulePage() {
             metric: "km",
             time: previous?.time ?? "",
             type: previous?.type ?? defaultCardioType,
+            // Preserva os detalhes ricos (velocidade, inclinação, FC,
+            // calorias previstas) que o usuário configurou por dia.
+            inclinePct: previous?.inclinePct ?? 0,
+            speedKmh: previous?.speedKmh ?? 0,
+            avgHeartRate: previous?.avgHeartRate ?? 0,
+            machineKcal: previous?.machineKcal ?? 0,
           };
           return accumulator;
         },
@@ -628,12 +717,39 @@ export default function RunModulePage() {
     }));
   }
 
+  // Peso pro estimador: prefere o do perfil corporal; cai pro das metas
+  // de nutrição se o perfil não tiver. Idade/sexo vêm do perfil (a
+  // fórmula de FC usa os dois).
+  const estimateBodyWeightKg =
+    profile.bodyWeightKg || appState.dailyNutritionTargets.bodyWeightKg || 0;
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const distanceKm = parseDecimal(form.distanceKm);
     const durationSeconds = parseDurationSeconds(form.minutes, form.seconds);
-    if (distanceKm <= 0 || durationSeconds <= 0) return;
+    const speedKmh = parseDecimal(form.speedKmh);
+    const inclinePct = parseDecimal(form.inclinePct);
+    const avgHeartRate = Math.max(0, Math.round(parseDecimal(form.avgHeartRate)));
+    const machineKcal = Math.max(0, Math.round(parseDecimal(form.machineKcal)));
+    // Aceita a sessão se tiver QUALQUER sinal: distância, tempo ou a
+    // caloria da máquina (ex.: elíptico em que você só anota o display).
+    if (distanceKm <= 0 && durationSeconds <= 0 && machineKcal <= 0) return;
     const dateKey = form.date || localDateKey();
+    const estimatedKcal = estimateCardioSessionKcal(
+      {
+        type: form.type,
+        inclinePct,
+        speedKmh,
+        distanceKm,
+        durationSeconds,
+        avgHeartRate,
+      },
+      {
+        bodyWeightKg: estimateBodyWeightKg,
+        ageYears: profile.ageYears,
+        biologicalSex: profile.biologicalSex,
+      },
+    );
     setState((current) => ({
       ...current,
       entries: [
@@ -644,12 +760,37 @@ export default function RunModulePage() {
           weekday: getWeekday(parseLocalDate(dateKey)),
           distanceKm: Number(distanceKm.toFixed(2)),
           durationSeconds,
+          type: form.type,
+          inclinePct: inclinePct > 0 ? inclinePct : undefined,
+          speedKmh: speedKmh > 0 ? speedKmh : undefined,
+          avgHeartRate: avgHeartRate > 0 ? avgHeartRate : undefined,
+          machineKcal: machineKcal > 0 ? machineKcal : undefined,
+          estimatedKcal: estimatedKcal > 0 ? estimatedKcal : undefined,
         },
         ...current.entries,
       ],
     }));
-    setForm({ date: localDateKey(), distanceKm: "", minutes: "", seconds: "" });
+    setForm(makeEmptyRunForm(form.type));
   }
+
+  // Estimativa ao vivo do "Lançar cardio" (preview enquanto digita).
+  const formEstimatedKcal = estimateCardioSessionKcal(
+    {
+      type: form.type,
+      inclinePct: parseDecimal(form.inclinePct),
+      speedKmh: parseDecimal(form.speedKmh),
+      distanceKm: parseDecimal(form.distanceKm),
+      durationSeconds: parseDurationSeconds(form.minutes, form.seconds),
+      avgHeartRate: parseDecimal(form.avgHeartRate),
+    },
+    {
+      bodyWeightKg: estimateBodyWeightKg,
+      ageYears: profile.ageYears,
+      biologicalSex: profile.biologicalSex,
+    },
+  );
+  const formMachineKcal = Math.max(0, Math.round(parseDecimal(form.machineKcal)));
+  const formShowsTreadmillIncline = cardioTypeHasIncline(form.type);
 
   if (!hydrated) {
     return <div className="min-h-screen bg-[#050505]" />;
@@ -780,14 +921,12 @@ export default function RunModulePage() {
             </h2>
             <span className="hidden items-center gap-1.5 text-[11px] text-zinc-500 sm:inline-flex">
               <Clock3 className="h-3 w-3 text-[var(--accent)]" />
-              Ritmo calculado automaticamente
+              Estimativa por peso, FC e velocidade
             </span>
           </div>
           <button
             type="button"
-            onClick={() =>
-              setForm({ date: localDateKey(), distanceKm: "", minutes: "", seconds: "" })
-            }
+            onClick={() => setForm(makeEmptyRunForm(form.type))}
             className="inline-flex items-center gap-1.5 border border-zinc-800 bg-black/50 px-3 py-1.5 font-headline text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-100 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"
           >
             <TimerReset className="h-3.5 w-3.5" />
@@ -795,58 +934,180 @@ export default function RunModulePage() {
           </button>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_auto] items-center gap-2"
-        >
-          <input
-            type="date"
-            value={form.date}
-            onChange={(event) =>
-              setForm((current) => ({ ...current, date: event.target.value }))
-            }
-            className="praxis-field min-w-0 px-2 py-2 text-sm text-white"
-          />
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.distanceKm}
-            onChange={(event) =>
-              setForm((current) => ({ ...current, distanceKm: event.target.value }))
-            }
-            placeholder="km"
-            className="praxis-field min-w-0 px-2 py-2 text-sm text-white placeholder:text-zinc-500"
-          />
-          <input
-            type="number"
-            min="0"
-            value={form.minutes}
-            onChange={(event) =>
-              setForm((current) => ({ ...current, minutes: event.target.value }))
-            }
-            placeholder="min"
-            className="praxis-field min-w-0 px-2 py-2 text-sm text-white placeholder:text-zinc-500"
-          />
-          <input
-            type="number"
-            min="0"
-            max="59"
-            value={form.seconds}
-            onChange={(event) =>
-              setForm((current) => ({ ...current, seconds: event.target.value }))
-            }
-            placeholder="seg"
-            className="praxis-field min-w-0 px-2 py-2 text-sm text-white placeholder:text-zinc-500"
-          />
-          <button
-            type="submit"
-            className="praxis-button inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm"
-            aria-label="Registrar treino"
+        <form onSubmit={handleSubmit} className="space-y-2">
+          {/* Linha 1 — data, tipo, distância, tempo. Inclinação só
+              aparece pra Esteira (único tipo com inclinação). */}
+          <div
+            className={`grid items-end gap-2 ${
+              formShowsTreadmillIncline
+                ? "sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,0.7fr)]"
+                : "sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,0.7fr)]"
+            }`}
           >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Registrar</span>
-          </button>
+            <label className="block space-y-1 min-w-0">
+              <span className="praxis-label text-[10px] text-zinc-500">Data</span>
+              <input
+                type="date"
+                value={form.date}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, date: event.target.value }))
+                }
+                className="praxis-field w-full min-w-0 px-2 py-2 text-sm text-white"
+              />
+            </label>
+            <label className="block space-y-1 min-w-0">
+              <span className="praxis-label text-[10px] text-zinc-500">Tipo</span>
+              <select
+                value={form.type}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    type: event.target.value as CardioType,
+                  }))
+                }
+                className="praxis-field w-full min-w-0 px-2 py-2 text-sm text-white"
+              >
+                {cardioTypeItems.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block space-y-1 min-w-0">
+              <span className="praxis-label text-[10px] text-zinc-500">Distância (km)</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.distanceKm}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, distanceKm: event.target.value }))
+                }
+                placeholder="km"
+                className="praxis-field w-full min-w-0 px-2 py-2 text-sm text-white placeholder:text-zinc-500"
+              />
+            </label>
+            <label className="block space-y-1 min-w-0">
+              <span className="praxis-label text-[10px] text-zinc-500">Min</span>
+              <input
+                type="number"
+                min="0"
+                value={form.minutes}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, minutes: event.target.value }))
+                }
+                placeholder="min"
+                className="praxis-field w-full min-w-0 px-2 py-2 text-sm text-white placeholder:text-zinc-500"
+              />
+            </label>
+            <label className="block space-y-1 min-w-0">
+              <span className="praxis-label text-[10px] text-zinc-500">Seg</span>
+              <input
+                type="number"
+                min="0"
+                max="59"
+                value={form.seconds}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, seconds: event.target.value }))
+                }
+                placeholder="seg"
+                className="praxis-field w-full min-w-0 px-2 py-2 text-sm text-white placeholder:text-zinc-500"
+              />
+            </label>
+            {formShowsTreadmillIncline ? (
+              <label className="block space-y-1 min-w-0">
+                <span className="praxis-label text-[10px] text-zinc-500">Inclinação %</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={form.inclinePct}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, inclinePct: event.target.value }))
+                  }
+                  placeholder="%"
+                  className="praxis-field w-full min-w-0 px-2 py-2 text-sm text-white placeholder:text-zinc-500"
+                />
+              </label>
+            ) : null}
+          </div>
+
+          {/* Linha 2 — velocidade, FC média, caloria da máquina + botão. */}
+          <div className="grid items-end gap-2 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_auto]">
+            <label className="block space-y-1 min-w-0">
+              <span className="praxis-label text-[10px] text-zinc-500">Velocidade (km/h)</span>
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                value={form.speedKmh}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, speedKmh: event.target.value }))
+                }
+                placeholder="km/h"
+                className="praxis-field w-full min-w-0 px-2 py-2 text-sm text-white placeholder:text-zinc-500"
+              />
+            </label>
+            <label className="block space-y-1 min-w-0">
+              <span className="praxis-label text-[10px] text-zinc-500">FC média (bpm)</span>
+              <input
+                type="number"
+                min="0"
+                value={form.avgHeartRate}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, avgHeartRate: event.target.value }))
+                }
+                placeholder="bpm"
+                className="praxis-field w-full min-w-0 px-2 py-2 text-sm text-white placeholder:text-zinc-500"
+              />
+            </label>
+            <label className="block space-y-1 min-w-0">
+              <span className="praxis-label text-[10px] text-zinc-500">Caloria da máquina</span>
+              <input
+                type="number"
+                min="0"
+                value={form.machineKcal}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, machineKcal: event.target.value }))
+                }
+                placeholder="kcal"
+                className="praxis-field w-full min-w-0 px-2 py-2 text-sm text-white placeholder:text-zinc-500"
+              />
+            </label>
+            <button
+              type="submit"
+              className="praxis-button inline-flex h-[38px] items-center justify-center gap-1.5 px-4 py-2 text-sm"
+              aria-label="Registrar treino"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Registrar</span>
+            </button>
+          </div>
+
+          {/* Estimativa do app vs caloria da máquina, lado a lado. */}
+          <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+            <span className="inline-flex items-center gap-1.5 rounded-sm border border-[rgba(251,146,60,0.3)] bg-[rgba(251,146,60,0.08)] px-2.5 py-1.5 text-[var(--accent)]">
+              <Flame className="h-3.5 w-3.5" />
+              Estimativa do app:{" "}
+              <strong className="font-semibold">
+                {formEstimatedKcal > 0 ? `${formEstimatedKcal} kcal` : "—"}
+              </strong>
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-sm border border-zinc-700 bg-black/40 px-2.5 py-1.5 text-zinc-300">
+              Máquina:{" "}
+              <strong className="font-semibold text-zinc-100">
+                {formMachineKcal > 0 ? `${formMachineKcal} kcal` : "—"}
+              </strong>
+            </span>
+            <span className="text-[11px] text-zinc-500">
+              {form.avgHeartRate.trim()
+                ? "Usando FC média (mais preciso)"
+                : formShowsTreadmillIncline && form.speedKmh.trim()
+                  ? "Usando velocidade + inclinação (ACSM)"
+                  : "Preencha FC ou velocidade pra refinar"}
+            </span>
+          </div>
         </form>
       </GlassPanel>
 
@@ -879,83 +1140,212 @@ export default function RunModulePage() {
                   : dailyMinutesMap[item.id];
               const remaining = Math.max(0, goal - done);
               const unitLabel = metric === "km" ? "km" : "min";
+              const dayType = target?.type ?? defaultCardioType;
+              const dayHasIncline = cardioTypeHasIncline(dayType);
               const willSchedule =
                 goal > 0 && isValidTime((target?.time ?? "").trim());
+              const isDetailOpen = expandedTargetDay === item.id;
+              // Gasto estimado do dia com os parâmetros do plano (sem FC
+              // se não preenchida). Mostra "≈ X kcal" pra dar noção.
+              const dayEstimatedKcal = estimateCardioSessionKcal(
+                {
+                  type: dayType,
+                  inclinePct: target?.inclinePct ?? 0,
+                  speedKmh: target?.speedKmh ?? 0,
+                  distanceKm: metric === "km" ? goal : 0,
+                  durationSeconds: metric === "minutes" ? goal * 60 : 0,
+                  avgHeartRate: target?.avgHeartRate ?? 0,
+                },
+                {
+                  bodyWeightKg: estimateBodyWeightKg,
+                  ageYears: profile.ageYears,
+                  biologicalSex: profile.biologicalSex,
+                },
+              );
               return (
                 <div
                   key={item.id}
-                  className="grid gap-3 border border-zinc-800 bg-black/40 p-4 md:grid-cols-[1fr_88px_72px_104px_132px] md:items-center"
+                  className="border border-zinc-800 bg-black/40"
                   style={{
                     borderColor: willSchedule
                       ? "rgba(251,146,60,0.28)"
                       : undefined,
                   }}
                 >
-                  <div>
-                    <p className="font-headline text-lg font-bold text-zinc-100">{item.label}</p>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      {metric === "km"
-                        ? `${done.toFixed(1)} km feitos · ${remaining.toFixed(1)} km faltam`
-                        : `${done} min feitos · ${remaining} min faltam`}
-                    </p>
-                    <p className="mt-1 text-[0.68rem] uppercase tracking-[0.2em] text-zinc-600">
-                      {willSchedule
-                        ? `Tarefa ${target?.time} • ${cardioPreferenceLabel(target?.type ?? defaultCardioType)}`
-                        : "Sem tarefa (falta meta ou horário)"}
-                    </p>
+                  <div className="grid gap-3 p-4 md:grid-cols-[1fr_84px_68px_100px_120px_auto] md:items-center">
+                    <div className="min-w-0">
+                      <p className="font-headline text-lg font-bold text-zinc-100">{item.label}</p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {metric === "km"
+                          ? `${done.toFixed(1)} km feitos · ${remaining.toFixed(1)} km faltam`
+                          : `${done} min feitos · ${remaining} min faltam`}
+                      </p>
+                      <p className="mt-1 text-[0.68rem] uppercase tracking-[0.2em] text-zinc-600">
+                        {willSchedule
+                          ? `Tarefa ${target?.time} • ${cardioTypeLabel(dayType)}`
+                          : "Sem tarefa (falta meta ou horário)"}
+                        {dayEstimatedKcal > 0 ? ` • ≈ ${dayEstimatedKcal} kcal` : ""}
+                      </p>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      step={metric === "km" ? "0.1" : "1"}
+                      value={goal}
+                      onChange={(event) => {
+                        const next = Math.max(0, Number(event.target.value) || 0);
+                        updateTarget(
+                          item.id,
+                          metric === "km" ? { km: next } : { minutes: next },
+                        );
+                      }}
+                      placeholder={unitLabel}
+                      aria-label={`Meta em ${unitLabel} para ${item.label}`}
+                      className="praxis-field px-3 py-3 text-sm text-white"
+                    />
+                    <select
+                      value={metric}
+                      onChange={(event) =>
+                        updateTarget(item.id, {
+                          metric: event.target.value as DailyTargetMetric,
+                        })
+                      }
+                      aria-label={`Unidade da meta de ${item.label}`}
+                      className="praxis-field px-2 py-3 text-sm text-white"
+                    >
+                      <option value="km">km</option>
+                      <option value="minutes">min</option>
+                    </select>
+                    <input
+                      type="time"
+                      value={target?.time ?? ""}
+                      onChange={(event) =>
+                        updateTarget(item.id, { time: event.target.value })
+                      }
+                      className="praxis-field px-3 py-3 text-sm text-white"
+                    />
+                    <select
+                      value={dayType}
+                      onChange={(event) =>
+                        updateTarget(item.id, {
+                          type: event.target.value as CardioType,
+                        })
+                      }
+                      className="praxis-field px-3 py-3 text-sm text-white"
+                    >
+                      {cardioTypeItems.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedTargetDay((current) =>
+                          current === item.id ? null : item.id,
+                        )
+                      }
+                      aria-expanded={isDetailOpen}
+                      title="Velocidade, inclinação, FC e calorias previstas"
+                      className="inline-flex items-center justify-center gap-1 rounded-sm border border-zinc-800 bg-black/50 px-2 py-2.5 text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"
+                    >
+                      {isDetailOpen ? (
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      )}
+                      Detalhes
+                    </button>
                   </div>
-                  <input
-                    type="number"
-                    min="0"
-                    step={metric === "km" ? "0.1" : "1"}
-                    value={goal}
-                    onChange={(event) => {
-                      const next = Math.max(0, Number(event.target.value) || 0);
-                      updateTarget(
-                        item.id,
-                        metric === "km" ? { km: next } : { minutes: next },
-                      );
-                    }}
-                    placeholder={unitLabel}
-                    aria-label={`Meta em ${unitLabel} para ${item.label}`}
-                    className="praxis-field px-3 py-3 text-sm text-white"
-                  />
-                  <select
-                    value={metric}
-                    onChange={(event) =>
-                      updateTarget(item.id, {
-                        metric: event.target.value as DailyTargetMetric,
-                      })
-                    }
-                    aria-label={`Unidade da meta de ${item.label}`}
-                    className="praxis-field px-2 py-3 text-sm text-white"
-                  >
-                    <option value="km">km</option>
-                    <option value="minutes">min</option>
-                  </select>
-                  <input
-                    type="time"
-                    value={target?.time ?? ""}
-                    onChange={(event) =>
-                      updateTarget(item.id, { time: event.target.value })
-                    }
-                    className="praxis-field px-3 py-3 text-sm text-white"
-                  />
-                  <select
-                    value={target?.type ?? defaultCardioType}
-                    onChange={(event) =>
-                      updateTarget(item.id, {
-                        type: event.target.value as CardioType,
-                      })
-                    }
-                    className="praxis-field px-3 py-3 text-sm text-white"
-                  >
-                    {cardioTypeItems.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  {isDetailOpen ? (
+                    <div className="border-t border-zinc-800 bg-black/30 px-4 py-3">
+                      <div
+                        className={`grid gap-2 ${
+                          dayHasIncline
+                            ? "sm:grid-cols-4"
+                            : "sm:grid-cols-3"
+                        }`}
+                      >
+                        <label className="block space-y-1">
+                          <span className="praxis-label text-[10px] text-zinc-500">Velocidade (km/h)</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            value={target?.speedKmh || ""}
+                            onChange={(event) =>
+                              updateTarget(item.id, {
+                                speedKmh: Math.max(0, Number(event.target.value) || 0),
+                              })
+                            }
+                            placeholder="km/h"
+                            className="praxis-field w-full px-2 py-2 text-sm text-white placeholder:text-zinc-600"
+                          />
+                        </label>
+                        {dayHasIncline ? (
+                          <label className="block space-y-1">
+                            <span className="praxis-label text-[10px] text-zinc-500">Inclinação %</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.5"
+                              value={target?.inclinePct || ""}
+                              onChange={(event) =>
+                                updateTarget(item.id, {
+                                  inclinePct: Math.max(0, Number(event.target.value) || 0),
+                                })
+                              }
+                              placeholder="%"
+                              className="praxis-field w-full px-2 py-2 text-sm text-white placeholder:text-zinc-600"
+                            />
+                          </label>
+                        ) : null}
+                        <label className="block space-y-1">
+                          <span className="praxis-label text-[10px] text-zinc-500">FC prevista (bpm)</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={target?.avgHeartRate || ""}
+                            onChange={(event) =>
+                              updateTarget(item.id, {
+                                avgHeartRate: Math.max(0, Number(event.target.value) || 0),
+                              })
+                            }
+                            placeholder="bpm"
+                            className="praxis-field w-full px-2 py-2 text-sm text-white placeholder:text-zinc-600"
+                          />
+                        </label>
+                        <label className="block space-y-1">
+                          <span className="praxis-label text-[10px] text-zinc-500">Calorias previstas</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={target?.machineKcal || ""}
+                            onChange={(event) =>
+                              updateTarget(item.id, {
+                                machineKcal: Math.max(0, Number(event.target.value) || 0),
+                              })
+                            }
+                            placeholder="kcal"
+                            className="praxis-field w-full px-2 py-2 text-sm text-white placeholder:text-zinc-600"
+                          />
+                        </label>
+                      </div>
+                      <p className="mt-2 text-[11px] text-zinc-500">
+                        Estimativa do app pra esse dia:{" "}
+                        <span className="font-semibold text-[var(--accent)]">
+                          {dayEstimatedKcal > 0 ? `${dayEstimatedKcal} kcal` : "—"}
+                        </span>
+                        {target?.machineKcal
+                          ? ` · prevista na máquina: ${target.machineKcal} kcal`
+                          : ""}
+                        {!dayHasIncline
+                          ? " · inclinação só na esteira"
+                          : ""}
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
@@ -1082,15 +1472,66 @@ export default function RunModulePage() {
           <span className="text-sm text-zinc-500">{recentEntries.length} visíveis</span>
         </div>
         <div className="space-y-3">
-          {recentEntries.length ? recentEntries.map((entry) => (
+          {recentEntries.length ? recentEntries.map((entry) => {
+            const typeLabel = entry.type ? cardioTypeLabel(entry.type) : null;
+            // Detalhes ricos pra linha secundária (só os que existem).
+            const detailBits = [
+              typeLabel,
+              entry.distanceKm > 0 ? `${entry.distanceKm.toFixed(2)} km` : null,
+              entry.durationSeconds > 0
+                ? formatMinutes(Math.round(entry.durationSeconds / 60))
+                : null,
+              entry.speedKmh ? `${entry.speedKmh.toFixed(1)} km/h` : null,
+              entry.inclinePct ? `${entry.inclinePct}% incl.` : null,
+              entry.avgHeartRate ? `${entry.avgHeartRate} bpm` : null,
+              entry.distanceKm > 0 && entry.durationSeconds > 0
+                ? formatPace(entry.durationSeconds, entry.distanceKm)
+                : null,
+            ].filter(Boolean);
+            // Título: distância se houver, senão tempo, senão a caloria.
+            const headline =
+              entry.distanceKm > 0
+                ? `${entry.distanceKm.toFixed(2)} km`
+                : entry.durationSeconds > 0
+                  ? formatMinutes(Math.round(entry.durationSeconds / 60))
+                  : entry.machineKcal
+                    ? `${entry.machineKcal} kcal`
+                    : "Sessão";
+            return (
             <article key={entry.id} className="flex flex-col gap-4 border border-zinc-800 bg-black/50 p-4 md:flex-row md:items-center md:justify-between">
-              <div className="space-y-1">
-                <p className="font-headline text-lg font-bold text-zinc-100">{entry.distanceKm.toFixed(2)} km</p>
-                <p className="text-sm text-zinc-500">{formatRunDate(entry.date)} • {formatMinutes(Math.round(entry.durationSeconds / 60))} • {formatPace(entry.durationSeconds, entry.distanceKm)}</p>
+              <div className="space-y-1 min-w-0">
+                <p className="font-headline text-lg font-bold text-zinc-100">
+                  {headline}
+                  {typeLabel ? (
+                    <span className="ml-2 align-middle text-[11px] font-medium uppercase tracking-wider text-[var(--accent)]">
+                      {typeLabel}
+                    </span>
+                  ) : null}
+                </p>
+                <p className="text-sm text-zinc-500">
+                  {formatRunDate(entry.date)} • {detailBits.slice(1).join(" • ") || "—"}
+                </p>
+                {/* Estimativa do app vs caloria da máquina, lado a lado. */}
+                {entry.estimatedKcal || entry.machineKcal ? (
+                  <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+                    {entry.estimatedKcal ? (
+                      <span className="inline-flex items-center gap-1 rounded-sm border border-[rgba(251,146,60,0.3)] bg-[rgba(251,146,60,0.08)] px-2 py-0.5 text-[var(--accent)]">
+                        <Flame className="h-3 w-3" />
+                        App {entry.estimatedKcal} kcal
+                      </span>
+                    ) : null}
+                    {entry.machineKcal ? (
+                      <span className="inline-flex items-center gap-1 rounded-sm border border-zinc-700 bg-black/40 px-2 py-0.5 text-zinc-300">
+                        Máquina {entry.machineKcal} kcal
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
-              <button type="button" onClick={() => setState((current) => ({ ...current, entries: current.entries.filter((other) => other.id !== entry.id) }))} className="inline-flex items-center gap-2 border border-[rgba(239,68,68,0.28)] bg-[rgba(239,68,68,0.08)] px-4 py-2 font-headline text-xs font-bold uppercase tracking-[0.25em] text-red-300 transition hover:border-[rgba(239,68,68,0.45)] hover:text-red-200"><Trash2 className="h-4 w-4" />Excluir</button>
+              <button type="button" onClick={() => setState((current) => ({ ...current, entries: current.entries.filter((other) => other.id !== entry.id) }))} className="inline-flex shrink-0 items-center gap-2 border border-[rgba(239,68,68,0.28)] bg-[rgba(239,68,68,0.08)] px-4 py-2 font-headline text-xs font-bold uppercase tracking-[0.25em] text-red-300 transition hover:border-[rgba(239,68,68,0.45)] hover:text-red-200"><Trash2 className="h-4 w-4" />Excluir</button>
             </article>
-          )) : (
+            );
+          }) : (
             <div className="border border-dashed border-zinc-800 bg-black/30 px-6 py-10 text-center text-sm text-zinc-400">
               Lance o primeiro treino para começar o histórico da semana.
             </div>

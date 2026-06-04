@@ -3502,6 +3502,10 @@ function getCardioKcalPerDayForState(
   return estimateCardioKcalPerDayFromModuleState(
     state.moduleState,
     bodyWeightKgOverride ?? state.dailyNutritionTargets.bodyWeightKg,
+    {
+      ageYears: state.personalProfile.ageYears,
+      biologicalSex: state.personalProfile.biologicalSex,
+    },
   );
 }
 
@@ -5080,6 +5084,10 @@ function parseStateValue(
       parsedState.moduleState as Record<string, unknown> | undefined,
       parsedState.dailyNutritionTargets?.bodyWeightKg ??
         emptyPersistedState.dailyNutritionTargets.bodyWeightKg,
+      {
+        ageYears: parsedState.personalProfile?.ageYears,
+        biologicalSex: parsedState.personalProfile?.biologicalSex,
+      },
     );
 
     const dailyNutritionTargets = normalizeDailyNutritionTargets(

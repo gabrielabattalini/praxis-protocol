@@ -1557,6 +1557,10 @@ export default function NutritionModulePage() {
   const cardioKcalPerDay = estimateCardioKcalPerDayFromModuleState(
     state.moduleState,
     dailyNutritionTargets.bodyWeightKg,
+    {
+      ageYears: state.personalProfile.ageYears,
+      biologicalSex: state.personalProfile.biologicalSex,
+    },
   );
   const tdeeKcal = Math.round(
     dailyNutritionTargets.basalMetabolicRate * activityMultiplier +
