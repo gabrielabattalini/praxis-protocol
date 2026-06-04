@@ -2092,8 +2092,8 @@ export const dailyNutritionTargetsSeed: DailyNutritionTargets = {
   fiberPerKg: 0.3,
   fiberRatioGrams: 10,
   fiberRatioCalories: 1000,
-  sodiumTargetMg: 3000,
-  totals: macros(159.3, 309.8, 53.1, 20.6, 3000, 2063),
+  sodiumTargetMg: 2000,
+  totals: macros(159.3, 309.8, 53.1, 20.6, 2000, 2063),
   perKg: {
     waterMl: 50,
     protein: 1.8,

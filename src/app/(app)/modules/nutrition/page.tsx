@@ -55,7 +55,7 @@ const nutritionMacroNotes: Record<string, string> = {
   "Carboidratos": "Leve: 3 a 5 g/kg. Moderado: 5 a 7 g/kg. Intenso: 7 a 10 g/kg. Picos: até 12 g/kg.",
   "Gorduras": "Faixa prática: cerca de 0,5 a 1 g/kg. Ajuste conforme calorias totais e adesão.",
   "Fibras": "Referência: 10 g a cada 1000 kcal consumidas. Boa fonte: vegetais, leguminosas e grãos integrais.",
-  "Sódio": "Máximo recomendado: 3000 mg por dia. Reduza alimentos ultraprocessados e tempere com ervas.",
+  "Sódio": "Máximo recomendado pela OMS: 2000 mg por dia. Reduza alimentos ultraprocessados e tempere com ervas.",
   "Calorias": "Resultado do BMR ajustado pelo nível de atividade e pelo ajuste de fase (déficit ou superávit).",
 };
 
