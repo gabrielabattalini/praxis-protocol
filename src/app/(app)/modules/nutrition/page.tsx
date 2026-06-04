@@ -40,6 +40,7 @@ import {
   formatDateKey,
   formatPoints,
   getActivityMultiplierFromTrainingDays,
+  isTaskCompletedForDate,
   weekdayLongLabel,
 } from "@/lib/utils";
 
@@ -1563,6 +1564,19 @@ export default function NutritionModulePage() {
   const legacyHydrationTasks = hydrationTaskEntries.filter(
     (task) => task.sourceKey !== hydrationTaskSourceKey,
   );
+  // Se a tarefa de hidratação foi marcada como concluída hoje (seja
+  // automaticamente ou manualmente em Missões), trata o consumo como
+  // = meta no módulo Dieta até a virada do dia. Sem isso, marcar a
+  // baixa manual ficaria invisível aqui — o card de Hidratação
+  // continuaria mostrando os ml reais (geralmente 0). Usa
+  // isTaskCompletedForDate pra respeitar completedDates e o reset
+  // automático à meia-noite.
+  const isHydrationTaskCompletedToday = syncedHydrationTask
+    ? isTaskCompletedForDate(syncedHydrationTask, new Date())
+    : false;
+  const effectiveTodayWaterConsumed = isHydrationTaskCompletedToday
+    ? Math.max(todayWaterConsumed, waterTarget)
+    : todayWaterConsumed;
   const fiberTarget = dailyNutritionTargets.totals.fiber;
   const sodiumTarget = dailyNutritionTargets.sodiumTargetMg;
   const waterQuickActions = [200, 500, 1000];
@@ -1586,14 +1600,15 @@ export default function NutritionModulePage() {
     },
     {},
   );
-  // dietComparisonItems is back to consumedDietTotals — user only wants
-  // the bars to fill after an item is actually marked as Concluído in
-  // Missões. plannedDietTotals stays defined above in case we want a
-  // separate "planned vs consumed" comparison view later.
+  // Inclui os extras esporádicos nos macros mostrados nos cards de
+  // progresso. Antes só somava refeições do plano (consumedDietTotals)
+  // — extras adicionados em "Extras esporádicos" não influenciavam as
+  // barras, mesmo já contribuindo nas calorias do dia. Agora
+  // consumedTodayTotalsIncludingExtras unifica os dois.
   const dietComparisonItems = [
     {
       label: "Proteína",
-      current: consumedDietTotals.protein,
+      current: consumedTodayTotalsIncludingExtras.protein,
       target: proteinTarget,
       unit: "g",
       decimals: 1,
@@ -1601,7 +1616,7 @@ export default function NutritionModulePage() {
     },
     {
       label: "Carboidratos",
-      current: consumedDietTotals.carbs,
+      current: consumedTodayTotalsIncludingExtras.carbs,
       target: carbsTarget,
       unit: "g",
       decimals: 1,
@@ -1609,7 +1624,7 @@ export default function NutritionModulePage() {
     },
     {
       label: "Gorduras",
-      current: consumedDietTotals.fat,
+      current: consumedTodayTotalsIncludingExtras.fat,
       target: fatTarget,
       unit: "g",
       decimals: 1,
@@ -1617,7 +1632,7 @@ export default function NutritionModulePage() {
     },
     {
       label: "Fibras",
-      current: consumedDietTotals.fiber,
+      current: consumedTodayTotalsIncludingExtras.fiber,
       target: fiberTarget,
       unit: "g",
       decimals: 1,
@@ -1625,7 +1640,7 @@ export default function NutritionModulePage() {
     },
     {
       label: "Sódio",
-      current: consumedDietTotals.sodium,
+      current: consumedTodayTotalsIncludingExtras.sodium,
       target: sodiumTarget,
       unit: "mg",
       decimals: 0,
@@ -1633,7 +1648,7 @@ export default function NutritionModulePage() {
     },
     {
       label: "Calorias",
-      current: consumedDietTotals.calories,
+      current: consumedTodayTotalsIncludingExtras.calories,
       target: caloriesTarget,
       unit: "kcal",
       decimals: 0,
@@ -2382,7 +2397,10 @@ export default function NutritionModulePage() {
   // Per-macro progress vars (proteinProgress / carbsProgress / etc) were
   // removed alongside the deleted "Progresso da meta" panel. The Leitura
   // detalhada cards compute their own percent from current/target inline.
-  const waterProgress = waterTarget > 0 ? (todayWaterConsumed / waterTarget) * 100 : 0;
+  const waterProgress =
+    waterTarget > 0
+      ? (effectiveTodayWaterConsumed / waterTarget) * 100
+      : 0;
   const mealBlocksCount = mealPlan.length;
   const totalMealItemsCount = mealPlan.reduce(
     (sum, block) => sum + block.items.length,
@@ -2811,7 +2829,7 @@ export default function NutritionModulePage() {
                 Consumido
               </p>
               <p className="mt-2 font-headline text-2xl font-bold text-white">
-                {consumedDietTotals.calories.toFixed(0)}
+                {consumedTodayTotalsIncludingExtras.calories.toFixed(0)}
                 <span className="ml-1 text-xs text-zinc-500">kcal</span>
               </p>
             </div>
@@ -2820,11 +2838,17 @@ export default function NutritionModulePage() {
                 Hidratação
               </p>
               <p className="mt-2 font-headline text-2xl font-bold text-white">
-                {formatPoints(Math.round(todayWaterConsumed))}
+                {formatPoints(Math.round(effectiveTodayWaterConsumed))}
                 <span className="ml-1 text-xs text-zinc-500">
                   / {formatPoints(waterTarget)} ml
                 </span>
               </p>
+              {isHydrationTaskCompletedToday &&
+              todayWaterConsumed < waterTarget ? (
+                <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-emerald-400">
+                  Concluída em Missões
+                </p>
+              ) : null}
             </div>
             <div className="rounded-sm border border-zinc-800 bg-surface-container-low px-4 py-3">
               <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
