@@ -96,6 +96,8 @@ import {
   getActivityMultiplierFromTrainingDays,
   resolveBasalMetabolicRate,
   weekdayFromDate,
+  estimateCardioKcalPerDayFromModuleState,
+  RUN_MODULE_STATE_KEY,
 } from "@/lib/utils";
 import { normalizeWorkControlEntry } from "@/lib/work-control";
 
@@ -1722,6 +1724,7 @@ function reducer(state: PersistedState, action: Action): PersistedState {
           currentTargets.basalMetabolicRate,
           goalAdjustmentKcal,
           getActivityMultiplierFromTrainingDaysForState(state),
+          getCardioKcalPerDayForState(state),
         );
         const nextTargets = {
           ...currentTargets,
@@ -1759,6 +1762,7 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         currentTargets.basalMetabolicRate,
         goalAdjustmentKcal,
         getActivityMultiplierFromTrainingDaysForState(state),
+        getCardioKcalPerDayForState(state),
       );
       const nextTargets = {
         ...currentTargets,
@@ -1820,6 +1824,8 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         basalMetabolicRate,
         goalAdjustmentKcal,
         getActivityMultiplierFromTrainingDaysForState(state),
+        // peso NOVO (o do payload), não o que ainda está no state
+        getCardioKcalPerDayForState(state, bodyWeightKg),
       );
       const fiberTarget = resolveNutritionFiberTarget(caloriesTarget, bodyWeightKg, {
         fiberStrategy,
@@ -2234,6 +2240,7 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         dailyNutritionTargets: normalizeDailyNutritionTargets(
           duplicatedPlan.nutritionTargets,
           getActivityMultiplierFromTrainingDaysForState(state),
+          getCardioKcalPerDayForState(state),
         ),
         dietDayTypes: duplicatedPlan.dayTypes,
         dietWorkoutLink: duplicatedPlan.workoutLinkSettings,
@@ -2273,6 +2280,7 @@ function reducer(state: PersistedState, action: Action): PersistedState {
           dailyNutritionTargets: normalizeDailyNutritionTargets(
             emptyPersistedState.dailyNutritionTargets,
             getActivityMultiplierFromTrainingDaysForState(state),
+            getCardioKcalPerDayForState(state),
           ),
           dietDayTypes: emptyPersistedState.dietDayTypes,
           dietWorkoutLink: emptyPersistedState.dietWorkoutLink,
@@ -2290,6 +2298,7 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         dailyNutritionTargets: normalizeDailyNutritionTargets(
           fallbackPlan.nutritionTargets,
           getActivityMultiplierFromTrainingDaysForState(state),
+          getCardioKcalPerDayForState(state),
         ),
         dietDayTypes: fallbackPlan.dayTypes,
         dietWorkoutLink: fallbackPlan.workoutLinkSettings,
@@ -2319,6 +2328,7 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         dailyNutritionTargets: normalizeDailyNutritionTargets(
           freshNextPlan.nutritionTargets,
           getActivityMultiplierFromTrainingDaysForState(state),
+          getCardioKcalPerDayForState(state),
         ),
         dietDayTypes: freshNextPlan.dayTypes,
         dietWorkoutLink: freshNextPlan.workoutLinkSettings,
@@ -3359,7 +3369,49 @@ function reducer(state: PersistedState, action: Action): PersistedState {
       if (action.value === null || action.value === undefined) {
         delete nextBucket[action.key];
       }
-      return { ...state, moduleState: nextBucket };
+      const baseNext = { ...state, moduleState: nextBucket };
+
+      // Quando o plano de CARDIO muda, o componente "+ cardio" do TDEE
+      // muda junto — recalculamos a meta calórica (e a fibra, que
+      // depende dela) na hora, pra dieta refletir o novo gasto sem o
+      // usuário ter que reabrir e re-salvar as metas.
+      if (action.key === RUN_MODULE_STATE_KEY) {
+        const currentTargets = baseNext.dailyNutritionTargets;
+        const caloriesTarget = resolveNutritionCaloriesTarget(
+          currentTargets.basalMetabolicRate,
+          currentTargets.goalAdjustmentKcal,
+          getActivityMultiplierFromTrainingDaysForState(baseNext),
+          getCardioKcalPerDayForState(baseNext),
+        );
+        const nextTargets = {
+          ...currentTargets,
+          totals: {
+            ...currentTargets.totals,
+            fiber: resolveNutritionFiberTarget(
+              caloriesTarget,
+              currentTargets.bodyWeightKg,
+              {
+                fiberStrategy: currentTargets.fiberStrategy,
+                fiberPerKg: currentTargets.fiberPerKg,
+                fiberRatioGrams: currentTargets.fiberRatioGrams,
+                fiberRatioCalories: currentTargets.fiberRatioCalories,
+              },
+            ),
+            calories: caloriesTarget,
+          },
+        };
+        return {
+          ...baseNext,
+          dailyNutritionTargets: nextTargets,
+          dietPlans: baseNext.dietPlans.map((plan) =>
+            plan.id === baseNext.activeDietPlanId
+              ? { ...plan, nutritionTargets: nextTargets }
+              : plan,
+          ),
+        };
+      }
+
+      return baseNext;
     }
     default:
       return state;
@@ -3411,13 +3463,17 @@ function resolveNutritionCaloriesTarget(
   basalMetabolicRate: number,
   goalAdjustmentKcal: number,
   activityMultiplier: number = 1,
+  cardioKcalPerDay: number = 0,
 ) {
-  // TDEE = BMR × activity multiplier. Then ± the user's cut/bulk
-  // adjustment. activityMultiplier defaults to 1 for backward compat
-  // (callsites that don't pass it stay on the old BMR + adjustment
-  // formula); the four nutrition callsites below pass the value from
-  // getActivityMultiplierFromTrainingDaysForState.
-  const tdee = basalMetabolicRate * activityMultiplier;
+  // TDEE = basal + treino + cardio:
+  //   basal × activity multiplier  → basal + treino (NEAT + musculação)
+  //   + cardioKcalPerDay           → gasto médio diário do cardio
+  // Depois ± o ajuste de corte/bulk do usuário. Os dois últimos params
+  // têm default (1 e 0) pra back-compat; os callsites de nutrição
+  // passam os valores reais de getActivityMultiplier... e
+  // getCardioKcalPerDayForState.
+  const tdee =
+    basalMetabolicRate * activityMultiplier + Math.max(0, cardioKcalPerDay);
   return Math.max(0, Math.round(tdee + goalAdjustmentKcal));
 }
 
@@ -3433,6 +3489,20 @@ function getActivityMultiplierFromTrainingDaysForState(
   if (!program) return getActivityMultiplierFromTrainingDays(0);
   const days = program.workoutPlan.filter((d) => !d.isRestDay).length;
   return getActivityMultiplierFromTrainingDays(days);
+}
+
+/** Gasto calórico diário médio do cardio, lido do plano semanal do
+ *  módulo de cardio (moduleState). Soma o componente "+ cardio" do
+ *  TDEE. bodyWeightKgOverride permite usar o peso NOVO durante o
+ *  update-nutrition-targets (que ainda não foi commitado no state). */
+function getCardioKcalPerDayForState(
+  state: PersistedState,
+  bodyWeightKgOverride?: number,
+): number {
+  return estimateCardioKcalPerDayFromModuleState(
+    state.moduleState,
+    bodyWeightKgOverride ?? state.dailyNutritionTargets.bodyWeightKg,
+  );
 }
 
 function resolveNutritionFiberTarget(
@@ -3462,6 +3532,10 @@ function normalizeDailyNutritionTargets(
   // Callsites with access to state should pass
   // getActivityMultiplierFromTrainingDaysForState(state).
   activityMultiplier: number = 1,
+  // Gasto diário de cardio (component "+ cardio" do TDEE). Default 0
+  // pra back-compat; callsites com state passam
+  // getCardioKcalPerDayForState(state).
+  cardioKcalPerDay: number = 0,
 ) {
   const fallback = initialPersistedState.dailyNutritionTargets;
   const bodyWeightKg = targets?.bodyWeightKg ?? fallback.bodyWeightKg;
@@ -3511,6 +3585,7 @@ function normalizeDailyNutritionTargets(
     basalMetabolicRate,
     goalAdjustmentKcal,
     activityMultiplier,
+    cardioKcalPerDay,
   );
 
   return {
@@ -4997,9 +5072,20 @@ function parseStateValue(
         )
       : getActivityMultiplierFromTrainingDays(0);
 
+    // Componente "+ cardio" do TDEE na hidratação: lê o plano de cardio
+    // do moduleState parseado + o peso corporal salvo. estimate... é
+    // defensivo (retorna 0 se faltar dado), então hidratação antiga
+    // sem cardio configurado fica sem mudança.
+    const hydrationCardioKcalPerDay = estimateCardioKcalPerDayFromModuleState(
+      parsedState.moduleState as Record<string, unknown> | undefined,
+      parsedState.dailyNutritionTargets?.bodyWeightKg ??
+        emptyPersistedState.dailyNutritionTargets.bodyWeightKg,
+    );
+
     const dailyNutritionTargets = normalizeDailyNutritionTargets(
       parsedState.dailyNutritionTargets,
       hydrationActivityMultiplier,
+      hydrationCardioKcalPerDay,
     );
     const dietDayTypes = normalizeDietDayTypes(parsedState.dietDayTypes);
     const workoutPlan = normalizeWorkoutPlan(parsedState.workoutPlan);
@@ -5034,6 +5120,7 @@ function parseStateValue(
       ? normalizeDailyNutritionTargets(
           activeDietPlan.nutritionTargets,
           hydrationActivityMultiplier,
+          hydrationCardioKcalPerDay,
         )
       : dailyNutritionTargets;
     const dietWeekSchedule = normalizeDietWeekSchedule(

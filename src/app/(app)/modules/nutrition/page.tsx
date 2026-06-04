@@ -37,6 +37,7 @@ import {
   describeTrainingActivity,
   emptyMacros,
   estimateBasalMetabolicRate,
+  estimateCardioKcalPerDayFromModuleState,
   formatDateKey,
   formatPoints,
   getActivityMultiplierFromTrainingDays,
@@ -610,9 +611,11 @@ function NutritionTargetsEditor({
   onToggle,
   embedded = false,
   activityMultiplier = 1,
+  cardioKcalPerDay = 0,
 }: {
   targets: DailyNutritionTargets;
   activityMultiplier?: number;
+  cardioKcalPerDay?: number;
   onApply: (payload: {
     bodyWeightKg: number;
     bodyHeightCm: number;
@@ -702,11 +705,13 @@ function NutritionTargetsEditor({
     basalMetabolicRateSource === "manual"
       ? Number(manualBasalMetabolicRate) || targets.basalMetabolicRate
       : estimatedBasalMetabolicRate;
-  // Daily calorie target uses TDEE (BMR × activity multiplier) + adjustment,
-  // not raw BMR — otherwise sedentary calculation gets baked in and the
-  // displayed target is way below what the user actually needs.
+  // Daily calorie target uses TDEE = basal + treino + cardio:
+  //   basal × activityMultiplier  → basal + treino
+  //   + cardioKcalPerDay          → gasto médio diário do cardio
+  // não o BMR cru — senão o cálculo sedentário fica embutido e a meta
+  // exibida sai bem abaixo do que o usuário realmente precisa.
   const tdeeForTargets = Math.round(
-    displayedBasalMetabolicRate * activityMultiplier,
+    displayedBasalMetabolicRate * activityMultiplier + cardioKcalPerDay,
   );
   const adjustedCaloriesTarget = Math.max(
     0,
@@ -1009,8 +1014,11 @@ function NutritionTargetsEditor({
           </p>
           <p className="mt-2 text-xs text-zinc-500">
             TDEE {tdeeForTargets} kcal (basal{" "}
-            {displayedBasalMetabolicRate.toFixed(0)} × {activityMultiplier.toFixed(3)})
-            {" "}com {formatGoalAdjustment(targets.goalAdjustmentKcal).toLowerCase()}.
+            {displayedBasalMetabolicRate.toFixed(0)} × {activityMultiplier.toFixed(3)}
+            {cardioKcalPerDay > 0
+              ? ` + ${Math.round(cardioKcalPerDay)} cardio`
+              : ""}
+            ){" "}com {formatGoalAdjustment(targets.goalAdjustmentKcal).toLowerCase()}.
           </p>
         </div>
         <div className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.96)] px-4 py-4">
@@ -1534,7 +1542,7 @@ export default function NutritionModulePage() {
   const goalAdjustmentKcal = dailyNutritionTargets.goalAdjustmentKcal;
   // TDEE breakdown — surfaced in the Meta ativa panel so the user can
   // see how the daily calorie target is being assembled:
-  //   BMR × activityMultiplier (from training days/week) + adjustment.
+  //   basal × activityMultiplier (treino) + cardio + ajuste.
   const activeWorkoutProgramForActivity = state.workoutPrograms.find(
     (program) => program.id === state.activeWorkoutProgramId,
   );
@@ -1544,8 +1552,15 @@ export default function NutritionModulePage() {
     : 0;
   const activityMultiplier =
     getActivityMultiplierFromTrainingDays(trainingDaysPerWeek);
+  // Componente "+ cardio" do TDEE — gasto diário médio do plano de
+  // cardio (lido do moduleState). 0 se o usuário não configurou cardio.
+  const cardioKcalPerDay = estimateCardioKcalPerDayFromModuleState(
+    state.moduleState,
+    dailyNutritionTargets.bodyWeightKg,
+  );
   const tdeeKcal = Math.round(
-    dailyNutritionTargets.basalMetabolicRate * activityMultiplier,
+    dailyNutritionTargets.basalMetabolicRate * activityMultiplier +
+      cardioKcalPerDay,
   );
   const hydrationTaskSourceKey = "nutrition-hydration-daily";
   const hydrationTaskEntries = useMemo(
@@ -4175,6 +4190,7 @@ export default function NutritionModulePage() {
               </p>
               <NutritionTargetsEditor
                 activityMultiplier={activityMultiplier}
+                cardioKcalPerDay={cardioKcalPerDay}
                 key={`nutrition-targets-${state.activeDietPlanId}-${dailyNutritionTargets.bodyWeightKg}-${dailyNutritionTargets.goalAdjustmentKcal}-${dailyNutritionTargets.perKg.waterMl}-${dailyNutritionTargets.perKg.protein}-${dailyNutritionTargets.perKg.carbs}-${dailyNutritionTargets.perKg.fat}-${dailyNutritionTargets.fiberStrategy}-${dailyNutritionTargets.fiberPerKg}-${dailyNutritionTargets.fiberRatioGrams}-${dailyNutritionTargets.fiberRatioCalories}-${dailyNutritionTargets.sodiumTargetMg}`}
                 targets={dailyNutritionTargets}
                 onApply={actions.updateNutritionTargets}
@@ -4194,14 +4210,14 @@ export default function NutritionModulePage() {
               </p>
 
               {/* Calorie breakdown: shows how the final daily target is
-                  assembled — BMR pulled from body metrics, × multiplier
-                  from the user's active workout program (training days
-                  per week), + the cut/bulk adjustment from goal. */}
+                  assembled — basal (BMR) × multiplier (treino, do
+                  programa ativo) + cardio (gasto diário do plano de
+                  cardio) + ajuste de corte/bulk do objetivo. */}
               <div className="rounded-sm border border-zinc-800 bg-[rgba(10,10,12,0.72)] p-3">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
                   Como a meta é calculada
                 </p>
-                <div className="mt-2 grid gap-3 sm:grid-cols-4 text-sm">
+                <div className="mt-2 grid gap-3 sm:grid-cols-5 text-sm">
                   <div>
                     <p className="text-[11px] text-zinc-500">BMR (basal)</p>
                     <p className="mt-0.5 font-semibold text-white">
@@ -4220,6 +4236,18 @@ export default function NutritionModulePage() {
                     </p>
                     <p className="mt-0.5 text-[10px] leading-tight text-zinc-500">
                       {describeTrainingActivity(trainingDaysPerWeek)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-zinc-500">Cardio</p>
+                    <p className="mt-0.5 font-semibold text-white">
+                      {cardioKcalPerDay > 0 ? "+" : ""}
+                      {Math.round(cardioKcalPerDay)} kcal
+                    </p>
+                    <p className="mt-0.5 text-[10px] leading-tight text-zinc-500">
+                      {cardioKcalPerDay > 0
+                        ? "Média/dia do plano de cardio"
+                        : "Sem cardio planejado"}
                     </p>
                   </div>
                   <div>
@@ -4245,6 +4273,9 @@ export default function NutritionModulePage() {
                   <p className="mt-2 text-[11px] leading-snug text-zinc-500">
                     Sem treino ativo — assumindo sedentário (× 1.20). Crie e
                     ative um programa em Treino para refinar o cálculo.
+                    {cardioKcalPerDay > 0
+                      ? " O cardio planejado já está somado acima."
+                      : ""}
                   </p>
                 ) : null}
               </div>

@@ -658,6 +658,99 @@ export function describeTrainingActivity(daysPerWeek: number) {
   return "Intenso (6+ treinos/semana)";
 }
 
+/**
+ * Chave do bucket moduleState onde o módulo de cardio (run) persiste
+ * seu estado. PRECISA bater com `runModuleKey` em
+ * src/app/(app)/modules/run/page.tsx (o writer). Mantida aqui pra que
+ * o cálculo de TDEE da dieta leia o plano de cardio sem depender do
+ * componente de página.
+ */
+export const RUN_MODULE_STATE_KEY = "run-module-v2";
+
+type CardioTypeForEstimate =
+  | "walking"
+  | "running"
+  | "bike"
+  | "elliptical"
+  | "stairs";
+
+/** METs por tipo de cardio (intensidade moderada). Usado quando a
+ *  meta do dia está em MINUTOS. */
+const CARDIO_METS: Record<CardioTypeForEstimate, number> = {
+  walking: 3.8,
+  running: 9.0,
+  bike: 7.0,
+  elliptical: 5.0,
+  stairs: 8.0,
+};
+
+/** kcal por kg de peso por km percorrido. Usado quando a meta do dia
+ *  está em DISTÂNCIA (km). Corrida ~1.0; bike é mais eficiente. */
+const CARDIO_KCAL_PER_KG_KM: Record<CardioTypeForEstimate, number> = {
+  walking: 0.5,
+  running: 1.0,
+  bike: 0.3,
+  elliptical: 0.9,
+  stairs: 1.2,
+};
+
+function coerceCardioTypeForEstimate(value: unknown): CardioTypeForEstimate {
+  return value === "walking" ||
+    value === "bike" ||
+    value === "elliptical" ||
+    value === "stairs"
+    ? value
+    : "running";
+}
+
+/**
+ * Estima o gasto calórico DIÁRIO MÉDIO do cardio a partir do plano
+ * semanal do módulo de cardio (moduleState[RUN_MODULE_STATE_KEY]).
+ *
+ * Soma o gasto estimado de cada dia da semana que tem meta e divide
+ * por 7 (cardio raramente é todo dia, então a média diária é o que
+ * entra no TDEE).
+ *
+ *   meta em km  → kcal = km × pesoKg × fator(tipo)         [kcal/kg/km]
+ *   meta em min → kcal = METs(tipo) × 3.5 × pesoKg / 200 × min  [MET]
+ *
+ * Defensivo: moduleState é Record<string, unknown>; qualquer formato
+ * inesperado (sem dailyTargets, valores não-numéricos) resulta em 0,
+ * então quem nunca configurou cardio não tem mudança no TDEE.
+ */
+export function estimateCardioKcalPerDayFromModuleState(
+  moduleState: Record<string, unknown> | undefined | null,
+  bodyWeightKg: number,
+): number {
+  const weight = Math.max(1, bodyWeightKg);
+  const runState = moduleState?.[RUN_MODULE_STATE_KEY];
+  if (!runState || typeof runState !== "object") return 0;
+  const dailyTargets = (runState as { dailyTargets?: unknown }).dailyTargets;
+  if (!dailyTargets || typeof dailyTargets !== "object") return 0;
+
+  let weeklyKcal = 0;
+  for (const raw of Object.values(dailyTargets as Record<string, unknown>)) {
+    if (!raw || typeof raw !== "object") continue;
+    const target = raw as {
+      km?: unknown;
+      minutes?: unknown;
+      metric?: unknown;
+      type?: unknown;
+    };
+    const type = coerceCardioTypeForEstimate(target.type);
+    const metric = target.metric === "minutes" ? "minutes" : "km";
+    if (metric === "km") {
+      const km = Math.max(0, Number(target.km) || 0);
+      weeklyKcal += km * weight * CARDIO_KCAL_PER_KG_KM[type];
+    } else {
+      const minutes = Math.max(0, Number(target.minutes) || 0);
+      weeklyKcal += ((CARDIO_METS[type] * 3.5 * weight) / 200) * minutes;
+    }
+  }
+
+  return Math.round(weeklyKcal / 7);
+}
+
 export function addMacros(
   base: NutritionMacros,
   current: NutritionMacros,
