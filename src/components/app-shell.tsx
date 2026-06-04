@@ -9,6 +9,7 @@ import {
   CalendarDays,
   Crown,
   Dumbbell,
+  FileBarChart,
   Hash,
   Heart,
   Home as HomeIcon,
@@ -56,6 +57,7 @@ const operationLinks = [
   { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
   { href: "/tasks", label: "Missões", icon: Target },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
+  { href: "/relatorios", label: "Relatórios", icon: FileBarChart },
   { href: "/arena", label: "Arena", icon: Sword },
   { href: "/ranking", label: "Ranking", icon: Crown },
   { href: "/achievements", label: "Conquistas", icon: Medal },
@@ -108,6 +110,7 @@ function routeBreadcrumb(pathname: string) {
   if (pathname.startsWith("/tools")) return "Utilitários";
   if (pathname.startsWith("/tasks")) return "Missões";
   if (pathname.startsWith("/agenda")) return "Agenda";
+  if (pathname.startsWith("/relatorios")) return "Relatórios";
   if (pathname.startsWith("/arena")) return "Arena";
   if (pathname.startsWith("/friends")) return "Operadores";
   if (pathname.startsWith("/achievements")) return "Conquistas";
