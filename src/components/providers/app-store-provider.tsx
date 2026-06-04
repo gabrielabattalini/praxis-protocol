@@ -1932,8 +1932,20 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         return { ...state, waterEntries: nextWaterEntries };
       }
 
+      // Auto-conclusão one-way: SÓ marca como concluída quando bater a
+      // meta; nunca desmarca. Antes a regra também rebaixava de volta
+      // pra pendente sempre que o consumido < meta, o que apagava a
+      // marcação MANUAL feita na aba Missões (e zerava o card de
+      // Hidratação no módulo Dieta) toda vez que o usuário tomava
+      // qualquer gole de água. Pra desmarcar, ele toggla manualmente.
       const reachedTarget = nextEntry.consumedMl >= waterTarget;
-      if (hydrationTask.completed === reachedTarget) {
+      if (!reachedTarget) {
+        return { ...state, waterEntries: nextWaterEntries };
+      }
+      if (
+        hydrationTask.completed &&
+        (hydrationTask.completedDates ?? []).includes(todayKey)
+      ) {
         return { ...state, waterEntries: nextWaterEntries };
       }
 
@@ -1941,13 +1953,11 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         task.id === hydrationTask.id
           ? {
               ...task,
-              completed: reachedTarget,
-              completedAt: reachedTarget
-                ? new Date().toISOString()
-                : undefined,
-              completedDates: reachedTarget
-                ? Array.from(new Set([...(task.completedDates ?? []), todayKey])).sort()
-                : (task.completedDates ?? []).filter((d) => d !== todayKey),
+              completed: true,
+              completedAt: new Date().toISOString(),
+              completedDates: Array.from(
+                new Set([...(task.completedDates ?? []), todayKey]),
+              ).sort(),
             }
           : task,
       );
