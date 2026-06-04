@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
+  Download,
   FileBarChart,
   TrendingDown,
   TrendingUp,
@@ -88,7 +89,7 @@ export default function WeeklyReportPage() {
               {report.summary}
             </div>
           </div>
-          {/* Week navigation */}
+          {/* Week navigation + actions */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button
               type="button"
@@ -108,6 +109,14 @@ export default function WeeklyReportPage() {
             >
               <ChevronRight className="h-4 w-4" />
             </button>
+            <a
+              href={`/api/reports/weekly/pdf?weeksAgo=${weeksAgo}`}
+              className="v2-btn v2-btn-sm v2-btn-ok"
+              title="Baixar relatório em PDF"
+            >
+              <Download className="h-4 w-4" />
+              PDF
+            </a>
           </div>
         </div>
       </div>

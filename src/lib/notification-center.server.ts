@@ -541,6 +541,77 @@ export async function unsubscribeUserFromNotifications(
   return statusFromStore(store, userId);
 }
 
+/**
+ * Envia uma notificação push customizada pra todos os endpoints
+ * registrados de um usuário. Limpa subscriptions inválidas
+ * (404/410 = Endpoint expirado) automaticamente. Mesmo padrão do
+ * sendTestNotification — extraído pra reuso (relatório semanal etc).
+ */
+export async function sendCustomPushNotification(
+  userId: string,
+  payload: {
+    title: string;
+    body: string;
+    url?: string;
+    tag?: string;
+    requireInteraction?: boolean;
+  },
+): Promise<{ sent: number; removed: number; subscriptions: number }> {
+  configureWebPush();
+  const store = await loadStore();
+  const subscriptions = store.subscriptions[userId] ?? [];
+  let removed = 0;
+  let sent = 0;
+
+  const nextSubscriptions: StoredSubscription[] = [];
+
+  for (const entry of subscriptions) {
+    try {
+      await webpush.sendNotification(
+        entry as PushSubscription,
+        JSON.stringify({
+          title: payload.title,
+          body: payload.body,
+          url: payload.url ?? "/tasks",
+          tag: payload.tag ?? "praxis-custom",
+          icon: "/logo.png",
+          badge: "/logo.png",
+          requireInteraction: payload.requireInteraction ?? true,
+          silent: false,
+          vibrate: [250, 100, 250],
+        }),
+      );
+      sent += 1;
+      nextSubscriptions.push(entry);
+    } catch (error) {
+      const statusCode =
+        typeof error === "object" && error && "statusCode" in error
+          ? Number((error as { statusCode?: number }).statusCode)
+          : 0;
+      if (statusCode === 404 || statusCode === 410) {
+        removed += 1;
+        continue;
+      }
+      nextSubscriptions.push(entry);
+    }
+  }
+
+  store.subscriptions[userId] = nextSubscriptions;
+  await saveStore(store);
+
+  return { sent, removed, subscriptions: nextSubscriptions.length };
+}
+
+/**
+ * Lista todos os userIds com schedule de notificação registrado
+ * (proxy razoável pra "usuários ativos no app"). Usado pelo cron
+ * semanal pra iterar quem recebe o relatório.
+ */
+export async function listUsersWithNotificationSchedule(): Promise<string[]> {
+  const store = await loadStore();
+  return Object.keys(store.schedules);
+}
+
 export async function sendTestNotification(userId: string) {
   configureWebPush();
   const store = await loadStore();

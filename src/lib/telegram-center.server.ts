@@ -364,6 +364,73 @@ export async function sendTelegramMessage(
 }
 
 /**
+ * Envia um documento (arquivo) ao chat. Usa multipart/form-data direto
+ * via fetch porque telegramApi é JSON. Pensado pro PDF do relatório
+ * semanal mas serve pra qualquer arquivo binário.
+ */
+export async function sendTelegramDocument(
+  chatId: number,
+  document: Buffer,
+  filename: string,
+  caption?: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const token = getTelegramBotToken();
+  if (!token) {
+    return { ok: false, error: "Bot do Telegram não configurado." };
+  }
+  try {
+    const form = new FormData();
+    form.append("chat_id", String(chatId));
+    if (caption) form.append("caption", caption);
+    // Cast to Uint8Array → File: o FormData do undici (Node 20+, runtime
+    // do Next route serverless) aceita Blob/File; PDF é binary octet.
+    const file = new File(
+      [new Uint8Array(document)] as BlobPart[],
+      filename,
+      { type: "application/pdf" },
+    );
+    form.append("document", file);
+
+    const response = await fetch(
+      `${TELEGRAM_API}/bot${token}/sendDocument`,
+      { method: "POST", body: form, cache: "no-store" },
+    );
+    const payload = (await response.json()) as {
+      ok: boolean;
+      description?: string;
+    };
+    return payload.ok
+      ? { ok: true }
+      : { ok: false, error: payload.description || "Falha ao enviar documento." };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Falha de rede com o Telegram.",
+    };
+  }
+}
+
+/**
+ * Envia documento ao chat vinculado ao userId. Skip se sem binding.
+ */
+export async function sendTelegramDocumentToUser(
+  userId: string,
+  document: Buffer,
+  filename: string,
+  caption?: string,
+): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
+  if (!isTelegramConfigured()) {
+    return { ok: false, error: "Bot do Telegram não configurado." };
+  }
+  const binding = await getTelegramBinding(userId);
+  if (!binding) {
+    return { ok: true, skipped: true };
+  }
+  return sendTelegramDocument(binding.chatId, document, filename, caption);
+}
+
+/**
  * Deliver a message to a user's linked Telegram chat.
  * Silently skips (ok:true, skipped:true) when the account has no
  * Telegram linked — so callers can fan out to every channel safely.
