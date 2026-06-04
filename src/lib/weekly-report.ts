@@ -134,14 +134,13 @@ export function buildWeeklyReport(
 
   for (const day of week) {
     for (const item of day.items) {
-      // Os ids da agenda terminam em `-${dateKey}` (task-<id>-<key>,
-      // meal-<id>-<key>, workout-<id>-<key>, recovery-<id>-<key>).
-      // Remove o sufixo pra ter uma chave estável da atividade.
-      const suffix = `-${day.dateKey}`;
-      const activityKey = item.id.endsWith(suffix)
-        ? item.id.slice(0, item.id.length - suffix.length)
-        : item.id;
       const moduleName = item.sourceLabel || "Outros";
+      // Agrupa por MÓDULO + TÍTULO em vez do id da entidade. Hábitos
+      // recorrentes muitas vezes existem como tarefas separadas (uma
+      // "Acordar" por dia da semana, vários "Cardio", etc.) — agrupar
+      // por id deixava cada uma numa linha (0/1) repetida. Por título
+      // dentro do módulo, todas viram uma só atividade ("Acordar 0/7").
+      const activityKey = `${moduleName}::${item.title.trim().toLowerCase()}`;
 
       const activity =
         activityMap.get(activityKey) ??
