@@ -2,6 +2,7 @@ import { moduleCatalog } from "@/lib/mock-data";
 import type { MealPlanBlock, ModuleId, PersistedState, Weekday } from "@/lib/types";
 import {
   formatDateKey,
+  isMealItemCompletedForDateKey,
   isTaskCompletedForDate,
   isTaskDueForDate,
   weekdayLongLabel,
@@ -135,7 +136,12 @@ export function buildAgendaEvents(
           item.entityId === block.id &&
           (item.entityType === "meal" || item.entityType === "supplement"),
       );
-      const completedCount = block.items.filter((item) => item.completed).length;
+      // Conclusão é por DATA (completedDates), não pelo boolean único
+      // do item — sem isso, marcar refeição de ontem em Missões não
+      // refletia aqui (e portanto também não no relatório semanal).
+      const completedCount = block.items.filter((item) =>
+        isMealItemCompletedForDateKey(item, dateKey),
+      ).length;
       const totalCount = block.items.length;
 
       return {
