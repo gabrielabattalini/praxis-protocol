@@ -36,6 +36,7 @@ import {
 } from "@/lib/mock-data";
 import { isLocalAuthBypassEnabled } from "@/lib/auth-mode";
 import { getShoppingSeedState } from "@/lib/shopping-seed";
+import { threeWayMergeState } from "@/lib/state-merge";
 import type {
   DashboardSectionId,
   DietWorkoutLinkSettings,
@@ -4996,6 +4997,9 @@ type PersistedEnvelope = {
 type ParsedStateEnvelope = {
   state: PersistedState;
   updatedAt?: string;
+  // Versão monotônica do servidor (concorrência otimista). localStorage
+  // não tem versão → undefined; só o servidor preenche.
+  version?: number;
 };
 
 function createEmptyShoppingModuleState(): ShoppingModuleStoredState {
@@ -5467,6 +5471,10 @@ function parsePersistedEnvelopeValue(rawValue: unknown): ParsedStateEnvelope | n
           state: parsedState,
           updatedAt:
             typeof envelope.updatedAt === "string" ? envelope.updatedAt : undefined,
+          version:
+            typeof (envelope as { version?: unknown }).version === "number"
+              ? (envelope as { version: number }).version
+              : undefined,
         }
       : null;
   }
@@ -5651,6 +5659,10 @@ export function AppStoreProvider({
   const legacyKeysToClearRef = useRef<string[]>([]);
   const remoteSyncReadyRef = useRef(false);
   const lastServerSnapshotRef = useRef("");
+  // Versão do servidor sobre a qual estamos editando (concorrência
+  // otimista). Atualizada na carga inicial, em cada pull e a cada save
+  // bem-sucedido. Enviada como baseVersion no PUT.
+  const serverVersionRef = useRef(0);
   const saveAccountTimeoutRef = useRef<number | null>(null);
   const retryTimeoutRef = useRef<number | null>(null);
   const retryAttemptRef = useRef(0);
@@ -5696,11 +5708,20 @@ export function AppStoreProvider({
       setRemoteSaveStatus("saving");
 
       try {
+        const buildBody = (stateToSave: PersistedState) =>
+          JSON.stringify({
+            version: 1,
+            // baseVersion ativa a concorrência otimista no servidor.
+            baseVersion: serverVersionRef.current,
+            updatedAt: new Date().toISOString(),
+            state: stateToSave,
+          });
+
         const response = await fetch("/api/account-state", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
-          body: serializePersistedState(stateRef.current),
+          body: buildBody(stateRef.current),
           // keepalive lets the request survive the page being hidden /
           // closed (e.g. user switches apps on mobile right after
           // tapping "concluir"). Limited to 64KB by the browser, so we
@@ -5708,9 +5729,90 @@ export function AppStoreProvider({
           keepalive:
             opts?.keepalive && snapshot.length < 60_000 ? true : undefined,
         });
+
+        // 409 = outro dispositivo salvou no meio (versão defasada). Faz
+        // merge 3-way (base = último estado sincronizado, local = atual,
+        // server = estado retornado) e re-tenta sobre a versão do server.
+        // Loop limitado pra não girar infinito se houver corrida contínua.
+        if (response.status === 409 && !opts?.keepalive) {
+          let conflict = (await response.json().catch(() => null)) as
+            | { conflict?: boolean; version?: number; state?: unknown }
+            | null;
+          let stateToSave = stateRef.current;
+          let depth = 0;
+          let resolved = false;
+
+          while (conflict?.conflict && depth < 5) {
+            const parsedServer = parsePersistedEnvelopeValue(conflict);
+            if (!parsedServer) break;
+            const serverState = parsedServer.state;
+            const serverVersion =
+              typeof conflict.version === "number"
+                ? conflict.version
+                : serverVersionRef.current;
+
+            let baseState: PersistedState | null = null;
+            try {
+              baseState = lastServerSnapshotRef.current
+                ? (JSON.parse(lastServerSnapshotRef.current) as PersistedState)
+                : null;
+            } catch {
+              baseState = null;
+            }
+
+            stateToSave = baseState
+              ? threeWayMergeState(baseState, stateToSave, serverState)
+              : serverState;
+            lastServerSnapshotRef.current = JSON.stringify(serverState);
+            serverVersionRef.current = serverVersion;
+
+            const retry = await fetch("/api/account-state", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              credentials: "same-origin",
+              body: buildBody(stateToSave),
+            });
+            if (retry.status === 409) {
+              conflict = (await retry.json().catch(() => null)) as typeof conflict;
+              depth += 1;
+              continue;
+            }
+            if (!retry.ok) {
+              throw new Error(`account-state retry failed: ${retry.status}`);
+            }
+            const saved = (await retry.json().catch(() => null)) as
+              | { version?: number }
+              | null;
+            serverVersionRef.current =
+              typeof saved?.version === "number"
+                ? saved.version
+                : serverVersionRef.current + 1;
+            lastServerSnapshotRef.current = JSON.stringify(stateToSave);
+            resolved = true;
+            break;
+          }
+
+          if (resolved) {
+            // Aplica o resultado mesclado na UI (pode trazer edições do
+            // outro dispositivo + as locais).
+            dispatch({ type: "hydrate", payload: stateToSave, allowSeed: false });
+            retryAttemptRef.current = 0;
+            setRemoteSaveStatus("idle");
+            return;
+          }
+          throw new Error("account-state conflict não resolvido");
+        }
+
         if (!response.ok) {
           throw new Error(`account-state PUT failed: ${response.status}`);
         }
+        const saved = (await response.json().catch(() => null)) as
+          | { version?: number }
+          | null;
+        serverVersionRef.current =
+          typeof saved?.version === "number"
+            ? saved.version
+            : serverVersionRef.current + 1;
         lastServerSnapshotRef.current = snapshot;
         retryAttemptRef.current = 0;
         setRemoteSaveStatus("idle");
@@ -5796,6 +5898,7 @@ export function AppStoreProvider({
       lastServerSnapshotRef.current = serverEnvelope
         ? JSON.stringify(serverEnvelope.state)
         : "";
+      serverVersionRef.current = serverEnvelope?.version ?? 0;
 
       // Demo seed (market/supplements) only for the local-review bypass
       // or the founder account. Brand-new real accounts stay clean.
@@ -5865,6 +5968,9 @@ export function AppStoreProvider({
           : null;
         if (!envelope) return;
         const serverSnapshot = JSON.stringify(envelope.state);
+        // Sempre sincroniza a versão (mesmo sem mudança de estado) pra o
+        // próximo save mandar o baseVersion correto.
+        serverVersionRef.current = envelope.version ?? serverVersionRef.current;
         if (serverSnapshot === lastServerSnapshotRef.current) return;
         lastServerSnapshotRef.current = serverSnapshot;
         dispatch({ type: "hydrate", payload: envelope.state, allowSeed: false });

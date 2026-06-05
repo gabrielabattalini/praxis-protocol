@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:security": "node --test --experimental-strip-types \"tests/security/*.test.mjs\"",
-    "test:units": "node --test \"tests/notifications/*.test.mjs\" \"tests/store/*.test.mjs\"",
+    "test:units": "node --test --experimental-strip-types \"tests/notifications/*.test.mjs\" \"tests/store/*.test.mjs\"",
     "test": "npm run test:units",
     "import:usda": "node scripts/import-usda-foods.mjs",
     "import:tbca": "node scripts/import-tbca-foods.mjs",

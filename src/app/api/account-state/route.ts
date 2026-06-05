@@ -13,6 +13,11 @@ const ACCOUNT_STATE_MAX_BYTES = 1_000_000;
 
 const accountStateSchema = z.object({
   version: z.coerce.number().int().min(1).max(1_000_000).optional(),
+  // baseVersion = a versão do servidor sobre a qual o cliente editou.
+  // Quando presente, ativa a checagem de concorrência otimista (clientes
+  // antigos não enviam → caminho legado, sem checagem). min(0) cobre
+  // contas que nunca foram salvas (versão 0).
+  baseVersion: z.coerce.number().int().min(0).max(1_000_000).optional(),
   updatedAt: z.string().trim().min(1).max(80).optional(),
   state: z.unknown(),
 });
@@ -156,16 +161,41 @@ export async function PUT(request: Request) {
       await readJsonWithLimit<unknown>(request, ACCOUNT_STATE_MAX_BYTES),
     );
 
+    const currentEnvelope = await getAccountState(userId);
+    const currentVersion = Number(currentEnvelope?.version ?? 0);
+
+    // Concorrência otimista: se o cliente declara em qual versão ele
+    // editou (baseVersion) e ela NÃO é a versão atual do servidor, é
+    // porque outro dispositivo salvou no meio. Devolve 409 com o estado
+    // atual pro cliente fazer o merge 3-way e re-tentar. Clientes antigos
+    // (sem baseVersion) caem no caminho legado (last-write-wins).
+    if (
+      typeof body.baseVersion === "number" &&
+      body.baseVersion !== currentVersion
+    ) {
+      return NextResponse.json(
+        {
+          conflict: true,
+          version: currentVersion,
+          updatedAt: currentEnvelope?.updatedAt,
+          state: currentEnvelope?.state ?? null,
+        },
+        { status: 409 },
+      );
+    }
+
     // Stale clients (apps loaded before an external KV write) would
     // happily wipe finance lines they don't know about. Merge them in
     // from the current snapshot so external imports survive the race.
-    const currentEnvelope = await getAccountState(userId);
     const mergedState = currentEnvelope?.state
       ? preserveExternalFinanceState(currentEnvelope.state, body.state)
       : body.state;
 
+    // Versão monotônica: sempre incrementa a do servidor (ignora a
+    // version legada do payload). Assim novos clientes leem uma versão
+    // que cresce e conseguem detectar defasagem.
     const saved = await saveAccountState(userId, {
-      version: Number(body.version ?? 1),
+      version: currentVersion + 1,
       updatedAt: body.updatedAt,
       state: mergedState,
     });
