@@ -695,10 +695,29 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
     invalidSubscriptionsRemoved: 0,
   };
 
-  const dispatchLog = store.dispatchLog.filter((entry) => {
+  // Limpa por janela (14 dias) E por capacidade. O filter por tempo é
+  // a regra principal; o cap por contagem é defesa contra blowup quando
+  // a quantidade de (user × item × dia) cresce — o store inteiro vive
+  // numa key única (1 MB no Upstash), então sem cap o dispatch começaria
+  // a falhar silenciosamente quando o JSON estourasse o limite.
+  const DISPATCH_LOG_MAX_ENTRIES = 5000;
+  const cutoffMs = 1000 * 60 * 60 * 24 * 14;
+  const recentEntries = store.dispatchLog.filter((entry) => {
     const sentAt = new Date(entry.sentAt);
-    return referenceDate.getTime() - sentAt.getTime() < 1000 * 60 * 60 * 24 * 14;
+    return referenceDate.getTime() - sentAt.getTime() < cutoffMs;
   });
+  // Mantém as mais recentes se passar do cap.
+  const dispatchLog =
+    recentEntries.length > DISPATCH_LOG_MAX_ENTRIES
+      ? recentEntries
+          .slice()
+          .sort(
+            (left, right) =>
+              new Date(right.sentAt).getTime() -
+              new Date(left.sentAt).getTime(),
+          )
+          .slice(0, DISPATCH_LOG_MAX_ENTRIES)
+      : recentEntries;
 
   for (const [userId, schedule] of Object.entries(store.schedules)) {
     // No early-skip when there are no web-push subscriptions: a user may
