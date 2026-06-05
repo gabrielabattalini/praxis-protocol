@@ -35,6 +35,8 @@ import {
   isFinanceInvoiceBaseLine,
   isFinanceSummaryHelperLine,
   isFinanceSettledInMonth,
+  formatMoneyInputBR,
+  parseMoneyInputBR,
   roundCurrencyValue,
   sumFinanceLine,
 } from "@/lib/utils";
@@ -75,9 +77,11 @@ const financePremiumHighlights = [
   "O plano premium ganha leitura guiada e acesso seguro via Stripe.",
 ];
 
+// Parser tolerante de valor (formato BR e variações). Aceita o que o
+// usuário digitar — "5.000", "5.000,00", "5900", "5,90", "R$ 1.234,56" —
+// e converte pro número. Lógica em @/lib/utils (testada).
 function parseMoneyInput(raw: string) {
-  const value = Number(raw.replace(",", "."));
-  return Number.isFinite(value) ? roundCurrencyValue(value) : 0;
+  return parseMoneyInputBR(raw);
 }
 
 function buildFinanceCategoryBreakdown(
@@ -861,7 +865,7 @@ export default function FinanceModulePage() {
                   <input
                     type="text"
                     inputMode="decimal"
-                    value={lineValueDrafts[monthValueKey] ?? monthValue.toFixed(2)}
+                    value={lineValueDrafts[monthValueKey] ?? formatMoneyInputBR(monthValue)}
                     onChange={(event) =>
                       setLineValueDrafts((current) => ({
                         ...current,
@@ -1678,7 +1682,7 @@ export default function FinanceModulePage() {
               inputMode="decimal"
               value={
                 invoiceDrafts[selectedMonthId] ??
-                selectedMonthInvoiceLaunchedTotal.toFixed(2)
+                formatMoneyInputBR(selectedMonthInvoiceLaunchedTotal)
               }
               onChange={(event) =>
                 setInvoiceDrafts((current) => ({

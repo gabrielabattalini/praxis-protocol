@@ -34,6 +34,73 @@ export function roundCurrencyValue(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+/**
+ * Parser de valor monetário tolerante — aceita o que o usuário digitar
+ * (formato BR e variações) e converte pro número. Exemplos:
+ *   "5000"        → 5000
+ *   "5.000"       → 5000      (ponto = separador de milhar BR)
+ *   "5.000,00"    → 5000
+ *   "5900"        → 5900
+ *   "5,90"        → 5.9       (vírgula = decimal BR)
+ *   "R$ 1.234,56" → 1234.56
+ *   "5.50"        → 5.5       (ponto com 1–2 casas = decimal estilo US)
+ * Vazio/invalido → 0.
+ */
+export function parseMoneyInputBR(raw: unknown): number {
+  if (typeof raw !== "string") return 0;
+  // Descarta tudo que não for dígito, ponto, vírgula ou sinal.
+  let s = raw.trim().replace(/[^\d.,-]/g, "");
+  if (!s) return 0;
+  const negative = s.startsWith("-");
+  s = s.replace(/-/g, "");
+  if (!s) return 0;
+
+  const hasComma = s.includes(",");
+  const hasDot = s.includes(".");
+  let normalized: string;
+
+  if (hasComma && hasDot) {
+    // BR clássico: ponto = milhar, vírgula = decimal → remove pontos,
+    // vírgula vira ponto. "5.000,00" → "5000.00".
+    normalized = s.replace(/\./g, "").replace(",", ".");
+  } else if (hasComma) {
+    // Só vírgula = decimal BR. "5,90" → "5.90". (Várias vírgulas: a
+    // última é o decimal, as outras viram milhar.)
+    const parts = s.split(",");
+    const dec = parts.pop() ?? "";
+    normalized = `${parts.join("")}.${dec}`;
+  } else if (hasDot) {
+    // Só ponto: ambíguo entre milhar e decimal. Heurística BR:
+    //  - vários pontos → todos milhar ("1.234.567" → 1234567);
+    //  - um ponto com 3 casas depois → milhar ("5.000" → 5000);
+    //  - um ponto com 1–2 casas → decimal ("5.9"/"5.50" → 5.9/5.5).
+    const parts = s.split(".");
+    if (parts.length > 2) {
+      normalized = parts.join("");
+    } else {
+      const decimals = parts[1] ?? "";
+      normalized = decimals.length === 3 ? parts.join("") : s;
+    }
+  } else {
+    normalized = s;
+  }
+
+  const value = Number(normalized);
+  if (!Number.isFinite(value)) return 0;
+  return roundCurrencyValue(negative ? -value : value);
+}
+
+/**
+ * Formata um número no padrão BR pra exibir DENTRO de um input de valor
+ * (sem o "R$", que já costuma vir como prefixo visual). 5000 → "5.000,00".
+ */
+export function formatMoneyInputBR(value: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number.isFinite(value) ? value : 0);
+}
+
 export function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
