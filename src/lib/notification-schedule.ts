@@ -1,4 +1,5 @@
 import { buildNotificationBodyWithCue } from "@/lib/discipline-cues";
+import { isTaskDueForDate } from "@/lib/utils";
 import type {
   MealPlanBlock,
   ModuleId,
@@ -195,6 +196,26 @@ export function buildNotificationSyncPayload(
     .filter((task) => Boolean(task.scheduledTime))
     .filter((task) => !task.completed)
     .filter((task) => !reminderTaskIds.has(task.id))
+    // interval-days só entra no schedule quando está DUE HOJE — mesma
+    // regra de Missões (isTaskDueForDate). Sem isto, uma tarefa de ciclo
+    // longo (ex.: "consulta odontológica a cada 180 dias") já concluída
+    // continuava notificando: o schedule fica em cache no servidor com um
+    // anchorDate defasado e o cron disparava no marco dos 180 dias do
+    // anchor antigo, mesmo a tarefa já tendo sido refeita. Filtrando por
+    // due-ness, notificação e Missões ficam consistentes e schedules
+    // antigos se auto-corrigem no próximo sync.
+    //
+    // Só interval-days: a due-ness dele PERSISTE (vence em
+    // completedAt+intervalDays e segue vencido todo dia até refazer),
+    // então qualquer sync após vencer reinclui a tarefa. monthly/
+    // weekly/daily usam dia absoluto (sem drift) e NÃO podem ser
+    // filtrados — senão só disparariam se o sync caísse no dia exato.
+    .filter((task) => {
+      if (task.recurrence.kind === "interval-days") {
+        return isTaskDueForDate(task);
+      }
+      return true;
+    })
     .flatMap<NotificationScheduleItem>((task) => {
       const time = normalizeTime(task.scheduledTime);
       const route = task.moduleId ? notificationRouteByModuleId[task.moduleId] : "/tasks";
