@@ -184,12 +184,29 @@ export async function PUT(request: Request) {
       );
     }
 
+    // Se o cliente declarou baseVersion e ela bate com a versão atual do
+    // servidor, ele editou EM CIMA do estado mais recente — ou seja, ele
+    // conhecia as linhas externas e as removeu de propósito. Nesse caso o
+    // conjunto de linhas dele é autoritativo e NÃO re-injetamos nada.
+    //
+    // Era exatamente isso que fazia a linha "Mercado" (importada da
+    // planilha, sourceKey `xlsx-import-2026:`) voltar toda vez que o
+    // usuário excluía na lixeira: o preserveExternalFinanceState tratava a
+    // exclusão deliberada como se fosse um cliente defasado apagando uma
+    // linha que ele nem conhecia, e a trazia de volta do snapshot.
+    const clientIsCurrent =
+      typeof body.baseVersion === "number" &&
+      body.baseVersion === currentVersion;
+
     // Stale clients (apps loaded before an external KV write) would
-    // happily wipe finance lines they don't know about. Merge them in
-    // from the current snapshot so external imports survive the race.
-    const mergedState = currentEnvelope?.state
-      ? preserveExternalFinanceState(currentEnvelope.state, body.state)
-      : body.state;
+    // happily wipe finance lines they don't know about. Para esses — que
+    // não enviam baseVersion ou estão defasados — ainda mesclamos as
+    // linhas externas de volta do snapshot atual, pra um import não se
+    // perder numa corrida. Cliente comprovadamente atual pula essa rede.
+    const mergedState =
+      currentEnvelope?.state && !clientIsCurrent
+        ? preserveExternalFinanceState(currentEnvelope.state, body.state)
+        : body.state;
 
     // Versão monotônica: sempre incrementa a do servidor (ignora a
     // version legada do payload). Assim novos clientes leem uma versão

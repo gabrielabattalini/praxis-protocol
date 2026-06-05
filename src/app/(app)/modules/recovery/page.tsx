@@ -979,7 +979,7 @@ function WorkoutCreator({
                 className={
                   "rounded-sm border px-3 py-2 text-sm transition " +
                   (selected
-                    ? "border-[var(--accent)]/50 bg-[rgba(251,146,60,0.12)] text-[var(--accent)]"
+                    ? "border-transparent bg-[var(--accent)] font-semibold text-[#140a03] shadow-[0_0_14px_rgba(251,146,60,0.45)]"
                     : "border-white/10 bg-[#0a0a0b] text-zinc-300 hover:border-white/30")
                 }
               >

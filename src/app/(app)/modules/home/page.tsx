@@ -22,6 +22,19 @@ import {
 
 const fieldClassName = "praxis-field w-full px-4 py-3 text-sm";
 
+// Estilo do toggle SELECIONADO (dia/frequência). Precisa ser inline: a
+// classe base .praxis-button-ghost é definida fora de @layer em
+// globals.css e, por regra de cascade layers, vence as utilities do
+// Tailwind (@layer utilities) — então bg-[var(--accent)] via className
+// não aplicava e o selecionado ficava igual ao não-selecionado. Inline
+// vence qualquer regra de folha de estilo.
+const activeToggleStyle = {
+  background: "var(--accent)",
+  borderColor: "transparent",
+  color: "#140a03",
+  boxShadow: "0 0 14px rgba(251,146,60,0.45)",
+};
+
 const weekdayOptions: Weekday[] = [
   "monday",
   "tuesday",
@@ -392,10 +405,10 @@ export default function HomeModulePage() {
                           option.id as "daily" | "selected-weekdays",
                         )
                       }
+                      aria-pressed={recurrenceKind === option.id}
+                      style={recurrenceKind === option.id ? activeToggleStyle : undefined}
                       className={`praxis-button-ghost px-4 py-2 ${
-                        recurrenceKind === option.id
-                          ? "border-[rgba(251,146,60,0.34)] bg-[rgba(251,146,60,0.12)] text-zinc-100"
-                          : ""
+                        recurrenceKind === option.id ? "" : "opacity-70"
                       }`}
                     >
                       {option.label}
@@ -418,10 +431,10 @@ export default function HomeModulePage() {
                           key={day}
                           type="button"
                           onClick={() => toggleWeekday(day)}
+                          aria-pressed={active}
+                          style={active ? activeToggleStyle : undefined}
                           className={`praxis-button-ghost px-3 py-2 ${
-                            active
-                              ? "border-[rgba(251,146,60,0.34)] bg-[rgba(251,146,60,0.12)] text-zinc-100"
-                              : ""
+                            active ? "" : "opacity-70"
                           }`}
                         >
                           {weekdayLongLabel(day)}
