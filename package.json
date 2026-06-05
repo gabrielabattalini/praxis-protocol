@@ -13,6 +13,7 @@
     "import:usda": "node scripts/import-usda-foods.mjs",
     "import:tbca": "node scripts/import-tbca-foods.mjs",
     "verify:shopping-links": "node scripts/verify-shopping-links.mjs",
+    "verify:pages": "node scripts/verify-pages.mjs",
     "telegram:webhook": "node scripts/setup-telegram-webhook.mjs"
   },
   "overrides": {
