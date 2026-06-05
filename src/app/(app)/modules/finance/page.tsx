@@ -1133,104 +1133,49 @@ export default function FinanceModulePage() {
         </div>
       </div>
 
-      <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
-        <GlassPanel className="space-y-5 border-[rgba(251,146,60,0.14)] bg-[linear-gradient(180deg,rgba(14,14,17,0.98),rgba(8,8,10,0.94))] p-6 md:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="rounded-sm border border-[rgba(251,146,60,0.2)] bg-[rgba(251,146,60,0.08)] px-4 py-3 text-right">
-              <p className="praxis-label">Mês ativo</p>
-              <p className="mt-1 text-xl font-semibold text-zinc-100">
-                {selectedMonth.label}
-              </p>
-              <p className="mt-1 text-sm text-zinc-500">
-                {formatCurrency(selectedMonthPlannedBalance)} projetados
-              </p>
+      {/* Seção de resumo (Mês ativo / Saldo / Receitas / Gastos / Linhas
+          ativas) removida a pedido — os números já aparecem ao longo do
+          orçamento. Mantém só o painel de upgrade pra usuários free. */}
+      {!entitlement.hasFullAccess ? (
+        <GlassPanel className="space-y-4 border-[rgba(251,146,60,0.16)] bg-[linear-gradient(180deg,rgba(22,16,8,0.96),rgba(8,8,10,0.94))] p-6 md:p-8">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="praxis-label text-[var(--accent)]">Plano premium</p>
+              <h3 className="praxis-title mt-2 text-2xl">
+                Ative o fluxo guiado para fechar o mês com menos atrito.
+              </h3>
             </div>
+            <BadgeDollarSign className="h-6 w-6 text-[var(--accent)]" />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="praxis-panel rounded-sm px-4 py-4">
-              <p className="praxis-label">Saldo</p>
-              <p
-                className={`mt-2 text-2xl font-semibold ${
-                  selectedMonthPlannedBalance < 0 ? "text-rose-300" : "text-[var(--accent)]"
-                }`}
+          <p className="text-sm leading-6 text-zinc-500">
+            O Praxis fica mais forte quando o financeiro conversa com o que
+            você compra, consome e paga. O upgrade abre uma leitura mais
+            direta do seu ciclo.
+          </p>
+
+          <div className="space-y-3">
+            {financePremiumHighlights.map((item) => (
+              <div
+                key={item}
+                className="flex items-start gap-3 rounded-sm border border-zinc-800 bg-black/30 px-4 py-3"
               >
-                {formatCurrency(selectedMonthPlannedBalance)}
-              </p>
-              <p className="mt-2 text-sm text-zinc-500">Resultado após receitas e gastos.</p>
-            </div>
-            <div className="praxis-panel rounded-sm px-4 py-4">
-              <p className="praxis-label">Receitas</p>
-              <p className="mt-2 text-2xl font-semibold text-zinc-100">
-                {formatCurrency(selectedMonth.income)}
-              </p>
-              <p className="mt-2 text-sm text-zinc-500">Entradas planejadas no mês.</p>
-            </div>
-            <div className="praxis-panel rounded-sm px-4 py-4">
-              <p className="praxis-label">Gastos</p>
-              <p className="mt-2 text-2xl font-semibold text-zinc-100">
-                {formatCurrency(selectedMonthExpenseTotal)}
-              </p>
-              <p className="mt-2 text-sm text-zinc-500">Saídas projetadas no mês.</p>
-            </div>
-            <div className="praxis-panel rounded-sm px-4 py-4">
-              <p className="praxis-label">Linhas ativas</p>
-              <p className="mt-2 text-2xl font-semibold text-zinc-100">
-                {visibleLines.length}
-              </p>
-              <p className="mt-2 text-sm text-zinc-500">
-                Lançamentos visíveis e prontos para edição.
-              </p>
-            </div>
+                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
+                <p className="text-sm leading-6 text-zinc-300">{item}</p>
+              </div>
+            ))}
           </div>
 
+          <StripeCheckoutButton
+            source="finance-module"
+            className="w-full rounded-sm border-[rgba(251,146,60,0.18)] bg-[linear-gradient(135deg,var(--accent)_0%,#fbbf24_100%)] px-4 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_40px_rgba(251,146,60,0.22)]"
+            noteClassName="text-zinc-500"
+            errorClassName="text-amber-200"
+          >
+            Ver planos e fazer upgrade
+          </StripeCheckoutButton>
         </GlassPanel>
-
-        {/* Painel de upgrade — só pra quem AINDA não tem acesso completo.
-            Pra contas com acesso liberado (fundador/vitalício) o banner
-            "Acesso liberado / Plataforma completa ativa" só fazia ruído,
-            então fica escondido. Usuários free continuam vendo o CTA. */}
-        {!entitlement.hasFullAccess ? (
-          <GlassPanel className="space-y-4 border-[rgba(251,146,60,0.16)] bg-[linear-gradient(180deg,rgba(22,16,8,0.96),rgba(8,8,10,0.94))] p-6 md:p-8">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="praxis-label text-[var(--accent)]">Plano premium</p>
-                <h3 className="praxis-title mt-2 text-2xl">
-                  Ative o fluxo guiado para fechar o mês com menos atrito.
-                </h3>
-              </div>
-              <BadgeDollarSign className="h-6 w-6 text-[var(--accent)]" />
-            </div>
-
-            <p className="text-sm leading-6 text-zinc-500">
-              O Praxis fica mais forte quando o financeiro conversa com o que
-              você compra, consome e paga. O upgrade abre uma leitura mais
-              direta do seu ciclo.
-            </p>
-
-            <div className="space-y-3">
-              {financePremiumHighlights.map((item) => (
-                <div
-                  key={item}
-                  className="flex items-start gap-3 rounded-sm border border-zinc-800 bg-black/30 px-4 py-3"
-                >
-                  <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
-                  <p className="text-sm leading-6 text-zinc-300">{item}</p>
-                </div>
-              ))}
-            </div>
-
-            <StripeCheckoutButton
-              source="finance-module"
-              className="w-full rounded-sm border-[rgba(251,146,60,0.18)] bg-[linear-gradient(135deg,var(--accent)_0%,#fbbf24_100%)] px-4 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_40px_rgba(251,146,60,0.22)]"
-              noteClassName="text-zinc-500"
-              errorClassName="text-amber-200"
-            >
-              Ver planos e fazer upgrade
-            </StripeCheckoutButton>
-          </GlassPanel>
-        ) : null}
-      </section>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         <button
