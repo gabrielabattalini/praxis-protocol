@@ -3,13 +3,16 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Check,
   ChevronDown,
   ChevronUp,
   Clock3,
   Flame,
+  Pencil,
   Plus,
   TimerReset,
   Trash2,
+  X,
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
@@ -381,6 +384,12 @@ export default function RunModulePage() {
   const [form, setForm] = useState<RunFormState>(() =>
     makeEmptyRunForm(coerceCardioType(profile.preferredCardio, "running")),
   );
+  // Quando setado, o formulário "Lançar cardio" está editando um registro
+  // existente em vez de criar um novo. Guarda o id do registro em edição.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  // Ref do formulário pra rolar até ele quando o usuário clica em "Editar"
+  // num registro lá embaixo no histórico.
+  const formRef = useRef<HTMLFormElement | null>(null);
   const [feedback, setFeedback] = useState("");
   // Toggle for the "Recomendação semanal de cardio" panel — começa
   // COLAPSADO por padrão a pedido do usuário (só o header visível com
@@ -750,26 +759,72 @@ export default function RunModulePage() {
         biologicalSex: profile.biologicalSex,
       },
     );
+    // Campos comuns a criar e editar (id/createdAt mudam por caminho).
+    const fields = {
+      date: dateKey,
+      weekday: getWeekday(parseLocalDate(dateKey)),
+      distanceKm: Number(distanceKm.toFixed(2)),
+      durationSeconds,
+      type: form.type,
+      inclinePct: inclinePct > 0 ? inclinePct : undefined,
+      speedKmh: speedKmh > 0 ? speedKmh : undefined,
+      avgHeartRate: avgHeartRate > 0 ? avgHeartRate : undefined,
+      machineKcal: machineKcal > 0 ? machineKcal : undefined,
+      estimatedKcal: estimatedKcal > 0 ? estimatedKcal : undefined,
+    };
+
+    // Modo edição: atualiza o registro existente no lugar, preservando
+    // id e createdAt. Re-ordena por data (a data pode ter mudado).
+    if (editingId) {
+      setState((current) => ({
+        ...current,
+        entries: current.entries.map((other) =>
+          other.id === editingId ? { ...other, ...fields } : other,
+        ),
+      }));
+      setEditingId(null);
+      setForm(makeEmptyRunForm(form.type));
+      return;
+    }
+
     setState((current) => ({
       ...current,
       entries: [
         {
           id: `run-${Date.now()}`,
-          date: dateKey,
           createdAt: new Date().toISOString(),
-          weekday: getWeekday(parseLocalDate(dateKey)),
-          distanceKm: Number(distanceKm.toFixed(2)),
-          durationSeconds,
-          type: form.type,
-          inclinePct: inclinePct > 0 ? inclinePct : undefined,
-          speedKmh: speedKmh > 0 ? speedKmh : undefined,
-          avgHeartRate: avgHeartRate > 0 ? avgHeartRate : undefined,
-          machineKcal: machineKcal > 0 ? machineKcal : undefined,
-          estimatedKcal: estimatedKcal > 0 ? estimatedKcal : undefined,
+          ...fields,
         },
         ...current.entries,
       ],
     }));
+    setForm(makeEmptyRunForm(form.type));
+  }
+
+  // Carrega um registro do histórico no formulário pra edição e sobe a
+  // tela até ele. O submit do form passa a atualizar em vez de criar.
+  function startEditEntry(entry: RunEntry) {
+    const totalSeconds = Math.max(0, Math.round(entry.durationSeconds));
+    const minutesPart = Math.floor(totalSeconds / 60);
+    const secondsPart = totalSeconds % 60;
+    setForm({
+      date: entry.date,
+      distanceKm: entry.distanceKm > 0 ? String(entry.distanceKm) : "",
+      minutes: minutesPart > 0 ? String(minutesPart) : "",
+      seconds: secondsPart > 0 ? String(secondsPart) : "",
+      type: entry.type ?? form.type,
+      inclinePct: entry.inclinePct ? String(entry.inclinePct) : "",
+      speedKmh: entry.speedKmh ? String(entry.speedKmh) : "",
+      avgHeartRate: entry.avgHeartRate ? String(entry.avgHeartRate) : "",
+      machineKcal: entry.machineKcal ? String(entry.machineKcal) : "",
+    });
+    setEditingId(entry.id);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  // Sai do modo edição sem salvar e limpa o formulário.
+  function cancelEdit() {
+    setEditingId(null);
     setForm(makeEmptyRunForm(form.type));
   }
 
@@ -915,26 +970,30 @@ export default function RunModulePage() {
       <GlassPanel className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-baseline gap-3">
-            <p className="praxis-label text-[var(--accent)]">Registro</p>
+            <p className="praxis-label text-[var(--accent)]">
+              {editingId ? "Editando" : "Registro"}
+            </p>
             <h2 className="font-headline text-base font-bold uppercase tracking-tighter text-zinc-100">
-              Lançar cardio
+              {editingId ? "Editar cardio" : "Lançar cardio"}
             </h2>
             <span className="hidden items-center gap-1.5 text-[11px] text-zinc-500 sm:inline-flex">
               <Clock3 className="h-3 w-3 text-[var(--accent)]" />
-              Estimativa por peso, FC e velocidade
+              {editingId
+                ? "Ajuste os campos e salve as alterações"
+                : "Estimativa por peso, FC e velocidade"}
             </span>
           </div>
           <button
             type="button"
-            onClick={() => setForm(makeEmptyRunForm(form.type))}
+            onClick={() => (editingId ? cancelEdit() : setForm(makeEmptyRunForm(form.type)))}
             className="inline-flex items-center gap-1.5 border border-zinc-800 bg-black/50 px-3 py-1.5 font-headline text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-100 transition hover:border-[rgba(251,146,60,0.24)] hover:text-[var(--accent)]"
           >
-            <TimerReset className="h-3.5 w-3.5" />
-            Limpar
+            {editingId ? <X className="h-3.5 w-3.5" /> : <TimerReset className="h-3.5 w-3.5" />}
+            {editingId ? "Cancelar" : "Limpar"}
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-2">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-2">
           {/* Linha 1 — data, tipo, distância, tempo. Inclinação só
               aparece pra Esteira (único tipo com inclinação). */}
           <div
@@ -1078,10 +1137,10 @@ export default function RunModulePage() {
             <button
               type="submit"
               className="praxis-button inline-flex h-[38px] items-center justify-center gap-1.5 px-4 py-2 text-sm"
-              aria-label="Registrar treino"
+              aria-label={editingId ? "Salvar alterações do treino" : "Registrar treino"}
             >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Registrar</span>
+              {editingId ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              <span className="hidden sm:inline">{editingId ? "Salvar" : "Registrar"}</span>
             </button>
           </div>
 
@@ -1528,7 +1587,34 @@ export default function RunModulePage() {
                   </div>
                 ) : null}
               </div>
-              <button type="button" onClick={() => setState((current) => ({ ...current, entries: current.entries.filter((other) => other.id !== entry.id) }))} className="inline-flex shrink-0 items-center gap-2 border border-[rgba(239,68,68,0.28)] bg-[rgba(239,68,68,0.08)] px-4 py-2 font-headline text-xs font-bold uppercase tracking-[0.25em] text-red-300 transition hover:border-[rgba(239,68,68,0.45)] hover:text-red-200"><Trash2 className="h-4 w-4" />Excluir</button>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => startEditEntry(entry)}
+                  className={`inline-flex items-center gap-2 border px-4 py-2 font-headline text-xs font-bold uppercase tracking-[0.25em] transition ${
+                    editingId === entry.id
+                      ? "border-[rgba(251,146,60,0.55)] bg-[rgba(251,146,60,0.12)] text-[var(--accent)]"
+                      : "border-zinc-700 bg-black/40 text-zinc-200 hover:border-[rgba(251,146,60,0.45)] hover:text-[var(--accent)]"
+                  }`}
+                >
+                  <Pencil className="h-4 w-4" />
+                  {editingId === entry.id ? "Editando" : "Editar"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (editingId === entry.id) cancelEdit();
+                    setState((current) => ({
+                      ...current,
+                      entries: current.entries.filter((other) => other.id !== entry.id),
+                    }));
+                  }}
+                  className="inline-flex items-center gap-2 border border-[rgba(239,68,68,0.28)] bg-[rgba(239,68,68,0.08)] px-4 py-2 font-headline text-xs font-bold uppercase tracking-[0.25em] text-red-300 transition hover:border-[rgba(239,68,68,0.45)] hover:text-red-200"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Excluir
+                </button>
+              </div>
             </article>
             );
           }) : (
