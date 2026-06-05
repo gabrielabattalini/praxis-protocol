@@ -165,6 +165,219 @@ async function saveStore(store: NotificationStore): Promise<void> {
   writeJsonFile(storePath, store);
 }
 
+/* ─────────────────────────────────────────────────────────────────
+   Storage POR USUÁRIO (multi-tenant).
+
+   Antes TODO o estado (todos os usuários: subscriptions, schedules,
+   dispatchLog, snoozes) vivia numa key Redis única (`praxis:notif:store`).
+   Isso causava last-write-wins entre usuários: dois requests paralelos
+   (cron + um subscribe; snooze do user A + sync do user B) se
+   sobrescreviam, apagando dados de quem não estava envolvido na request.
+
+   Agora cada usuário tem suas próprias keys + um índice (SET Redis) com
+   quem o dispatch precisa checar. Writes de um usuário não tocam os
+   outros. dispatchLog continua numa key separada (só o cron escreve).
+
+   Migração lazy: na primeira chamada com KV, copia o store monolítico
+   legado pras keys por-usuário (idempotente, mantém a key antiga pra
+   rollback). Modo arquivo (dev) segue usando o JSON único.
+   ───────────────────────────────────────────────────────────────── */
+
+const userSubsKey = (userId: string) => `praxis:notif:u:${userId}:subs`;
+const userSchedKey = (userId: string) => `praxis:notif:u:${userId}:sched`;
+const userSnoozeKey = (userId: string) => `praxis:notif:u:${userId}:snooze`;
+const USER_INDEX_KEY = "praxis:notif:userindex";
+const DISPATCH_LOG_KEY = "praxis:notif:dispatchlog";
+const MIGRATED_FLAG_KEY = "praxis:notif:migrated-v2";
+
+async function kvGetJson<T>(key: string): Promise<T | null> {
+  const raw = await kvCommand<string>(["GET", key]);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function kvSetJson(key: string, value: unknown): Promise<void> {
+  await kvCommand(["SET", key, JSON.stringify(value)]);
+}
+
+async function kvSadd(setKey: string, member: string): Promise<void> {
+  await kvCommand(["SADD", setKey, member]);
+}
+
+async function kvSmembers(setKey: string): Promise<string[]> {
+  const result = await kvCommand<string[]>(["SMEMBERS", setKey]);
+  return Array.isArray(result) ? result : [];
+}
+
+// Migração roda uma vez por instância serverless quente (cache de módulo)
+// + flag durável no KV pra não repetir entre instâncias.
+let migratedThisInstance = false;
+
+async function ensureMigratedKv(): Promise<void> {
+  if (!KV_ENABLED || migratedThisInstance) return;
+  const flag = await kvCommand<string>(["GET", MIGRATED_FLAG_KEY]);
+  if (flag === "1") {
+    migratedThisInstance = true;
+    return;
+  }
+  const legacyRaw = await kvCommand<string>(["GET", KV_STORE_KEY]);
+  if (legacyRaw) {
+    try {
+      const legacy = JSON.parse(legacyRaw) as NotificationStore;
+      for (const [uid, subs] of Object.entries(legacy.subscriptions ?? {})) {
+        if (Array.isArray(subs) && subs.length) {
+          await kvSetJson(userSubsKey(uid), subs);
+        }
+      }
+      for (const [uid, sched] of Object.entries(legacy.schedules ?? {})) {
+        await kvSetJson(userSchedKey(uid), sched);
+        await kvSadd(USER_INDEX_KEY, uid);
+      }
+      for (const [uid, list] of Object.entries(legacy.snoozes ?? {})) {
+        if (Array.isArray(list) && list.length) {
+          await kvSetJson(userSnoozeKey(uid), list);
+          await kvSadd(USER_INDEX_KEY, uid);
+        }
+      }
+      if (Array.isArray(legacy.dispatchLog) && legacy.dispatchLog.length) {
+        await kvSetJson(DISPATCH_LOG_KEY, legacy.dispatchLog);
+      }
+    } catch (error) {
+      // Não seta a flag → próxima chamada re-tenta. Migração é
+      // idempotente (SET/SADD com os mesmos valores).
+      console.error("[notifications] migração para per-user falhou:", error);
+      return;
+    }
+  }
+  await kvCommand(["SET", MIGRATED_FLAG_KEY, "1"]);
+  migratedThisInstance = true;
+}
+
+/* ── Acessores por-usuário (KV per-key OU arquivo único no dev) ──── */
+
+async function loadUserSubs(userId: string): Promise<StoredSubscription[]> {
+  if (KV_ENABLED) {
+    await ensureMigratedKv();
+    return (await kvGetJson<StoredSubscription[]>(userSubsKey(userId))) ?? [];
+  }
+  const store = await loadStore();
+  return store.subscriptions[userId] ?? [];
+}
+
+async function saveUserSubs(
+  userId: string,
+  subs: StoredSubscription[],
+): Promise<void> {
+  if (KV_ENABLED) {
+    await kvSetJson(userSubsKey(userId), subs);
+    return;
+  }
+  const store = await loadStore();
+  store.subscriptions[userId] = subs;
+  await saveStore(store);
+}
+
+async function loadUserSchedule(
+  userId: string,
+): Promise<StoredSchedule | null> {
+  if (KV_ENABLED) {
+    await ensureMigratedKv();
+    return await kvGetJson<StoredSchedule>(userSchedKey(userId));
+  }
+  const store = await loadStore();
+  return store.schedules[userId] ?? null;
+}
+
+async function saveUserSchedule(
+  userId: string,
+  schedule: StoredSchedule,
+): Promise<void> {
+  if (KV_ENABLED) {
+    await kvSetJson(userSchedKey(userId), schedule);
+    await kvSadd(USER_INDEX_KEY, userId);
+    return;
+  }
+  const store = await loadStore();
+  store.schedules[userId] = schedule;
+  await saveStore(store);
+}
+
+async function loadUserSnoozes(userId: string): Promise<SnoozedItem[]> {
+  if (KV_ENABLED) {
+    await ensureMigratedKv();
+    return (await kvGetJson<SnoozedItem[]>(userSnoozeKey(userId))) ?? [];
+  }
+  const store = await loadStore();
+  return (store.snoozes ?? {})[userId] ?? [];
+}
+
+async function saveUserSnoozes(
+  userId: string,
+  snoozes: SnoozedItem[],
+): Promise<void> {
+  if (KV_ENABLED) {
+    await kvSetJson(userSnoozeKey(userId), snoozes);
+    if (snoozes.length) await kvSadd(USER_INDEX_KEY, userId);
+    return;
+  }
+  const store = await loadStore();
+  const map = store.snoozes ?? {};
+  map[userId] = snoozes;
+  store.snoozes = map;
+  await saveStore(store);
+}
+
+// userIds que o dispatch precisa checar (têm schedule ou snooze).
+async function listIndexedUserIds(): Promise<string[]> {
+  if (KV_ENABLED) {
+    await ensureMigratedKv();
+    return await kvSmembers(USER_INDEX_KEY);
+  }
+  const store = await loadStore();
+  return Array.from(
+    new Set([
+      ...Object.keys(store.schedules),
+      ...Object.keys(store.snoozes ?? {}),
+    ]),
+  );
+}
+
+async function loadDispatchLog(): Promise<DispatchLogEntry[]> {
+  if (KV_ENABLED) {
+    await ensureMigratedKv();
+    return (await kvGetJson<DispatchLogEntry[]>(DISPATCH_LOG_KEY)) ?? [];
+  }
+  const store = await loadStore();
+  return store.dispatchLog;
+}
+
+async function saveDispatchLog(log: DispatchLogEntry[]): Promise<void> {
+  if (KV_ENABLED) {
+    await kvSetJson(DISPATCH_LOG_KEY, log);
+    return;
+  }
+  const store = await loadStore();
+  store.dispatchLog = log;
+  await saveStore(store);
+}
+
+function buildNotificationStatus(
+  subscriptions: StoredSubscription[],
+  schedule: StoredSchedule | null,
+) {
+  return {
+    subscriptions,
+    deviceCount: subscriptions.length,
+    lastSyncedAt: schedule?.syncedAt,
+    timezone: schedule?.timezone,
+    itemCount: schedule?.items.length ?? 0,
+  };
+}
+
 function randomId(prefix: string) {
   // CSPRNG em vez de Math.random — IDs de subscription não são segredo,
   // mas evita colisões e mantém consistência com telegram-center.
@@ -424,22 +637,12 @@ export function getNotificationPublicKey() {
   return configureWebPush().publicKey;
 }
 
-function statusFromStore(store: NotificationStore, userId: string) {
-  const subscriptions = store.subscriptions[userId] ?? [];
-  const schedule = store.schedules[userId];
-
-  return {
-    subscriptions,
-    deviceCount: subscriptions.length,
-    lastSyncedAt: schedule?.syncedAt,
-    timezone: schedule?.timezone,
-    itemCount: schedule?.items.length ?? 0,
-  };
-}
-
 export async function getNotificationStatus(userId: string) {
-  const store = await loadStore();
-  return statusFromStore(store, userId);
+  const [subscriptions, schedule] = await Promise.all([
+    loadUserSubs(userId),
+    loadUserSchedule(userId),
+  ]);
+  return buildNotificationStatus(subscriptions, schedule);
 }
 
 /**
@@ -449,8 +652,8 @@ export async function getNotificationStatus(userId: string) {
  * virado pro dia seguinte e a conclusão cairia na data errada.
  */
 export async function getUserTimezone(userId: string): Promise<string> {
-  const store = await loadStore();
-  return store.schedules[userId]?.timezone || "America/Sao_Paulo";
+  const schedule = await loadUserSchedule(userId);
+  return schedule?.timezone || "America/Sao_Paulo";
 }
 
 /**
@@ -458,32 +661,26 @@ export async function getUserTimezone(userId: string): Promise<string> {
  * de debug. Mostra exatamente o que o cron itera pra disparar.
  */
 export async function getNotificationScheduleSnapshot(userId: string) {
-  const store = await loadStore();
-  return store.schedules[userId] ?? null;
+  return await loadUserSchedule(userId);
 }
 
 export async function syncNotificationSchedule(
   userId: string,
   payload: NotificationSyncPayload,
 ) {
-  const store = await loadStore();
-  store.schedules[userId] = {
-    ...payload,
-    userId,
-  };
-  await saveStore(store);
-  return statusFromStore(store, userId);
+  const schedule: StoredSchedule = { ...payload, userId };
+  await saveUserSchedule(userId, schedule);
+  const subscriptions = await loadUserSubs(userId);
+  return buildNotificationStatus(subscriptions, schedule);
 }
 
 export async function snoozeNotification(
   userId: string,
   payload: { itemId: string; minutes: number; title?: string; body?: string },
 ) {
-  const store = await loadStore();
   const minutes = Math.max(1, Math.min(180, Math.round(payload.minutes)));
   const fireAt = new Date(Date.now() + minutes * 60_000).toISOString();
-  const snoozes = store.snoozes ?? {};
-  const list = snoozes[userId] ?? [];
+  const list = await loadUserSnoozes(userId);
   // Substitui qualquer snooze anterior pra mesmo item — usuário clicou
   // "Adiar 15min" duas vezes seguidas, queremos que o último valha.
   const remaining = list.filter((entry) => entry.itemId !== payload.itemId);
@@ -493,9 +690,7 @@ export async function snoozeNotification(
     title: payload.title?.slice(0, 200),
     body: payload.body?.slice(0, 500),
   });
-  snoozes[userId] = remaining;
-  store.snoozes = snoozes;
-  await saveStore(store);
+  await saveUserSnoozes(userId, remaining);
   return { fireAt };
 }
 
@@ -508,8 +703,7 @@ export async function subscribeUserToNotifications(
     userAgent?: string;
   },
 ) {
-  const store = await loadStore();
-  const current = store.subscriptions[userId] ?? [];
+  const current = await loadUserSubs(userId);
   const now = new Date().toISOString();
   const existingIndex = current.findIndex(
     (entry) => entry.endpoint === subscription.endpoint,
@@ -535,24 +729,22 @@ export async function subscribeUserToNotifications(
       ? current.map((entry, index) => (index === existingIndex ? nextEntry : entry))
       : [nextEntry, ...current];
 
-  store.subscriptions[userId] = nextSubscriptions;
-  await saveStore(store);
-  return statusFromStore(store, userId);
+  await saveUserSubs(userId, nextSubscriptions);
+  const schedule = await loadUserSchedule(userId);
+  return buildNotificationStatus(nextSubscriptions, schedule);
 }
 
 export async function unsubscribeUserFromNotifications(
   userId: string,
   endpoint?: string,
 ) {
-  const store = await loadStore();
-  const current = store.subscriptions[userId] ?? [];
-
-  store.subscriptions[userId] = endpoint
+  const current = await loadUserSubs(userId);
+  const nextSubscriptions = endpoint
     ? current.filter((entry) => entry.endpoint !== endpoint)
     : [];
-
-  await saveStore(store);
-  return statusFromStore(store, userId);
+  await saveUserSubs(userId, nextSubscriptions);
+  const schedule = await loadUserSchedule(userId);
+  return buildNotificationStatus(nextSubscriptions, schedule);
 }
 
 /**
@@ -572,8 +764,7 @@ export async function sendCustomPushNotification(
   },
 ): Promise<{ sent: number; removed: number; subscriptions: number }> {
   configureWebPush();
-  const store = await loadStore();
-  const subscriptions = store.subscriptions[userId] ?? [];
+  const subscriptions = await loadUserSubs(userId);
   let removed = 0;
   let sent = 0;
 
@@ -610,8 +801,7 @@ export async function sendCustomPushNotification(
     }
   }
 
-  store.subscriptions[userId] = nextSubscriptions;
-  await saveStore(store);
+  await saveUserSubs(userId, nextSubscriptions);
 
   return { sent, removed, subscriptions: nextSubscriptions.length };
 }
@@ -622,14 +812,12 @@ export async function sendCustomPushNotification(
  * semanal pra iterar quem recebe o relatório.
  */
 export async function listUsersWithNotificationSchedule(): Promise<string[]> {
-  const store = await loadStore();
-  return Object.keys(store.schedules);
+  return await listIndexedUserIds();
 }
 
 export async function sendTestNotification(userId: string) {
   configureWebPush();
-  const store = await loadStore();
-  const subscriptions = store.subscriptions[userId] ?? [];
+  const subscriptions = await loadUserSubs(userId);
   let removed = 0;
   let sent = 0;
 
@@ -663,8 +851,7 @@ export async function sendTestNotification(userId: string) {
     }
   }
 
-  store.subscriptions[userId] = nextSubscriptions;
-  await saveStore(store);
+  await saveUserSubs(userId, nextSubscriptions);
 
   return {
     sent,
@@ -688,21 +875,21 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
     );
   }
 
-  const store = await loadStore();
+  if (KV_ENABLED) await ensureMigratedKv();
+
   const summary: DispatchSummary = {
     usersChecked: 0,
     notificationsSent: 0,
     invalidSubscriptionsRemoved: 0,
   };
 
-  // Limpa por janela (14 dias) E por capacidade. O filter por tempo é
-  // a regra principal; o cap por contagem é defesa contra blowup quando
-  // a quantidade de (user × item × dia) cresce — o store inteiro vive
-  // numa key única (1 MB no Upstash), então sem cap o dispatch começaria
-  // a falhar silenciosamente quando o JSON estourasse o limite.
+  // dispatchLog vive numa key separada e só o cron escreve nela — sem
+  // corrida com mutações de usuário (subscribe/sync/snooze tocam só keys
+  // por-usuário). Limpa por janela (14 dias) e por capacidade (cap).
   const DISPATCH_LOG_MAX_ENTRIES = 5000;
   const cutoffMs = 1000 * 60 * 60 * 24 * 14;
-  const recentEntries = store.dispatchLog.filter((entry) => {
+  const rawLog = await loadDispatchLog();
+  const recentEntries = rawLog.filter((entry) => {
     const sentAt = new Date(entry.sentAt);
     return referenceDate.getTime() - sentAt.getTime() < cutoffMs;
   });
@@ -719,12 +906,29 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
           .slice(0, DISPATCH_LOG_MAX_ENTRIES)
       : recentEntries;
 
-  for (const [userId, schedule] of Object.entries(store.schedules)) {
+  const indexedUserIds = await listIndexedUserIds();
+
+  for (const userId of indexedUserIds) {
+    const schedule = await loadUserSchedule(userId);
     // No early-skip when there are no web-push subscriptions: a user may
     // have ONLY Telegram linked and must still receive scheduled alerts.
-    const subscriptions = store.subscriptions[userId] ?? [];
+    const subscriptions = await loadUserSubs(userId);
 
     summary.usersChecked += 1;
+
+    if (!schedule) {
+      // Usuário no índice só por snooze (sem schedule). Processa as
+      // snoozes vencidas mais abaixo no fluxo unificado.
+      await processUserSnoozes(
+        userId,
+        subscriptions,
+        webPushReady,
+        referenceDate,
+        summary,
+      );
+      continue;
+    }
+
     const zonedNow = getZonedNow(schedule.timezone || "America/Sao_Paulo", referenceDate);
     const validSubscriptions: StoredSubscription[] = [];
     // Só poda assinaturas mortas quando houve PELO MENOS uma tentativa
@@ -859,69 +1063,85 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
     // Só reescreve (poda assinaturas mortas 404/410) quando o web push
     // realmente rodou. Se o VAPID estava off, preservamos as assinaturas
     // como estavam — senão um erro transitório de config apagaria todos
-    // os dispositivos push do usuário.
+    // os dispositivos push do usuário. Usa as assinaturas pós-poda nas
+    // snoozes (endpoints mortos já foram removidos).
+    const subsForSnooze =
+      webPushReady && attemptedAnyPush ? validSubscriptions : subscriptions;
     if (webPushReady && attemptedAnyPush) {
-      store.subscriptions[userId] = validSubscriptions;
-    }
-  }
-
-  // Processa snoozes vencidas — reenvia push + Telegram para cada uma e
-  // remove a entrada. Não passa pelo isNotificationItemDue (já passou da
-  // hora original; queremos disparar AGORA).
-  const allSnoozes = store.snoozes ?? {};
-  const nowMs = referenceDate.getTime();
-  for (const [userId, list] of Object.entries(allSnoozes)) {
-    const due = list.filter((entry) => new Date(entry.fireAt).getTime() <= nowMs);
-    if (due.length === 0) continue;
-
-    const subscriptions = store.subscriptions[userId] ?? [];
-    for (const entry of due) {
-      const title = entry.title || "Lembrete adiado";
-      const body = entry.body || "Você adiou esse lembrete.";
-
-      // Web push
-      if (webPushReady) {
-        const payload = JSON.stringify({
-          title,
-          body,
-          url: "/tasks",
-          tag: `${entry.itemId}:snoozed`,
-          icon: "/logo.png",
-          badge: "/logo.png",
-          requireInteraction: true,
-          silent: false,
-          vibrate: [250, 100, 250],
-        });
-        for (const subscription of subscriptions) {
-          try {
-            await webpush.sendNotification(subscription as PushSubscription, payload);
-            summary.notificationsSent += 1;
-          } catch {
-            /* swallow */
-          }
-        }
-      }
-
-      // Telegram
-      try {
-        const tg = await sendTelegramToUser(userId, `🔔 ${title}\n${body}`);
-        if (tg.ok && !tg.skipped) {
-          summary.notificationsSent += 1;
-        }
-      } catch {
-        /* swallow */
-      }
+      await saveUserSubs(userId, validSubscriptions);
     }
 
-    // Remove os disparados, mantém os ainda futuros.
-    allSnoozes[userId] = list.filter(
-      (entry) => new Date(entry.fireAt).getTime() > nowMs,
+    // Snoozes vencidas do mesmo usuário, no mesmo passe.
+    await processUserSnoozes(
+      userId,
+      subsForSnooze,
+      webPushReady,
+      referenceDate,
+      summary,
     );
   }
-  store.snoozes = allSnoozes;
 
-  store.dispatchLog = dispatchLog;
-  await saveStore(store);
+  await saveDispatchLog(dispatchLog);
 
   return summary;
+}
+
+/**
+ * Dispara as snoozes vencidas (fireAt <= agora) de um usuário e remove
+ * as disparadas, preservando as futuras. Não passa por
+ * isNotificationItemDue (já passou da hora original; dispara AGORA).
+ */
+async function processUserSnoozes(
+  userId: string,
+  subscriptions: StoredSubscription[],
+  webPushReady: boolean,
+  referenceDate: Date,
+  summary: DispatchSummary,
+): Promise<void> {
+  const list = await loadUserSnoozes(userId);
+  if (list.length === 0) return;
+  const nowMs = referenceDate.getTime();
+  const due = list.filter((entry) => new Date(entry.fireAt).getTime() <= nowMs);
+  if (due.length === 0) return;
+
+  for (const entry of due) {
+    const title = entry.title || "Lembrete adiado";
+    const body = entry.body || "Você adiou esse lembrete.";
+
+    if (webPushReady) {
+      const payload = JSON.stringify({
+        title,
+        body,
+        url: "/tasks",
+        tag: `${entry.itemId}:snoozed`,
+        icon: "/logo.png",
+        badge: "/logo.png",
+        requireInteraction: true,
+        silent: false,
+        vibrate: [250, 100, 250],
+      });
+      for (const subscription of subscriptions) {
+        try {
+          await webpush.sendNotification(subscription as PushSubscription, payload);
+          summary.notificationsSent += 1;
+        } catch {
+          /* swallow */
+        }
+      }
+    }
+
+    try {
+      const tg = await sendTelegramToUser(userId, `🔔 ${title}\n${body}`);
+      if (tg.ok && !tg.skipped) {
+        summary.notificationsSent += 1;
+      }
+    } catch {
+      /* swallow */
+    }
+  }
+
+  const remaining = list.filter(
+    (entry) => new Date(entry.fireAt).getTime() > nowMs,
+  );
+  await saveUserSnoozes(userId, remaining);
 }
