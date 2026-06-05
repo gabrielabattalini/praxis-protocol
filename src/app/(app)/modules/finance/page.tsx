@@ -1186,44 +1186,40 @@ export default function FinanceModulePage() {
 
         </GlassPanel>
 
-        <GlassPanel className="space-y-4 border-[rgba(251,146,60,0.16)] bg-[linear-gradient(180deg,rgba(22,16,8,0.96),rgba(8,8,10,0.94))] p-6 md:p-8">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="praxis-label text-[var(--accent)]">
-                {entitlement.hasFullAccess ? "Acesso liberado" : "Plano premium"}
-              </p>
-              <h3 className="praxis-title mt-2 text-2xl">
-                {entitlement.hasFullAccess
-                  ? `${entitlement.label} conectado à sua conta.`
-                  : "Ative o fluxo guiado para fechar o mês com menos atrito."}
-              </h3>
-            </div>
-            <BadgeDollarSign className="h-6 w-6 text-[var(--accent)]" />
-          </div>
-
-          <p className="text-sm leading-6 text-zinc-500">
-            {entitlement.hasFullAccess
-              ? entitlement.reason
-              : "O Praxis fica mais forte quando o financeiro conversa com o que você compra, consome e paga. O upgrade abre uma leitura mais direta do seu ciclo."}
-          </p>
-
-          <div className="space-y-3">
-            {financePremiumHighlights.map((item) => (
-              <div
-                key={item}
-                className="flex items-start gap-3 rounded-sm border border-zinc-800 bg-black/30 px-4 py-3"
-              >
-                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
-                <p className="text-sm leading-6 text-zinc-300">{item}</p>
+        {/* Painel de upgrade — só pra quem AINDA não tem acesso completo.
+            Pra contas com acesso liberado (fundador/vitalício) o banner
+            "Acesso liberado / Plataforma completa ativa" só fazia ruído,
+            então fica escondido. Usuários free continuam vendo o CTA. */}
+        {!entitlement.hasFullAccess ? (
+          <GlassPanel className="space-y-4 border-[rgba(251,146,60,0.16)] bg-[linear-gradient(180deg,rgba(22,16,8,0.96),rgba(8,8,10,0.94))] p-6 md:p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="praxis-label text-[var(--accent)]">Plano premium</p>
+                <h3 className="praxis-title mt-2 text-2xl">
+                  Ative o fluxo guiado para fechar o mês com menos atrito.
+                </h3>
               </div>
-            ))}
-          </div>
-
-          {entitlement.hasFullAccess ? (
-            <div className="rounded-sm border border-emerald-300/20 bg-emerald-300/10 px-4 py-3 text-sm font-semibold text-emerald-100">
-              Plataforma completa ativa nesta conta.
+              <BadgeDollarSign className="h-6 w-6 text-[var(--accent)]" />
             </div>
-          ) : (
+
+            <p className="text-sm leading-6 text-zinc-500">
+              O Praxis fica mais forte quando o financeiro conversa com o que
+              você compra, consome e paga. O upgrade abre uma leitura mais
+              direta do seu ciclo.
+            </p>
+
+            <div className="space-y-3">
+              {financePremiumHighlights.map((item) => (
+                <div
+                  key={item}
+                  className="flex items-start gap-3 rounded-sm border border-zinc-800 bg-black/30 px-4 py-3"
+                >
+                  <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
+                  <p className="text-sm leading-6 text-zinc-300">{item}</p>
+                </div>
+              ))}
+            </div>
+
             <StripeCheckoutButton
               source="finance-module"
               className="w-full rounded-sm border-[rgba(251,146,60,0.18)] bg-[linear-gradient(135deg,var(--accent)_0%,#fbbf24_100%)] px-4 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_40px_rgba(251,146,60,0.22)]"
@@ -1232,8 +1228,8 @@ export default function FinanceModulePage() {
             >
               Ver planos e fazer upgrade
             </StripeCheckoutButton>
-          )}
-        </GlassPanel>
+          </GlassPanel>
+        ) : null}
       </section>
 
       <div className="flex flex-wrap gap-2">
