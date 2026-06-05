@@ -31,24 +31,17 @@ export function normalizeEntitlementEmail(email: string | null | undefined) {
  * PRAXIS_LIFETIME_ACCESS_EMAILS isn't set on the deploy (e.g. Vercel).
  * IMPORTANT: founder emails also get the pre-seeded demo data (mercado,
  * suplementos do Pacho etc.) via isFounderEmail(). Pra dar só acesso
- * lifetime SEM o seed, usar BUILT_IN_LIFETIME_EMAILS abaixo.
+ * lifetime SEM o seed, usar BUILT_IN_LIFETIME_EMAILS em
+ * access-entitlements.server.ts (não vai pro bundle do client).
  */
 export const FOUNDER_ACCESS_EMAILS: readonly string[] = [
   "gabrielabattalini@gmail.com",
 ];
 
-/**
- * Built-in lifetime allowlist — ALWAYS have lifetime access, mas NÃO
- * recebem os dados pré-seeded (não passam por isFounderEmail()).
- * Equivalente a estar em PRAXIS_LIFETIME_ACCESS_EMAILS, mas hardcoded
- * no código pra sobreviver a qualquer mudança/limpeza de env var.
- * Use isso pra liberar acesso vitalício a usuários reais (não-admin).
- */
-export const BUILT_IN_LIFETIME_EMAILS: readonly string[] = [
-  "alberto1998.lima@gmail.com",
-  "kadinefernandq@gmail.com",
-  "valdemir.887787@gmail.com",
-];
+// BUILT_IN_LIFETIME_EMAILS removido daqui — vivia neste módulo e ia pro
+// bundle do client (importado por app-store-provider). Agora mora em
+// access-entitlements.server.ts, fora do bundle público, e é injetado
+// só quando o servidor monta a allowlist. Sem mudança de comportamento.
 
 /**
  * True only for the built-in founder/admin email(s). Used to decide who
@@ -63,11 +56,21 @@ export function isFounderEmail(email: string | null | undefined): boolean {
   );
 }
 
-export function parseLifetimeAccessEmails(rawValue: string | null | undefined) {
+/**
+ * Monta a allowlist de lifetime access.
+ * `extraBuiltIn` é injetado pelo server (access-entitlements.server.ts)
+ * com a lista que antes vivia hardcoded aqui — assim os emails de
+ * usuários reais não vazam pro bundle do client. No client (que importa
+ * este módulo) só os FOUNDER_ACCESS_EMAILS são considerados, sem leak.
+ */
+export function parseLifetimeAccessEmails(
+  rawValue: string | null | undefined,
+  extraBuiltIn: readonly string[] = [],
+) {
   return new Set(
     [
       ...FOUNDER_ACCESS_EMAILS,
-      ...BUILT_IN_LIFETIME_EMAILS,
+      ...extraBuiltIn,
       ...(rawValue ?? "").split(/[\s,;]+/),
     ]
       .map((email) => normalizeEntitlementEmail(email))
@@ -78,6 +81,7 @@ export function parseLifetimeAccessEmails(rawValue: string | null | undefined) {
 export function hasLifetimeAccessEmail(
   email: string | null | undefined,
   rawAllowlist: string | null | undefined,
+  extraBuiltIn: readonly string[] = [],
 ) {
   const normalizedEmail = normalizeEntitlementEmail(email);
 
@@ -85,19 +89,33 @@ export function hasLifetimeAccessEmail(
     return false;
   }
 
-  return parseLifetimeAccessEmails(rawAllowlist).has(normalizedEmail);
+  return parseLifetimeAccessEmails(rawAllowlist, extraBuiltIn).has(
+    normalizedEmail,
+  );
 }
 
 export function resolveAccountEntitlement({
   email,
   lifetimeAccessEmails,
   paidActive = false,
+  extraBuiltInLifetimeEmails = [],
 }: {
   email: string | null | undefined;
   lifetimeAccessEmails?: string | null;
   paidActive?: boolean;
+  // Lifetime emails que o server injeta (lista que vivia hardcoded e
+  // saiu do bundle do client). Sem isto, o client receberia apenas
+  // FOUNDER + a env, perdendo o BUILT_IN_LIFETIME — mas só o server
+  // chama essa função, então passar a lista é seguro.
+  extraBuiltInLifetimeEmails?: readonly string[];
 }): AccountEntitlement {
-  if (hasLifetimeAccessEmail(email, lifetimeAccessEmails)) {
+  if (
+    hasLifetimeAccessEmail(
+      email,
+      lifetimeAccessEmails,
+      extraBuiltInLifetimeEmails,
+    )
+  ) {
     return {
       hasFullAccess: true,
       tier: "lifetime",

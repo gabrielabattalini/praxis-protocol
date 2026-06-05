@@ -1,3 +1,4 @@
+import "server-only";
 import {
   hasLifetimeAccessEmail,
   normalizeEntitlementEmail,
@@ -5,6 +6,33 @@ import {
   type AccountEntitlement,
 } from "@/lib/access-entitlements";
 import { getStripeServer } from "@/lib/stripe.server";
+
+/**
+ * Built-in lifetime allowlist — sempre tem acesso vitalício, mas NÃO
+ * recebem dados pré-seeded (não passam por isFounderEmail()). Antes
+ * morava em access-entitlements.ts (client + server), o que vazava os
+ * emails de usuários reais pro bundle JS público. Agora vive aqui (só
+ * server), e é injetado em resolveAccountEntitlementFull. Aceita override
+ * via env (PRAXIS_BUILT_IN_LIFETIME_EMAILS, separadores: vírgula/espaço/
+ * ponto-e-vírgula) — útil pra ambientes onde o operador quer alterar
+ * sem mexer no código.
+ */
+const BUILT_IN_LIFETIME_EMAILS_DEFAULT: readonly string[] = [
+  "alberto1998.lima@gmail.com",
+  "kadinefernandq@gmail.com",
+  "valdemir.887787@gmail.com",
+];
+
+function getBuiltInLifetimeEmails(): readonly string[] {
+  const override = process.env.PRAXIS_BUILT_IN_LIFETIME_EMAILS?.trim();
+  if (override) {
+    return override
+      .split(/[\s,;]+/)
+      .map((email) => email.trim())
+      .filter(Boolean);
+  }
+  return BUILT_IN_LIFETIME_EMAILS_DEFAULT;
+}
 
 /**
  * Returns true if the given email has paid — checked LIVE against Stripe.
@@ -83,9 +111,15 @@ async function hasActiveStripeAccess(
 export async function resolveAccountEntitlementFull(
   email: string | null | undefined,
 ): Promise<AccountEntitlement> {
+  const builtInLifetime = getBuiltInLifetimeEmails();
+
   // 1. Lifetime allowlist — instant, no network.
   if (
-    hasLifetimeAccessEmail(email, process.env.PRAXIS_LIFETIME_ACCESS_EMAILS)
+    hasLifetimeAccessEmail(
+      email,
+      process.env.PRAXIS_LIFETIME_ACCESS_EMAILS,
+      builtInLifetime,
+    )
   ) {
     return {
       hasFullAccess: true,
@@ -102,5 +136,6 @@ export async function resolveAccountEntitlementFull(
     email,
     lifetimeAccessEmails: process.env.PRAXIS_LIFETIME_ACCESS_EMAILS,
     paidActive,
+    extraBuiltInLifetimeEmails: builtInLifetime,
   });
 }
