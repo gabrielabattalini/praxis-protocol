@@ -222,10 +222,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!navigationPending) return undefined;
+    // Rede de segurança: nunca deixar o overlay de navegação preso. Se a
+    // transição de rota demorar (ex.: a main thread estava ocupada salvando
+    // quando o usuário clicou), liberamos a tela em vez de prendê-lo num
+    // "Carregando" sem fim. 4s é folga suficiente pra qualquer navegação
+    // legítima — antes eram 12s, que é o que dava a sensação de travado.
     const safeguard = window.setTimeout(() => {
       setNavigationPending(false);
       setNavigationMessage("Carregando");
-    }, 12000);
+    }, 4000);
     return () => window.clearTimeout(safeguard);
   }, [navigationPending]);
 

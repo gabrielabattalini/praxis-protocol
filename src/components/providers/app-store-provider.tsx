@@ -5743,20 +5743,22 @@ export function AppStoreProvider({
       setRemoteSaveStatus("saving");
 
       try {
-        const buildBody = (stateToSave: PersistedState) =>
-          JSON.stringify({
-            version: 1,
-            // baseVersion ativa a concorrência otimista no servidor.
-            baseVersion: serverVersionRef.current,
-            updatedAt: new Date().toISOString(),
-            state: stateToSave,
-          });
+        // Recebe o estado JÁ serializado pra evitar stringificar o state
+        // inteiro duas vezes no caminho feliz (o `snapshot` acima já fez
+        // isso). Serializar um state grande bloqueia a main thread — e é
+        // exatamente isso que segurava a transição de página, deixando o
+        // overlay de "Carregando" preso enquanto o save acontecia.
+        // baseVersion ativa a concorrência otimista no servidor.
+        const buildBody = (stateJson: string) =>
+          `{"version":1,"baseVersion":${serverVersionRef.current},"updatedAt":${JSON.stringify(
+            new Date().toISOString(),
+          )},"state":${stateJson}}`;
 
         const response = await fetch("/api/account-state", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
-          body: buildBody(stateRef.current),
+          body: buildBody(snapshot),
           // keepalive lets the request survive the page being hidden /
           // closed (e.g. user switches apps on mobile right after
           // tapping "concluir"). Limited to 64KB by the browser, so we
@@ -5805,7 +5807,7 @@ export function AppStoreProvider({
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               credentials: "same-origin",
-              body: buildBody(stateToSave),
+              body: buildBody(JSON.stringify(stateToSave)),
             });
             if (retry.status === 409) {
               conflict = (await retry.json().catch(() => null)) as typeof conflict;
