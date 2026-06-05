@@ -1861,6 +1861,30 @@ export async function fetchCurrentPriceFromUrl(
           "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       },
       validateStatus: (status) => status >= 200 && status < 400,
+      // SSRF: valida CADA hop de redirect contra a allowlist, não só o
+      // host final. Sem isto, uma página de host permitido podia redirecionar
+      // 302 pra http://169.254.169.254/... (metadata) ou hosts internos —
+      // o servidor já teria feito o request antes da revalidação do finalUrl.
+      beforeRedirect: (options: {
+        protocol?: string;
+        host?: string;
+        hostname?: string;
+        path?: string;
+        href?: string;
+      }) => {
+        const nextUrl =
+          options.href ||
+          `${options.protocol || "https:"}//${
+            options.host || options.hostname || ""
+          }${options.path || ""}`;
+        if (!isShoppingHostAllowed(nextUrl)) {
+          throw new Error(
+            `Redirect bloqueado para host não permitido: ${
+              options.hostname || options.host || "desconhecido"
+            }`,
+          );
+        }
+      },
     });
     lastHttpStatus = response.status;
     const html =

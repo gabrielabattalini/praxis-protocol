@@ -12,6 +12,17 @@ type VerifiedSession = {
   reference: string;
 };
 
+// Mascara o email pra exibição. A página é pública (qualquer um com o
+// session_id abre), então não revelamos o endereço completo do comprador
+// na tela — só o suficiente pra ele se reconhecer. O prefill do cadastro
+// continua usando o email completo via querystring no próprio browser.
+function maskEmail(email: string) {
+  const [user, domain] = email.split("@");
+  if (!user || !domain) return "";
+  const head = user.slice(0, 2);
+  return `${head}${"•".repeat(Math.max(1, user.length - 2))}@${domain}`;
+}
+
 async function verifyStripeSession(
   sessionId: string | undefined,
 ): Promise<VerifiedSession | null> {
@@ -146,7 +157,9 @@ export default async function CheckoutSuccessPage({
                   <>
                     {" "}
                     Crie sua identidade com{" "}
-                    <strong style={{ color: "var(--fg)" }}>{paidEmail}</strong>{" "}
+                    <strong style={{ color: "var(--fg)" }}>
+                      {maskEmail(paidEmail)}
+                    </strong>{" "}
                     — o acesso completo é liberado automaticamente para esse
                     e-mail.
                   </>
@@ -198,7 +211,10 @@ export default async function CheckoutSuccessPage({
                     marginTop: 4,
                   }}
                 >
-                  {verified?.amountLabel ?? publicBillingPlan.priceLabel}
+                  {/* Mostra o preço público do plano, não o amount_total
+                      real da sessão — evita vazar o valor cobrado (com
+                      cupom etc.) pra quem só tem o session_id. */}
+                  {publicBillingPlan.priceLabel}
                 </div>
               </div>
               <div>

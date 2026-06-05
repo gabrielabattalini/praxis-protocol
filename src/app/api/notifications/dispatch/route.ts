@@ -48,9 +48,13 @@ export async function GET(request: Request) {
         { status: 500 },
       );
     }
-    // 200 com corpo mínimo: o cron externo considera sucesso, e o erro
-    // real fica registrado no Vercel Logs pra diagnóstico.
-    return new Response("err", { status: 200 });
+    // 200 com corpo mínimo pra não estourar o limite de output do cron
+    // externo, MAS com um header de sinal: dá pra montar um alerta
+    // (uptime check no header) sem depender de alguém ler o Vercel Logs.
+    return new Response("err", {
+      status: 200,
+      headers: { "X-Praxis-Dispatch-Status": "error" },
+    });
   }
 }
 
@@ -74,6 +78,10 @@ export async function HEAD(request: Request) {
     );
   } catch (error) {
     console.error("[dispatch:HEAD] erro inesperado:", error);
+    return new Response(null, {
+      status: 204,
+      headers: { "X-Praxis-Dispatch-Status": "error" },
+    });
   }
   return new Response(null, { status: 204 });
 }

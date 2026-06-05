@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import webpush from "web-push";
@@ -143,6 +144,10 @@ async function loadStore(): Promise<NotificationStore> {
         subscriptions: parsed.subscriptions ?? {},
         schedules: parsed.schedules ?? {},
         dispatchLog: parsed.dispatchLog ?? [],
+        // snoozes precisa ser preservado — sem isto toda leitura do KV
+        // dropava o campo e o save seguinte apagava as snoozes de TODOS
+        // os usuários (o "Adiar 15min" do push nunca re-disparava).
+        snoozes: parsed.snoozes ?? {},
       };
     } catch {
       return emptyStore();
@@ -161,7 +166,9 @@ async function saveStore(store: NotificationStore): Promise<void> {
 }
 
 function randomId(prefix: string) {
-  return `${prefix}-${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+  // CSPRNG em vez de Math.random — IDs de subscription não são segredo,
+  // mas evita colisões e mantém consistência com telegram-center.
+  return `${prefix}-${crypto.randomBytes(8).toString("hex")}`;
 }
 
 function mapWeekday(value: string): Weekday {
@@ -392,7 +399,14 @@ function getConfiguredVapidKeys() {
   }
 
   const created = webpush.generateVAPIDKeys();
-  writeJsonFile(vapidPath, created);
+  // Só dev (em prod a chave vem de env). Grava com permissão restrita
+  // (0o600 = só o dono lê/escreve) pra não deixar a chave privada VAPID
+  // legível em ambientes de dev compartilhados (CI, dev container).
+  ensureDataDir();
+  fs.writeFileSync(vapidPath, JSON.stringify(created, null, 2), {
+    encoding: "utf8",
+    mode: 0o600,
+  });
   return created;
 }
 
@@ -694,6 +708,11 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
     summary.usersChecked += 1;
     const zonedNow = getZonedNow(schedule.timezone || "America/Sao_Paulo", referenceDate);
     const validSubscriptions: StoredSubscription[] = [];
+    // Só poda assinaturas mortas quando houve PELO MENOS uma tentativa
+    // de envio neste run. Sem isto, um run sem nenhum item due (caso
+    // comum no cron 04:00 UTC) zerava validSubscriptions e apagava todas
+    // as assinaturas do usuário.
+    let attemptedAnyPush = false;
     // Coleta items que disparam neste run pra mandar UMA mensagem só
     // no Telegram (web push continua individual — mobile precisa de
     // notificações separadas pra agrupar/expand no system tray).
@@ -715,6 +734,7 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
       // entra no loop — assim validSubscriptions não fica vazio à toa e
       // não disparamos a poda destrutiva lá embaixo.
       if (webPushReady) {
+        attemptedAnyPush = true;
         for (const subscription of subscriptions) {
           try {
             await webpush.sendNotification(subscription as PushSubscription, payload);
@@ -821,10 +841,8 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
     // realmente rodou. Se o VAPID estava off, preservamos as assinaturas
     // como estavam — senão um erro transitório de config apagaria todos
     // os dispositivos push do usuário.
-    if (webPushReady) {
-      store.subscriptions[userId] = validSubscriptions.length
-        ? validSubscriptions
-        : subscriptions.filter(() => false);
+    if (webPushReady && attemptedAnyPush) {
+      store.subscriptions[userId] = validSubscriptions;
     }
   }
 

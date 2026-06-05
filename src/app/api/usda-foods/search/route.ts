@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { isUsdaDatabaseAvailable, searchUsdaFoods } from "@/lib/usda-foods.server";
 
 export const dynamic = "force-dynamic";
 
-export function GET(request: Request) {
+export async function GET(request: Request) {
+  // Dado é público (banco de alimentos), mas exigir sessão evita abuso
+  // do endpoint por terceiros — defesa em profundidade.
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+  }
+
   if (!isUsdaDatabaseAvailable()) {
     return NextResponse.json(
       {

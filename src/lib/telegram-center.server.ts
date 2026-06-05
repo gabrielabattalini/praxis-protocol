@@ -171,6 +171,38 @@ async function kvDelete(key: string): Promise<void> {
   saveFileStore(store);
 }
 
+const UPDATE_DEDUP_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 dias
+const updateDedupKey = (updateId: number) => `praxis:tg:update:${updateId}`;
+
+/**
+ * Marca um update_id do Telegram como processado. Retorna `true` se é
+ * novo (deve processar) e `false` se já foi visto (replay — ignorar).
+ * Proteção contra replay caso o secret do webhook + um body legítimo
+ * vazem e sejam reenviados. Usa SET NX no KV (atômico).
+ */
+export async function markTelegramUpdateProcessed(
+  updateId: number,
+): Promise<boolean> {
+  const key = updateDedupKey(updateId);
+  if (KV_ENABLED) {
+    // SET key 1 NX EX ttl → "OK" se gravou (novo), null se já existia.
+    const result = await kvCommand<string>([
+      "SET",
+      key,
+      "1",
+      "NX",
+      "EX",
+      UPDATE_DEDUP_TTL_SECONDS,
+    ]);
+    return result === "OK";
+  }
+  // Fallback de arquivo (dev): get-then-set, não-atômico mas suficiente.
+  const existing = await kvGet(key);
+  if (existing) return false;
+  await kvSet(key, "1", UPDATE_DEDUP_TTL_SECONDS);
+  return true;
+}
+
 /* ── Link codes ──────────────────────────────────────────────── */
 
 function randomCode() {
@@ -368,26 +400,41 @@ export async function sendTelegramMessage(
  * via fetch porque telegramApi é JSON. Pensado pro PDF do relatório
  * semanal mas serve pra qualquer arquivo binário.
  */
+// Telegram aceita até 50 MB em sendDocument; mantemos folga e evitamos
+// OOM no serverless com buffers grandes.
+const TELEGRAM_DOCUMENT_MAX_BYTES = 49_000_000;
+
 export async function sendTelegramDocument(
   chatId: number,
   document: Buffer,
   filename: string,
   caption?: string,
+  mimeType = "application/pdf",
 ): Promise<{ ok: boolean; error?: string }> {
   const token = getTelegramBotToken();
   if (!token) {
     return { ok: false, error: "Bot do Telegram não configurado." };
   }
+  // Defesa em profundidade: limita tamanho e sanitiza o filename. Como
+  // a função é exportada, um caller futuro (ex.: endpoint de upload) não
+  // deve conseguir mandar buffer gigante (OOM) nem path traversal no nome.
+  if (document.byteLength > TELEGRAM_DOCUMENT_MAX_BYTES) {
+    return { ok: false, error: "Documento maior do que o limite permitido." };
+  }
+  const safeFilename =
+    (filename.split(/[\\/]/).pop() || "arquivo")
+      .replace(/[^\w.\-]/g, "_")
+      .slice(0, 80) || "arquivo";
   try {
     const form = new FormData();
     form.append("chat_id", String(chatId));
     if (caption) form.append("caption", caption);
     // Cast to Uint8Array → File: o FormData do undici (Node 20+, runtime
-    // do Next route serverless) aceita Blob/File; PDF é binary octet.
+    // do Next route serverless) aceita Blob/File.
     const file = new File(
       [new Uint8Array(document)] as BlobPart[],
-      filename,
-      { type: "application/pdf" },
+      safeFilename,
+      { type: mimeType },
     );
     form.append("document", file);
 

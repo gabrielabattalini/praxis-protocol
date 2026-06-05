@@ -21,6 +21,11 @@ const isPublicRoute = createRouteMatcher([
   // quando não acha o cookie de dev-browser, e o cron nunca consegue
   // disparar (x-clerk-auth-reason: protect-rewrite, dev-browser-missing).
   "/api/notifications/dispatch",
+  // Cron do relatório semanal (segunda 11:00 UTC). Mesmo motivo do
+  // dispatch acima — chamado pelo Vercel Cron sem sessão Clerk, com auth
+  // própria via CRON_SECRET. Sem isto o middleware rejeitava e o
+  // relatório semanal nunca era enviado.
+  "/api/reports/dispatch-weekly",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

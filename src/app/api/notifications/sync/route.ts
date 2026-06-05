@@ -91,6 +91,11 @@ export async function POST(request: Request) {
       timezone: body.timezone,
       syncedAt: body.syncedAt || new Date().toISOString(),
       items: body.items,
+      // Eram validadas pelo Zod mas nunca repassadas — frases
+      // personalizadas/escondidas do usuário não persistiam, e o
+      // dispatch sempre lia [].
+      customQuotes: body.customQuotes,
+      hiddenQuotes: body.hiddenQuotes,
     });
 
     return NextResponse.json(status);

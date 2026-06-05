@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { searchShoppingOffers } from "@/lib/shopping-search.server";
 import type { DoseUnit, ShoppingModuleScope } from "@/lib/shopping-search";
 
@@ -7,6 +8,13 @@ export const dynamic = "force-dynamic";
 const VALID_DOSE_UNITS: DoseUnit[] = ["mg", "g", "mcg", "ml", "serving"];
 
 export async function GET(request: Request) {
+  // Defesa em profundidade — não confiar só no middleware (o leitor de
+  // ofertas usa axios + Playwright e seria alvo de abuso se exposto).
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const scopeParam = String(searchParams.get("scope") || "market").trim();
   const scope: ShoppingModuleScope =

@@ -86,16 +86,29 @@ function preserveExternalFinanceState(
   const incomingCategories = Array.isArray(incomingRecord.financeCategories)
     ? (incomingRecord.financeCategories as Array<Record<string, unknown>>)
     : [];
+  // Dedup por id OU nome normalizado: se o usuário renomeou (id igual,
+  // nome diferente) OU só mudou caixa/espaço (id diferente, nome ~igual),
+  // ainda consideramos a categoria "presente" e NÃO re-inserimos. Antes
+  // comparava só por nome exato, então renomear/variar caixa acumulava
+  // várias "Saldo em conta" a cada PUT.
+  const normalizeName = (value: unknown) =>
+    typeof value === "string" ? value.trim().toLowerCase() : "";
   const incomingCategoryNames = new Set(
     incomingCategories
-      .map((cat) => (typeof cat?.name === "string" ? cat.name : null))
+      .map((cat) => normalizeName(cat?.name))
+      .filter((value) => value.length > 0),
+  );
+  const incomingCategoryIds = new Set(
+    incomingCategories
+      .map((cat) => (typeof cat?.id === "string" ? cat.id : null))
       .filter((value): value is string => Boolean(value)),
   );
   const externalCategoriesToMerge = currentCategories.filter(
     (cat) =>
       typeof cat?.name === "string" &&
       EXTERNAL_FINANCE_CATEGORY_NAMES.has(cat.name) &&
-      !incomingCategoryNames.has(cat.name),
+      !incomingCategoryNames.has(normalizeName(cat.name)) &&
+      !(typeof cat?.id === "string" && incomingCategoryIds.has(cat.id)),
   );
 
   if (
