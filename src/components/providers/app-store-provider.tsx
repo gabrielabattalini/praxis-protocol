@@ -3320,8 +3320,11 @@ function reducer(state: PersistedState, action: Action): PersistedState {
           },
         },
       };
-    case "remove-finance-line":
-      return {
+    case "remove-finance-line": {
+      const removedLine = state.financeBudget.lines.find(
+        (line) => line.id === action.lineId,
+      );
+      const baseState: PersistedState = {
         ...state,
         financeBudget: {
           ...state.financeBudget,
@@ -3330,6 +3333,38 @@ function reducer(state: PersistedState, action: Action): PersistedState {
           ),
         },
       };
+
+      // Se a linha removida era SINCRONIZADA de um módulo de compras
+      // (Mercado/Suplementos), só apagá-la não basta: o
+      // syncShoppingFinanceState re-injeta a linha no próximo pass
+      // (load, ou qualquer ação de shopping) porque o total daquele
+      // módulo continua > 0 — e a linha "volta". Excluir a linha
+      // sincronizada = "pare de contar esse módulo nas finanças", então
+      // desligamos includeInFinance dos itens daquele escopo. Aí o total
+      // vira 0 e o sync não recria. (Pra reativar, o usuário religa o
+      // toggle de finanças de um item no módulo de compras.)
+      const scope = removedLine?.managedBySystem
+        ? removedLine.syncScope
+        : undefined;
+      const scopeModule = scope ? baseState.shoppingModules?.[scope] : undefined;
+      if (scope && scopeModule) {
+        return {
+          ...baseState,
+          shoppingModules: {
+            ...baseState.shoppingModules,
+            [scope]: {
+              ...scopeModule,
+              items: scopeModule.items.map((item) => ({
+                ...item,
+                includeInFinance: false,
+              })),
+            },
+          },
+        };
+      }
+
+      return baseState;
+    }
     case "close-finance-month": {
       // Atomic month-close. The key rule: every line (variable AND
       // fixed) gets zeroed FOR THE CLOSED MONTH ONLY. Other months
