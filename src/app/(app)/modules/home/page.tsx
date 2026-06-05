@@ -392,10 +392,11 @@ export default function HomeModulePage() {
                           option.id as "daily" | "selected-weekdays",
                         )
                       }
+                      aria-pressed={recurrenceKind === option.id}
                       className={`praxis-button-ghost px-4 py-2 ${
                         recurrenceKind === option.id
-                          ? "border-[rgba(251,146,60,0.34)] bg-[rgba(251,146,60,0.12)] text-zinc-100"
-                          : ""
+                          ? "border-transparent bg-[var(--accent)] text-[#140a03] shadow-[0_0_14px_rgba(251,146,60,0.45)]"
+                          : "text-zinc-400 opacity-80"
                       }`}
                     >
                       {option.label}
@@ -418,10 +419,11 @@ export default function HomeModulePage() {
                           key={day}
                           type="button"
                           onClick={() => toggleWeekday(day)}
+                          aria-pressed={active}
                           className={`praxis-button-ghost px-3 py-2 ${
                             active
-                              ? "border-[rgba(251,146,60,0.34)] bg-[rgba(251,146,60,0.12)] text-zinc-100"
-                              : ""
+                              ? "border-transparent bg-[var(--accent)] text-[#140a03] shadow-[0_0_14px_rgba(251,146,60,0.45)]"
+                              : "text-zinc-400 opacity-80"
                           }`}
                         >
                           {weekdayLongLabel(day)}

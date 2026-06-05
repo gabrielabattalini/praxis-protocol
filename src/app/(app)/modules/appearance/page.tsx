@@ -275,7 +275,7 @@ export default function AppearanceModulePage() {
                   }
                   className={`rounded-sm border px-4 py-2 text-sm ${
                     draft.recurrenceKind === option.id
-                      ? "border-[rgba(251,146,60,0.34)] bg-[rgba(251,146,60,0.12)] text-[var(--accent)]"
+                      ? "border-transparent bg-[var(--accent)] font-semibold text-[#140a03] shadow-[0_0_14px_rgba(251,146,60,0.45)]"
                       : "border-zinc-800 bg-black/50 text-zinc-300"
                   }`}
                 >
