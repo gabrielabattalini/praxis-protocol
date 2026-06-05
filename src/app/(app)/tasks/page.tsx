@@ -35,6 +35,7 @@ import {
   isMealItemCompletedForDateKey,
   isTaskCompletedForDate,
   isTaskDueForDate,
+  isWorkoutDayVisibleOnDate,
   weekdayLongLabel,
 } from "@/lib/utils";
 
@@ -475,9 +476,20 @@ export default function TasksPage() {
             : undefined,
           manualTaskId: task.id,
           sourceKey: task.sourceKey,
-          canPostpone: targetDateKey === todayKey && !completedForTargetDate && !isSyncedTask,
+          // "Passar pra amanhã" agora vale pra QUALQUER tarefa não-diária
+          // (inclusive sincronizadas, como cardio) — só tarefas de TODO
+          // dia ("daily") não têm o botão, porque não faz sentido adiar
+          // algo que é todo dia. O isTaskDueForDate força a tarefa a
+          // aparecer na data adiada mesmo que a recorrência não cairia
+          // ali, então o adiamento realmente "move" pro dia seguinte.
+          canPostpone:
+            targetDateKey === todayKey &&
+            !completedForTargetDate &&
+            task.recurrence.kind !== "daily",
           postponeLabel:
-            task.recurrence.kind === "one-time" ? "Adiar para amanhã" : "Pular hoje",
+            task.recurrence.kind === "one-time"
+              ? "Adiar para amanhã"
+              : "Passar pra amanhã",
           points: task.xp,
           recurrenceLabel: formatRecurrence(task.recurrence),
         };
@@ -554,7 +566,8 @@ export default function TasksPage() {
         if (day.isRestDay) return false;
         // Match igual ao lib/agenda.ts: agendamento canônico do dia OU
         // multi-select da reminder.weekdays OU atividade off-schedule
-        // (log de carga / marcação manual) registrada nessa data.
+        // (log de carga / marcação manual) registrada nessa data, JUNTO
+        // com os adiamentos ("Passar pra amanhã").
         const reminder = state.reminders.find(
           (item) => item.entityId === day.id && item.entityType === "workout",
         );
@@ -562,18 +575,23 @@ export default function TasksPage() {
           Array.isArray(reminder?.weekdays) && reminder.weekdays.length > 0
             ? reminder.weekdays.includes(targetWeekday)
             : day.weekday === targetWeekday;
-        if (scheduled) return true;
         const hasLogOnDate = state.workoutLoadEntries.some(
           (entry) =>
             entry.dayId === day.id &&
             entry.loggedAt.slice(0, 10) === targetDateKey,
         );
-        if (hasLogOnDate) return true;
-        return state.workoutDayCompletions.some(
+        const hasCompletionOnDate = state.workoutDayCompletions.some(
           (completion) =>
             completion.dayId === day.id &&
             completion.dateKey === targetDateKey,
         );
+        return isWorkoutDayVisibleOnDate({
+          dayId: day.id,
+          scheduled,
+          hasActivity: hasLogOnDate || hasCompletionOnDate,
+          dateKey: targetDateKey,
+          deferrals: state.workoutDayDeferrals,
+        });
       })
       .map<AgendaItem>((day) => {
         const reminder = state.reminders.find(
@@ -628,6 +646,12 @@ export default function TasksPage() {
           workoutLoggedToday: loggedForTargetDate,
           workoutMarkedCompleted: markedCompleted,
           workoutLoadEntryIds: workoutLoadEntryIdsForDate,
+          // Treino também pode ser "passado pra amanhã" (só hoje, e se
+          // ainda não foi feito/marcado).
+          canPostpone:
+            targetDateKey === todayKey &&
+            !(loggedForTargetDate || markedCompleted),
+          postponeLabel: "Passar pra amanhã",
           stats: [
             pluralize(day.exercises.length, "exercício"),
             latestDayLog
@@ -1162,7 +1186,26 @@ export default function TasksPage() {
                     : "Marcar treino como concluído"}
                 </button>
               )
-            ) : canToggleAllDetails ? (
+            ) : null}
+
+            {/* Treino: "Passar pra amanhã" (move a sessão pro dia
+                seguinte, igual ao cardio). Só hoje e se não concluído. */}
+            {item.workoutDayId && item.canPostpone ? (
+              <button
+                type="button"
+                onClick={() =>
+                  actions.deferWorkoutDayToNextDay({
+                    dayId: item.workoutDayId!,
+                    dateKey: selectedDateKey,
+                  })
+                }
+                className="v2-btn v2-btn-sm v2-btn-ghost"
+              >
+                {item.postponeLabel ?? "Passar pra amanhã"}
+              </button>
+            ) : null}
+
+            {!item.workoutDayId && canToggleAllDetails ? (
               canUpdateSelectedDate ? (
                 <button
                   type="button"

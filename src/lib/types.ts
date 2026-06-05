@@ -347,6 +347,17 @@ export interface WorkoutDayCompletion {
   completedAt: string;
 }
 
+/** Adiamento de uma ocorrência de treino: o dia `dayId` que cairia em
+ *  `fromDateKey` (agendamento normal) é movido pra `toDateKey`. Usado
+ *  pelo botão "Passar pra amanhã" da aba Missões. fromDateKey guarda a
+ *  data ORIGINAL agendada (pra esconder só aquela ocorrência, sem
+ *  afetar as próximas semanas). */
+export interface WorkoutDayDeferral {
+  dayId: string;
+  fromDateKey: string;
+  toDateKey: string;
+}
+
 export interface NutritionMacros {
   protein: number;
   carbs: number;
@@ -703,6 +714,9 @@ export interface PersistedState {
   workoutPlan: WorkoutDayPlan[];
   workoutLoadEntries: WorkoutLoadEntry[];
   workoutDayCompletions: WorkoutDayCompletion[];
+  /** Ocorrências de treino adiadas pro dia seguinte (botão "Passar pra
+   *  amanhã"). Opcional pra back-compat com estados salvos antes. */
+  workoutDayDeferrals?: WorkoutDayDeferral[];
   mealPlan: MealPlanBlock[];
   /** Lista plana de extras esporádicos do dia a dia. Cada entry guarda
    *  date (YYYY-MM-DD) e os macros — usada para somar consumo do dia e

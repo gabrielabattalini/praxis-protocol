@@ -16,6 +16,7 @@
   TaskDifficulty,
   TaskRecurrence,
   Weekday,
+  WorkoutDayDeferral,
   WorkoutDayPlan,
   WorkoutLoadEntry,
   WorkoutMuscleGroup,
@@ -522,8 +523,15 @@ export function formatDateKey(referenceDate: Date) {
 
 export function isTaskDueForDate(task: Task, referenceDate = new Date()) {
   const referenceKey = formatDateKey(referenceDate);
-  if (task.deferUntilDate && task.deferUntilDate > referenceKey) {
-    return false;
+  if (task.deferUntilDate) {
+    // Antes da data de adiamento: escondida.
+    if (task.deferUntilDate > referenceKey) return false;
+    // NO dia do adiamento: força "due" mesmo que a recorrência não
+    // cairia nesse dia. É isso que faz o "passar pra amanhã" funcionar
+    // pra tarefas não-diárias (cardio numa quarta vira quinta, etc.).
+    // Depois da data: cai na recorrência normal (a próxima ocorrência
+    // do ciclo retoma sozinha).
+    if (task.deferUntilDate === referenceKey) return true;
   }
 
   const weekday = weekdayFromDate(referenceDate);
@@ -1012,6 +1020,52 @@ export function latestWorkoutLoad(
   },
 ) {
   return workoutHistory(loads, payload, 1)[0];
+}
+
+/** Esta ocorrência de treino (dayId) foi ADIADA PRA LONGE de `dateKey`?
+ *  (ou seja, `dateKey` é a data original de onde ela saiu). */
+export function isWorkoutDayDeferredAway(
+  deferrals: WorkoutDayDeferral[] | undefined,
+  dayId: string,
+  dateKey: string,
+) {
+  return (deferrals ?? []).some(
+    (d) => d.dayId === dayId && d.fromDateKey === dateKey,
+  );
+}
+
+/** Esta ocorrência de treino (dayId) foi ADIADA PARA `dateKey`? */
+export function isWorkoutDayDeferredTo(
+  deferrals: WorkoutDayDeferral[] | undefined,
+  dayId: string,
+  dateKey: string,
+) {
+  return (deferrals ?? []).some(
+    (d) => d.dayId === dayId && d.toDateKey === dateKey,
+  );
+}
+
+/** Decide se um treino aparece numa data, juntando o agendamento normal
+ *  com os adiamentos. Regra:
+ *    aparece = adiado-PARA-essa-data
+ *            OU (agendado normal E não-adiado-PRA-LONGE dessa data)
+ *  `hasActivity` (log/conclusão registrada na data) sempre força true —
+ *  se aconteceu, mostra. Centralizado pra a aba Missões e o lib/agenda
+ *  não divergirem. */
+export function isWorkoutDayVisibleOnDate(params: {
+  dayId: string;
+  scheduled: boolean;
+  hasActivity: boolean;
+  dateKey: string;
+  deferrals: WorkoutDayDeferral[] | undefined;
+}) {
+  const { dayId, scheduled, hasActivity, dateKey, deferrals } = params;
+  if (hasActivity) return true;
+  if (isWorkoutDayDeferredTo(deferrals, dayId, dateKey)) return true;
+  if (scheduled && !isWorkoutDayDeferredAway(deferrals, dayId, dateKey)) {
+    return true;
+  }
+  return false;
 }
 
 export function weeklyVolumeByMuscle(plan: WorkoutDayPlan[]) {

@@ -5,6 +5,8 @@ import {
   isMealItemCompletedForDateKey,
   isTaskCompletedForDate,
   isTaskDueForDate,
+  isWorkoutDayDeferredTo,
+  isWorkoutDayVisibleOnDate,
   weekdayLongLabel,
   weekdayLabel,
 } from "@/lib/utils";
@@ -108,6 +110,7 @@ export function buildAgendaEvents(
   const workoutPlan = state.workoutPlan ?? [];
   const workoutDayCompletions = state.workoutDayCompletions ?? [];
   const workoutLoadEntries = state.workoutLoadEntries ?? [];
+  const workoutDayDeferrals = state.workoutDayDeferrals ?? [];
   const weekday = getWeekday(referenceDate);
   const dateKey = formatDateKey(referenceDate);
   const activeWorkoutProgram =
@@ -216,7 +219,21 @@ export function buildAgendaEvents(
         (completion) =>
           completion.dayId === day.id && completion.dateKey === dateKey,
       );
-      if (!scheduled && !hasLogOnDate && !hasCompletionOnDate) return null;
+      // Inclui adiamentos ("Passar pra amanhã"): esconde a ocorrência
+      // original e mostra na data de destino.
+      const deferredTo = isWorkoutDayDeferredTo(
+        workoutDayDeferrals,
+        day.id,
+        dateKey,
+      );
+      const visible = isWorkoutDayVisibleOnDate({
+        dayId: day.id,
+        scheduled,
+        hasActivity: hasLogOnDate || hasCompletionOnDate,
+        dateKey,
+        deferrals: workoutDayDeferrals,
+      });
+      if (!visible) return null;
 
       const completed = hasLogOnDate || hasCompletionOnDate;
       const event: AgendaEvent = {
@@ -233,7 +250,8 @@ export function buildAgendaEvents(
         completed,
         route: `/modules/workout?dayId=${day.id}`,
         workoutDayId: day.id,
-        isOffSchedule: !scheduled,
+        // Deferred-to conta como a sessão agendada (só mudou de dia).
+        isOffSchedule: !scheduled && !deferredTo,
       };
       return event;
     })

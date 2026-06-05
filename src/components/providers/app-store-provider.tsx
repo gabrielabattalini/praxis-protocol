@@ -67,6 +67,7 @@ import type {
   ThemeId,
   Weekday,
   WorkoutDayCompletion,
+  WorkoutDayDeferral,
   WorkoutDayPlan,
   WorkoutLoadEntry,
   WorkoutMode,
@@ -344,6 +345,12 @@ type AppStoreValue = {
       }>;
     }) => void;
     toggleWorkoutDayCompleted: (payload: {
+      dayId: string;
+      dateKey?: string;
+    }) => void;
+    /** Adia uma ocorrência de treino pro dia seguinte. dateKey é a data
+     *  em que o treino está aparecendo (hoje, por padrão). */
+    deferWorkoutDayToNextDay: (payload: {
       dayId: string;
       dateKey?: string;
     }) => void;
@@ -815,6 +822,13 @@ type Action =
     }
   | {
       type: "toggle-workout-day-completed";
+      payload: {
+        dayId: string;
+        dateKey?: string;
+      };
+    }
+  | {
+      type: "defer-workout-day-next-day";
       payload: {
         dayId: string;
         dateKey?: string;
@@ -2601,6 +2615,39 @@ function reducer(state: PersistedState, action: Action): PersistedState {
           ...state.workoutDayCompletions,
         ],
       };
+    }
+    case "defer-workout-day-next-day": {
+      const dateKey = action.payload.dateKey ?? formatDateKey(new Date());
+      const dayId = action.payload.dayId;
+      const todayKey = formatDateKey(new Date());
+      // Próximo dia (dateKey + 1), via Date local pra respeitar fuso.
+      const base = new Date(`${dateKey}T00:00:00`);
+      base.setDate(base.getDate() + 1);
+      const nextKey = formatDateKey(base);
+
+      const deferrals = state.workoutDayDeferrals ?? [];
+      // Se essa ocorrência JÁ aparecia por um adiamento anterior
+      // (toDateKey === dateKey), atualiza o destino dele em vez de criar
+      // outro — adiamentos encadeados colapsam num registro só (a data
+      // original em fromDateKey é preservada).
+      const existing = deferrals.find(
+        (entry) => entry.dayId === dayId && entry.toDateKey === dateKey,
+      );
+      let nextDeferrals: WorkoutDayDeferral[];
+      if (existing) {
+        nextDeferrals = deferrals.map((entry) =>
+          entry === existing ? { ...entry, toDateKey: nextKey } : entry,
+        );
+      } else {
+        nextDeferrals = [
+          ...deferrals,
+          { dayId, fromDateKey: dateKey, toDateKey: nextKey },
+        ];
+      }
+      // Poda adiamentos já vencidos (destino no passado) pra não acumular.
+      nextDeferrals = nextDeferrals.filter((entry) => entry.toDateKey >= todayKey);
+
+      return { ...state, workoutDayDeferrals: nextDeferrals };
     }
     case "add-custom-food":
       return {
@@ -4977,6 +5024,7 @@ const emptyPersistedState: PersistedState = {
   workoutPlan: [],
   workoutLoadEntries: [],
   workoutDayCompletions: [],
+  workoutDayDeferrals: [],
   mealPlan: [],
   nutritionDailyExtras: [],
   foodDatabase: [],
@@ -5230,9 +5278,23 @@ function parseStateValue(
       workoutPrograms,
       activeWorkoutProgramId,
     );
+    // Adiamentos de treino: valida shape + poda os já vencidos (destino
+    // no passado) pra não acumular lixo entre sessões.
+    const hydrationTodayKey = formatDateKey(new Date());
+    const workoutDayDeferrals = Array.isArray(parsedState.workoutDayDeferrals)
+      ? parsedState.workoutDayDeferrals.filter(
+          (entry): entry is WorkoutDayDeferral =>
+            Boolean(entry) &&
+            typeof entry.dayId === "string" &&
+            typeof entry.fromDateKey === "string" &&
+            typeof entry.toDateKey === "string" &&
+            entry.toDateKey >= hydrationTodayKey,
+        )
+      : [];
     return {
       ...emptyPersistedState,
       ...parsedState,
+      workoutDayDeferrals,
       session: {
         ...emptyPersistedState.session,
         ...parsedState.session,
@@ -6292,6 +6354,9 @@ export function AppStoreProvider({
       },
       toggleWorkoutDayCompleted(payload) {
         dispatch({ type: "toggle-workout-day-completed", payload });
+      },
+      deferWorkoutDayToNextDay(payload) {
+        dispatch({ type: "defer-workout-day-next-day", payload });
       },
       addCustomFood(payload) {
         dispatch({ type: "add-custom-food", payload });
