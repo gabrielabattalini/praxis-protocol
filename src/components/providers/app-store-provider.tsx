@@ -5956,7 +5956,8 @@ export function AppStoreProvider({
       // Skip if a local push is still pending — would race and overwrite.
       if (saveAccountTimeoutRef.current) return;
       const localSnapshot = JSON.stringify(state);
-      if (localSnapshot !== lastServerSnapshotRef.current) return;
+      const hasLocalDivergence =
+        localSnapshot !== lastServerSnapshotRef.current;
       try {
         const response = await fetch("/api/account-state", {
           credentials: "same-origin",
@@ -5972,6 +5973,31 @@ export function AppStoreProvider({
         // próximo save mandar o baseVersion correto.
         serverVersionRef.current = envelope.version ?? serverVersionRef.current;
         if (serverSnapshot === lastServerSnapshotRef.current) return;
+
+        // Antes: se o cliente estava com edições não salvas, o pull era
+        // pulado e mudanças do outro dispositivo só chegavam depois do
+        // próximo save (ou nunca, se o save sobrescrevia tudo). Agora,
+        // aplica merge 3-way (base = último estado sincronizado, local =
+        // edições não salvas, server = estado novo) — mesma estratégia
+        // que o save usa em 409. Cobre o caso: usuário no notebook
+        // editando algo enquanto recebe atualizações do celular.
+        if (hasLocalDivergence) {
+          let baseState: PersistedState | null = null;
+          try {
+            baseState = lastServerSnapshotRef.current
+              ? (JSON.parse(lastServerSnapshotRef.current) as PersistedState)
+              : null;
+          } catch {
+            baseState = null;
+          }
+          const mergedState = baseState
+            ? threeWayMergeState(baseState, state, envelope.state)
+            : envelope.state;
+          lastServerSnapshotRef.current = serverSnapshot;
+          dispatch({ type: "hydrate", payload: mergedState, allowSeed: false });
+          return;
+        }
+
         lastServerSnapshotRef.current = serverSnapshot;
         dispatch({ type: "hydrate", payload: envelope.state, allowSeed: false });
       } catch {
