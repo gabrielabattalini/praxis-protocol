@@ -36,6 +36,17 @@ const weekdayOptions: Weekday[] = [
   "sunday",
 ];
 
+// Estilo do toggle SELECIONADO (dia/frequência). Inline de propósito: a
+// classe base .praxis-button-ghost fica fora de @layer em globals.css e
+// vence as utilities do Tailwind (@layer utilities) por cascade layers —
+// então bg-[var(--accent)] via className não aplicava. Inline vence tudo.
+const activeToggleStyle = {
+  background: "var(--accent)",
+  borderColor: "transparent",
+  color: "#140a03",
+  boxShadow: "0 0 14px rgba(251,146,60,0.45)",
+};
+
 const mindPresets = [
   {
     id: "meditation",
@@ -367,10 +378,10 @@ export default function MindModulePage() {
                         option.id as "daily" | "selected-weekdays",
                       )
                     }
+                    aria-pressed={recurrenceKind === option.id}
+                    style={recurrenceKind === option.id ? activeToggleStyle : undefined}
                     className={`praxis-button-ghost px-4 py-2 ${
-                      recurrenceKind === option.id
-                         ? "border-transparent bg-[var(--accent)] text-[#140a03] shadow-[0_0_14px_rgba(251,146,60,0.45)]"
-                        : ""
+                      recurrenceKind === option.id ? "" : "opacity-70"
                     }`}
                   >
                     {option.label}
@@ -391,10 +402,10 @@ export default function MindModulePage() {
                         key={day}
                         type="button"
                         onClick={() => toggleWeekday(day)}
+                        aria-pressed={active}
+                        style={active ? activeToggleStyle : undefined}
                         className={`praxis-button-ghost px-3 py-2 ${
-                          active
-                             ? "border-transparent bg-[var(--accent)] text-[#140a03] shadow-[0_0_14px_rgba(251,146,60,0.45)]"
-                            : ""
+                          active ? "" : "opacity-70"
                         }`}
                       >
                         {weekdayLongLabel(day)}
