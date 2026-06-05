@@ -7,23 +7,10 @@ import { getStripeServer } from "@/lib/stripe.server";
 type CheckoutPayload = {
   plan?: string;
   source?: string;
-  email?: string;
 };
 
 const CHECKOUT_ERROR_MESSAGE =
   "Não foi possível iniciar o checkout agora. Tente novamente em instantes.";
-
-// Validação leve de email — só pra não injetar lixo arbitrário em
-// customer_email/metadata.email no Stripe. Não autoriza nada: o
-// entitlement é resolvido server-side via Stripe lookup pelo email
-// da sessão Clerk, então o email do body é só pré-preenchimento.
-function safeEmail(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  if (trimmed.length === 0 || trimmed.length > 254) return undefined;
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return undefined;
-  return trimmed.toLowerCase();
-}
 
 async function createCheckoutSessionUrl(payload: CheckoutPayload) {
   const source =
@@ -41,8 +28,12 @@ async function createCheckoutSessionUrl(payload: CheckoutPayload) {
 
   const { userId } = await auth();
   const user = userId ? await currentUser() : null;
-  const email =
-    user?.primaryEmailAddress?.emailAddress || safeEmail(payload.email);
+  // Só pré-preenche o email a partir da SESSÃO autenticada. Antes, um
+  // request anônimo podia passar qualquer email no payload → o Stripe
+  // enviava "Complete sua compra" pra esse endereço, virando vetor de
+  // spam/phishing contra terceiros. Sem sessão, deixa o Stripe coletar
+  // o email no próprio checkout.
+  const email = user?.primaryEmailAddress?.emailAddress || undefined;
   const stripe = getStripeServer();
   const appUrl = getAppUrl();
 
@@ -80,7 +71,6 @@ export async function GET(request: NextRequest) {
     const url = await createCheckoutSessionUrl({
       plan: request.nextUrl.searchParams.get("plan") || undefined,
       source: request.nextUrl.searchParams.get("source") || undefined,
-      email: request.nextUrl.searchParams.get("email") || undefined,
     });
 
     return NextResponse.redirect(url);

@@ -1313,14 +1313,28 @@ function reducer(state: PersistedState, action: Action): PersistedState {
                 const completedForCurrentDate = isTaskCompletedForDate(task, new Date());
                 const nextCompleted = !completedForCurrentDate;
                 const currentDates = task.completedDates ?? [];
+                const nextDates = nextCompleted
+                  ? Array.from(new Set([...currentDates, todayKey])).sort()
+                  : currentDates.filter((entry) => entry !== todayKey);
+                // Ao DESMARCAR hoje, não apaga completedAt cegamente — se
+                // ainda restam outras datas concluídas em completedDates,
+                // aponta completedAt pra mais recente delas. Sem isto,
+                // leitores legados que olham só completedAt achavam que a
+                // task nunca foi concluída (quebrava streak/heatmap).
+                const latestRemainingKey = nextDates.length
+                  ? nextDates[nextDates.length - 1]
+                  : null;
+                const nextCompletedAt = nextCompleted
+                  ? new Date().toISOString()
+                  : latestRemainingKey
+                    ? new Date(`${latestRemainingKey}T12:00:00`).toISOString()
+                    : undefined;
                 return {
                   ...task,
                   completed: nextCompleted,
                   deferUntilDate: undefined,
-                  completedAt: nextCompleted ? new Date().toISOString() : undefined,
-                  completedDates: nextCompleted
-                    ? Array.from(new Set([...currentDates, todayKey])).sort()
-                    : currentDates.filter((entry) => entry !== todayKey),
+                  completedAt: nextCompletedAt,
+                  completedDates: nextDates,
                 };
               })()
             : task,

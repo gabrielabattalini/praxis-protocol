@@ -7,6 +7,7 @@ import {
   getTelegramBinding,
   getTelegramWebhookSecret,
   getUserIdByChatId,
+  markTelegramUpdateProcessed,
   sendTelegramMessage,
 } from "@/lib/telegram-center.server";
 import {
@@ -19,6 +20,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type TelegramUpdate = {
+  update_id?: number;
   message?: {
     chat?: { id?: number; type?: string };
     from?: {
@@ -74,6 +76,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  // Proteção contra replay: cada update do Telegram tem um update_id
+  // único. Se já processamos esse id (7 dias de janela), ignora — evita
+  // re-disparar ações se o secret + body vazarem e forem reenviados.
+  if (typeof update.update_id === "number") {
+    const isNew = await markTelegramUpdateProcessed(update.update_id);
+    if (!isNew) {
+      return NextResponse.json({ ok: true });
+    }
+  }
+
   // Inline button callback ("✓ Concluir" abaixo dos lembretes).
   // Sempre responde 200; falhas viram um toast curto pra quem clicou.
   if (update.callback_query) {
@@ -98,12 +110,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // Confere que quem clicou bate com o dono do binding.
-    // Em chat privado 1:1 (caso normal) só o dono pode clicar, então
-    // qualquer mismatch é binding desatualizado/incorreto — logamos e
-    // deixamos passar pra não bloquear o fluxo principal. O secret do
-    // webhook (agora fail-closed) já é a defesa primária contra forjar
-    // callback_query: sem ele o request nem chega aqui.
+    // Confere que quem clicou bate com o dono do binding. Se o
+    // telegramUserId do binding existe e NÃO bate com quem clicou, é
+    // outra pessoa (ex.: bot adicionado a um grupo, ou binding antigo
+    // num chat reusado) — recusa em vez de marcar a tarefa na conta
+    // errada. (#7 da auditoria: antes só logava e deixava passar.)
     const binding = await getTelegramBinding(userId);
     if (
       binding?.telegramUserId &&
@@ -111,8 +122,10 @@ export async function POST(request: Request) {
       binding.telegramUserId !== cbFromId
     ) {
       console.warn(
-        `[telegram-webhook] from.id mismatch: binding=${binding.telegramUserId} cb=${cbFromId} userId=${userId} — deixando passar`,
+        `[telegram-webhook] from.id mismatch: binding=${binding.telegramUserId} cb=${cbFromId} userId=${userId} — recusando`,
       );
+      await answerCallbackQuery(cb.id, "Sessão de Telegram inválida.");
+      return NextResponse.json({ ok: true });
     }
 
     let result: { ok: boolean; message: string };
@@ -162,6 +175,18 @@ export async function POST(request: Request) {
   }
 
   if (text.startsWith("/start")) {
+    // Recusa vincular em chats que não sejam privados 1:1. Se o usuário
+    // adicionar o bot a um grupo e mandar /start lá, o binding ficaria
+    // com o chatId do GRUPO — qualquer membro receberia os lembretes e
+    // poderia marcar tarefas. (#7b da auditoria.)
+    if (message?.chat?.type && message.chat.type !== "private") {
+      await sendTelegramMessage(
+        chatId,
+        "Conecte o Praxis no chat privado com o bot, não em um grupo. Abra a conversa 1:1 e tente de novo.",
+      );
+      return NextResponse.json({ ok: true });
+    }
+
     const code = text.split(/\s+/)[1]?.trim();
 
     if (!code) {
