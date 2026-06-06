@@ -863,7 +863,11 @@ export default function WorkoutModulePage() {
       }
       return next;
     });
-    setExpandedExerciseKey(null);
+    // NÃO fecha o painel automaticamente após salvar. Recolher aqui fazia
+    // o conteúdo abaixo "pular" pra cima e, com a posição de scroll fixa,
+    // a página parecia rolar pra baixo sozinha (sensação de travado, pior
+    // no celular). Os inputs limpos + o "Último registro" atualizado já
+    // sinalizam que salvou; quem quiser fecha no botão "Fechar lançamento".
   }
 
   function removeProgram(program: SavedWorkoutProgram) {
