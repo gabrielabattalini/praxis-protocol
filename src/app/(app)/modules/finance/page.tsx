@@ -1302,6 +1302,23 @@ export default function FinanceModulePage() {
       </div>
 
       <GlassPanel className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-zinc-500">Receitas do mês</p>
+            <h2 className="text-2xl font-semibold text-white">
+              {formatCurrency(selectedMonth.income)}
+            </h2>
+          </div>
+          <div className="rounded-sm border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs text-[var(--accent)]">
+            {incomeLines.length} linhas
+          </div>
+        </div>
+        <div className="space-y-3">
+          {incomeLines.map(renderLineCard)}
+        </div>
+      </GlassPanel>
+
+      <GlassPanel className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm text-zinc-500">Novo lançamento</p>
@@ -1324,15 +1341,16 @@ export default function FinanceModulePage() {
             <button
               type="button"
               onClick={() => setCreatePanelOpen((current) => !current)}
-              aria-label={createPanelOpen ? "Fechar formulário" : "Abrir formulário"}
-              title={createPanelOpen ? "Fechar formulário" : "Adicionar lançamento"}
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-sm border border-zinc-800 bg-black/50 text-white transition hover:border-[var(--accent)]/40 hover:bg-[rgba(251,146,60,0.08)]"
+              aria-label={createPanelOpen ? "Fechar formulário" : "Adicionar receita ou gasto"}
+              title={createPanelOpen ? "Fechar formulário" : "Adicionar receita ou gasto"}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-sm bg-[linear-gradient(135deg,var(--accent)_0%,var(--accent-2)_100%)] px-6 py-3.5 text-base font-semibold text-slate-950 shadow-[0_0_20px_rgba(251,146,60,0.4)] transition hover:brightness-110"
             >
               <Plus
                 className={`h-5 w-5 transition ${
-                  createPanelOpen ? "rotate-45 text-[var(--accent)]" : ""
+                  createPanelOpen ? "rotate-45" : ""
                 }`}
               />
+              {createPanelOpen ? "Fechar" : "Adicionar receita ou gasto"}
             </button>
           </div>
         </div>
@@ -1574,23 +1592,6 @@ export default function FinanceModulePage() {
                 trabalho. */}
           </>
         ) : null}
-      </GlassPanel>
-
-      <GlassPanel className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-zinc-500">Receitas do mês</p>
-            <h2 className="text-2xl font-semibold text-white">
-              {formatCurrency(selectedMonth.income)}
-            </h2>
-          </div>
-          <div className="rounded-sm border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs text-[var(--accent)]">
-            {incomeLines.length} linhas
-          </div>
-        </div>
-        <div className="space-y-3">
-          {incomeLines.map(renderLineCard)}
-        </div>
       </GlassPanel>
 
       <div className="space-y-6">
