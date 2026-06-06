@@ -3,13 +3,15 @@ import fs from "node:fs";
 import path from "node:path";
 import webpush from "web-push";
 import type { PushSubscription } from "web-push";
-import type { Weekday } from "@/lib/types";
+import type { PersistedState, Weekday } from "@/lib/types";
 import type {
   NotificationScheduleItem,
   NotificationSyncPayload,
 } from "@/lib/notification-schedule";
+import { isScheduleItemEntityAlive } from "@/lib/notification-schedule";
 import { sendTelegramToUser } from "@/lib/telegram-center.server";
 import { getLoadingCuePool } from "@/lib/discipline-cues";
+import { getAccountState } from "@/lib/account-state.server";
 
 const dataDir = path.join(process.cwd(), ".data");
 const vapidPath = path.join(dataDir, "notifications-vapid.json");
@@ -910,6 +912,16 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
 
   for (const userId of indexedUserIds) {
     const schedule = await loadUserSchedule(userId);
+    // Estado VIVO da conta — usado pra filtrar items órfãos no schedule
+    // (tarefa deletada / concluída hoje / reminder desabilitado). O
+    // schedule é um snapshot estático no KV, então sem essa checagem o
+    // dispatcher continua mandando notificações de tarefas que o
+    // usuário já apagou ou marcou como feita. Cross-check rodando aqui
+    // (não no sync) garante que mesmo que o snapshot esteja defasado,
+    // a entrega respeita o estado mais recente da conta.
+    const accountEnvelope = await getAccountState(userId);
+    const liveAccountState =
+      (accountEnvelope?.state as PersistedState | undefined) ?? null;
     // No early-skip when there are no web-push subscriptions: a user may
     // have ONLY Telegram linked and must still receive scheduled alerts.
     const subscriptions = await loadUserSubs(userId);
@@ -925,6 +937,8 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
         webPushReady,
         referenceDate,
         summary,
+        null,
+        liveAccountState,
       );
       continue;
     }
@@ -949,6 +963,18 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
       const key = dispatchKey(userId, item.id, zonedNow);
       if (dispatchLog.some((entry) => entry.key === key)) {
         continue;
+      }
+
+      // Item órfão (tarefa apagada / já concluída hoje / reminder
+      // desabilitado)? Descarta em silêncio. Sem isso, o snapshot do KV
+      // continuava notificando coisas que o usuário já tirou da agenda.
+      // Date construída a partir do dateKey zonado pra que a checagem
+      // de "concluída hoje" respeite o timezone do usuário.
+      if (liveAccountState) {
+        const zonedReference = new Date(`${zonedNow.dateKey}T12:00:00`);
+        if (!isScheduleItemEntityAlive(item, liveAccountState, zonedReference)) {
+          continue;
+        }
       }
 
       const payload = buildWebPushPayload(item);
@@ -1072,12 +1098,16 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
     }
 
     // Snoozes vencidas do mesmo usuário, no mesmo passe.
+    // Snoozes recebem o estado vivo + o snapshot do schedule pra fazer
+    // o mesmo cross-check (snooze de tarefa apagada não dispara).
     await processUserSnoozes(
       userId,
       subsForSnooze,
       webPushReady,
       referenceDate,
       summary,
+      schedule,
+      liveAccountState,
     );
   }
 
@@ -1090,6 +1120,11 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
  * Dispara as snoozes vencidas (fireAt <= agora) de um usuário e remove
  * as disparadas, preservando as futuras. Não passa por
  * isNotificationItemDue (já passou da hora original; dispara AGORA).
+ *
+ * Faz o mesmo cross-check do dispatcher principal: se o item original
+ * (referenciado pelo itemId da snooze) não está mais no schedule, ou
+ * aponta pra entidade morta no estado vivo, descarta a snooze. Cobre o
+ * caso "snoozei e depois apaguei/concluí a tarefa".
  */
 async function processUserSnoozes(
   userId: string,
@@ -1097,6 +1132,8 @@ async function processUserSnoozes(
   webPushReady: boolean,
   referenceDate: Date,
   summary: DispatchSummary,
+  scheduleSnapshot: StoredSchedule | null,
+  liveAccountState: PersistedState | null,
 ): Promise<void> {
   const list = await loadUserSnoozes(userId);
   if (list.length === 0) return;
@@ -1104,7 +1141,28 @@ async function processUserSnoozes(
   const due = list.filter((entry) => new Date(entry.fireAt).getTime() <= nowMs);
   if (due.length === 0) return;
 
+  const scheduleByItemId = new Map(
+    (scheduleSnapshot?.items ?? []).map((item) => [item.id, item]),
+  );
+
   for (const entry of due) {
+    // Procura o item original no snapshot. Se sumiu, é porque o sync
+    // já refletiu uma exclusão/conclusão — snooze órfã, descarta.
+    const linkedItem = scheduleByItemId.get(entry.itemId);
+    if (linkedItem) {
+      if (
+        liveAccountState &&
+        !isScheduleItemEntityAlive(linkedItem, liveAccountState, referenceDate)
+      ) {
+        continue;
+      }
+    } else if (liveAccountState) {
+      // Sem item no snapshot + temos estado vivo = órfã. Sem estado
+      // vivo, fallback no comportamento antigo (mandar) pra não perder
+      // snoozes em caso de problema de leitura do KV.
+      continue;
+    }
+
     const title = entry.title || "Lembrete adiado";
     const body = entry.body || "Você adiou esse lembrete.";
 

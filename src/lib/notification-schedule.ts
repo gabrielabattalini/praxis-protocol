@@ -1,5 +1,5 @@
 import { buildNotificationBodyWithCue } from "@/lib/discipline-cues";
-import { isTaskDueForDate } from "@/lib/utils";
+import { isTaskCompletedForDate, isTaskDueForDate } from "@/lib/utils";
 import type {
   MealPlanBlock,
   ModuleId,
@@ -400,4 +400,56 @@ export function buildNotificationSyncPayload(
       .filter((quote) => quote.length > 0)
       .slice(0, 200),
   };
+}
+
+/**
+ * Confere se uma entry do schedule ainda aponta pra uma entidade VIVA do
+ * estado atual da conta. Resolve um bug clássico do dispatcher: o
+ * schedule é um snapshot estático no KV, então tarefa deletada / já
+ * concluída continuava notificando até o próximo sync sobrescrever o
+ * snapshot. Usar isso ANTES de enviar a notificação descarta entries
+ * órfãs em silêncio.
+ *
+ * Regras:
+ *   - source "task": precisa de tarefa com mesmo id no state.tasks E
+ *     que NÃO esteja marcada como concluída na data de referência.
+ *   - source "reminder": precisa de um reminder no state.reminders com
+ *     mesmo (entityType, entityId) e enabled=true. Se o reminder está
+ *     vinculado a uma tarefa que já foi concluída hoje, também silencia.
+ *   - meal/workout/etc sem entityId: passa (sem como validar, mantém o
+ *     comportamento atual; não é o caso do bug reportado).
+ */
+export function isScheduleItemEntityAlive(
+  item: Pick<NotificationScheduleItem, "source" | "entityType" | "entityId">,
+  state: { tasks?: Task[]; reminders?: ReminderItem[] } | null | undefined,
+  referenceDate: Date = new Date(),
+): boolean {
+  if (!state) return true;
+
+  if (item.source === "task" && item.entityId) {
+    const task = (state.tasks ?? []).find((t) => t.id === item.entityId);
+    if (!task) return false;
+    if (isTaskCompletedForDate(task, referenceDate)) return false;
+    return true;
+  }
+
+  if (item.source === "reminder" && item.entityId) {
+    const reminder = (state.reminders ?? []).find(
+      (r) =>
+        r.entityType === (item.entityType ?? r.entityType) &&
+        r.entityId === item.entityId,
+    );
+    if (!reminder || !reminder.enabled) return false;
+    if (reminder.entityType === "task") {
+      const linkedTask = (state.tasks ?? []).find(
+        (t) => t.id === reminder.entityId,
+      );
+      if (linkedTask && isTaskCompletedForDate(linkedTask, referenceDate)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  return true;
 }
