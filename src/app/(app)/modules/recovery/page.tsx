@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   Activity,
   CheckCircle2,
+  ChevronRight,
   NotebookPen,
   Plus,
   Sparkles,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
+import { RecoveryExerciseGuidePanel } from "@/components/recovery/exercise-guide";
 import type {
   RecoveryDayCompletion,
   RecoveryDayPlan,
@@ -19,6 +21,7 @@ import type {
   Weekday,
 } from "@/lib/types";
 import { formatDateKey, weekdayLongLabel } from "@/lib/utils";
+import { getRecoveryExerciseGuide } from "@/lib/recovery-exercise-guide";
 
 /* ── Local helpers ─────────────────────────────────────────────── */
 
@@ -121,6 +124,9 @@ export default function RecoveryModulePage() {
   const todayDate = useMemo(() => new Date(), []);
   const todayKey = formatDateKey(todayDate);
   const todayWeekday = weekdayFromJsIndex[todayDate.getDay()];
+
+  // Qual exercício do plano de hoje está com a aba "como executar" aberta.
+  const [openGuideId, setOpenGuideId] = useState<string | null>(null);
 
   /* ── Derived ─────────────────────────────────────────────────── */
   const dayByWeekday = useMemo(() => {
@@ -347,27 +353,63 @@ export default function RecoveryModulePage() {
           ) : null}
           {todayPlan.exercises.length > 0 ? (
             <div className="rounded-sm border border-white/10 bg-[#0a0a0b]">
-              {todayPlan.exercises.map((ex, index) => (
-                <div
-                  key={ex.id}
-                  className={
-                    "grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center " +
-                    (index > 0 ? "border-t border-white/5" : "")
-                  }
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-zinc-100">{ex.name}</p>
-                    <p className="mt-0.5 text-xs text-zinc-500">
-                      {ex.bodyArea}
-                      {ex.notes ? ` · ${ex.notes}` : ""}
-                    </p>
+              {todayPlan.exercises.map((ex, index) => {
+                const hasGuide = Boolean(getRecoveryExerciseGuide(ex.name));
+                const guideOpen = openGuideId === ex.id;
+                return (
+                  <div
+                    key={ex.id}
+                    className={index > 0 ? "border-t border-white/5" : ""}
+                  >
+                    <div className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                      <div className="flex min-w-0 items-start gap-2">
+                        {hasGuide ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOpenGuideId(guideOpen ? null : ex.id)
+                            }
+                            aria-expanded={guideOpen}
+                            aria-label={
+                              guideOpen
+                                ? `Fechar como executar ${ex.name}`
+                                : `Como executar ${ex.name}`
+                            }
+                            title="Como executar"
+                            className="mt-0.5 shrink-0 rounded-sm border border-white/10 bg-black/40 p-1 text-zinc-400 transition hover:border-[rgba(251,146,60,0.4)] hover:text-[var(--accent)]"
+                          >
+                            <ChevronRight
+                              className={`h-4 w-4 transition-transform ${
+                                guideOpen ? "rotate-90 text-[var(--accent)]" : ""
+                              }`}
+                            />
+                          </button>
+                        ) : null}
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-zinc-100">
+                            {ex.name}
+                          </p>
+                          <p className="mt-0.5 text-xs text-zinc-500">
+                            {ex.bodyArea}
+                            {ex.notes ? ` · ${ex.notes}` : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-zinc-300">
+                        <span className="text-zinc-500">{ex.sets}×</span>{" "}
+                        <span className="font-semibold text-[var(--accent)]">
+                          {ex.durationOrReps}
+                        </span>
+                      </p>
+                    </div>
+                    {hasGuide && guideOpen ? (
+                      <div className="px-4 pb-4">
+                        <RecoveryExerciseGuidePanel name={ex.name} />
+                      </div>
+                    ) : null}
                   </div>
-                  <p className="text-sm text-zinc-300">
-                    <span className="text-zinc-500">{ex.sets}×</span>{" "}
-                    <span className="font-semibold text-[var(--accent)]">{ex.durationOrReps}</span>
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="rounded-sm border border-dashed border-white/10 p-4 text-sm text-zinc-500">
