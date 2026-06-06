@@ -13,6 +13,7 @@ import {
   ChevronRight,
   ChevronUp,
   Clock3,
+  Flame,
   Plus,
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
@@ -30,6 +31,7 @@ import type {
   Weekday,
 } from "@/lib/types";
 import {
+  computeDailyEnergySummary,
   formatDateKey,
   formatRecurrence,
   isMealItemCompletedForDateKey,
@@ -436,6 +438,13 @@ export default function TasksPage() {
   const selectedDateLabel = weekdayLongLabel(selectedDateWeekday);
   const isSelectedDateToday = selectedDateKey === todayKey;
   const isSelectedDateTomorrow = selectedDateKey === tomorrowKey;
+
+  // Balanço calórico do dia selecionado — consumidas (dieta concluída)
+  // vs queimadas (treino feito + cardio lançado). Só conta o que foi
+  // efetivamente feito, não o que está só cadastrado.
+  const energySummary = computeDailyEnergySummary(state, selectedDateKey);
+  const hasEnergyActivity =
+    energySummary.consumedKcal > 0 || energySummary.burnedKcal > 0;
 
   function buildAgendaForDate(targetDate: Date) {
     const targetDateKey = formatDateKey(targetDate);
@@ -2051,6 +2060,157 @@ export default function TasksPage() {
             </div>
           </div>
         ) : null}
+      </div>
+
+      {/* Balanço calórico do dia — fica no fim da página, junto da
+          hidratação (que também é sem horário). Consumidas (dieta marcada
+          como concluída + extras) vs queimadas (treino feito + cardio
+          lançado). Só conta o que foi EFETIVAMENTE feito, não o que está
+          apenas cadastrado: refeição não marcada, treino não feito e
+          cardio não lançado ficam de fora. */}
+      <div className="glass glass-ok" style={{ marginTop: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 12,
+          }}
+        >
+          <Flame className="h-4 w-4" style={{ color: "var(--accent)" }} />
+          <span
+            className="praxis-label"
+            style={{ color: "var(--accent)", fontSize: 11 }}
+          >
+            Balanço calórico
+          </span>
+          <span style={{ marginLeft: "auto", fontSize: 10, color: "#71717a" }}>
+            {isSelectedDateToday ? "hoje" : selectedDateLabel.toLowerCase()}
+          </span>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 10,
+          }}
+        >
+          <div
+            style={{
+              borderRadius: 12,
+              border: "1px solid rgba(39,39,42,0.7)",
+              background: "rgba(14,14,17,0.6)",
+              padding: "12px 14px",
+            }}
+          >
+            <div style={{ fontSize: 11, color: "#71717a", marginBottom: 4 }}>
+              Consumidas
+            </div>
+            <div
+              style={{ fontSize: 24, fontWeight: 700, color: "var(--fg)", lineHeight: 1.1 }}
+            >
+              {energySummary.consumedKcal}{" "}
+              <span style={{ fontSize: 12, color: "#71717a", fontWeight: 500 }}>
+                kcal
+              </span>
+            </div>
+            <div style={{ fontSize: 10, color: "#71717a", marginTop: 2 }}>
+              dieta concluída
+            </div>
+          </div>
+
+          <div
+            style={{
+              borderRadius: 12,
+              border: "1px solid rgba(251,146,60,0.28)",
+              background: "rgba(251,146,60,0.08)",
+              padding: "12px 14px",
+            }}
+          >
+            <div style={{ fontSize: 11, color: "#71717a", marginBottom: 4 }}>
+              Queimadas
+            </div>
+            <div
+              style={{
+                fontSize: 24,
+                fontWeight: 700,
+                color: "var(--accent)",
+                lineHeight: 1.1,
+              }}
+            >
+              {energySummary.burnedKcal}{" "}
+              <span style={{ fontSize: 12, color: "#71717a", fontWeight: 500 }}>
+                kcal
+              </span>
+            </div>
+            <div style={{ fontSize: 10, color: "#71717a", marginTop: 2 }}>
+              treino + cardio
+            </div>
+          </div>
+        </div>
+
+        {energySummary.burnedKcal > 0 ? (
+          <div
+            style={{
+              display: "flex",
+              gap: 6,
+              flexWrap: "wrap",
+              marginTop: 10,
+            }}
+          >
+            {energySummary.workoutKcal > 0 ? (
+              <span className="badge badge-sm">
+                Treino {energySummary.workoutKcal} kcal
+              </span>
+            ) : null}
+            {energySummary.cardioKcal > 0 ? (
+              <span className="badge badge-sm">
+                Cardio {energySummary.cardioKcal} kcal
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div
+          style={{
+            marginTop: 10,
+            paddingTop: 10,
+            borderTop: "1px dashed rgba(39,39,42,0.6)",
+            display: "flex",
+            alignItems: "baseline",
+            gap: 8,
+          }}
+        >
+          <span style={{ fontSize: 11, color: "#71717a" }}>
+            Consumidas − queimadas
+          </span>
+          <span
+            style={{
+              marginLeft: "auto",
+              fontSize: 18,
+              fontWeight: 700,
+              color: energySummary.netKcal <= 0 ? "#34d399" : "var(--fg)",
+            }}
+          >
+            {energySummary.netKcal > 0 ? "+" : ""}
+            {energySummary.netKcal} kcal
+          </span>
+        </div>
+
+        <p
+          style={{
+            fontSize: 10,
+            color: "#52525b",
+            marginTop: 8,
+            lineHeight: 1.5,
+            marginBottom: 0,
+          }}
+        >
+          {hasEnergyActivity
+            ? "Conta só o que foi efetivamente feito: refeições marcadas, treino concluído e cardio lançado. O que está apenas cadastrado não entra."
+            : "Marque refeições na Dieta, conclua um treino ou lance um cardio para começar a contabilizar o dia."}
+        </p>
       </div>
     </div>
   );

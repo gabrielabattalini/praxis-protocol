@@ -11,6 +11,7 @@
   ModuleId,
   NutritionMacros,
   MealPlanItem,
+  PersistedState,
   RankTier,
   Task,
   TaskDifficulty,
@@ -961,6 +962,176 @@ export function estimateCardioKcalPerDayFromModuleState(
   }
 
   return Math.round(weeklyKcal / 7);
+}
+
+/**
+ * Soma o gasto calórico REAL de cardio num dia, a partir das sessões já
+ * lançadas no módulo de cardio (moduleState[RUN_MODULE_STATE_KEY].entries).
+ * Diferente de estimateCardioKcalPerDayFromModuleState (que usa o PLANO
+ * semanal), aqui só contam as sessões EFETIVAMENTE registradas naquela
+ * data. Prefere a caloria da máquina lançada pelo usuário; senão a
+ * estimativa salva no lançamento; senão recalcula pela sessão.
+ */
+export function sumCardioKcalForDateFromModuleState(
+  moduleState: Record<string, unknown> | undefined | null,
+  dateKey: string,
+  profile: {
+    bodyWeightKg: number;
+    ageYears?: number;
+    biologicalSex?: BiologicalSex;
+  },
+): number {
+  const runState = moduleState?.[RUN_MODULE_STATE_KEY];
+  if (!runState || typeof runState !== "object") return 0;
+  const entries = (runState as { entries?: unknown }).entries;
+  if (!Array.isArray(entries)) return 0;
+
+  const weight = Math.max(1, profile.bodyWeightKg || 0);
+  let total = 0;
+  for (const raw of entries) {
+    if (!raw || typeof raw !== "object") continue;
+    const entry = raw as {
+      date?: unknown;
+      machineKcal?: unknown;
+      estimatedKcal?: unknown;
+      type?: unknown;
+      inclinePct?: unknown;
+      speedKmh?: unknown;
+      distanceKm?: unknown;
+      durationSeconds?: unknown;
+      avgHeartRate?: unknown;
+    };
+    if (entry.date !== dateKey) continue;
+
+    const machine = Math.max(0, Number(entry.machineKcal) || 0);
+    if (machine > 0) {
+      total += machine;
+      continue;
+    }
+    const estimated = Math.max(0, Number(entry.estimatedKcal) || 0);
+    if (estimated > 0) {
+      total += estimated;
+      continue;
+    }
+    total += estimateCardioSessionKcal(
+      {
+        type: entry.type,
+        inclinePct: Number(entry.inclinePct) || 0,
+        speedKmh: Number(entry.speedKmh) || 0,
+        distanceKm: Number(entry.distanceKm) || 0,
+        durationSeconds: Number(entry.durationSeconds) || 0,
+        avgHeartRate: Number(entry.avgHeartRate) || 0,
+      },
+      {
+        bodyWeightKg: weight,
+        ageYears: profile.ageYears,
+        biologicalSex: profile.biologicalSex,
+      },
+    );
+  }
+  return Math.round(total);
+}
+
+/**
+ * Estima o gasto calórico de UMA sessão de musculação a partir do número
+ * total de séries do treino. Não existe estimador de força no app, então
+ * essa é a base: musculação ~5 METs e ~2,5 min efetivos por série
+ * (execução + descanso). kcal/min = MET × 3,5 × peso(kg) / 200. Fica
+ * proporcional ao volume (séries/exercícios) e ao peso corporal — que é
+ * o pedido ("baseado na quantidade de exercícios do treino").
+ */
+export function estimateStrengthSessionKcal(
+  totalSets: number,
+  bodyWeightKg: number,
+): number {
+  const sets = Math.max(0, Number(totalSets) || 0);
+  if (sets <= 0) return 0;
+  const weight = Math.max(1, Number(bodyWeightKg) || 0);
+  const kcalPerMinute = (5 * 3.5 * weight) / 200;
+  const minutes = sets * 2.5;
+  return Math.round(kcalPerMinute * minutes);
+}
+
+export type DailyEnergySummary = {
+  /** kcal consumidas (dieta marcada como concluída + extras lançados). */
+  consumedKcal: number;
+  /** kcal queimadas no exercício (treino feito + cardio lançado). */
+  burnedKcal: number;
+  workoutKcal: number;
+  cardioKcal: number;
+  /** consumidas − queimadas. */
+  netKcal: number;
+};
+
+/**
+ * Contabiliza calorias CONSUMIDAS vs QUEIMADAS num dia, contando só o que
+ * foi EFETIVAMENTE feito (não o que está apenas cadastrado):
+ *  - Consumidas: itens do plano alimentar marcados como consumidos na data
+ *    + extras lançados na data. Refeição não marcada NÃO conta.
+ *  - Queimadas (treino): só os dias de treino marcados como feitos na data;
+ *    estimativa pelo volume de séries.
+ *  - Queimadas (cardio): só as sessões de cardio lançadas na data.
+ */
+export function computeDailyEnergySummary(
+  state: PersistedState,
+  dateKey: string,
+): DailyEnergySummary {
+  // Consumidas — plano alimentar concluído na data.
+  let consumedKcal = 0;
+  for (const block of state.mealPlan ?? []) {
+    for (const item of block.items ?? []) {
+      if (isMealItemCompletedForDateKey(item, dateKey)) {
+        consumedKcal += Math.max(0, Number(item.macros?.calories) || 0);
+      }
+    }
+  }
+  // Consumidas — extras lançados na data.
+  for (const extra of state.nutritionDailyExtras ?? []) {
+    if (extra.date === dateKey) {
+      consumedKcal += Math.max(0, Number(extra.macros?.calories) || 0);
+    }
+  }
+
+  const weight =
+    state.personalProfile?.bodyWeightKg ||
+    state.dailyNutritionTargets?.bodyWeightKg ||
+    70;
+  const ageYears = state.personalProfile?.ageYears;
+  const biologicalSex = state.personalProfile?.biologicalSex;
+
+  // Queimadas (treino) — só os dias marcados como feitos na data.
+  const completedDayIds = new Set(
+    (state.workoutDayCompletions ?? [])
+      .filter((completion) => completion.dateKey === dateKey)
+      .map((completion) => completion.dayId),
+  );
+  let workoutKcal = 0;
+  for (const dayId of completedDayIds) {
+    const day = (state.workoutPlan ?? []).find((plan) => plan.id === dayId);
+    if (!day) continue;
+    const totalSets = (day.exercises ?? []).reduce(
+      (sum, exercise) => sum + Math.max(0, Number(exercise.sets) || 0),
+      0,
+    );
+    workoutKcal += estimateStrengthSessionKcal(totalSets, weight);
+  }
+
+  // Queimadas (cardio) — só as sessões lançadas na data.
+  const cardioKcal = sumCardioKcalForDateFromModuleState(
+    state.moduleState,
+    dateKey,
+    { bodyWeightKg: weight, ageYears, biologicalSex },
+  );
+
+  const consumedRounded = Math.round(consumedKcal);
+  const burnedKcal = workoutKcal + cardioKcal;
+  return {
+    consumedKcal: consumedRounded,
+    burnedKcal,
+    workoutKcal,
+    cardioKcal,
+    netKcal: consumedRounded - burnedKcal,
+  };
 }
 
 export function addMacros(
