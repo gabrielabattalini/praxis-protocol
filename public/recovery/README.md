@@ -4,6 +4,9 @@ A aba "como executar" de cada exercício (módulo Recuperação) mostra a
 imagem que estiver nesta pasta. **É só colocar o arquivo com o nome certo
 aqui** — ela aparece sozinha no app, sem precisar mexer no código.
 
+📖 **Pra achar imagens livres rapidinho, veja [`IMAGES-GUIDE.md`](./IMAGES-GUIDE.md)**
+— links diretos pra Pexels e Unsplash de cada exercício.
+
 - Formato preferido: **`.webp`** (mais leve). Também aceita `.png` e `.jpg`.
 - Proporção recomendada: **16:9** (ex.: 1280×720). A imagem é exibida
   cortada pra preencher o quadro.
