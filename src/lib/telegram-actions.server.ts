@@ -156,6 +156,11 @@ export async function completeTaskForUser(
 
     await saveAccountState(userId, {
       ...envelope,
+      // Versão BUMPADA: sem isto, save do app em paralelo (com baseVersion
+      // antigo) bateria igual no servidor e sobrescreveria a marcação
+      // feita aqui pelo Telegram. Incrementando, o save do app vira 409
+      // → merge 3-way → conclusão é preservada.
+      version: envelope.version + 1,
       state: {
         ...state,
         tasks: nextTasks,
@@ -202,6 +207,7 @@ export async function completeTaskForUser(
     );
     await saveAccountState(userId, {
       ...envelope,
+      version: envelope.version + 1,
       state: { ...state, mealPlan: nextMealPlan } as PersistedState,
       updatedAt: new Date().toISOString(),
     });
@@ -283,6 +289,7 @@ async function completeBlock(
 
   await saveAccountState(userId, {
     ...envelope,
+    version: envelope.version + 1,
     state: { ...state, mealPlan: nextMealPlan } as PersistedState,
     updatedAt: new Date().toISOString(),
   });
@@ -359,6 +366,7 @@ export async function completeWorkoutDayForUser(
 
   await saveAccountState(userId, {
     ...envelope,
+    version: envelope.version + 1,
     state: {
       ...state,
       workoutDayCompletions: [newCompletion, ...completions],
