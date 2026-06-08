@@ -430,6 +430,15 @@ export function isScheduleItemEntityAlive(
     const task = (state.tasks ?? []).find((t) => t.id === item.entityId);
     if (!task) return false;
     if (isTaskCompletedForDate(task, referenceDate)) return false;
+    // Tarefa não-vencida na data (ex.: interval-days já concluída em ciclo
+    // anterior, daily marcada como completed=true em geral, weekly-fixed
+    // que cai em outro dia): silencia. Sem este check, uma tarefa
+    // "Agendar check-up clínico geral" (interval-days 365) concluída
+    // ontem continuava notificando hoje porque o snapshot do schedule no
+    // KV ainda tinha a entrada e o "concluído HOJE" não pegava conclusões
+    // de dias anteriores. isTaskDueForDate é exatamente a regra usada nas
+    // Missões — alinha notificação com o que o usuário vê.
+    if (!isTaskDueForDate(task, referenceDate)) return false;
     return true;
   }
 
@@ -445,6 +454,11 @@ export function isScheduleItemEntityAlive(
         (t) => t.id === reminder.entityId,
       );
       if (linkedTask && isTaskCompletedForDate(linkedTask, referenceDate)) {
+        return false;
+      }
+      // Mesma regra anti-órfã pra reminders vinculados a tarefa: se a
+      // tarefa não está vencida no dia, não dispara.
+      if (linkedTask && !isTaskDueForDate(linkedTask, referenceDate)) {
         return false;
       }
     }

@@ -22,12 +22,35 @@ function isTaskCompletedForDate(task, referenceDate) {
   return false;
 }
 
+// Espelha o ramo principal de isTaskDueForDate de utils.ts:
+// interval-days vence quando (today - lastCompletion) >= intervalDays.
+// Sem conclusão → considera "nunca feita" → vence sempre.
+function isTaskDueForDate(task, referenceDate) {
+  const dateKey = localDateKey(referenceDate);
+  if (task.recurrence?.kind === "interval-days") {
+    const interval = Number(task.recurrence.intervalDays) || 0;
+    if (interval <= 0) return true;
+    const keys = [];
+    if (task.completedAt) keys.push(task.completedAt.slice(0, 10));
+    if (task.completedDates?.length) keys.push(...task.completedDates);
+    if (!keys.length) return true;
+    const last = keys.sort().at(-1);
+    const lastMs = new Date(`${last}T00:00:00`).getTime();
+    const refMs = new Date(`${dateKey}T00:00:00`).getTime();
+    const diffDays = Math.floor((refMs - lastMs) / 86400000);
+    return diffDays >= interval;
+  }
+  if (task.completed && task.recurrence?.kind === "one-time") return false;
+  return true;
+}
+
 function isScheduleItemEntityAlive(item, state, referenceDate) {
   if (!state) return true;
   if (item.source === "task" && item.entityId) {
     const task = (state.tasks ?? []).find((t) => t.id === item.entityId);
     if (!task) return false;
     if (isTaskCompletedForDate(task, referenceDate)) return false;
+    if (!isTaskDueForDate(task, referenceDate)) return false;
     return true;
   }
   if (item.source === "reminder" && item.entityId) {
@@ -42,6 +65,9 @@ function isScheduleItemEntityAlive(item, state, referenceDate) {
         (t) => t.id === reminder.entityId,
       );
       if (linkedTask && isTaskCompletedForDate(linkedTask, referenceDate)) {
+        return false;
+      }
+      if (linkedTask && !isTaskDueForDate(linkedTask, referenceDate)) {
         return false;
       }
     }
@@ -85,10 +111,56 @@ test("task concluída HOJE (completedDates) → silencia", () => {
   assert.equal(isScheduleItemEntityAlive(taskItem("t1"), state, TODAY), false);
 });
 
-test("task concluída ONTEM (não hoje) → passa", () => {
+test("task DAILY concluída ONTEM (não hoje) → passa (volta a vencer hoje)", () => {
   const state = {
     tasks: [
-      { id: "t1", title: "X", completed: false, completedDates: [YESTERDAY_KEY] },
+      {
+        id: "t1",
+        title: "X",
+        completed: false,
+        completedDates: [YESTERDAY_KEY],
+        recurrence: { kind: "daily" },
+      },
+    ],
+    reminders: [],
+  };
+  assert.equal(isScheduleItemEntityAlive(taskItem("t1"), state, TODAY), true);
+});
+
+// Cenário reportado pelo usuário: "Agendar check-up clínico geral" é uma
+// tarefa interval-days (365). Foi concluída antes (não hoje). O snapshot
+// do schedule ainda tem a entry, mas a tarefa só vence de novo daqui a
+// 1 ano — o filtro tem que silenciar.
+test("interval-days concluída ONTEM (não vencida hoje) → silencia", () => {
+  const state = {
+    tasks: [
+      {
+        id: "t1",
+        title: "Agendar check-up clínico geral",
+        completed: true,
+        completedAt: `${YESTERDAY_KEY}T08:30:00.000Z`,
+        completedDates: [YESTERDAY_KEY],
+        recurrence: { kind: "interval-days", intervalDays: 365 },
+      },
+    ],
+    reminders: [],
+  };
+  assert.equal(isScheduleItemEntityAlive(taskItem("t1"), state, TODAY), false);
+});
+
+// interval-days que JÁ vencia de novo (passou o ciclo) → passa,
+// pra notificação voltar a soar no ciclo seguinte.
+test("interval-days vencida de novo → passa", () => {
+  const state = {
+    tasks: [
+      {
+        id: "t1",
+        title: "Exame de rotina",
+        completed: true,
+        completedAt: "2025-06-01T08:00:00.000Z",
+        completedDates: ["2025-06-01"],
+        recurrence: { kind: "interval-days", intervalDays: 180 },
+      },
     ],
     reminders: [],
   };
