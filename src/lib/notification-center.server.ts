@@ -511,6 +511,28 @@ function buildCompleteCallbackData(
   return null;
 }
 
+// Minutos do botão "Adiar" do Telegram. 10min a pedido do usuário.
+export const TELEGRAM_SNOOZE_MINUTES = 10;
+
+/**
+ * callback_data do botão "⏰ Adiar 10min". Carrega o id do schedule item
+ * (sz:<itemId>) pra que o processUserSnoozes consiga cruzar com o
+ * snapshot do schedule (título limpo + botão Concluir no re-disparo, e
+ * o filtro de órfã). Limite do Telegram é 64 bytes — se estourar,
+ * retorna null e o caller esconde o botão.
+ */
+function buildSnoozeCallbackData(item: NotificationScheduleItem): string | null {
+  if (!item.id) return null;
+  const cb = `sz:${item.id}`;
+  return Buffer.byteLength(cb, "utf8") <= 64 ? cb : null;
+}
+
+// Remove o prefixo "⏰ Em N min: " de um título de pre-warning, pra que
+// o re-disparo de um snooze use o nome limpo da tarefa.
+function stripPreWarnPrefix(title: string): string {
+  return title.replace(/^⏰ Em \d+ min: /, "").trim();
+}
+
 function minutesOfDay(hourMinute: string) {
   const [h, m] = hourMinute.split(":").map(Number);
   if (!Number.isFinite(h) || !Number.isFinite(m)) return Number.NaN;
@@ -1064,14 +1086,24 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
         const message = isLast && quote ? `${headerLine}\n\n${quote}` : headerLine;
 
         // Botão "✓ Concluir" por item — exceto em pre-warning (marcar
-        // como feito 5min antes do horário é esquisito).
-        let inlineKeyboard;
+        // como feito 5min antes do horário é esquisito). O botão
+        // "⏰ Adiar 10min" aparece em TODOS (inclusive pre-warning):
+        // adiar faz sentido sempre que o lembrete chega numa hora ruim.
+        const buttonRow: { text: string; callback_data: string }[] = [];
         if (!isPreWarning) {
           const cbData = buildCompleteCallbackData(entry);
           if (cbData) {
-            inlineKeyboard = [[{ text: "✓ Concluir", callback_data: cbData }]];
+            buttonRow.push({ text: "✓ Concluir", callback_data: cbData });
           }
         }
+        const szData = buildSnoozeCallbackData(entry);
+        if (szData) {
+          buttonRow.push({
+            text: `⏰ Adiar ${TELEGRAM_SNOOZE_MINUTES}min`,
+            callback_data: szData,
+          });
+        }
+        const inlineKeyboard = buttonRow.length ? [buttonRow] : undefined;
 
         try {
           const tg = await sendTelegramToUser(userId, message, {
@@ -1163,8 +1195,14 @@ async function processUserSnoozes(
       continue;
     }
 
-    const title = entry.title || "Lembrete adiado";
-    const body = entry.body || "Você adiou esse lembrete.";
+    // Prefere o título/corpo VIVO do schedule (sem o prefixo "Em N min")
+    // ao do snooze armazenado — assim o re-disparo mostra o nome atual da
+    // tarefa, não um rótulo defasado.
+    const title = linkedItem
+      ? stripPreWarnPrefix(linkedItem.title)
+      : entry.title || "Lembrete adiado";
+    const body =
+      (linkedItem?.body || entry.body || "Você adiou esse lembrete.").trim();
 
     if (webPushReady) {
       const payload = JSON.stringify({
@@ -1189,7 +1227,26 @@ async function processUserSnoozes(
     }
 
     try {
-      const tg = await sendTelegramToUser(userId, `🔔 ${title}\n${body}`);
+      // No re-disparo, oferece os mesmos botões: Concluir (quando o item
+      // vivo permite) + Adiar de novo. Sem linkedItem (item já saiu do
+      // schedule mas estado vivo ausente — fallback), manda sem botões.
+      const snoozeButtonRow: { text: string; callback_data: string }[] = [];
+      if (linkedItem) {
+        const cbData = buildCompleteCallbackData(linkedItem);
+        if (cbData) {
+          snoozeButtonRow.push({ text: "✓ Concluir", callback_data: cbData });
+        }
+        const szData = buildSnoozeCallbackData(linkedItem);
+        if (szData) {
+          snoozeButtonRow.push({
+            text: `⏰ Adiar ${TELEGRAM_SNOOZE_MINUTES}min`,
+            callback_data: szData,
+          });
+        }
+      }
+      const tg = await sendTelegramToUser(userId, `🔔 ${title}\n${body}`, {
+        inlineKeyboard: snoozeButtonRow.length ? [snoozeButtonRow] : undefined,
+      });
       if (tg.ok && !tg.skipped) {
         summary.notificationsSent += 1;
       }

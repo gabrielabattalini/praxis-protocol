@@ -15,6 +15,10 @@ import {
   completeTaskForUser,
   completeWorkoutDayForUser,
 } from "@/lib/telegram-actions.server";
+import {
+  TELEGRAM_SNOOZE_MINUTES,
+  snoozeNotification,
+} from "@/lib/notification-center.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -129,6 +133,7 @@ export async function POST(request: Request) {
     }
 
     let result: { ok: boolean; message: string };
+    let snoozed = false;
     if (data.startsWith("t:")) {
       result = await completeTaskForUser(userId, data.slice("t:".length));
     } else if (data.startsWith("mb:")) {
@@ -136,6 +141,24 @@ export async function POST(request: Request) {
     } else if (data.startsWith("wd:")) {
       // Workout day completion: marca o dia inteiro como feito.
       result = await completeWorkoutDayForUser(userId, data.slice("wd:".length));
+    } else if (data.startsWith("sz:")) {
+      // Adiar: agenda um re-disparo em N min. O título/corpo são
+      // resolvidos do schedule no momento do re-disparo (processUserSnoozes),
+      // então não precisamos carregá-los aqui.
+      const itemId = data.slice("sz:".length);
+      try {
+        await snoozeNotification(userId, {
+          itemId,
+          minutes: TELEGRAM_SNOOZE_MINUTES,
+        });
+        snoozed = true;
+        result = {
+          ok: true,
+          message: `⏰ Adiado ${TELEGRAM_SNOOZE_MINUTES} min.`,
+        };
+      } catch {
+        result = { ok: false, message: "Não consegui adiar agora." };
+      }
     } else if (data === "noop") {
       // Clique no botão "✓ Concluído" (já marcado num clique anterior).
       // Só confirma — não há mais nada a fazer.
@@ -150,13 +173,16 @@ export async function POST(request: Request) {
 
     await answerCallbackQuery(cb.id, result.message);
 
-    // Substitui o botão por "✓ Concluído" indelével pra evitar cliques
-    // duplicados / confusão visual. Mesmo formato: 1 linha, 1 botão sem
-    // callback_data (texto puro fica como rótulo desabilitado de fato).
+    // Substitui o botão por um rótulo indelével pra evitar cliques
+    // duplicados / confusão visual. "✓ Concluído" pra conclusão,
+    // "⏰ Adiado N min" pro adiamento. Botão sem ação real (noop).
     if (result.ok && cbMessageId) {
+      const label = snoozed
+        ? `⏰ Adiado ${TELEGRAM_SNOOZE_MINUTES} min`
+        : "✓ Concluído";
       try {
         await editMessageReplyMarkup(cbChatId, cbMessageId, [
-          [{ text: "✓ Concluído", callback_data: "noop" }],
+          [{ text: label, callback_data: "noop" }],
         ]);
       } catch {
         /* swallow — alteração visual é opcional */
