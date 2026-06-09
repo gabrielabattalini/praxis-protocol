@@ -129,9 +129,16 @@ export default function RecoveryModulePage() {
   const [openGuideId, setOpenGuideId] = useState<string | null>(null);
 
   /* ── Derived ─────────────────────────────────────────────────── */
-  const dayByWeekday = useMemo(() => {
-    const map: Partial<Record<Weekday, RecoveryDayPlan>> = {};
-    for (const day of plan) map[day.weekday] = day;
+  // Suporta MÚLTIPLOS treinos por dia da semana (ex.: alongamento de
+  // manhã + liberação miofascial à noite). Antes era um Map 1-pra-1 e
+  // o save sobrescrevia o plano anterior do mesmo dia.
+  const daysByWeekday = useMemo(() => {
+    const map: Partial<Record<Weekday, RecoveryDayPlan[]>> = {};
+    for (const day of plan) {
+      const list = map[day.weekday] ?? [];
+      list.push(day);
+      map[day.weekday] = list;
+    }
     return map;
   }, [plan]);
 
@@ -143,7 +150,8 @@ export default function RecoveryModulePage() {
     const completedAt = new Date(c.completedAt);
     return completedAt >= weekStart && completedAt <= weekEnd;
   }).length;
-  const todayPlan = dayByWeekday[todayWeekday];
+  const todaysPlans = daysByWeekday[todayWeekday] ?? [];
+  const hasTodayPlan = todaysPlans.some((p) => !p.isRestDay);
   const isCompletedToday = (dayId: string) =>
     completions.some((c) => c.dayId === dayId && c.dateKey === todayKey);
 
@@ -189,9 +197,11 @@ export default function RecoveryModulePage() {
       exercises: params.exercises.map((ex) => ({ ...ex, id: makeId("rex") })),
       notes: "",
     }));
-    // Replace any existing plan for the chosen weekdays.
-    const untouched = plan.filter((d) => !params.weekdays.includes(d.weekday));
-    setPlan([...untouched, ...newDays]);
+    // ACRESCENTA aos planos existentes (não sobrescreve). Permite ter
+    // múltiplos treinos no mesmo dia (ex.: alongamento manhã + liberação
+    // miofascial à noite). Pra substituir, o usuário usa o lápis/lixeira
+    // do card individual na grade semanal.
+    setPlan([...plan, ...newDays]);
     closeCreator();
   }
 
@@ -315,16 +325,21 @@ export default function RecoveryModulePage() {
         </div>
         <div className="kpi">
           <div className="praxis-label">Hoje</div>
-          <div className="kpi-value" style={{ color: todayPlan ? "var(--accent)" : "var(--fg-3)" }}>
-            {todayPlan ? (todayPlan.isRestDay ? "Descanso" : "Tem plano") : "Sem plano"}
+          <div className="kpi-value" style={{ color: hasTodayPlan ? "var(--accent)" : "var(--fg-3)" }}>
+            {todaysPlans.length > 1
+              ? `${todaysPlans.filter((p) => !p.isRestDay).length} treinos`
+              : todaysPlans[0]
+                ? (todaysPlans[0].isRestDay ? "Descanso" : "Tem plano")
+                : "Sem plano"}
           </div>
           <div className="kpi-sub">{weekdayLongLabel(todayWeekday).toLowerCase()}</div>
         </div>
       </div>
 
-      {/* Today highlight */}
-      {todayPlan && !todayPlan.isRestDay ? (
-        <GlassPanel className="space-y-4 border-l-2 border-l-[var(--accent)]">
+      {/* Today highlight — um painel por treino do dia (pode ter mais de
+          um, ex.: alongamento manhã + liberação miofascial à noite). */}
+      {todaysPlans.filter((p) => !p.isRestDay).map((todayPlan) => (
+        <GlassPanel key={todayPlan.id} className="space-y-4 border-l-2 border-l-[var(--accent)]">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="praxis-label text-[var(--accent)]">
@@ -417,7 +432,7 @@ export default function RecoveryModulePage() {
             </p>
           )}
         </GlassPanel>
-      ) : null}
+      ))}
 
       {/* Week section: centralized creator + grid of weekday cards */}
       <div className="space-y-4">
@@ -451,26 +466,47 @@ export default function RecoveryModulePage() {
         ) : null}
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {weekdayOrder.map((wd) => {
-            const day = dayByWeekday[wd];
+          {weekdayOrder.flatMap((wd) => {
+            const days = daysByWeekday[wd] ?? [];
             const isToday = wd === todayWeekday;
-            return (
+            // Dia sem nenhum treino: renderiza UM card vazio
+            // (mantém o slot pra orientação visual / criação).
+            if (days.length === 0) {
+              return [
+                <DayCard
+                  key={wd}
+                  weekday={wd}
+                  day={undefined}
+                  isToday={isToday}
+                  completedToday={false}
+                  onUpdate={() => {}}
+                  onRemove={() => {}}
+                  onAddExercise={() => {}}
+                  onUpdateExercise={() => {}}
+                  onRemoveExercise={() => {}}
+                  onToggleComplete={() => {}}
+                />,
+              ];
+            }
+            // Múltiplos treinos no mesmo dia (ex.: alongamento manhã +
+            // liberação miofascial à noite): cada um vira um card.
+            return days.map((day) => (
               <DayCard
-                key={wd}
+                key={day.id}
                 weekday={wd}
                 day={day}
                 isToday={isToday}
-                completedToday={day ? isCompletedToday(day.id) : false}
-                onUpdate={(patch) => day && updateDay(day.id, patch)}
-                onRemove={() => day && removeDay(day.id)}
-                onAddExercise={(ex) => day && addExercise(day.id, ex)}
+                completedToday={isCompletedToday(day.id)}
+                onUpdate={(patch) => updateDay(day.id, patch)}
+                onRemove={() => removeDay(day.id)}
+                onAddExercise={(ex) => addExercise(day.id, ex)}
                 onUpdateExercise={(exId, patch) =>
-                  day && updateExercise(day.id, exId, patch)
+                  updateExercise(day.id, exId, patch)
                 }
-                onRemoveExercise={(exId) => day && removeExercise(day.id, exId)}
-                onToggleComplete={() => day && toggleCompleteToday(day)}
+                onRemoveExercise={(exId) => removeExercise(day.id, exId)}
+                onToggleComplete={() => toggleCompleteToday(day)}
               />
-            );
+            ));
           })}
         </div>
       </div>
