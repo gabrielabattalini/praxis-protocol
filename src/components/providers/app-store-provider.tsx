@@ -349,6 +349,12 @@ type AppStoreValue = {
       dayId: string;
       dateKey?: string;
     }) => void;
+    /** Move um dia de treino pra outro dia da semana (com swap se o
+     *  destino já tiver treino). Usado pra reorganizar a semana. */
+    setWorkoutDayWeekday: (payload: {
+      dayId: string;
+      weekday: Weekday;
+    }) => void;
     /** Adia uma ocorrência de treino pro dia seguinte. dateKey é a data
      *  em que o treino está aparecendo (hoje, por padrão). */
     deferWorkoutDayToNextDay: (payload: {
@@ -826,6 +832,13 @@ type Action =
       payload: {
         dayId: string;
         dateKey?: string;
+      };
+    }
+  | {
+      type: "set-workout-day-weekday";
+      payload: {
+        dayId: string;
+        weekday: Weekday;
       };
     }
   | {
@@ -2578,6 +2591,37 @@ function reducer(state: PersistedState, action: Action): PersistedState {
           })),
           ...state.workoutLoadEntries,
         ],
+      };
+    }
+    case "set-workout-day-weekday": {
+      // Move um dia de treino pra outro weekday. Se o destino já tem um
+      // treino, faz SWAP (o ocupante assume o weekday antigo do movido) —
+      // assim "trocar o dia do treino" mantém o mapeamento 1-pra-1 típico
+      // de um programa. state.workoutPlan espelha o plano do programa
+      // ativo, então remapeia os DOIS em sincronia.
+      const { dayId, weekday } = action.payload;
+      const remap = (days: WorkoutDayPlan[]): WorkoutDayPlan[] => {
+        const source = days.find((day) => day.id === dayId);
+        if (!source || source.weekday === weekday) return days;
+        const oldWeekday = source.weekday;
+        const occupant = days.find(
+          (day) => day.weekday === weekday && day.id !== dayId,
+        );
+        return days.map((day) => {
+          if (day.id === dayId) return { ...day, weekday };
+          if (occupant && day.id === occupant.id)
+            return { ...day, weekday: oldWeekday };
+          return day;
+        });
+      };
+      return {
+        ...state,
+        workoutPlan: remap(state.workoutPlan),
+        workoutPrograms: state.workoutPrograms.map((program) =>
+          program.id === state.activeWorkoutProgramId
+            ? { ...program, workoutPlan: remap(program.workoutPlan) }
+            : program,
+        ),
       };
     }
     case "toggle-workout-day-completed": {
@@ -6537,6 +6581,9 @@ export function AppStoreProvider({
       },
       toggleWorkoutDayCompleted(payload) {
         dispatch({ type: "toggle-workout-day-completed", payload });
+      },
+      setWorkoutDayWeekday(payload) {
+        dispatch({ type: "set-workout-day-weekday", payload });
       },
       deferWorkoutDayToNextDay(payload) {
         dispatch({ type: "defer-workout-day-next-day", payload });

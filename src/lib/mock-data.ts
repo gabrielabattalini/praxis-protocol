@@ -2546,6 +2546,10 @@ const maxUserLevel = 100;
 const baseXpPerLevel = 120;
 const xpGrowthFactor = 1.055;
 const xpLinearBonusPerLevel = 12;
+// XP concedido por cada treino concluído (WorkoutDayCompletion). Entre o
+// valor de uma tarefa difícil (55) e uma vitória de arena (120), porque
+// completar uma sessão de treino é um esforço relevante.
+export const WORKOUT_COMPLETION_XP = 80;
 const hunterRankThresholds: Array<{ tier: RankTier; minXp: number }> = [
   { tier: "E", minXp: 0 },
   { tier: "D", minXp: 2_000 },
@@ -2626,7 +2630,12 @@ export function buildUserProfile(state: PersistedState): UserProfile {
     .filter((lesson) => lesson.completed)
     .reduce((sum, lesson) => sum + lesson.points, 0);
   const arenaXp = state.arena.victories * 120 + state.arena.matches * 25;
-  const totalXp = totalTaskXp + lessonsXp + arenaXp;
+  // XP por treino concluído: cada WorkoutDayCompletion vale WORKOUT_COMPLETION_XP.
+  // Como o XP é derivado do estado (não armazenado), basta contar as
+  // conclusões — concluir um treino no app/Telegram já reflete no nível.
+  const workoutXp =
+    (state.workoutDayCompletions?.length ?? 0) * WORKOUT_COMPLETION_XP;
+  const totalXp = totalTaskXp + lessonsXp + arenaXp + workoutXp;
   const levelProgress = getLevelProgressFromXp(totalXp);
   const rank = getRankFromXp(totalXp);
 

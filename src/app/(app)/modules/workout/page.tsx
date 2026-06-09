@@ -22,6 +22,8 @@ import {
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { ProgressCurveChart } from "@/components/ui/progress-curve-chart";
+import { WorkoutCelebration } from "@/components/workout/workout-celebration";
+import { WORKOUT_COMPLETION_XP } from "@/lib/mock-data";
 import type {
   SavedWorkoutProgram,
   Weekday,
@@ -30,12 +32,23 @@ import type {
   WorkoutMuscleGroup,
 } from "@/lib/types";
 import {
+  formatDateKey,
   latestWorkoutLoad,
   makeId,
   weekdayLongLabel,
   weeklyVolumeByMuscle,
   workoutHistory,
 } from "@/lib/utils";
+
+const weekdayOrder: Weekday[] = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+];
 
 type WorkoutExerciseDraft = {
   id: string;
@@ -376,6 +389,32 @@ export default function WorkoutModulePage() {
   );
   const [renamingProgramId, setRenamingProgramId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  // Overlay comemorativo "Treino concluído + XP" (Feature de gamificação).
+  const [celebration, setCelebration] = useState<{
+    title: string;
+    xp: number;
+  } | null>(null);
+  // Painel "Trocar treino de dia" (reorganizar a semana). Começa fechado.
+  const [showDaySwap, setShowDaySwap] = useState(false);
+
+  const todayKey = formatDateKey(new Date());
+  // Weekday de hoje (getDay: 0=domingo) mapeado pra nossa ordem seg→dom.
+  const todayWeekday = weekdayOrder[(new Date().getDay() + 6) % 7];
+  // Exercícios que já têm pelo menos uma série lançada HOJE, por dia.
+  // Usa a data LOCAL do loggedAt (não o slice UTC) pra casar com o "hoje"
+  // do resto do app.
+  const loggedExerciseIdsTodayByDay = useMemo(() => {
+    const map: Record<string, Set<string>> = {};
+    for (const entry of state.workoutLoadEntries) {
+      if (formatDateKey(new Date(entry.loggedAt)) !== todayKey) continue;
+      (map[entry.dayId] ??= new Set()).add(entry.exerciseId);
+    }
+    return map;
+  }, [state.workoutLoadEntries, todayKey]);
+  const isWorkoutDayCompletedToday = (dayId: string) =>
+    state.workoutDayCompletions.some(
+      (completion) => completion.dayId === dayId && completion.dateKey === todayKey,
+    );
   const requestedDayId = searchParams.get("dayId");
   const selectedDayId = trainingDays.some((day) => day.id === activeDayId)
     ? activeDayId
@@ -863,6 +902,22 @@ export default function WorkoutModulePage() {
       }
       return next;
     });
+
+    // Gamificação: se ESTE lançamento fechou TODOS os exercícios do dia
+    // (todos com série lançada hoje) e o treino ainda não estava marcado
+    // como concluído, auto-conclui (gera XP via WorkoutDayCompletion) e
+    // dispara a celebração "Treino concluído!". É o "quando termino todos
+    // os lançamentos do dia" pedido pelo usuário.
+    const day = trainingDays.find((d) => d.id === dayId);
+    if (day && day.exercises.length > 0 && !isWorkoutDayCompletedToday(dayId)) {
+      const loggedNow = new Set(loggedExerciseIdsTodayByDay[dayId] ?? []);
+      loggedNow.add(exercise.id);
+      const allLogged = day.exercises.every((ex) => loggedNow.has(ex.id));
+      if (allLogged) {
+        actions.toggleWorkoutDayCompleted({ dayId, dateKey: todayKey });
+        setCelebration({ title: day.title, xp: WORKOUT_COMPLETION_XP });
+      }
+    }
     // NÃO fecha o painel automaticamente após salvar. Recolher aqui fazia
     // o conteúdo abaixo "pular" pra cima e, com a posição de scroll fixa,
     // a página parecia rolar pra baixo sozinha (sensação de travado, pior
@@ -1347,6 +1402,13 @@ export default function WorkoutModulePage() {
 
   return (
     <main className="mx-auto max-w-7xl space-y-10 px-4 pb-32 pt-4">
+      {celebration ? (
+        <WorkoutCelebration
+          title={celebration.title}
+          xp={celebration.xp}
+          onClose={() => setCelebration(null)}
+        />
+      ) : null}
       <div className="mod-hero">
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div className="mod-icon" style={{ width: 56, height: 56, borderRadius: 14, fontSize: 24 }}>🏋️</div>
@@ -1385,6 +1447,83 @@ export default function WorkoutModulePage() {
           </div>
         </div>
       </div>
+
+      {/* Trocar treino de dia — reorganizar a semana sem refazer o
+          programa. Escolha qual treino fica em cada dia; trocar um dia
+          que já tem treino faz o swap entre os dois. */}
+      {trainingDays.length > 0 ? (
+        <GlassPanel className="space-y-3">
+          <button
+            type="button"
+            onClick={() => setShowDaySwap((current) => !current)}
+            aria-expanded={showDaySwap}
+            className="flex w-full items-center justify-between gap-3 text-left"
+          >
+            <span className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-[var(--accent)]" />
+              <span className="font-headline text-base font-bold uppercase tracking-widest text-zinc-100">
+                Trocar treino de dia
+              </span>
+            </span>
+            {showDaySwap ? (
+              <ChevronUp className="h-4 w-4 text-zinc-400" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-zinc-400" />
+            )}
+          </button>
+
+          {showDaySwap ? (
+            <>
+              <p className="text-xs leading-5 text-zinc-500">
+                Escolha qual treino fica em cada dia. Mudar um dia que já
+                tem treino faz a troca entre os dois — ideal pra alternar a
+                ordem numa semana.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {weekdayOrder.map((wd) => {
+                  const dayHere = trainingDays.find((d) => d.weekday === wd);
+                  const isToday = wd === todayWeekday;
+                  return (
+                    <div
+                      key={wd}
+                      className="flex items-center gap-2 rounded-sm border border-zinc-800 bg-black/30 px-3 py-2"
+                    >
+                      <span
+                        className={`w-24 shrink-0 text-sm ${
+                          isToday ? "font-semibold text-[var(--accent)]" : "text-zinc-300"
+                        }`}
+                      >
+                        {weekdayLongLabel(wd)}
+                      </span>
+                      <select
+                        value={dayHere?.id ?? ""}
+                        onChange={(event) => {
+                          const id = event.target.value;
+                          if (id) {
+                            actions.setWorkoutDayWeekday({
+                              dayId: id,
+                              weekday: wd,
+                            });
+                          }
+                        }}
+                        aria-label={`Treino de ${weekdayLongLabel(wd)}`}
+                        className="praxis-field w-full min-w-0 px-2 py-2 text-sm text-white"
+                      >
+                        <option value="">— Descanso —</option>
+                        {trainingDays.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.title}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : null}
+        </GlassPanel>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
         <section className="space-y-6 md:col-span-8">
