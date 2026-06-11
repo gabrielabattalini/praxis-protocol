@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { subscribeUserToNotifications } from "@/lib/notification-center.server";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,9 @@ export async function POST(request: Request) {
   if (!userId) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   }
+
+  const limited = await enforceRateLimit("notif-subscribe", userId, 20, 60);
+  if (limited) return limited;
 
   try {
     const body = bodySchema.parse(await request.json());

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { searchShoppingOffers } from "@/lib/shopping-search.server";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 import type { DoseUnit, ShoppingModuleScope } from "@/lib/shopping-search";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,10 @@ export async function GET(request: Request) {
   if (!userId) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   }
+
+  // Busca usa axios + Playwright (caro). 15/min por usuário.
+  const limited = await enforceRateLimit("shopping-search", userId, 15, 60);
+  if (limited) return limited;
 
   const { searchParams } = new URL(request.url);
   const scopeParam = String(searchParams.get("scope") || "market").trim();
@@ -59,13 +64,14 @@ export async function GET(request: Request) {
 
     return NextResponse.json(response);
   } catch (error) {
+    // Loga o detalhe no servidor, devolve mensagem genérica (não vazar
+    // hostnames/motivos de bloqueio do extrator pro cliente).
+    console.error(
+      "[shopping-search] erro:",
+      error instanceof Error ? error.message : error,
+    );
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Nao foi possivel consultar as lojas agora.",
-      },
+      { error: "Não foi possível consultar as lojas agora." },
       { status: 500 },
     );
   }

@@ -6,6 +6,7 @@ import {
   PayloadTooLargeError,
   readJsonWithLimit,
 } from "@/lib/security/request-body";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -155,6 +156,12 @@ export async function PUT(request: Request) {
   if (!userId) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   }
+
+  // Anti-abuso: save de ~1MB + push de histórico a cada PUT é caro no KV.
+  // 30 saves/min por usuário cobre o uso normal (debounce de 700ms) com
+  // folga e corta loops automatizados.
+  const limited = await enforceRateLimit("account-state-put", userId, 30, 60);
+  if (limited) return limited;
 
   try {
     const body = accountStateSchema.parse(

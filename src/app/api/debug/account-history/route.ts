@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getAccountStateHistory } from "@/lib/account-state.server";
+import { isDebugAllowed } from "@/lib/security/debug-gate";
 import type { PersistedState } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,9 @@ export const maxDuration = 30;
  * activeDietPlanId) pra cada versão, pra evitar JSON gigante.
  */
 export async function GET() {
+  if (!isDebugAllowed()) {
+    return new NextResponse(null, { status: 404 });
+  }
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "not-authenticated" }, { status: 401 });

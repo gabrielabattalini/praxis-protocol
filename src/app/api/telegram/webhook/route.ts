@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import {
   answerCallbackQuery,
@@ -69,7 +70,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 
-  if (providedSecret !== expectedSecret) {
+  // Comparação em tempo constante (evita timing oracle no segredo).
+  const secretOk =
+    typeof providedSecret === "string" &&
+    crypto.timingSafeEqual(
+      crypto.createHash("sha256").update(providedSecret).digest(),
+      crypto.createHash("sha256").update(expectedSecret).digest(),
+    );
+  if (!secretOk) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
@@ -120,10 +128,14 @@ export async function POST(request: Request) {
     // num chat reusado) — recusa em vez de marcar a tarefa na conta
     // errada. (#7 da auditoria: antes só logava e deixava passar.)
     const binding = await getTelegramBinding(userId);
+    // Quando o binding tem telegramUserId, EXIGE que o clique tenha
+    // from.id presente E igual. Antes a checagem só rodava se cbFromId
+    // existisse — um callback sem from.id pulava o controle. Agora, se o
+    // binding conhece o dono, um clique sem from.id (ou divergente) é
+    // recusado.
     if (
       binding?.telegramUserId &&
-      cbFromId &&
-      binding.telegramUserId !== cbFromId
+      (!cbFromId || binding.telegramUserId !== cbFromId)
     ) {
       console.warn(
         `[telegram-webhook] from.id mismatch: binding=${binding.telegramUserId} cb=${cbFromId} userId=${userId} — recusando`,

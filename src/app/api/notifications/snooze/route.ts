@@ -6,6 +6,7 @@ import {
   PayloadTooLargeError,
   readJsonWithLimit,
 } from "@/lib/security/request-body";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -25,6 +26,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   }
 
+  const limited = await enforceRateLimit("notif-snooze", userId, 30, 60);
+  if (limited) return limited;
+
   try {
     const raw = await readJsonWithLimit<unknown>(request, MAX_BYTES);
     const parsed = snoozeSchema.parse(raw);
@@ -34,13 +38,9 @@ export async function POST(request: Request) {
     if (error instanceof PayloadTooLargeError) {
       return NextResponse.json({ error: "Payload muito grande." }, { status: 413 });
     }
+    // Mensagem genérica — não vazar detalhes internos do erro ao cliente.
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Não foi possível adiar o lembrete.",
-      },
+      { error: "Não foi possível adiar o lembrete." },
       { status: 400 },
     );
   }

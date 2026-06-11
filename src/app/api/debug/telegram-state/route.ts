@@ -5,6 +5,7 @@ import {
   getNotificationScheduleSnapshot,
   getUserTimezone,
 } from "@/lib/notification-center.server";
+import { isDebugAllowed } from "@/lib/security/debug-gate";
 import type { PersistedState, Task } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,9 @@ export const dynamic = "force-dynamic";
  * no browser logado e copie o JSON.
  */
 export async function GET() {
+  if (!isDebugAllowed()) {
+    return new NextResponse(null, { status: 404 });
+  }
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "not-authenticated" }, { status: 401 });

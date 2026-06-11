@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAppUrl } from "@/lib/billing-config";
 import { getStripeBillingPlan } from "@/lib/stripe-billing.server";
 import { getStripeServer } from "@/lib/stripe.server";
+import {
+  clientIpFromRequest,
+  enforceRateLimit,
+} from "@/lib/security/rate-limit";
 
 type CheckoutPayload = {
   plan?: string;
@@ -81,6 +85,16 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Rota pública: cada chamada cria uma Stripe Checkout Session real.
+  // Rate-limit por IP pra impedir geração em massa de sessões.
+  const limited = await enforceRateLimit(
+    "billing-checkout",
+    clientIpFromRequest(request),
+    10,
+    60,
+  );
+  if (limited) return limited;
+
   try {
     const payload = (await request.json().catch(() => ({}))) as CheckoutPayload;
     const url = await createCheckoutSessionUrl(payload);

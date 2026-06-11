@@ -198,11 +198,9 @@ export async function saveAccountState(
   userId: string,
   payload: PersistedAccountEnvelope,
 ): Promise<PersistedAccountEnvelope> {
-  const envelope: PersistedAccountEnvelope = {
-    version: Number.isFinite(payload.version) ? payload.version : 1,
-    updatedAt: payload.updatedAt || new Date().toISOString(),
-    state: payload.state,
-  };
+  const requestedVersion = Number.isFinite(payload.version)
+    ? payload.version
+    : 1;
 
   if (KV_ENABLED) {
     // Empilha a versão CORRENTE no histórico ANTES de sobrescrever.
@@ -210,6 +208,17 @@ export async function saveAccountState(
     // aconteceu), dá pra restaurar pela versão anterior. Mantém as 10
     // últimas. Best-effort: erro de histórico não bloqueia o save.
     const current = await kvGet(userId);
+    // Versão MONOTÔNICA: nunca regride. Sem isto, um save com versão
+    // defasada (ex.: race entre PUT do app e ação do Telegram, ou import)
+    // baixava o número e quebrava a concorrência otimista (baseVersion).
+    const currentVersion = Number.isFinite(current?.version)
+      ? (current!.version as number)
+      : 0;
+    const envelope: PersistedAccountEnvelope = {
+      version: Math.max(requestedVersion, currentVersion + 1),
+      updatedAt: payload.updatedAt || new Date().toISOString(),
+      state: payload.state,
+    };
     if (current) {
       await kvPushHistory(userId, current);
     }
@@ -218,6 +227,14 @@ export async function saveAccountState(
   }
 
   const store = loadStore();
+  const currentVersion = Number.isFinite(store.users[userId]?.version)
+    ? (store.users[userId]!.version as number)
+    : 0;
+  const envelope: PersistedAccountEnvelope = {
+    version: Math.max(requestedVersion, currentVersion + 1),
+    updatedAt: payload.updatedAt || new Date().toISOString(),
+    state: payload.state,
+  };
   store.users[userId] = envelope;
   saveStore(store);
   return store.users[userId];

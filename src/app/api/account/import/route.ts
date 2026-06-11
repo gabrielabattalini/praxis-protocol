@@ -5,12 +5,17 @@ import {
   PayloadTooLargeError,
   readJsonWithLimit,
 } from "@/lib/security/request-body";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-const BACKUP_MAX_BYTES = 5_000_000; // 5 MB de margem
+const BACKUP_MAX_BYTES = 5_000_000; // 5 MB de margem do envelope
+// O state em si tem o MESMO teto do PUT normal (account-state) — sem
+// isto, o import era um bypass do cap de 1MB → bloat de KV (cada save
+// empilha até 10 versões no histórico). Mantém os dois caminhos iguais.
+const STATE_MAX_BYTES = 1_000_000;
 
 type BackupPayload = {
   backupFormat?: number;
@@ -37,6 +42,10 @@ export async function POST(request: Request) {
   if (!userId) {
     return NextResponse.json({ error: "not-authenticated" }, { status: 401 });
   }
+
+  // Import é caro (sobrescreve + empilha histórico). 10/min basta.
+  const limited = await enforceRateLimit("account-import", userId, 10, 60);
+  if (limited) return limited;
 
   let body: BackupPayload;
   try {
@@ -73,6 +82,14 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "invalid-state", message: "Backup sem campo 'state'." },
       { status: 400 },
+    );
+  }
+
+  // Mesmo teto do PUT normal pro state — fecha o bypass do cap de 1MB.
+  if (Buffer.byteLength(JSON.stringify(body.state), "utf8") > STATE_MAX_BYTES) {
+    return NextResponse.json(
+      { error: "state-too-large", maxBytes: STATE_MAX_BYTES },
+      { status: 413 },
     );
   }
 

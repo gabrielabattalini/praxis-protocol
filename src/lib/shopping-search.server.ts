@@ -518,6 +518,11 @@ function sanitizeMercadoLivreLink(rawLink: string | undefined) {
   if (!value) return "";
   try {
     const url = new URL(value);
+    // Só http(s) — o href vem de conteúdo de marketplace (anúncio de
+    // vendedor), então um "javascript:"/"data:" não pode escapar pro
+    // cliente. Defesa em profundidade (o cliente também filtra via
+    // safeHref antes de renderizar).
+    if (url.protocol !== "https:" && url.protocol !== "http:") return "";
     [
       "polycard_client",
       "search_layout",

@@ -7,6 +7,7 @@ import {
   weekReference,
 } from "@/lib/weekly-report";
 import { generateWeeklyReportPdf } from "@/lib/weekly-report-pdf";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -19,6 +20,10 @@ export async function GET(request: Request) {
   if (!userId) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   }
+
+  // Geração de PDF é cara. 10/min por usuário.
+  const limited = await enforceRateLimit("weekly-pdf", userId, 10, 60);
+  if (limited) return limited;
 
   const envelope = await getAccountState(userId);
   if (!envelope) {

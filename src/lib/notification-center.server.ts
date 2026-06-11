@@ -206,6 +206,10 @@ const userSubsKey = (userId: string) => `praxis:notif:u:${userId}:subs`;
 const userSchedKey = (userId: string) => `praxis:notif:u:${userId}:sched`;
 const userSnoozeKey = (userId: string) => `praxis:notif:u:${userId}:snooze`;
 const userPrewarnKey = (userId: string) => `praxis:notif:u:${userId}:prewarn`;
+
+// Caps anti-bloat por usuário (auditoria de segurança).
+const MAX_SUBSCRIPTIONS_PER_USER = 20;
+const MAX_SNOOZES_PER_USER = 100;
 const USER_INDEX_KEY = "praxis:notif:userindex";
 const DISPATCH_LOG_KEY = "praxis:notif:dispatchlog";
 const MIGRATED_FLAG_KEY = "praxis:notif:migrated-v2";
@@ -758,7 +762,11 @@ export async function snoozeNotification(
     title: payload.title?.slice(0, 200),
     body: payload.body?.slice(0, 500),
   });
-  await saveUserSnoozes(userId, remaining);
+  // Cap de snoozes por usuário: itemId é controlado pelo cliente, então
+  // sem limite a lista crescia sem teto (bloat de KV + dispatch O(N) por
+  // minuto). Mantém os mais recentes.
+  const capped = remaining.slice(-MAX_SNOOZES_PER_USER);
+  await saveUserSnoozes(userId, capped);
   return { fireAt };
 }
 
@@ -792,10 +800,15 @@ export async function subscribeUserToNotifications(
     updatedAt: now,
   };
 
-  const nextSubscriptions =
+  const nextSubscriptions = (
     existingIndex >= 0
       ? current.map((entry, index) => (index === existingIndex ? nextEntry : entry))
-      : [nextEntry, ...current];
+      : [nextEntry, ...current]
+  )
+    // Cap de dispositivos por usuário: cada endpoint distinto cresce a
+    // lista (subscribe não tinha limite → bloat de KV + loop de envio
+    // mais caro). Mantém os 20 mais recentes (nextEntry vai pra frente).
+    .slice(0, MAX_SUBSCRIPTIONS_PER_USER);
 
   await saveUserSubs(userId, nextSubscriptions);
   const schedule = await loadUserSchedule(userId);
