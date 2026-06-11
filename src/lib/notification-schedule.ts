@@ -1,5 +1,9 @@
 import { buildNotificationBodyWithCue } from "@/lib/discipline-cues";
-import { isTaskCompletedForDate, isTaskDueForDate } from "@/lib/utils";
+import {
+  isMealItemCompletedForDateKey,
+  isTaskCompletedForDate,
+  isTaskDueForDate,
+} from "@/lib/utils";
 import type {
   MealPlanBlock,
   ModuleId,
@@ -83,10 +87,19 @@ function offsetTimeBackward(time: string, minutes: number): string {
   return `${h}:${m}`;
 }
 
-// 5min de pre-warning antes do horário marcado. Adiciona um schedule item
-// extra com id ":pre5" pra cada task/reminder. O title indica que é aviso
-// antecipado. dispatchKey por dia já garante dedup entre os dois disparos.
+// 5min de pre-warning antes do horário marcado (PADRÃO). Adiciona um
+// schedule item extra com id ":pre<N>" pra cada task/reminder/meal. O
+// usuário pode mudar o tempo em Missões (notificationPreWarnMinutes);
+// 0 desliga o pré-aviso. dispatchKey por dia já garante dedup.
 const PRE_WARNING_MINUTES = 5;
+
+// Sanitiza o tempo de pré-aviso vindo do estado do usuário: inteiro,
+// entre 0 (desligado) e 120 minutos; qualquer lixo cai no padrão.
+export function sanitizePreWarnMinutes(value: unknown): number {
+  const parsed = Math.round(Number(value));
+  if (!Number.isFinite(parsed)) return PRE_WARNING_MINUTES;
+  return Math.min(120, Math.max(0, parsed));
+}
 
 function allWeekdays(): Weekday[] {
   return [
@@ -176,7 +189,9 @@ export function buildNotificationSyncPayload(
   mealPlan: MealPlanBlock[] = [],
   customQuotes: string[] = [],
   hiddenQuotes: string[] = [],
+  preWarnMinutesRaw: number = PRE_WARNING_MINUTES,
 ): NotificationSyncPayload {
+  const preWarnMinutes = sanitizePreWarnMinutes(preWarnMinutesRaw);
   const syncedAt = new Date().toISOString();
   const todayKey = localDateKey();
   const reminderTaskIds = new Set(
@@ -263,16 +278,17 @@ export function buildNotificationSyncPayload(
         ...schedule,
       };
 
-      const preTime = offsetTimeBackward(time, PRE_WARNING_MINUTES);
+      const preTime =
+        preWarnMinutes > 0 ? offsetTimeBackward(time, preWarnMinutes) : "";
       if (!preTime) return [onTimeItem];
 
       const preItem: NotificationScheduleItem = {
         ...onTimeItem,
-        id: `${baseId}:pre${PRE_WARNING_MINUTES}`,
-        title: `⏰ Em ${PRE_WARNING_MINUTES} min: ${task.title}`,
+        id: `${baseId}:pre${preWarnMinutes}`,
+        title: `⏰ Em ${preWarnMinutes} min: ${task.title}`,
         body: buildNotificationBodyWithCue({
           title: task.title,
-          body: `Faltam ${PRE_WARNING_MINUTES} minutos. ${description}`,
+          body: `Faltam ${preWarnMinutes} minutos. ${description}`,
           moduleId: task.moduleId,
           entityType: "task",
           route,
@@ -313,16 +329,17 @@ export function buildNotificationSyncPayload(
         weekdays: reminder.weekdays?.length ? reminder.weekdays : allWeekdays(),
       };
 
-      const preTime = offsetTimeBackward(time, PRE_WARNING_MINUTES);
+      const preTime =
+        preWarnMinutes > 0 ? offsetTimeBackward(time, preWarnMinutes) : "";
       if (!preTime) return [onTimeItem];
 
       const preItem: NotificationScheduleItem = {
         ...onTimeItem,
-        id: `${baseId}:pre${PRE_WARNING_MINUTES}`,
-        title: `⏰ Em ${PRE_WARNING_MINUTES} min: ${reminder.title}`,
+        id: `${baseId}:pre${preWarnMinutes}`,
+        title: `⏰ Em ${preWarnMinutes} min: ${reminder.title}`,
         body: buildNotificationBodyWithCue({
           title: reminder.title,
-          body: `Faltam ${PRE_WARNING_MINUTES} minutos. ${description}`,
+          body: `Faltam ${preWarnMinutes} minutos. ${description}`,
           entityType: reminder.entityType,
           route,
         }),
@@ -364,16 +381,17 @@ export function buildNotificationSyncPayload(
         weekdays: allWeekdays(),
       };
 
-      const preTime = offsetTimeBackward(time, PRE_WARNING_MINUTES);
+      const preTime =
+        preWarnMinutes > 0 ? offsetTimeBackward(time, preWarnMinutes) : "";
       if (!preTime) return [onTimeItem];
 
       const preItem: NotificationScheduleItem = {
         ...onTimeItem,
-        id: `${baseId}:pre${PRE_WARNING_MINUTES}`,
-        title: `⏰ Em ${PRE_WARNING_MINUTES} min: ${block.title}`,
+        id: `${baseId}:pre${preWarnMinutes}`,
+        title: `⏰ Em ${preWarnMinutes} min: ${block.title}`,
         body: buildNotificationBodyWithCue({
           title: block.title,
-          body: `Faltam ${PRE_WARNING_MINUTES} minutos. ${description}`,
+          body: `Faltam ${preWarnMinutes} minutos. ${description}`,
           entityType: "meal",
           route: "/modules/nutrition",
         }),
@@ -421,7 +439,10 @@ export function buildNotificationSyncPayload(
  */
 export function isScheduleItemEntityAlive(
   item: Pick<NotificationScheduleItem, "source" | "entityType" | "entityId">,
-  state: { tasks?: Task[]; reminders?: ReminderItem[] } | null | undefined,
+  state:
+    | { tasks?: Task[]; reminders?: ReminderItem[]; mealPlan?: MealPlanBlock[] }
+    | null
+    | undefined,
   referenceDate: Date = new Date(),
 ): boolean {
   if (!state) return true;
@@ -461,6 +482,23 @@ export function isScheduleItemEntityAlive(
       if (linkedTask && !isTaskDueForDate(linkedTask, referenceDate)) {
         return false;
       }
+    }
+    return true;
+  }
+
+  if (item.source === "meal" && item.entityId) {
+    const block = (state.mealPlan ?? []).find((b) => b.id === item.entityId);
+    // Bloco apagado do plano → notificação órfã, silencia.
+    if (!block) return false;
+    // Todos os itens da refeição já concluídos na data (ex.: usuário
+    // marcou pelo botão do pré-aviso) → a notificação da hora não sai.
+    // Blocos sem itens passam (não há o que checar).
+    const dateKey = localDateKey(referenceDate);
+    if (
+      block.items.length > 0 &&
+      block.items.every((it) => isMealItemCompletedForDateKey(it, dateKey))
+    ) {
+      return false;
     }
     return true;
   }

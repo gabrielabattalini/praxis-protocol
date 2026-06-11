@@ -355,6 +355,8 @@ type AppStoreValue = {
       dayId: string;
       weekday: Weekday;
     }) => void;
+    /** Define os minutos do pré-aviso das notificações (0 desliga). */
+    setNotificationPreWarnMinutes: (minutes: number) => void;
     /** Adia uma ocorrência de treino pro dia seguinte. dateKey é a data
      *  em que o treino está aparecendo (hoje, por padrão). */
     deferWorkoutDayToNextDay: (payload: {
@@ -840,6 +842,10 @@ type Action =
         dayId: string;
         weekday: Weekday;
       };
+    }
+  | {
+      type: "set-notification-pre-warn-minutes";
+      minutes: number;
     }
   | {
       type: "defer-workout-day-next-day";
@@ -2622,6 +2628,18 @@ function reducer(state: PersistedState, action: Action): PersistedState {
             ? { ...program, workoutPlan: remap(program.workoutPlan) }
             : program,
         ),
+      };
+    }
+    case "set-notification-pre-warn-minutes": {
+      // Clamp 0–120; 0 desliga o pré-aviso. O sync de notificações
+      // reconstrói o schedule quando este campo muda.
+      const minutes = Math.min(
+        120,
+        Math.max(0, Math.round(Number(action.minutes) || 0)),
+      );
+      return {
+        ...state,
+        notificationPreWarnMinutes: minutes,
       };
     }
     case "toggle-workout-day-completed": {
@@ -5532,6 +5550,14 @@ function parseStateValue(
             (q): q is string => typeof q === "string",
           )
         : [],
+      notificationPreWarnMinutes:
+        typeof parsedState.notificationPreWarnMinutes === "number" &&
+        Number.isFinite(parsedState.notificationPreWarnMinutes)
+          ? Math.min(
+              120,
+              Math.max(0, Math.round(parsedState.notificationPreWarnMinutes)),
+            )
+          : undefined,
     };
   } catch {
     return null;
@@ -6584,6 +6610,9 @@ export function AppStoreProvider({
       },
       setWorkoutDayWeekday(payload) {
         dispatch({ type: "set-workout-day-weekday", payload });
+      },
+      setNotificationPreWarnMinutes(minutes) {
+        dispatch({ type: "set-notification-pre-warn-minutes", minutes });
       },
       deferWorkoutDayToNextDay(payload) {
         dispatch({ type: "defer-workout-day-next-day", payload });

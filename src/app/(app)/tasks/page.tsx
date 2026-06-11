@@ -2212,6 +2212,70 @@ export default function TasksPage() {
             : "Marque refeições na Dieta, conclua um treino ou lance um cardio para começar a contabilizar o dia."}
         </p>
       </div>
+
+      {/* Configuração do PRÉ-AVISO das notificações ("⏰ Em N min").
+          Pedido do usuário: o tempo não é mais fixo em 5 min — dá pra
+          ajustar (ou desligar) aqui nas Missões. A mudança re-sincroniza
+          o schedule de notificações automaticamente. */}
+      <div className="glass glass-ok" style={{ marginTop: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 8,
+          }}
+        >
+          <Bell className="h-4 w-4" style={{ color: "var(--accent)" }} />
+          <span
+            className="praxis-label"
+            style={{ color: "var(--accent)", fontSize: 11 }}
+          >
+            Aviso antecipado
+          </span>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <p
+            style={{
+              flex: 1,
+              minWidth: 200,
+              fontSize: 12,
+              color: "#a1a1aa",
+              lineHeight: 1.5,
+              margin: 0,
+            }}
+          >
+            Quanto tempo antes do horário você quer receber o aviso
+            (&quot;⏰ Em N min&quot;) no Telegram e no push.
+          </p>
+          <select
+            value={String(state.notificationPreWarnMinutes ?? 5)}
+            onChange={(event) =>
+              actions.setNotificationPreWarnMinutes(Number(event.target.value))
+            }
+            aria-label="Tempo do aviso antecipado"
+            className="praxis-field"
+            style={{ padding: "8px 12px", fontSize: 13, color: "#fff" }}
+          >
+            <option value="0">Desligado</option>
+            <option value="2">2 minutos antes</option>
+            <option value="5">5 minutos antes (padrão)</option>
+            <option value="10">10 minutos antes</option>
+            <option value="15">15 minutos antes</option>
+            <option value="20">20 minutos antes</option>
+            <option value="30">30 minutos antes</option>
+            <option value="45">45 minutos antes</option>
+            <option value="60">1 hora antes</option>
+          </select>
+        </div>
+      </div>
     </div>
   );
 }

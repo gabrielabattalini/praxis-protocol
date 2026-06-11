@@ -761,6 +761,9 @@ export interface PersistedState {
      Guardamos o texto (não há id no array em código); o pool de frases
      filtra por ele no overlay e nos lembretes do Telegram. */
   hiddenQuotes: string[];
+  /* Minutos do PRÉ-AVISO das notificações (o "⏰ Em N min"). Configurável
+     nas Missões; padrão 5; 0 desliga o pré-aviso. */
+  notificationPreWarnMinutes?: number;
 }
 
 export interface CustomQuote {
