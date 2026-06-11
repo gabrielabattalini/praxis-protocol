@@ -433,6 +433,11 @@ type AppStoreValue = {
       time: string;
       weekdays?: Weekday[];
       note?: string;
+      preWarnMinutes?: number;
+      // Permite criar o lembrete já DESLIGADO — usado pra "silenciar" uma
+      // tarefa que notificava por padrão (sem reminder explícito). Default
+      // true (mantém o comportamento anterior de addReminder).
+      enabled?: boolean;
     }) => void;
     updateReminder: (payload: {
       reminderId: string;
@@ -442,6 +447,7 @@ type AppStoreValue = {
         weekdays?: Weekday[];
         enabled: boolean;
         note?: string;
+        preWarnMinutes?: number;
       }>;
     }) => void;
     addHouseholdSupply: (payload: {
@@ -946,6 +952,8 @@ type Action =
         time: string;
         weekdays?: Weekday[];
         note?: string;
+        preWarnMinutes?: number;
+        enabled?: boolean;
       };
     }
   | {
@@ -958,6 +966,7 @@ type Action =
           weekdays?: Weekday[];
           enabled: boolean;
           note?: string;
+          preWarnMinutes?: number;
         }>;
       };
     }
@@ -5663,6 +5672,30 @@ function isEnvelopeCompatibleWithUser(
   return true;
 }
 
+/**
+ * Variante ESTRITA pro caminho de localStorage legado NÃO-escopado
+ * (keys sem `:userId`, ex.: `praxis-protocol-store`). Diferente do check
+ * suave acima, exige IDENTIDADE POSITIVA: o envelope precisa carregar um
+ * session.userId/email que BATE com o usuário atual. Sem isso, um cache
+ * antigo sem identidade (de outra conta no mesmo navegador) podia hidratar
+ * os dados de A na sessão de B em dispositivo compartilhado.
+ */
+function isEnvelopePositivelyOwnedByUser(
+  envelope: ParsedStateEnvelope | null | undefined,
+  userId: string | null | undefined,
+  email: string | null | undefined,
+) {
+  if (!envelope || !userId) return false;
+  const sessionUserId = envelope.state.session?.userId;
+  const sessionEmail = envelope.state.session?.email?.trim().toLowerCase();
+  const normalizedEmail = email?.trim().toLowerCase();
+  if (sessionUserId && sessionUserId === userId) return true;
+  if (normalizedEmail && sessionEmail && sessionEmail === normalizedEmail) {
+    return true;
+  }
+  return false;
+}
+
 function resolveHydrationEnvelope(
   serverEnvelope: ParsedStateEnvelope | null,
   localEnvelope: ParsedStateEnvelope | null,
@@ -5729,7 +5762,12 @@ function findLegacyPersistedState(
       key,
       value: parseState(window.localStorage.getItem(key)),
     }))
-    .filter((entry) => isEnvelopeCompatibleWithUser(entry.value, userId, email))
+    // Estrito: só hidrata cache não-escopado se ele PROVAR ser do usuário
+    // atual (não basta "não conflitar"). Evita vazar dados entre contas
+    // num navegador compartilhado.
+    .filter((entry) =>
+      isEnvelopePositivelyOwnedByUser(entry.value, userId, email),
+    )
     .find((entry) => entry.value);
 
   return unscopedLegacy?.value
@@ -6010,7 +6048,7 @@ export function AppStoreProvider({
       // Demo seed (market/supplements) only for the local-review bypass
       // or the founder account. Brand-new real accounts stay clean.
       const allowSeed =
-        isLocalAuthBypassEnabled || isFounderEmail(currentEmail);
+        isLocalAuthBypassEnabled || (await isFounderEmail(currentEmail));
 
       dispatch({
         type: "hydrate",

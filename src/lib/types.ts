@@ -600,6 +600,10 @@ export interface ReminderItem {
   enabled: boolean;
   delivery: "native-pending" | "web-push" | "in-app";
   note?: string;
+  // Pré-aviso individual deste lembrete, em minutos antes do horário.
+  // undefined = usa o padrão global (notificationPreWarnMinutes). 0 = sem
+  // pré-aviso (só o aviso na hora). Permite timer por tarefa no Telegram.
+  preWarnMinutes?: number;
 }
 
 export interface FinanceLesson {

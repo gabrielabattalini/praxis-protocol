@@ -35,6 +35,17 @@ function getBuiltInLifetimeEmails(): readonly string[] {
 }
 
 /**
+ * Email(s) do fundador/operador em texto puro. Vive aqui (server-only),
+ * NÃO em access-entitlements.ts (módulo client-safe, que só guarda o HASH
+ * pra não vazar o email no bundle JS público). Sempre entra na allowlist de
+ * lifetime — mesmo que PRAXIS_BUILT_IN_LIFETIME_EMAILS sobrescreva a lista
+ * de vitalícios — garantindo que o acesso admin nunca quebra por env.
+ */
+const FOUNDER_LIFETIME_EMAILS: readonly string[] = [
+  "gabrielabattalini@gmail.com",
+];
+
+/**
  * Returns true if the given email has paid — checked LIVE against Stripe.
  *
  * No database needed: Stripe itself is the source of truth. We look the
@@ -111,7 +122,10 @@ async function hasActiveStripeAccess(
 export async function resolveAccountEntitlementFull(
   email: string | null | undefined,
 ): Promise<AccountEntitlement> {
-  const builtInLifetime = getBuiltInLifetimeEmails();
+  const builtInLifetime = [
+    ...FOUNDER_LIFETIME_EMAILS,
+    ...getBuiltInLifetimeEmails(),
+  ];
 
   // 1. Lifetime allowlist — instant, no network.
   if (

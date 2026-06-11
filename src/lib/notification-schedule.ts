@@ -329,17 +329,25 @@ export function buildNotificationSyncPayload(
         weekdays: reminder.weekdays?.length ? reminder.weekdays : allWeekdays(),
       };
 
+      // Pré-aviso INDIVIDUAL por lembrete: se o reminder define
+      // preWarnMinutes, usa ele; senão cai no padrão global. Assim cada
+      // tarefa tem seu próprio timer de "⏰ Em N min" no Telegram/push.
+      const reminderPreWarn =
+        typeof reminder.preWarnMinutes === "number"
+          ? sanitizePreWarnMinutes(reminder.preWarnMinutes)
+          : preWarnMinutes;
+
       const preTime =
-        preWarnMinutes > 0 ? offsetTimeBackward(time, preWarnMinutes) : "";
+        reminderPreWarn > 0 ? offsetTimeBackward(time, reminderPreWarn) : "";
       if (!preTime) return [onTimeItem];
 
       const preItem: NotificationScheduleItem = {
         ...onTimeItem,
-        id: `${baseId}:pre${preWarnMinutes}`,
-        title: `⏰ Em ${preWarnMinutes} min: ${reminder.title}`,
+        id: `${baseId}:pre${reminderPreWarn}`,
+        title: `⏰ Em ${reminderPreWarn} min: ${reminder.title}`,
         body: buildNotificationBodyWithCue({
           title: reminder.title,
-          body: `Faltam ${preWarnMinutes} minutos. ${description}`,
+          body: `Faltam ${reminderPreWarn} minutos. ${description}`,
           entityType: reminder.entityType,
           route,
         }),
