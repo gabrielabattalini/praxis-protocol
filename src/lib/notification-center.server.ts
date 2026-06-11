@@ -15,6 +15,7 @@ import {
 } from "@/lib/telegram-center.server";
 import { getLoadingCuePool } from "@/lib/discipline-cues";
 import { getAccountState } from "@/lib/account-state.server";
+import { appendCallbackDate } from "@/lib/telegram-callback-date";
 
 const dataDir = path.join(process.cwd(), ".data");
 const vapidPath = path.join(dataDir, "notifications-vapid.json");
@@ -92,6 +93,10 @@ type SnoozedItem = {
   fireAt: string;
   title?: string;
   body?: string;
+  // Dia (YYYY-MM-DD) do disparo ORIGINAL da notificação adiada. O
+  // re-disparo reanexa essa data nos botões — concluir um adiamento que
+  // cruzou a meia-noite dá baixa no dia certo.
+  dateKey?: string;
 };
 
 // Mensagem de PRÉ-AVISO ("⏰ Em N min") enviada ao Telegram. Guardamos o
@@ -535,6 +540,7 @@ function pickBySeed<T>(items: readonly T[], seed: string): T {
  */
 function buildCompleteCallbackData(
   item: NotificationScheduleItem,
+  targetDateKey?: string,
 ): string | null {
   // Fallback pros ids de task/meal "puros" (sem campos entityType/Id),
   // caso algum schedule item antigo não os traga.
@@ -555,19 +561,25 @@ function buildCompleteCallbackData(
 
   if (!entityType || !entityId) return null;
 
+  // Sufixo "|YYMMDD" com o dia do DISPARO: o webhook conclui pra essa
+  // data, não pra data do clique — clique depois da meia-noite deixa de
+  // dar baixa no dia seguinte. Se não couber nos 64 bytes, vai sem data
+  // (fallback no comportamento antigo).
+  const withDate = (cb: string): string | null => {
+    if (cb.length > 64) return null;
+    return targetDateKey ? appendCallbackDate(cb, targetDateKey) : cb;
+  };
+
   if (entityType === "task") {
-    const cb = `t:${entityId}`;
-    return cb.length <= 64 ? cb : null;
+    return withDate(`t:${entityId}`);
   }
   if (entityType === "meal" || entityType === "supplement") {
-    const cb = `mb:${entityId}`;
-    return cb.length <= 64 ? cb : null;
+    return withDate(`mb:${entityId}`);
   }
   if (entityType === "workout") {
     // wd: = workout day completion. Marca o dia inteiro como concluído
     // (mesma entrada que toggleWorkoutDayCompleted gera no app).
-    const cb = `wd:${entityId}`;
-    return cb.length <= 64 ? cb : null;
+    return withDate(`wd:${entityId}`);
   }
   // cardio: ainda sem ação dedicada — o reminder de cardio sempre vem
   // como entityType="task" no usuário típico (cardio-target-* é Task),
@@ -585,10 +597,17 @@ export const TELEGRAM_SNOOZE_MINUTES = 10;
  * o filtro de órfã). Limite do Telegram é 64 bytes — se estourar,
  * retorna null e o caller esconde o botão.
  */
-function buildSnoozeCallbackData(item: NotificationScheduleItem): string | null {
+function buildSnoozeCallbackData(
+  item: NotificationScheduleItem,
+  targetDateKey?: string,
+): string | null {
   if (!item.id) return null;
   const cb = `sz:${item.id}`;
-  return Buffer.byteLength(cb, "utf8") <= 64 ? cb : null;
+  if (Buffer.byteLength(cb, "utf8") > 64) return null;
+  // Mesmo sufixo de data do Concluir: o snooze guarda o dia do disparo
+  // original, e o re-disparo reanexa — adiar perto da meia-noite não
+  // perde o dia a que a tarefa pertence.
+  return targetDateKey ? appendCallbackDate(cb, targetDateKey) : cb;
 }
 
 // Remove o prefixo "⏰ Em N min: " de um título de pre-warning, pra que
@@ -764,7 +783,13 @@ export async function syncNotificationSchedule(
 
 export async function snoozeNotification(
   userId: string,
-  payload: { itemId: string; minutes: number; title?: string; body?: string },
+  payload: {
+    itemId: string;
+    minutes: number;
+    title?: string;
+    body?: string;
+    dateKey?: string;
+  },
 ) {
   const minutes = Math.max(1, Math.min(180, Math.round(payload.minutes)));
   const fireAt = new Date(Date.now() + minutes * 60_000).toISOString();
@@ -772,11 +797,17 @@ export async function snoozeNotification(
   // Substitui qualquer snooze anterior pra mesmo item — usuário clicou
   // "Adiar 15min" duas vezes seguidas, queremos que o último valha.
   const remaining = list.filter((entry) => entry.itemId !== payload.itemId);
+  // dateKey vem de fora (webhook/SW) — só persiste se for YYYY-MM-DD.
+  const dateKey =
+    payload.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(payload.dateKey)
+      ? payload.dateKey
+      : undefined;
   remaining.push({
     itemId: payload.itemId,
     fireAt,
     title: payload.title?.slice(0, 200),
     body: payload.body?.slice(0, 500),
+    ...(dateKey ? { dateKey } : {}),
   });
   // Cap de snoozes por usuário: itemId é controlado pelo cliente, então
   // sem limite a lista crescia sem teto (bloat de KV + dispatch O(N) por
@@ -1179,13 +1210,15 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
         // Botões "✓ Concluir" + "⏰ Adiar" em TODAS as mensagens,
         // inclusive no pré-aviso — concluir antecipado pelo pré-aviso
         // também SILENCIA a notificação da hora (o cross-check de
-        // entidade viva descarta itens já concluídos hoje).
+        // entidade viva descarta itens já concluídos hoje). Os botões
+        // carregam o DIA do disparo (zonedNow.dateKey): clique depois da
+        // meia-noite conclui o dia da notificação, não o do clique.
         const buttonRow: { text: string; callback_data: string }[] = [];
-        const cbData = buildCompleteCallbackData(entry);
+        const cbData = buildCompleteCallbackData(entry, zonedNow.dateKey);
         if (cbData) {
           buttonRow.push({ text: "✓ Concluir", callback_data: cbData });
         }
-        const szData = buildSnoozeCallbackData(entry);
+        const szData = buildSnoozeCallbackData(entry, zonedNow.dateKey);
         if (szData) {
           buttonRow.push({
             text: `⏰ Adiar ${TELEGRAM_SNOOZE_MINUTES}min`,
@@ -1359,11 +1392,13 @@ async function processUserSnoozes(
       // schedule mas estado vivo ausente — fallback), manda sem botões.
       const snoozeButtonRow: { text: string; callback_data: string }[] = [];
       if (linkedItem) {
-        const cbData = buildCompleteCallbackData(linkedItem);
+        // Reanexa o dia do disparo ORIGINAL (entry.dateKey): adiar às
+        // 23:55 e concluir 00:05 dá baixa no dia da notificação.
+        const cbData = buildCompleteCallbackData(linkedItem, entry.dateKey);
         if (cbData) {
           snoozeButtonRow.push({ text: "✓ Concluir", callback_data: cbData });
         }
-        const szData = buildSnoozeCallbackData(linkedItem);
+        const szData = buildSnoozeCallbackData(linkedItem, entry.dateKey);
         if (szData) {
           snoozeButtonRow.push({
             text: `⏰ Adiar ${TELEGRAM_SNOOZE_MINUTES}min`,

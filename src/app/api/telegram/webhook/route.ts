@@ -20,6 +20,7 @@ import {
   TELEGRAM_SNOOZE_MINUTES,
   snoozeNotification,
 } from "@/lib/notification-center.server";
+import { splitCallbackDate } from "@/lib/telegram-callback-date";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -144,24 +145,45 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    // Sufixo opcional "|YYMMDD" no callback = dia em que a notificação
+    // foi DISPARADA. A conclusão vale pra esse dia, não pro dia do
+    // clique — corrige a baixa cair no dia 2 quando o usuário clica
+    // depois da meia-noite numa notificação do dia 1. Mensagens antigas
+    // (sem sufixo) seguem concluindo "hoje".
+    const { base, dateKey: targetDateKey } = splitCallbackDate(data);
+
     let result: { ok: boolean; message: string };
     let snoozed = false;
-    if (data.startsWith("t:")) {
-      result = await completeTaskForUser(userId, data.slice("t:".length));
-    } else if (data.startsWith("mb:")) {
-      result = await completeMealBlockForUser(userId, data.slice("mb:".length));
-    } else if (data.startsWith("wd:")) {
+    if (base.startsWith("t:")) {
+      result = await completeTaskForUser(
+        userId,
+        base.slice("t:".length),
+        targetDateKey ?? undefined,
+      );
+    } else if (base.startsWith("mb:")) {
+      result = await completeMealBlockForUser(
+        userId,
+        base.slice("mb:".length),
+        targetDateKey ?? undefined,
+      );
+    } else if (base.startsWith("wd:")) {
       // Workout day completion: marca o dia inteiro como feito.
-      result = await completeWorkoutDayForUser(userId, data.slice("wd:".length));
-    } else if (data.startsWith("sz:")) {
+      result = await completeWorkoutDayForUser(
+        userId,
+        base.slice("wd:".length),
+        targetDateKey ?? undefined,
+      );
+    } else if (base.startsWith("sz:")) {
       // Adiar: agenda um re-disparo em N min. O título/corpo são
       // resolvidos do schedule no momento do re-disparo (processUserSnoozes),
-      // então não precisamos carregá-los aqui.
-      const itemId = data.slice("sz:".length);
+      // então não precisamos carregá-los aqui. O dia do disparo original
+      // segue junto — o re-disparo reanexa nos botões.
+      const itemId = base.slice("sz:".length);
       try {
         await snoozeNotification(userId, {
           itemId,
           minutes: TELEGRAM_SNOOZE_MINUTES,
+          dateKey: targetDateKey ?? undefined,
         });
         snoozed = true;
         result = {

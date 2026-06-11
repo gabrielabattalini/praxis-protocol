@@ -1,5 +1,6 @@
 import { getAccountState, saveAccountState } from "@/lib/account-state.server";
 import { getUserTimezone } from "@/lib/notification-center.server";
+import { resolveCompletionDateKey } from "@/lib/telegram-callback-date";
 import { isTaskCompletedForDate, isTaskDueForDate, makeId } from "@/lib/utils";
 import type {
   PersistedState,
@@ -39,10 +40,26 @@ function isMealItemDoneOn(item: MealItem, todayKey: string): boolean {
   );
 }
 
-function markTaskDone(task: Task, todayKey: string): Task {
+// "DD/MM" pra mensagens de conclusão em dia anterior.
+function formatDayMonth(dateKey: string): string {
+  return `${dateKey.slice(8, 10)}/${dateKey.slice(5, 7)}`;
+}
+
+/**
+ * `fullMark=false` = conclusão de DIA PASSADO (clique depois da
+ * meia-noite numa notificação do dia anterior): grava só em
+ * completedDates, como o toggle por data do app. Setar completed/
+ * completedAt aqui carimbaria o instante do clique (já no dia seguinte)
+ * e a lógica date-aware do app marcaria o dia 2 como concluído também —
+ * exatamente o bug que este parâmetro corrige.
+ */
+function markTaskDone(task: Task, dateKey: string, fullMark: boolean): Task {
   const nextDates = Array.from(
-    new Set([...(task.completedDates ?? []), todayKey]),
+    new Set([...(task.completedDates ?? []), dateKey]),
   ).sort();
+  if (!fullMark) {
+    return { ...task, completedDates: nextDates };
+  }
   return {
     ...task,
     completed: true,
@@ -51,10 +68,13 @@ function markTaskDone(task: Task, todayKey: string): Task {
   };
 }
 
-function markItemDone(item: MealItem, todayKey: string): MealItem {
+function markItemDone(item: MealItem, dateKey: string, fullMark: boolean): MealItem {
   const nextDates = Array.from(
-    new Set([...(item.completedDates ?? []), todayKey]),
+    new Set([...(item.completedDates ?? []), dateKey]),
   ).sort();
+  if (!fullMark) {
+    return { ...item, completedDates: nextDates };
+  }
   return {
     ...item,
     completed: true,
@@ -81,6 +101,7 @@ function markItemDone(item: MealItem, todayKey: string): MealItem {
 export async function completeTaskForUser(
   userId: string,
   target: string,
+  targetDateKey?: string,
 ): Promise<{ ok: boolean; message: string }> {
   const envelope = await getAccountState(userId);
   if (!envelope) {
@@ -88,7 +109,13 @@ export async function completeTaskForUser(
   }
   const timezone = await getUserTimezone(userId);
   const todayKey = todayKeyInTimezone(timezone);
-  const today = new Date(`${todayKey}T12:00:00`);
+  // Dia EFETIVO da baixa: o dia em que a notificação foi disparada
+  // (sufixo do callback), não o dia do clique. Clique 00:10 numa
+  // notificação de ontem 23:50 → conclui ONTEM. Sem sufixo (mensagens
+  // antigas) ou data futura/inválida → hoje.
+  const effectiveKey = resolveCompletionDateKey(targetDateKey, todayKey);
+  const isPastCompletion = effectiveKey !== todayKey;
+  const targetDate = new Date(`${effectiveKey}T12:00:00`);
 
   const state = readState(envelope);
   const tasks = state.tasks ?? [];
@@ -114,12 +141,12 @@ export async function completeTaskForUser(
         (t) =>
           t.title.trim() === orphanReminder.title.trim() &&
           t.scheduledTime === orphanReminder.time &&
-          isTaskDueForDate(t, today),
+          isTaskDueForDate(t, targetDate),
       );
-      // Prefere uma ainda pendente hoje; se todas concluídas, pega a
-      // primeira (vai cair em "já concluída hoje").
+      // Prefere uma ainda pendente no dia-alvo; se todas concluídas,
+      // pega a primeira (vai cair em "já concluída").
       task =
-        candidates.find((t) => !isTaskCompletedForDate(t, today)) ||
+        candidates.find((t) => !isTaskCompletedForDate(t, targetDate)) ||
         candidates[0];
       if (task) {
         console.info(
@@ -132,14 +159,22 @@ export async function completeTaskForUser(
   if (task) {
     const resolvedTask = task;
     // Date-aware: recorrentes guardam completed=true de outros dias.
-    if (isTaskCompletedForDate(resolvedTask, today)) {
+    if (isTaskCompletedForDate(resolvedTask, targetDate)) {
       return {
         ok: true,
-        message: "✓ Essa tarefa já estava concluída hoje no sistema.",
+        message: isPastCompletion
+          ? `✓ Essa tarefa já estava concluída no dia ${formatDayMonth(effectiveKey)}.`
+          : "✓ Essa tarefa já estava concluída hoje no sistema.",
       };
     }
+    // Dia passado + recorrente → só completedDates (igual ao toggle por
+    // data do app). One-time pode receber a marcação completa: o array
+    // não-vazio é autoritativo por data, então o dia do clique não é
+    // contaminado, e completed=true tira a tarefa do schedule futuro.
+    const fullMark =
+      !isPastCompletion || resolvedTask.recurrence.kind === "one-time";
     const nextTasks = tasks.map((t) =>
-      t.id === resolvedTask.id ? markTaskDone(t, todayKey) : t,
+      t.id === resolvedTask.id ? markTaskDone(t, effectiveKey, fullMark) : t,
     );
 
     // Auto-heal: se chegou aqui via lookup órfão (target ≠ resolvedTask.id),
@@ -168,13 +203,26 @@ export async function completeTaskForUser(
       } as PersistedState,
       updatedAt: new Date().toISOString(),
     });
-    return { ok: true, message: `Concluída: ${resolvedTask.title}` };
+    return {
+      ok: true,
+      message: isPastCompletion
+        ? `Concluída (dia ${formatDayMonth(effectiveKey)}): ${resolvedTask.title}`
+        : `Concluída: ${resolvedTask.title}`,
+    };
   }
 
   // 2) Meal block inteiro
   const block = mealPlan.find((b) => b.id === target);
   if (block) {
-    return completeBlock(userId, envelope, state, mealPlan, block, todayKey);
+    return completeBlock(
+      userId,
+      envelope,
+      state,
+      mealPlan,
+      block,
+      effectiveKey,
+      isPastCompletion,
+    );
   }
 
   // 3) Item específico dentro de algum meal block
@@ -189,10 +237,12 @@ export async function completeTaskForUser(
     }
   }
   if (parentBlock && targetItem) {
-    if (isMealItemDoneOn(targetItem, todayKey)) {
+    if (isMealItemDoneOn(targetItem, effectiveKey)) {
       return {
         ok: true,
-        message: "✓ Esse item já estava concluído hoje no sistema.",
+        message: isPastCompletion
+          ? `✓ Esse item já estava concluído no dia ${formatDayMonth(effectiveKey)}.`
+          : "✓ Esse item já estava concluído hoje no sistema.",
       };
     }
     const nextMealPlan = mealPlan.map((b) =>
@@ -201,7 +251,9 @@ export async function completeTaskForUser(
         : {
             ...b,
             items: b.items.map((it) =>
-              it.id !== targetItem!.id ? it : markItemDone(it, todayKey),
+              it.id !== targetItem!.id
+                ? it
+                : markItemDone(it, effectiveKey, !isPastCompletion),
             ),
           },
     );
@@ -211,7 +263,12 @@ export async function completeTaskForUser(
       state: { ...state, mealPlan: nextMealPlan } as PersistedState,
       updatedAt: new Date().toISOString(),
     });
-    return { ok: true, message: `Concluído: ${targetItem.label}` };
+    return {
+      ok: true,
+      message: isPastCompletion
+        ? `Concluído (dia ${formatDayMonth(effectiveKey)}): ${targetItem.label}`
+        : `Concluído: ${targetItem.label}`,
+    };
   }
 
   // Não bateu em nada. Loga os ids disponíveis pra diagnosticar o
@@ -234,6 +291,7 @@ export async function completeTaskForUser(
 export async function completeMealBlockForUser(
   userId: string,
   blockId: string,
+  targetDateKey?: string,
 ): Promise<{ ok: boolean; message: string }> {
   const envelope = await getAccountState(userId);
   if (!envelope) {
@@ -241,20 +299,33 @@ export async function completeMealBlockForUser(
   }
   const timezone = await getUserTimezone(userId);
   const todayKey = todayKeyInTimezone(timezone);
+  const effectiveKey = resolveCompletionDateKey(targetDateKey, todayKey);
+  const isPastCompletion = effectiveKey !== todayKey;
   const state = readState(envelope);
   const mealPlan = state.mealPlan ?? [];
   const block = mealPlan.find((b) => b.id === blockId);
   if (!block) {
     // Pode ser que o callback aponte pra uma Task (rotina) cujo id é o
     // blockId — tenta a rota de task antes de desistir.
-    return completeTaskForUser(userId, blockId);
+    return completeTaskForUser(userId, blockId, targetDateKey);
   }
-  return completeBlock(userId, envelope, state, mealPlan, block, todayKey);
+  return completeBlock(
+    userId,
+    envelope,
+    state,
+    mealPlan,
+    block,
+    effectiveKey,
+    isPastCompletion,
+  );
 }
 
 /**
  * Núcleo compartilhado: marca todos os itens de um bloco como concluídos
- * pra hoje. Date-aware — só itens ainda pendentes hoje são marcados.
+ * pro DIA-ALVO (`targetKey` — o dia do disparo da notificação; hoje no
+ * fluxo normal). Date-aware — só itens ainda pendentes nesse dia são
+ * marcados. `isPastCompletion` grava só em completedDates, sem carimbar
+ * completedAt com o instante do clique (que já seria o dia seguinte).
  */
 async function completeBlock(
   userId: string,
@@ -262,17 +333,20 @@ async function completeBlock(
   state: PersistedState,
   mealPlan: MealBlock[],
   block: MealBlock,
-  todayKey: string,
+  targetKey: string,
+  isPastCompletion: boolean,
 ): Promise<{ ok: boolean; message: string }> {
-  // Já concluído hoje? (todos os itens marcados pra hoje). Bloco sem
+  // Já concluído no dia-alvo? (todos os itens marcados). Bloco sem
   // itens cai aqui — não há o que marcar.
   const allDone =
     block.items.length === 0 ||
-    block.items.every((it) => isMealItemDoneOn(it, todayKey));
+    block.items.every((it) => isMealItemDoneOn(it, targetKey));
   if (allDone) {
     return {
       ok: true,
-      message: "✓ Isso já estava concluído hoje no sistema.",
+      message: isPastCompletion
+        ? `✓ Isso já estava concluído no dia ${formatDayMonth(targetKey)}.`
+        : "✓ Isso já estava concluído hoje no sistema.",
     };
   }
 
@@ -282,7 +356,9 @@ async function completeBlock(
       : {
           ...b,
           items: b.items.map((it) =>
-            isMealItemDoneOn(it, todayKey) ? it : markItemDone(it, todayKey),
+            isMealItemDoneOn(it, targetKey)
+              ? it
+              : markItemDone(it, targetKey, !isPastCompletion),
           ),
         },
   );
@@ -294,7 +370,12 @@ async function completeBlock(
     updatedAt: new Date().toISOString(),
   });
 
-  return { ok: true, message: `Concluído: ${block.title}` };
+  return {
+    ok: true,
+    message: isPastCompletion
+      ? `Concluído (dia ${formatDayMonth(targetKey)}): ${block.title}`
+      : `Concluído: ${block.title}`,
+  };
 }
 
 /**
@@ -309,6 +390,7 @@ async function completeBlock(
 export async function completeWorkoutDayForUser(
   userId: string,
   dayId: string,
+  targetDateKey?: string,
 ): Promise<{ ok: boolean; message: string }> {
   const envelope = await getAccountState(userId);
   if (!envelope) {
@@ -316,6 +398,8 @@ export async function completeWorkoutDayForUser(
   }
   const timezone = await getUserTimezone(userId);
   const todayKey = todayKeyInTimezone(timezone);
+  const effectiveKey = resolveCompletionDateKey(targetDateKey, todayKey);
+  const isPastCompletion = effectiveKey !== todayKey;
   const state = readState(envelope);
 
   // Acha o programa ativo e o dia. Tenta primeiro nos workoutPrograms
@@ -346,21 +430,26 @@ export async function completeWorkoutDayForUser(
     (c) =>
       c.programId === programId &&
       c.dayId === dayId &&
-      c.dateKey === todayKey,
+      c.dateKey === effectiveKey,
   );
   if (alreadyDone) {
     return {
       ok: true,
-      message: "✓ Esse treino já estava concluído hoje no sistema.",
+      message: isPastCompletion
+        ? `✓ Esse treino já estava concluído no dia ${formatDayMonth(effectiveKey)}.`
+        : "✓ Esse treino já estava concluído hoje no sistema.",
     };
   }
 
+  // dateKey = dia do disparo da notificação (não o do clique): a entrada
+  // de conclusão já é date-aware por natureza, então basta o dia certo.
+  // completedAt segue sendo o instante real do clique (metadado).
   const newCompletion: WorkoutDayCompletion = {
     id: makeId("workout-day"),
     programId,
     dayId,
     dayTitle: day.title,
-    dateKey: todayKey,
+    dateKey: effectiveKey,
     completedAt: new Date().toISOString(),
   };
 
@@ -374,5 +463,10 @@ export async function completeWorkoutDayForUser(
     updatedAt: new Date().toISOString(),
   });
 
-  return { ok: true, message: `Concluído: ${day.title}` };
+  return {
+    ok: true,
+    message: isPastCompletion
+      ? `Concluído (dia ${formatDayMonth(effectiveKey)}): ${day.title}`
+      : `Concluído: ${day.title}`,
+  };
 }
