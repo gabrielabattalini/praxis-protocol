@@ -433,6 +433,11 @@ type AppStoreValue = {
       time: string;
       weekdays?: Weekday[];
       note?: string;
+      preWarnMinutes?: number;
+      // Permite criar o lembrete já DESLIGADO — usado pra "silenciar" uma
+      // tarefa que notificava por padrão (sem reminder explícito). Default
+      // true (mantém o comportamento anterior de addReminder).
+      enabled?: boolean;
     }) => void;
     updateReminder: (payload: {
       reminderId: string;
@@ -442,6 +447,7 @@ type AppStoreValue = {
         weekdays?: Weekday[];
         enabled: boolean;
         note?: string;
+        preWarnMinutes?: number;
       }>;
     }) => void;
     addHouseholdSupply: (payload: {
@@ -946,6 +952,8 @@ type Action =
         time: string;
         weekdays?: Weekday[];
         note?: string;
+        preWarnMinutes?: number;
+        enabled?: boolean;
       };
     }
   | {
@@ -958,6 +966,7 @@ type Action =
           weekdays?: Weekday[];
           enabled: boolean;
           note?: string;
+          preWarnMinutes?: number;
         }>;
       };
     }

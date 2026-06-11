@@ -396,25 +396,6 @@ async function listIndexedUserIds(): Promise<string[]> {
   );
 }
 
-async function loadDispatchLog(): Promise<DispatchLogEntry[]> {
-  if (KV_ENABLED) {
-    await ensureMigratedKv();
-    return (await kvGetJson<DispatchLogEntry[]>(DISPATCH_LOG_KEY)) ?? [];
-  }
-  const store = await loadStore();
-  return store.dispatchLog;
-}
-
-async function saveDispatchLog(log: DispatchLogEntry[]): Promise<void> {
-  if (KV_ENABLED) {
-    await kvSetJson(DISPATCH_LOG_KEY, log);
-    return;
-  }
-  const store = await loadStore();
-  store.dispatchLog = log;
-  await saveStore(store);
-}
-
 // dispatchLog POR USUÁRIO. Antes era uma lista global com cap de 5000 —
 // um usuário com muitos itens evictava as chaves de dedup de OUTROS,
 // reabrindo a janela e re-enviando notificações já mandadas (cross-tenant).

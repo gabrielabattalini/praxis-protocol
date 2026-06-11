@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   Bell,
@@ -399,6 +399,20 @@ function buildAgendaTimeline(items: AgendaItem[]): AgendaTimelineBucket[] {
   });
 }
 
+// Itens que JÁ disparam notificação por padrão, mesmo sem um reminder
+// explícito: tarefas manuais com horário (não concluídas) e blocos de
+// refeição com horário — buildNotificationSyncPayload os inclui no
+// schedule automaticamente (taskItems / mealItems). Treino só notifica
+// via reminder. Usado pra refletir no botão o estado REAL do alarme: sem
+// isto, uma tarefa que já avisava aparecia como "desligada" e o botão
+// parecia não fazer nada.
+function itemNotifiesByDefault(item: AgendaItem): boolean {
+  if (!item.time) return false;
+  if (item.kind === "manual") return !item.completed;
+  if (item.kind === "nutrition") return true;
+  return false;
+}
+
 export default function TasksPage() {
   const { state, actions } = useAppStore();
   const toast = useToast();
@@ -433,6 +447,25 @@ export default function TasksPage() {
     return current;
   });
   const [showCreateTaskForm, setShowCreateTaskForm] = useState(false);
+  // Status do canal do Telegram — pra mostrar, junto do alarme, se a
+  // conta está de fato conectada. Sem binding, nenhum alarme chega ao
+  // Telegram (o dispatcher ignora em silêncio), e era essa a sensação de
+  // "não está funcionando". null = ainda carregando.
+  const [telegramLinked, setTelegramLinked] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/telegram/status", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { linked?: boolean } | null) => {
+        if (!cancelled && data) {
+          setTelegramLinked(Boolean(data.linked));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const selectedDateKey = formatDateKey(selectedDate);
   const selectedDateWeekday = getTodayWeekday(selectedDate);
   const selectedDateLabel = weekdayLongLabel(selectedDateWeekday);
@@ -844,6 +877,30 @@ export default function TasksPage() {
     const canToggleAlarm =
       Boolean(item.time) && Boolean(item.reminderId || item.reminderConfig);
 
+    // Lembrete vinculado (quando o alarme está ligado) — usado pra ler/
+    // gravar o pré-aviso INDIVIDUAL desta tarefa (timer por tarefa).
+    const alarmReminder = item.reminderId
+      ? state.reminders.find((reminder) => reminder.id === item.reminderId)
+      : undefined;
+    // Estado REAL do alarme: se há reminder, vale o enabled dele; senão,
+    // vale o "notifica por padrão". Assim o botão reflete se a tarefa vai
+    // ou não avisar de fato.
+    const notifiesByDefault = itemNotifiesByDefault(item);
+    const effectiveAlarmOn = item.reminderId
+      ? item.reminderEnabled
+      : notifiesByDefault;
+    const alarmPreWarnValue =
+      alarmReminder && typeof alarmReminder.preWarnMinutes === "number"
+        ? String(alarmReminder.preWarnMinutes)
+        : "default";
+    const defaultPreWarn = state.notificationPreWarnMinutes ?? 5;
+    const defaultPreWarnLabel =
+      defaultPreWarn === 0
+        ? "Padrão (sem aviso antes)"
+        : defaultPreWarn === 60
+          ? "Padrão (1 h antes)"
+          : `Padrão (${defaultPreWarn} min antes)`;
+
     const cardClasses = [
       "item-card",
       isCompleted ? "completed" : "",
@@ -1250,20 +1307,77 @@ export default function TasksPage() {
             ) : null}
 
             {canToggleAlarm ? (
-              <button
-                type="button"
-                onClick={() => handleAlarmToggle(item)}
-                className={`v2-btn v2-btn-sm ${
-                  item.reminderEnabled ? "v2-btn-ok" : "v2-btn-ghost"
-                }`}
-              >
-                {item.reminderEnabled ? (
-                  <Bell className="h-3.5 w-3.5" />
-                ) : (
-                  <BellOff className="h-3.5 w-3.5" />
-                )}
-                {item.reminderEnabled ? "Alarme ligado" : "Ligar alarme"}
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleAlarmToggle(item)}
+                  className={`v2-btn v2-btn-sm ${
+                    effectiveAlarmOn ? "v2-btn-ok" : "v2-btn-ghost"
+                  }`}
+                >
+                  {effectiveAlarmOn ? (
+                    <Bell className="h-3.5 w-3.5" />
+                  ) : (
+                    <BellOff className="h-3.5 w-3.5" />
+                  )}
+                  {effectiveAlarmOn ? "Telegram ligado" : "Avisar no Telegram"}
+                </button>
+                {/* Timer POR TAREFA: aparece quando o alarme está ligado.
+                    Define quantos minutos antes do horário o aviso
+                    "⏰ Em N min" sai no Telegram/push pra ESTA tarefa. Em
+                    "Padrão" usa o tempo global configurado abaixo. Se ainda
+                    não há reminder (tarefa avisava por padrão), escolher um
+                    tempo materializa o reminder ligado com esse timer. */}
+                {effectiveAlarmOn ? (
+                  <select
+                    value={alarmPreWarnValue}
+                    onChange={(event) => {
+                      const raw = event.target.value;
+                      const preWarnMinutes =
+                        raw === "default" ? undefined : Number(raw);
+                      if (item.reminderId) {
+                        actions.updateReminder({
+                          reminderId: item.reminderId,
+                          patch: { preWarnMinutes },
+                        });
+                      } else if (item.reminderConfig && raw !== "default") {
+                        actions.addReminder({
+                          ...item.reminderConfig,
+                          enabled: true,
+                          preWarnMinutes,
+                        });
+                      }
+                      toast.push({
+                        message:
+                          raw === "default"
+                            ? `Aviso de "${item.title}" usando o tempo padrão.`
+                            : raw === "0"
+                              ? `"${item.title}" vai avisar só na hora.`
+                              : `Aviso de "${item.title}": ${raw} min antes.`,
+                      });
+                    }}
+                    aria-label={`Minutos de antecedência do aviso de ${item.title}`}
+                    className="praxis-field"
+                    style={{
+                      padding: "6px 10px",
+                      fontSize: 12,
+                      color: "#fff",
+                      width: "100%",
+                    }}
+                  >
+                    <option value="default">{defaultPreWarnLabel}</option>
+                    <option value="0">Avisar só na hora</option>
+                    <option value="2">2 min antes</option>
+                    <option value="5">5 min antes</option>
+                    <option value="10">10 min antes</option>
+                    <option value="15">15 min antes</option>
+                    <option value="20">20 min antes</option>
+                    <option value="30">30 min antes</option>
+                    <option value="45">45 min antes</option>
+                    <option value="60">1 h antes</option>
+                  </select>
+                ) : null}
+              </>
             ) : null}
           </div>
         </div>
@@ -1370,7 +1484,17 @@ export default function TasksPage() {
     }
 
     if (!item.reminderConfig) return;
-    actions.addReminder(item.reminderConfig);
+    // Sem reminder ainda. Se a tarefa JÁ notificava por padrão, criar o
+    // reminder DESLIGADO silencia (taskItems/mealItems passam a excluir o
+    // item e o reminder desligado não dispara). Senão, criar LIGADO ativa
+    // o alarme. Assim o clique sempre inverte o estado real percebido.
+    const turnOff = itemNotifiesByDefault(item);
+    actions.addReminder({ ...item.reminderConfig, enabled: !turnOff });
+    toast.push({
+      message: turnOff
+        ? `Alarme de "${item.title}" desligado.`
+        : `Alarme de "${item.title}" ligado.`,
+    });
   }
 
   function toggleDetails(itemId: string) {
@@ -2213,10 +2337,11 @@ export default function TasksPage() {
         </p>
       </div>
 
-      {/* Configuração do PRÉ-AVISO das notificações ("⏰ Em N min").
-          Pedido do usuário: o tempo não é mais fixo em 5 min — dá pra
-          ajustar (ou desligar) aqui nas Missões. A mudança re-sincroniza
-          o schedule de notificações automaticamente. */}
+      {/* Configuração do PRÉ-AVISO PADRÃO das notificações ("⏰ Em N min").
+          Cada tarefa pode sobrescrever esse tempo no próprio cartão (botão
+          "Avisar no Telegram" → seletor de minutos). Aqui fica só o padrão
+          usado quando a tarefa está em "Padrão". A mudança re-sincroniza o
+          schedule de notificações automaticamente. */}
       <div className="glass glass-ok" style={{ marginTop: 12 }}>
         <div
           style={{
@@ -2231,9 +2356,51 @@ export default function TasksPage() {
             className="praxis-label"
             style={{ color: "var(--accent)", fontSize: 11 }}
           >
-            Aviso antecipado
+            Aviso antecipado · padrão
           </span>
         </div>
+
+        {/* Status da conexão com o Telegram. Sem isso o usuário não tem
+            como saber por que o alarme "não chega": o dispatcher ignora em
+            silêncio contas sem binding. */}
+        {telegramLinked !== null ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 10,
+              fontSize: 12,
+              color: telegramLinked ? "var(--ok)" : "#fbbf24",
+            }}
+          >
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 999,
+                background: telegramLinked ? "var(--ok)" : "#fbbf24",
+                flexShrink: 0,
+              }}
+            />
+            {telegramLinked ? (
+              <span>Telegram conectado — os alarmes chegam por lá.</span>
+            ) : (
+              <span>
+                Telegram não conectado. Os alarmes só chegam no Telegram
+                depois de conectar em{" "}
+                <Link
+                  href="/settings"
+                  style={{ color: "#fbbf24", textDecoration: "underline" }}
+                >
+                  Configurações
+                </Link>
+                .
+              </span>
+            )}
+          </div>
+        ) : null}
+
         <div
           style={{
             display: "flex",
@@ -2252,15 +2419,16 @@ export default function TasksPage() {
               margin: 0,
             }}
           >
-            Quanto tempo antes do horário você quer receber o aviso
-            (&quot;⏰ Em N min&quot;) no Telegram e no push.
+            Tempo padrão do aviso (&quot;⏰ Em N min&quot;) no Telegram e no
+            push. Vale para tarefas em &quot;Padrão&quot; — ajuste por tarefa
+            no botão de alarme de cada uma.
           </p>
           <select
             value={String(state.notificationPreWarnMinutes ?? 5)}
             onChange={(event) =>
               actions.setNotificationPreWarnMinutes(Number(event.target.value))
             }
-            aria-label="Tempo do aviso antecipado"
+            aria-label="Tempo padrão do aviso antecipado"
             className="praxis-field"
             style={{ padding: "8px 12px", fontSize: 13, color: "#fff" }}
           >
