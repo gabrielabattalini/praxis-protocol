@@ -1352,21 +1352,32 @@ export default function TasksPage() {
                           raw === "default"
                             ? `Aviso de "${item.title}" usando o tempo padrão.`
                             : raw === "0"
-                              ? `"${item.title}" vai avisar só na hora.`
+                              ? `"${item.title}": lembrete desativado.`
                               : `Aviso de "${item.title}": ${raw} min antes.`,
                       });
                     }}
                     aria-label={`Minutos de antecedência do aviso de ${item.title}`}
                     className="praxis-field"
+                    // Estilo casa com .v2-btn-sm + .v2-btn-ghost dos botões
+                    // vizinhos (pill, 7×14, borda fina cinza, texto a1a1aa
+                    // centralizado). textAlignLast é o que centraliza o
+                    // valor exibido num <select> nativo; o paddingRight
+                    // 32 deixa folga pro chevron amber do .praxis-field.
                     style={{
-                      padding: "6px 10px",
-                      fontSize: 12,
-                      color: "#fff",
                       width: "100%",
+                      padding: "7px 32px 7px 14px",
+                      borderRadius: 999,
+                      border: "1px solid rgba(39, 39, 42, 0.6)",
+                      background: "transparent",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      color: "#a1a1aa",
+                      textAlign: "center",
+                      textAlignLast: "center",
                     }}
                   >
                     <option value="default">{defaultPreWarnLabel}</option>
-                    <option value="0">Avisar só na hora</option>
+                    <option value="0">Lembrete desativado</option>
                     <option value="2">2 min antes</option>
                     <option value="5">5 min antes</option>
                     <option value="10">10 min antes</option>
