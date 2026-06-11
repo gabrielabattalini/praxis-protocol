@@ -73,6 +73,18 @@ function isScheduleItemEntityAlive(item, state, referenceDate) {
     }
     return true;
   }
+  if (item.source === "meal" && item.entityId) {
+    const block = (state.mealPlan ?? []).find((b) => b.id === item.entityId);
+    if (!block) return false;
+    const dateKey = localDateKey(referenceDate);
+    const itemDone = (it) =>
+      it.completedDates?.includes(dateKey) ||
+      (it.completed && it.completedAt?.slice(0, 10) === dateKey);
+    if (block.items.length > 0 && block.items.every(itemDone)) {
+      return false;
+    }
+    return true;
+  }
   return true;
 }
 
@@ -229,4 +241,67 @@ test("source meal/workout sem entityId → passa (não validamos)", () => {
     isScheduleItemEntityAlive({ source: "meal", entityType: "meal" }, state, TODAY),
     true,
   );
+});
+
+// ── Refeições (meal blocks) — botão Concluir no pré-aviso ─────────────
+
+const mealItem = (entityId) => ({
+  source: "meal",
+  entityType: "meal",
+  entityId,
+});
+
+test("meal block vivo com item pendente → passa", () => {
+  const state = {
+    tasks: [],
+    reminders: [],
+    mealPlan: [
+      {
+        id: "b1",
+        items: [
+          { id: "i1", completedDates: [TODAY_KEY] },
+          { id: "i2", completedDates: [] },
+        ],
+      },
+    ],
+  };
+  assert.equal(isScheduleItemEntityAlive(mealItem("b1"), state, TODAY), true);
+});
+
+test("meal block DELETADO do plano → silencia", () => {
+  const state = { tasks: [], reminders: [], mealPlan: [] };
+  assert.equal(isScheduleItemEntityAlive(mealItem("b1"), state, TODAY), false);
+});
+
+test("meal block com TODOS os itens concluídos hoje → silencia", () => {
+  // Cenário: usuário tocou "✓ Concluir" no PRÉ-AVISO do almoço. A
+  // notificação da hora (5–N min depois) não deve sair.
+  const state = {
+    tasks: [],
+    reminders: [],
+    mealPlan: [
+      {
+        id: "b1",
+        items: [
+          { id: "i1", completedDates: [TODAY_KEY] },
+          { id: "i2", completedDates: [TODAY_KEY] },
+        ],
+      },
+    ],
+  };
+  assert.equal(isScheduleItemEntityAlive(mealItem("b1"), state, TODAY), false);
+});
+
+test("meal block concluído ONTEM (não hoje) → passa", () => {
+  const state = {
+    tasks: [],
+    reminders: [],
+    mealPlan: [
+      {
+        id: "b1",
+        items: [{ id: "i1", completedDates: [YESTERDAY_KEY] }],
+      },
+    ],
+  };
+  assert.equal(isScheduleItemEntityAlive(mealItem("b1"), state, TODAY), true);
 });

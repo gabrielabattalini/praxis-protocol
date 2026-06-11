@@ -9,7 +9,10 @@ import type {
   NotificationSyncPayload,
 } from "@/lib/notification-schedule";
 import { isScheduleItemEntityAlive } from "@/lib/notification-schedule";
-import { sendTelegramToUser } from "@/lib/telegram-center.server";
+import {
+  deleteTelegramMessage,
+  sendTelegramToUser,
+} from "@/lib/telegram-center.server";
 import { getLoadingCuePool } from "@/lib/discipline-cues";
 import { getAccountState } from "@/lib/account-state.server";
 
@@ -91,6 +94,17 @@ type SnoozedItem = {
   body?: string;
 };
 
+// Mensagem de PRÉ-AVISO ("⏰ Em N min") enviada ao Telegram. Guardamos o
+// message_id pra apagá-la do chat quando a notificação da hora sair —
+// pedido do usuário pra não poluir o chat.
+type PrewarnMessage = {
+  // id do schedule item SEM o sufixo :preN (= id do item da hora).
+  baseId: string;
+  chatId: number;
+  messageId: number;
+  sentAt: string;
+};
+
 type NotificationStore = {
   subscriptions: Record<string, StoredSubscription[]>;
   schedules: Record<string, StoredSchedule>;
@@ -98,6 +112,8 @@ type NotificationStore = {
   // Adiamentos por usuário. Chave = userId. O dispatch processa snoozes
   // vencidas (fireAt <= now), emite a notificação e remove a entrada.
   snoozes?: Record<string, SnoozedItem[]>;
+  // Pré-avisos pendentes de exclusão por usuário (modo arquivo/dev).
+  prewarnMessages?: Record<string, PrewarnMessage[]>;
 };
 
 type DispatchSummary = {
@@ -150,6 +166,7 @@ async function loadStore(): Promise<NotificationStore> {
         // dropava o campo e o save seguinte apagava as snoozes de TODOS
         // os usuários (o "Adiar 15min" do push nunca re-disparava).
         snoozes: parsed.snoozes ?? {},
+        prewarnMessages: parsed.prewarnMessages ?? {},
       };
     } catch {
       return emptyStore();
@@ -188,6 +205,7 @@ async function saveStore(store: NotificationStore): Promise<void> {
 const userSubsKey = (userId: string) => `praxis:notif:u:${userId}:subs`;
 const userSchedKey = (userId: string) => `praxis:notif:u:${userId}:sched`;
 const userSnoozeKey = (userId: string) => `praxis:notif:u:${userId}:snooze`;
+const userPrewarnKey = (userId: string) => `praxis:notif:u:${userId}:prewarn`;
 const USER_INDEX_KEY = "praxis:notif:userindex";
 const DISPATCH_LOG_KEY = "praxis:notif:dispatchlog";
 const MIGRATED_FLAG_KEY = "praxis:notif:migrated-v2";
@@ -333,6 +351,32 @@ async function saveUserSnoozes(
   await saveStore(store);
 }
 
+async function loadUserPrewarnMessages(
+  userId: string,
+): Promise<PrewarnMessage[]> {
+  if (KV_ENABLED) {
+    await ensureMigratedKv();
+    return (await kvGetJson<PrewarnMessage[]>(userPrewarnKey(userId))) ?? [];
+  }
+  const store = await loadStore();
+  return (store.prewarnMessages ?? {})[userId] ?? [];
+}
+
+async function saveUserPrewarnMessages(
+  userId: string,
+  messages: PrewarnMessage[],
+): Promise<void> {
+  if (KV_ENABLED) {
+    await kvSetJson(userPrewarnKey(userId), messages);
+    return;
+  }
+  const store = await loadStore();
+  const map = store.prewarnMessages ?? {};
+  map[userId] = messages;
+  store.prewarnMessages = map;
+  await saveStore(store);
+}
+
 // userIds que o dispatch precisa checar (têm schedule ou snooze).
 async function listIndexedUserIds(): Promise<string[]> {
   if (KV_ENABLED) {
@@ -434,9 +478,9 @@ function getZonedNow(timezone: string, referenceDate = new Date()): ZonedNow {
   };
 }
 
-// Mesma janela usada em notification-schedule.ts pra construir os ids
-// "<base>:pre5". Mudou lá, mude aqui.
-const PRE_WARNING_MIN = 5;
+// O sufixo do pré-aviso agora é ":pre<N>" com N configurável pelo
+// usuário (notificationPreWarnMinutes) — o dispatch detecta via regex
+// /:pre(\d+)$/, então não há mais constante fixa aqui.
 
 // Janela em minutos: depois do horário marcado, ainda consideramos o item
 // "due" por até DISPATCH_WINDOW_MIN. Cobre delays normais de cron (1 min)
@@ -1072,29 +1116,46 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
             )
           : "";
 
+      // Pré-avisos enviados antes (deste e de runs anteriores): quando a
+      // notificação da HORA sai, apagamos o pré-aviso correspondente do
+      // chat — pedido do usuário pra não poluir o Telegram. Poda
+      // entradas com mais de 24h (não fazem mais sentido apagar).
+      let prewarnMsgs = await loadUserPrewarnMessages(userId);
+      let prewarnDirty = false;
+      const prewarnCutoffMs = referenceDate.getTime() - 1000 * 60 * 60 * 24;
+      const freshPrewarns = prewarnMsgs.filter(
+        (m) => new Date(m.sentAt).getTime() > prewarnCutoffMs,
+      );
+      if (freshPrewarns.length !== prewarnMsgs.length) {
+        prewarnMsgs = freshPrewarns;
+        prewarnDirty = true;
+      }
+
       for (let index = 0; index < uniqueItems.length; index += 1) {
         const entry = uniqueItems[index];
-        const isPreWarning = entry.id.endsWith(`:pre${PRE_WARNING_MIN}`);
+        // Sufixo :preN genérico — o N agora é configurável pelo usuário
+        // (notificationPreWarnMinutes), não mais fixo em 5.
+        const preMatch = entry.id.match(/:pre(\d+)$/);
+        const isPreWarning = Boolean(preMatch);
+        const preMinutes = preMatch ? Number(preMatch[1]) : 0;
         const baseTitle = entry.title
           .replace(/^⏰ Em \d+ min: /, "")
           .replace(/^🔔 /, "");
         const prefix = isPreWarning ? "⏰" : "🔔";
-        const inMin = isPreWarning ? ` (em ${PRE_WARNING_MIN}min)` : "";
+        const inMin = isPreWarning ? ` (em ${preMinutes}min)` : "";
         const headerLine = `${prefix} ${entry.time} ${baseTitle}${inMin}`;
 
         const isLast = index === uniqueItems.length - 1;
         const message = isLast && quote ? `${headerLine}\n\n${quote}` : headerLine;
 
-        // Botão "✓ Concluir" por item — exceto em pre-warning (marcar
-        // como feito 5min antes do horário é esquisito). O botão
-        // "⏰ Adiar 10min" aparece em TODOS (inclusive pre-warning):
-        // adiar faz sentido sempre que o lembrete chega numa hora ruim.
+        // Botões "✓ Concluir" + "⏰ Adiar" em TODAS as mensagens,
+        // inclusive no pré-aviso — concluir antecipado pelo pré-aviso
+        // também SILENCIA a notificação da hora (o cross-check de
+        // entidade viva descarta itens já concluídos hoje).
         const buttonRow: { text: string; callback_data: string }[] = [];
-        if (!isPreWarning) {
-          const cbData = buildCompleteCallbackData(entry);
-          if (cbData) {
-            buttonRow.push({ text: "✓ Concluir", callback_data: cbData });
-          }
+        const cbData = buildCompleteCallbackData(entry);
+        if (cbData) {
+          buttonRow.push({ text: "✓ Concluir", callback_data: cbData });
         }
         const szData = buildSnoozeCallbackData(entry);
         if (szData) {
@@ -1111,10 +1172,43 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
           });
           if (tg.ok && !tg.skipped) {
             summary.notificationsSent += 1;
+
+            if (isPreWarning && tg.messageId && tg.chatId) {
+              // Registra o pré-aviso pra apagar quando a hora chegar.
+              prewarnMsgs.push({
+                baseId: entry.id.replace(/:pre\d+$/, ""),
+                chatId: tg.chatId,
+                messageId: tg.messageId,
+                sentAt: referenceDate.toISOString(),
+              });
+              prewarnDirty = true;
+            } else if (!isPreWarning) {
+              // Notificação da hora saiu → apaga o(s) pré-aviso(s) dela.
+              const toDelete = prewarnMsgs.filter(
+                (m) => m.baseId === entry.id,
+              );
+              if (toDelete.length > 0) {
+                for (const m of toDelete) {
+                  try {
+                    await deleteTelegramMessage(m.chatId, m.messageId);
+                  } catch {
+                    /* mensagem pode já não existir — ignora */
+                  }
+                }
+                prewarnMsgs = prewarnMsgs.filter(
+                  (m) => m.baseId !== entry.id,
+                );
+                prewarnDirty = true;
+              }
+            }
           }
         } catch {
           /* swallow — Telegram is a best-effort secondary channel */
         }
+      }
+
+      if (prewarnDirty) {
+        await saveUserPrewarnMessages(userId, prewarnMsgs);
       }
     }
 

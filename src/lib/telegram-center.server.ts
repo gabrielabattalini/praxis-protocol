@@ -378,8 +378,8 @@ export async function sendTelegramMessage(
   chatId: number,
   text: string,
   opts?: SendOpts,
-): Promise<{ ok: boolean; error?: string }> {
-  const result = await telegramApi("sendMessage", {
+): Promise<{ ok: boolean; error?: string; messageId?: number }> {
+  const result = await telegramApi<{ message_id?: number }>("sendMessage", {
     chat_id: chatId,
     text,
     // Default to plain text — safe for arbitrary task/reminder content.
@@ -391,8 +391,25 @@ export async function sendTelegramMessage(
       : {}),
   });
   return result.ok
-    ? { ok: true }
+    ? { ok: true, messageId: result.result?.message_id }
     : { ok: false, error: result.description || "Falha ao enviar." };
+}
+
+/**
+ * Apaga uma mensagem do chat (ex.: o pré-aviso "⏰ Em N min", depois que
+ * a notificação da tarefa em si já saiu — pra não poluir o chat).
+ * Best-effort: o Telegram só permite apagar mensagens de até 48h, e a
+ * mensagem pode já ter sido apagada pelo usuário. Falha é silenciosa.
+ */
+export async function deleteTelegramMessage(
+  chatId: number,
+  messageId: number,
+): Promise<boolean> {
+  const result = await telegramApi("deleteMessage", {
+    chat_id: chatId,
+    message_id: messageId,
+  });
+  return result.ok;
 }
 
 /**
@@ -486,7 +503,13 @@ export async function sendTelegramToUser(
   userId: string,
   text: string,
   opts?: SendOpts,
-): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
+): Promise<{
+  ok: boolean;
+  skipped?: boolean;
+  error?: string;
+  messageId?: number;
+  chatId?: number;
+}> {
   if (!isTelegramConfigured()) {
     return { ok: false, error: "Bot do Telegram não configurado." };
   }
@@ -494,7 +517,8 @@ export async function sendTelegramToUser(
   if (!binding) {
     return { ok: true, skipped: true };
   }
-  return sendTelegramMessage(binding.chatId, text, opts);
+  const sent = await sendTelegramMessage(binding.chatId, text, opts);
+  return { ...sent, chatId: binding.chatId };
 }
 
 /**

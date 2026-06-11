@@ -114,11 +114,13 @@ export function NotificationSyncProvider({
             : quote.text,
         ),
         state.hiddenQuotes ?? [],
+        state.notificationPreWarnMinutes ?? 5,
       ),
     [
       state.customQuotes,
       state.hiddenQuotes,
       state.mealPlan,
+      state.notificationPreWarnMinutes,
       state.reminders,
       state.tasks,
       timezone,
