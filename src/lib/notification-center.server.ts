@@ -415,6 +415,41 @@ async function saveDispatchLog(log: DispatchLogEntry[]): Promise<void> {
   await saveStore(store);
 }
 
+// dispatchLog POR USUÁRIO. Antes era uma lista global com cap de 5000 —
+// um usuário com muitos itens evictava as chaves de dedup de OUTROS,
+// reabrindo a janela e re-enviando notificações já mandadas (cross-tenant).
+// Escopando por usuário, o cap de um não afeta os outros.
+const userDispatchLogKey = (userId: string) =>
+  `praxis:notif:u:${userId}:dispatchlog`;
+const MAX_DISPATCH_LOG_PER_USER = 500;
+
+async function loadUserDispatchLog(userId: string): Promise<DispatchLogEntry[]> {
+  if (KV_ENABLED) {
+    await ensureMigratedKv();
+    return (await kvGetJson<DispatchLogEntry[]>(userDispatchLogKey(userId))) ?? [];
+  }
+  const store = await loadStore();
+  const map = (store as { userDispatchLog?: Record<string, DispatchLogEntry[]> })
+    .userDispatchLog;
+  return map?.[userId] ?? [];
+}
+
+async function saveUserDispatchLog(
+  userId: string,
+  log: DispatchLogEntry[],
+): Promise<void> {
+  if (KV_ENABLED) {
+    await kvSetJson(userDispatchLogKey(userId), log);
+    return;
+  }
+  const store = await loadStore() as NotificationStore & {
+    userDispatchLog?: Record<string, DispatchLogEntry[]>;
+  };
+  store.userDispatchLog = store.userDispatchLog ?? {};
+  store.userDispatchLog[userId] = log;
+  await saveStore(store);
+}
+
 function buildNotificationStatus(
   subscriptions: StoredSubscription[],
   schedule: StoredSchedule | null,
@@ -964,32 +999,31 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
     invalidSubscriptionsRemoved: 0,
   };
 
-  // dispatchLog vive numa key separada e só o cron escreve nela — sem
-  // corrida com mutações de usuário (subscribe/sync/snooze tocam só keys
-  // por-usuário). Limpa por janela (14 dias) e por capacidade (cap).
-  const DISPATCH_LOG_MAX_ENTRIES = 5000;
+  // Dedup log agora é POR USUÁRIO (carregado dentro do loop). Janela de
+  // 14 dias pra prune; cap por usuário pra não crescer sem teto.
   const cutoffMs = 1000 * 60 * 60 * 24 * 14;
-  const rawLog = await loadDispatchLog();
-  const recentEntries = rawLog.filter((entry) => {
-    const sentAt = new Date(entry.sentAt);
-    return referenceDate.getTime() - sentAt.getTime() < cutoffMs;
-  });
-  // Mantém as mais recentes se passar do cap.
-  const dispatchLog =
-    recentEntries.length > DISPATCH_LOG_MAX_ENTRIES
-      ? recentEntries
-          .slice()
-          .sort(
-            (left, right) =>
-              new Date(right.sentAt).getTime() -
-              new Date(left.sentAt).getTime(),
-          )
-          .slice(0, DISPATCH_LOG_MAX_ENTRIES)
-      : recentEntries;
 
   const indexedUserIds = await listIndexedUserIds();
 
   for (const userId of indexedUserIds) {
+    // Log de dispatch SÓ deste usuário — poda por janela + cap. Trocas
+    // entre usuários não evictam mais a dedup um do outro.
+    const rawUserLog = await loadUserDispatchLog(userId);
+    let dispatchLog = rawUserLog.filter(
+      (entry) =>
+        referenceDate.getTime() - new Date(entry.sentAt).getTime() < cutoffMs,
+    );
+    if (dispatchLog.length > MAX_DISPATCH_LOG_PER_USER) {
+      dispatchLog = dispatchLog
+        .slice()
+        .sort(
+          (left, right) =>
+            new Date(right.sentAt).getTime() - new Date(left.sentAt).getTime(),
+        )
+        .slice(0, MAX_DISPATCH_LOG_PER_USER);
+    }
+    const dispatchLogBefore = rawUserLog.length;
+
     const schedule = await loadUserSchedule(userId);
     // Estado VIVO da conta — usado pra filtrar items órfãos no schedule
     // (tarefa deletada / concluída hoje / reminder desabilitado). O
@@ -1248,9 +1282,14 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
       schedule,
       liveAccountState,
     );
-  }
 
-  await saveDispatchLog(dispatchLog);
+    // Persiste o log de dispatch DESTE usuário se mudou (novos envios
+    // ou prune de entradas velhas). Escopo por usuário — sem corrida com
+    // outros usuários nem eviction cruzada.
+    if (dispatchLog.length !== dispatchLogBefore) {
+      await saveUserDispatchLog(userId, dispatchLog);
+    }
+  }
 
   return summary;
 }

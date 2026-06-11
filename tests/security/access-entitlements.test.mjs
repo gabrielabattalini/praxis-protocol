@@ -4,6 +4,7 @@ import {
   coerceAccountEntitlement,
   defaultAccountEntitlement,
   hasLifetimeAccessEmail,
+  isFounderEmail,
   parseLifetimeAccessEmails,
   resolveAccountEntitlement,
 } from "../../src/lib/access-entitlements.ts";
@@ -51,6 +52,15 @@ test("resolveAccountEntitlement keeps free accounts locked without allowlist", (
     }),
     defaultAccountEntitlement,
   );
+});
+
+test("isFounderEmail matches the founder via hash, case/space-insensitive", async () => {
+  assert.equal(await isFounderEmail("gabrielabattalini@gmail.com"), true);
+  assert.equal(await isFounderEmail("  GabrielaBattalini@Gmail.com "), true);
+  assert.equal(await isFounderEmail("intruso@praxis.app"), false);
+  assert.equal(await isFounderEmail(""), false);
+  assert.equal(await isFounderEmail(null), false);
+  assert.equal(await isFounderEmail(undefined), false);
 });
 
 test("coerceAccountEntitlement rejects malformed payloads safely", () => {

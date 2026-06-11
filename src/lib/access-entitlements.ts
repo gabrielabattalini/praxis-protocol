@@ -26,17 +26,27 @@ export function normalizeEntitlementEmail(email: string | null | undefined) {
 }
 
 /**
- * Built-in founder/admin emails — ALWAYS have lifetime access, regardless
- * of any env configuration. Guarantees admin access never breaks even if
- * PRAXIS_LIFETIME_ACCESS_EMAILS isn't set on the deploy (e.g. Vercel).
- * IMPORTANT: founder emails also get the pre-seeded demo data (mercado,
- * suplementos do Pacho etc.) via isFounderEmail(). Pra dar só acesso
- * lifetime SEM o seed, usar BUILT_IN_LIFETIME_EMAILS em
- * access-entitlements.server.ts (não vai pro bundle do client).
+ * Hash(es) SHA-256 do(s) email(s) de fundador/admin. Mantemos só o HASH
+ * neste módulo (importado por app-store-provider → vai pro bundle do
+ * client) pra NÃO vazar o email do operador em texto puro no JS público.
+ * O texto puro vive em access-entitlements.server.ts (fora do bundle) e é
+ * injetado na allowlist de lifetime no servidor — então o acesso vitalício
+ * do fundador continua garantido independente de env.
+ * isFounderEmail() decide quem recebe os dados pré-seeded (mercado,
+ * suplementos etc.) comparando o hash do email logado com esta lista.
  */
-export const FOUNDER_ACCESS_EMAILS: readonly string[] = [
-  "gabrielabattalini@gmail.com",
+export const FOUNDER_ACCESS_EMAIL_HASHES: readonly string[] = [
+  // SHA-256 de "gabrielabattalini@gmail.com" (normalizado: trim+lowercase).
+  "81e89aaf9bb611943f624f7e946848c92fcd55bcd1f9c23b73880b4db87d408f",
 ];
+
+async function sha256Hex(value: string): Promise<string> {
+  const data = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 // BUILT_IN_LIFETIME_EMAILS removido daqui — vivia neste módulo e ia pro
 // bundle do client (importado por app-store-provider). Agora mora em
@@ -47,32 +57,30 @@ export const FOUNDER_ACCESS_EMAILS: readonly string[] = [
  * True only for the built-in founder/admin email(s). Used to decide who
  * gets the pre-seeded demo data (market, supplements, etc.). Brand-new
  * real accounts must start completely clean, so they return false here.
+ * Assíncrona porque compara via hash SHA-256 (Web Crypto) — assim o email
+ * do fundador não precisa ficar em texto puro no bundle do client.
  */
-export function isFounderEmail(email: string | null | undefined): boolean {
+export async function isFounderEmail(
+  email: string | null | undefined,
+): Promise<boolean> {
   const normalized = normalizeEntitlementEmail(email);
   if (!normalized) return false;
-  return FOUNDER_ACCESS_EMAILS.some(
-    (founder) => normalizeEntitlementEmail(founder) === normalized,
-  );
+  const hash = await sha256Hex(normalized);
+  return FOUNDER_ACCESS_EMAIL_HASHES.includes(hash);
 }
 
 /**
- * Monta a allowlist de lifetime access.
- * `extraBuiltIn` é injetado pelo server (access-entitlements.server.ts)
- * com a lista que antes vivia hardcoded aqui — assim os emails de
- * usuários reais não vazam pro bundle do client. No client (que importa
- * este módulo) só os FOUNDER_ACCESS_EMAILS são considerados, sem leak.
+ * Monta a allowlist de lifetime access a partir de `extraBuiltIn` (injetado
+ * pelo server com fundador + vitalícios, lista que vive fora do bundle do
+ * client) e da env. Este módulo client-safe não embute mais nenhum email em
+ * texto puro, então nada vaza pro bundle JS público.
  */
 export function parseLifetimeAccessEmails(
   rawValue: string | null | undefined,
   extraBuiltIn: readonly string[] = [],
 ) {
   return new Set(
-    [
-      ...FOUNDER_ACCESS_EMAILS,
-      ...extraBuiltIn,
-      ...(rawValue ?? "").split(/[\s,;]+/),
-    ]
+    [...extraBuiltIn, ...(rawValue ?? "").split(/[\s,;]+/)]
       .map((email) => normalizeEntitlementEmail(email))
       .filter(Boolean),
   );
