@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { fetchCurrentPriceFromUrl } from "@/lib/shopping-search.server";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: "Não autenticado." }, { status: 401 });
   }
 
+  const limited = await enforceRateLimit("shopping-price", userId, 30, 60);
+  if (limited) return limited;
+
   const { searchParams } = new URL(request.url);
   const url = String(searchParams.get("url") || "").trim();
 
@@ -30,14 +34,12 @@ export async function GET(request: Request) {
     const result = await fetchCurrentPriceFromUrl(url);
     return NextResponse.json(result, { status: result.ok ? 200 : 422 });
   } catch (error) {
+    console.error(
+      "[shopping-price] erro:",
+      error instanceof Error ? error.message : error,
+    );
     return NextResponse.json(
-      {
-        ok: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Não foi possível ler o preço agora.",
-      },
+      { ok: false, error: "Não foi possível ler o preço agora." },
       { status: 500 },
     );
   }

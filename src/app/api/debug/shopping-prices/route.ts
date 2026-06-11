@@ -2,6 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getAccountState } from "@/lib/account-state.server";
 import { fetchCurrentPriceFromUrl } from "@/lib/shopping-search.server";
+import { isDebugAllowed } from "@/lib/security/debug-gate";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 import type { PersistedState } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -23,10 +25,17 @@ export const maxDuration = 60;
  *   ?limit=10         → no máximo 10 itens (default 20, pra caber em 60s)
  */
 export async function GET(request: Request) {
+  if (!isDebugAllowed()) {
+    return new NextResponse(null, { status: 404 });
+  }
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "not-authenticated" }, { status: 401 });
   }
+
+  // Roda Playwright sobre vários itens — caríssimo. 3/min por usuário.
+  const limited = await enforceRateLimit("debug-shopping-prices", userId, 3, 60);
+  if (limited) return limited;
 
   const { searchParams } = new URL(request.url);
   const scopeFilter = searchParams.get("scope");

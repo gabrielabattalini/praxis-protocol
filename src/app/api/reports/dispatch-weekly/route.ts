@@ -26,6 +26,7 @@ function isAuthorized(request: Request) {
       process.env.NOTIFICATION_CRON_SECRET || process.env.CRON_SECRET,
     headerSecret: request.headers.get("x-praxis-cron-secret"),
     authorizationHeader: request.headers.get("authorization"),
+    allowOpenDispatch: process.env.PRAXIS_ALLOW_OPEN_DISPATCH === "true",
   });
 }
 

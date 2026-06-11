@@ -2279,8 +2279,9 @@ function ResultCard({ result, isPreferred, onChoose }: { result: ShoppingSearchR
             {isPreferred ? "Oferta selecionada" : "Usar no cálculo mensal"}
           </button>
         ) : null}
+        {safeHref(result.url) ? (
         <a
-          href={result.url}
+          href={safeHref(result.url)}
           target="_blank"
           rel="noreferrer"
           className="praxis-button inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 sm:w-auto whitespace-nowrap"
@@ -2288,6 +2289,7 @@ function ResultCard({ result, isPreferred, onChoose }: { result: ShoppingSearchR
           <ExternalLink className="h-4 w-4" />
           Abrir oferta
         </a>
+        ) : null}
       </div>
     </div>
   );

@@ -2,14 +2,36 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { isAuthorizedDispatchRequest } from "../../src/lib/security/dispatch-auth.ts";
 
-test("dispatch aceita qualquer chamada fora de produção", () => {
+test("fora de produção SÓ libera com allowOpenDispatch explícito", () => {
+  // Sem a flag → exige segredo mesmo fora de produção (fecha o buraco
+  // de staging/self-host com NODE_ENV != production exposto).
   assert.equal(
     isAuthorizedDispatchRequest({
       nodeEnv: "development",
       configuredSecret: undefined,
       headerSecret: null,
     }),
+    false,
+  );
+  // Com a flag → libera (conveniência de dev local consciente).
+  assert.equal(
+    isAuthorizedDispatchRequest({
+      nodeEnv: "development",
+      configuredSecret: undefined,
+      headerSecret: null,
+      allowOpenDispatch: true,
+    }),
     true,
+  );
+  // allowOpenDispatch NÃO vale em produção.
+  assert.equal(
+    isAuthorizedDispatchRequest({
+      nodeEnv: "production",
+      configuredSecret: "segredo",
+      headerSecret: null,
+      allowOpenDispatch: true,
+    }),
+    false,
   );
 });
 

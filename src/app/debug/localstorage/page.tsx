@@ -95,13 +95,34 @@ function summarize(snapshot: Snapshot): DietView | null {
   };
 }
 
+// Em produção, NODE_ENV é inlinado no bundle do cliente. ENABLE_DEBUG_ROUTES
+// é server-only (não NEXT_PUBLIC), então fica undefined no cliente — o que
+// mantém a página desligada em produção por padrão. Segurança: essa página
+// lia TODO o localStorage praxis/nexus, inclusive cache de outras contas
+// no mesmo dispositivo.
+const DEBUG_PAGE_ENABLED =
+  process.env.NODE_ENV !== "production" ||
+  process.env.NEXT_PUBLIC_ENABLE_DEBUG_ROUTES === "true";
+
 export default function DebugLocalStoragePage() {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [showRaw, setShowRaw] = useState(false);
 
   useEffect(() => {
+    if (!DEBUG_PAGE_ENABLED) return;
     setSnapshots(readSnapshots());
   }, []);
+
+  if (!DEBUG_PAGE_ENABLED) {
+    return (
+      <div style={{ padding: 24, fontFamily: "monospace", color: "#e4e4e7", background: "#09090b", minHeight: "100vh" }}>
+        <h1 style={{ fontSize: 20 }}>Indisponível</h1>
+        <p style={{ fontSize: 13, color: "#a1a1aa" }}>
+          Esta página de diagnóstico está desativada em produção.
+        </p>
+      </div>
+    );
+  }
 
   const views = snapshots
     .map(summarize)
