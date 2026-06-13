@@ -1327,12 +1327,12 @@ export default function FinanceModulePage() {
             </h2>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <select
               value={expenseSort}
               onChange={(event) => setExpenseSort(event.target.value as ExpenseSortMode)}
               aria-label="Ordenação dos gastos"
-              className="rounded-sm border border-zinc-800 bg-black/60 px-3 py-2.5 text-sm text-white"
+              className="w-full rounded-sm border border-zinc-800 bg-black/60 px-3 py-2.5 text-sm text-white sm:w-auto"
             >
               <option value="due-date">Por vencimento</option>
               <option value="highest-value">Maior valor</option>
@@ -1343,7 +1343,7 @@ export default function FinanceModulePage() {
               onClick={() => setCreatePanelOpen((current) => !current)}
               aria-label={createPanelOpen ? "Fechar formulário" : "Adicionar receita ou gasto"}
               title={createPanelOpen ? "Fechar formulário" : "Adicionar receita ou gasto"}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-sm bg-[linear-gradient(135deg,var(--accent)_0%,var(--accent-2)_100%)] px-6 py-3.5 text-base font-semibold text-slate-950 shadow-[0_0_20px_rgba(251,146,60,0.4)] transition hover:brightness-110"
+              className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-sm bg-[linear-gradient(135deg,var(--accent)_0%,var(--accent-2)_100%)] px-6 py-3.5 text-base font-semibold text-slate-950 shadow-[0_0_20px_rgba(251,146,60,0.4)] transition hover:brightness-110 sm:w-auto"
             >
               <Plus
                 className={`h-5 w-5 transition ${
