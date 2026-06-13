@@ -591,7 +591,7 @@ export default function FinanceModulePage() {
         }`}
       >
         <summary className="list-none cursor-pointer px-4 py-4 [&::-webkit-details-marker]:hidden">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
             <div className="min-w-0 flex-1">
               <p
                 className={`truncate text-base font-semibold ${
@@ -649,7 +649,7 @@ export default function FinanceModulePage() {
               </div>
             </div>
 
-            <div className="shrink-0 text-right">
+            <div className="w-full text-left lg:w-auto lg:shrink-0 lg:text-right">
               <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-600">
                 Valor do mês
               </p>
@@ -669,7 +669,7 @@ export default function FinanceModulePage() {
                 </p>
               ) : null}
               {isExpense ? (
-                <div className="mt-3 flex flex-wrap justify-end gap-2">
+                <div className="mt-3 flex flex-wrap gap-2 lg:justify-end">
                   <FinanceActionHint text={totalSettleHint}>
                     <button
                       type="button"
