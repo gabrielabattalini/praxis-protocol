@@ -98,10 +98,18 @@ function rangeLabelFor(start: Date, end: Date) {
 /**
  * Calcula o percentual geral (disciplina) de uma semana sem montar o
  * relatório inteiro — usado pra comparação com a semana anterior.
+ * Conta partiallyCompleted como feito, igual ao relatório principal,
+ * pra a tendência não comparar laranjas com bananas.
  */
 function overallPercentForWeek(state: PersistedState, referenceDate: Date) {
   const days = buildWeekAgenda(state, referenceDate);
-  const completed = days.reduce((sum, day) => sum + day.completedCount, 0);
+  const completed = days.reduce(
+    (sum, day) =>
+      sum +
+      day.items.filter((item) => item.completed || item.partiallyCompleted)
+        .length,
+    0,
+  );
   const total = days.reduce((sum, day) => sum + day.totalCount, 0);
   return { completed, total, percent: percentOf(completed, total) };
 }
@@ -118,14 +126,24 @@ export function buildWeeklyReport(
   const isCurrentWeek =
     todayKey >= week[0].dateKey && todayKey <= week[week.length - 1].dateKey;
 
-  const days: WeeklyReportDay[] = week.map((day) => ({
-    dateKey: day.dateKey,
-    dayLabel: day.dayLabel,
-    shortLabel: day.shortLabel,
-    completed: day.completedCount,
-    total: day.totalCount,
-    percent: percentOf(day.completedCount, day.totalCount),
-  }));
+  // "Feito" pro relatório inclui partiallyCompleted (refeição tocada
+  // ou hidratação com qualquer consumo). Mesma regra usada nos loops de
+  // agregação abaixo — sem isto, days[] e overall divergiam de modules[]
+  // e activities[].
+  const countDone = (items: typeof week[number]["items"]) =>
+    items.filter((item) => item.completed || item.partiallyCompleted).length;
+
+  const days: WeeklyReportDay[] = week.map((day) => {
+    const doneCount = countDone(day.items);
+    return {
+      dateKey: day.dateKey,
+      dayLabel: day.dayLabel,
+      shortLabel: day.shortLabel,
+      completed: doneCount,
+      total: day.totalCount,
+      percent: percentOf(doneCount, day.totalCount),
+    };
+  });
 
   // Agrega atividades (mesma tarefa/bloco ao longo dos 7 dias) e módulos.
   const activityMap = new Map<string, WeeklyReportActivity>();
@@ -143,6 +161,12 @@ export function buildWeeklyReport(
     for (const item of day.items) {
       const moduleName = item.sourceLabel || "Outros";
       const isWorkout = item.kind === "workout";
+      // "Feito" pro relatório = concluído OU TOCADO (partiallyCompleted).
+      // Cobre o caso da refeição em que o usuário comeu o prato principal
+      // mas não marcou todos os suplementos opcionais, e o dia em que ele
+      // bebeu água sem fechar a meta de hidratação. Sem isto, esses dias
+      // entravam como "missed" mesmo com a atividade EFETIVAMENTE feita.
+      const wasDone = item.completed || Boolean(item.partiallyCompleted);
       // Treinos agrupam por workoutDayId (sessão única no programa),
       // outros itens por módulo+título (hábito recorrente).
       const activityKey =
@@ -169,7 +193,7 @@ export function buildWeeklyReport(
             (workoutCanonical.get(activityKey) ?? 0) + 1,
           );
         }
-        if (item.completed) {
+        if (wasDone) {
           workoutCompletedCount.set(
             activityKey,
             (workoutCompletedCount.get(activityKey) ?? 0) + 1,
@@ -177,7 +201,7 @@ export function buildWeeklyReport(
         }
       } else {
         activity.scheduled += 1;
-        if (item.completed) activity.completed += 1;
+        if (wasDone) activity.completed += 1;
       }
       if (item.completed) xpEarned += item.xp ?? 0;
       activityMap.set(activityKey, activity);
@@ -192,7 +216,7 @@ export function buildWeeklyReport(
       } else {
         mod.scheduled += 1;
       }
-      if (item.completed) mod.completed += 1;
+      if (wasDone) mod.completed += 1;
       moduleMap.set(moduleName, mod);
     }
   }
@@ -267,13 +291,16 @@ export function buildWeeklyReport(
         )
       : null;
 
+  // Overall consistente com days[]/modules[]: usa wasDone via countDone.
+  const overallCompleted = week.reduce(
+    (sum, day) => sum + countDone(day.items),
+    0,
+  );
+  const overallTotal = week.reduce((sum, day) => sum + day.totalCount, 0);
   const overall = {
-    completed: week.reduce((sum, day) => sum + day.completedCount, 0),
-    total: week.reduce((sum, day) => sum + day.totalCount, 0),
-    percent: percentOf(
-      week.reduce((sum, day) => sum + day.completedCount, 0),
-      week.reduce((sum, day) => sum + day.totalCount, 0),
-    ),
+    completed: overallCompleted,
+    total: overallTotal,
+    percent: percentOf(overallCompleted, overallTotal),
   };
 
   // Tendência vs. semana anterior (só faz sentido se a anterior tinha carga).
