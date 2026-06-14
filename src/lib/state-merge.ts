@@ -1,4 +1,11 @@
-import type { PersistedState, Task } from "@/lib/types";
+import type {
+  MealPlanBlock,
+  MealPlanItem,
+  NutritionWaterEntry,
+  PersistedState,
+  Task,
+  WorkoutLoadEntry,
+} from "@/lib/types";
 
 /**
  * Merge 3-way do estado persistido (account-state).
@@ -13,10 +20,17 @@ import type { PersistedState, Task } from "@/lib/types";
  *    relação à base, fica a versão alterada. Se os dois mudaram, o LOCAL
  *    vence (o dispositivo que está com o usuário na frente). Cobre o
  *    caso comum (A edita finanças, B edita treino → ambos preservados).
- *  - `tasks` tem merge FINO por id (é a fatia mais editada — toggle de
- *    hábito). Une `completedDates` de cada tarefa, então nenhuma baixa
- *    de hábito é perdida mesmo quando os dois dispositivos togglam tasks
- *    diferentes (ou a mesma) ao mesmo tempo.
+ *  - Fatias de HISTÓRICO/CONCLUSÃO têm merge FINO (são as mais editadas
+ *    em paralelo — toggle de hábito, dar baixa em refeição pelo app E
+ *    pelo Telegram, registrar água, concluir treino). Sem isto, marcar a
+ *    refeição no app e concluir pelo Telegram fazia a fatia inteira de um
+ *    lado ser descartada, "voltando" a semana toda pra pendente:
+ *      · tasks                 → une completedDates por id
+ *      · mealPlan              → une completedDates por bloco/item
+ *      · waterEntries          → maior consumo por dia
+ *      · workoutDayCompletions → união por (programa, dia, data)
+ *      · recoveryDayCompletions→ união por (programa, dia, data)
+ *      · workoutLoadEntries    → união por id
  *
  * Função PURA — sem React/IO. Testada em tests/store/state-merge.test.mjs.
  */
@@ -82,6 +96,145 @@ function mergeTasks(localTasks: Task[], serverTasks: Task[]): Task[] {
   return merged;
 }
 
+/**
+ * Une um item de refeição (mesmo id) preservando a conclusão dos dois
+ * lados. Mesma filosofia de mergeTask: campos do plano (label, macros,
+ * quantidade) preferem local; histórico de conclusão é UNIÃO.
+ */
+function mergeMealItem(local: MealPlanItem, server: MealPlanItem): MealPlanItem {
+  const completedDates = unionSorted(
+    local.completedDates ?? [],
+    server.completedDates ?? [],
+  );
+  return {
+    ...server,
+    ...local,
+    completedDates: completedDates.length ? completedDates : undefined,
+    completedAt: laterIso(local.completedAt, server.completedAt),
+    completed: Boolean(local.completed || server.completed),
+  };
+}
+
+function mergeMealItems(
+  localItems: MealPlanItem[] = [],
+  serverItems: MealPlanItem[] = [],
+): MealPlanItem[] {
+  const serverById = new Map(serverItems.map((item) => [item.id, item]));
+  const localIds = new Set(localItems.map((item) => item.id));
+
+  const merged: MealPlanItem[] = localItems.map((localItem) => {
+    const serverItem = serverById.get(localItem.id);
+    return serverItem ? mergeMealItem(localItem, serverItem) : localItem;
+  });
+
+  for (const serverItem of serverItems) {
+    if (!localIds.has(serverItem.id)) {
+      merged.push(serverItem);
+    }
+  }
+
+  return merged;
+}
+
+function mergeMealBlock(
+  local: MealPlanBlock,
+  server: MealPlanBlock,
+): MealPlanBlock {
+  return {
+    // local vence na estrutura do plano (título, horário, categoria,
+    // notas); os itens são mesclados item-a-item pra unir as conclusões.
+    ...server,
+    ...local,
+    items: mergeMealItems(local.items ?? [], server.items ?? []),
+  };
+}
+
+/**
+ * Merge do mealPlan por bloco. Une as conclusões dos dois dispositivos —
+ * sem isso, dar baixa no almoço pelo app e no Telegram (que salva em
+ * paralelo) fazia uma das marcações sumir no merge.
+ */
+function mergeMealPlan(
+  localBlocks: MealPlanBlock[],
+  serverBlocks: MealPlanBlock[],
+): MealPlanBlock[] {
+  const serverById = new Map(serverBlocks.map((block) => [block.id, block]));
+  const localIds = new Set(localBlocks.map((block) => block.id));
+
+  const merged: MealPlanBlock[] = localBlocks.map((localBlock) => {
+    const serverBlock = serverById.get(localBlock.id);
+    return serverBlock ? mergeMealBlock(localBlock, serverBlock) : localBlock;
+  });
+
+  for (const serverBlock of serverBlocks) {
+    if (!localIds.has(serverBlock.id)) {
+      merged.push(serverBlock);
+    }
+  }
+
+  return merged;
+}
+
+/**
+ * Une as entradas de água por dia, ficando com o MAIOR consumo registrado
+ * naquele dia (consumedMl é o total acumulado do dia — o dispositivo que
+ * registrou mais tem o número mais verdadeiro).
+ */
+function mergeWaterEntries(
+  localEntries: NutritionWaterEntry[],
+  serverEntries: NutritionWaterEntry[],
+): NutritionWaterEntry[] {
+  const byDate = new Map<string, number>();
+  for (const entry of [...serverEntries, ...localEntries]) {
+    const previous = byDate.get(entry.date);
+    byDate.set(
+      entry.date,
+      previous === undefined
+        ? entry.consumedMl
+        : Math.max(previous, entry.consumedMl),
+    );
+  }
+  return Array.from(byDate.entries())
+    .map(([date, consumedMl]) => ({ date, consumedMl }))
+    .sort((left, right) => left.date.localeCompare(right.date));
+}
+
+/**
+ * União de conclusões de dia (treino/recuperação) deduplicando pela
+ * tripla (programa, dia, data) — os dois dispositivos geram ids
+ * diferentes pra mesma conclusão lógica, então dedupe por id criaria
+ * duplicata. Local primeiro.
+ */
+function mergeDayCompletions<
+  T extends { programId: string; dayId: string; dateKey: string },
+>(local: T[], server: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const completion of [...local, ...server]) {
+    const key = `${completion.programId}::${completion.dayId}::${completion.dateKey}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(completion);
+  }
+  return out;
+}
+
+/** União de registros com id único (logs append-only). Local primeiro. */
+function mergeById<T extends { id: string }>(local: T[], server: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const entry of [...local, ...server]) {
+    if (seen.has(entry.id)) continue;
+    seen.add(entry.id);
+    out.push(entry);
+  }
+  return out;
+}
+
+function asArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
 export function threeWayMergeState(
   base: PersistedState,
   local: PersistedState,
@@ -104,11 +257,39 @@ export function threeWayMergeState(
     const localValue = localRecord[key];
     const serverValue = serverRecord[key];
 
-    // Fatia mais sensível: merge fino de tasks por id.
+    // Fatias de histórico/conclusão: merge fino que UNE os dois lados,
+    // pra nenhuma baixa (hábito, refeição, treino, água) ser perdida
+    // quando dois saves concorrem. Sem isto, marcar pelo app + Telegram
+    // fazia a fatia inteira de um lado sobrescrever a do outro.
     if (key === "tasks") {
-      result[key] = mergeTasks(
-        Array.isArray(localValue) ? (localValue as Task[]) : [],
-        Array.isArray(serverValue) ? (serverValue as Task[]) : [],
+      result[key] = mergeTasks(asArray<Task>(localValue), asArray<Task>(serverValue));
+      continue;
+    }
+    if (key === "mealPlan") {
+      result[key] = mergeMealPlan(
+        asArray<MealPlanBlock>(localValue),
+        asArray<MealPlanBlock>(serverValue),
+      );
+      continue;
+    }
+    if (key === "waterEntries") {
+      result[key] = mergeWaterEntries(
+        asArray<NutritionWaterEntry>(localValue),
+        asArray<NutritionWaterEntry>(serverValue),
+      );
+      continue;
+    }
+    if (key === "workoutDayCompletions" || key === "recoveryDayCompletions") {
+      result[key] = mergeDayCompletions(
+        asArray<{ programId: string; dayId: string; dateKey: string }>(localValue),
+        asArray<{ programId: string; dayId: string; dateKey: string }>(serverValue),
+      );
+      continue;
+    }
+    if (key === "workoutLoadEntries") {
+      result[key] = mergeById(
+        asArray<WorkoutLoadEntry>(localValue),
+        asArray<WorkoutLoadEntry>(serverValue),
       );
       continue;
     }
