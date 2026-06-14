@@ -22,6 +22,13 @@ export type AgendaEvent = {
   badgeLabel: string;
   time?: string;
   completed: boolean;
+  // "Tocado" — o usuário fez ALGUMA coisa nesse evento no dia, mesmo que
+  // não tenha fechado tudo. Pra refeição: ≥1 item marcado. Pra hidratação
+  // (sourceKey nutrition-hydration-daily): houve waterEntry > 0 no dia.
+  // Usado pelo relatório semanal pra não contar como "missed" o bloco que
+  // o usuário comeu (mas deixou um suplemento opcional pra trás), ou o
+  // dia em que ele bebeu água sem fechar a meta.
+  partiallyCompleted?: boolean;
   route: string;
   xp?: number;
   // Só populados pra kind="workout" — usados pelo agregador do
@@ -122,20 +129,40 @@ export function buildAgendaEvents(
       ? activeWorkoutProgram.workoutPlan
       : workoutPlan;
 
+  const waterEntries = state.waterEntries ?? [];
+  const hydratedDateKeys = new Set(
+    waterEntries
+      .filter((entry) => (entry.consumedMl ?? 0) > 0)
+      .map((entry) => entry.date),
+  );
+
   const manualTasks = tasks
     .filter((task) => isTaskDueForDate(task, referenceDate))
-    .map<AgendaEvent>((task) => ({
-      id: `task-${task.id}-${dateKey}`,
-      kind: "manual",
-      title: task.title,
-      description: task.description,
-      sourceLabel: labelForModule(task.moduleId),
-      badgeLabel: task.sourceKey ? "Sincronizada" : "Manual",
-      time: task.scheduledTime,
-      completed: isTaskCompletedForDate(task, referenceDate),
-      route: routeForModule(task.moduleId),
-      xp: task.xp,
-    }));
+    .map<AgendaEvent>((task) => {
+      const completed = isTaskCompletedForDate(task, referenceDate);
+      // Hidratação só fica "completed" quando bate a meta (ex.: 4,5 L)
+      // ou marca manual. Sem isto, qualquer dia em que o usuário bebeu
+      // água mas não fechou a meta entrava como "missed" no relatório,
+      // que é mentira — ele FEZ algo. Marcar partiallyCompleted preserva
+      // o sinal "tocou na atividade" sem mexer no resto do app.
+      const isHydration = task.sourceKey === "nutrition-hydration-daily";
+      const partiallyCompleted =
+        !completed && isHydration && hydratedDateKeys.has(dateKey);
+
+      return {
+        id: `task-${task.id}-${dateKey}`,
+        kind: "manual",
+        title: task.title,
+        description: task.description,
+        sourceLabel: labelForModule(task.moduleId),
+        badgeLabel: task.sourceKey ? "Sincronizada" : "Manual",
+        time: task.scheduledTime,
+        completed,
+        partiallyCompleted,
+        route: routeForModule(task.moduleId),
+        xp: task.xp,
+      };
+    });
 
   const mealBlocks = mealPlan
     .filter((block) => reminderMatchesDay(block, state, weekday))
@@ -153,6 +180,14 @@ export function buildAgendaEvents(
       ).length;
       const totalCount = block.items.length;
 
+      const allDone = totalCount > 0 && completedCount === totalCount;
+      // "Tocado" = pelo menos um item marcado. Reflete que o usuário
+      // efetivamente fez a refeição, mesmo deixando um item opcional
+      // (suplemento, complemento) pra trás. Usado SÓ pelo relatório
+      // semanal (via weekly-report.ts), pra não classificar essa
+      // refeição como "missed".
+      const touched = !allDone && completedCount > 0;
+
       return {
         id: `meal-${block.id}-${dateKey}`,
         kind: "meal",
@@ -164,7 +199,8 @@ export function buildAgendaEvents(
         sourceLabel: "Dieta",
         badgeLabel: "Sincronizada",
         time: reminder?.time || block.time,
-        completed: totalCount > 0 && completedCount === totalCount,
+        completed: allDone,
+        partiallyCompleted: touched,
         route: "/modules/nutrition",
       };
     });
