@@ -48,8 +48,11 @@ function Bar({ percent }: { percent: number }) {
 
 export default function WeeklyReportPage() {
   const { state } = useAppStore();
-  // weeksAgo=1 = última semana fechada (default). 0 = semana atual.
-  const [weeksAgo, setWeeksAgo] = useState(1);
+  // Default = semana ATUAL (em andamento). Antes era 1 (última fechada),
+  // mas usuários reclamaram de "está dizendo que perdi tarefas" quando na
+  // verdade estavam vendo a semana passada por engano. Semana atual é o
+  // que importa pra agir agora.
+  const [weeksAgo, setWeeksAgo] = useState(0);
 
   const report: WeeklyReport = useMemo(
     () => buildWeeklyReport(state, weekReference(weeksAgo)),
@@ -79,13 +82,36 @@ export default function WeeklyReportPage() {
             </div>
             <div className="praxis-title" style={{ fontSize: 26 }}>
               {report.rangeLabel}
-              {report.isCurrentWeek ? (
-                <span style={{ fontSize: 13, color: "var(--fg-3)", marginLeft: 8 }}>
-                  (em andamento)
-                </span>
-              ) : null}
             </div>
-            <div style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 4 }}>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                marginTop: 6,
+                padding: "3px 10px",
+                borderRadius: 999,
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: "0.04em",
+                background: report.isCurrentWeek
+                  ? "rgba(74,222,128,0.12)"
+                  : "rgba(113,113,122,0.18)",
+                color: report.isCurrentWeek ? "var(--ok)" : "var(--fg-3)",
+                border: `1px solid ${
+                  report.isCurrentWeek
+                    ? "rgba(74,222,128,0.32)"
+                    : "rgba(113,113,122,0.28)"
+                }`,
+              }}
+            >
+              {report.isCurrentWeek
+                ? "SEMANA ATUAL · em andamento"
+                : weeksAgo === 1
+                  ? "SEMANA PASSADA"
+                  : `${weeksAgo} semanas atrás`}
+            </div>
+            <div style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 8 }}>
               {report.summary}
             </div>
           </div>
