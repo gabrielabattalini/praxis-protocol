@@ -48,6 +48,17 @@ function aggregateActivity(events) {
   };
 }
 
+// Espelha a regra de status por dia (DayDots no relatório): done = fez
+// (ou tocou); missed = atividade caiu mas ficou pra trás; absent = não
+// estava agendada nesse dia (não pode ser missed). isOffSchedule de
+// treino não vira missed (treino remanejado não duplica penalização).
+function dayStatus(event) {
+  const wasDone = event.completed || event.partiallyCompleted;
+  if (wasDone) return "done";
+  if (event.kind === "workout" && event.isOffSchedule) return "absent";
+  return "missed";
+}
+
 test("refeição comida parcial (3/5 itens) não conta como missed", () => {
   const week = Array.from({ length: 7 }, () => mealEvent(5, 3));
   const result = aggregateActivity(week);
@@ -107,4 +118,46 @@ test("hidratação: meta batida (completed=true) prevalece", () => {
   // partiallyCompleted é "false" quando já está completed (não precisa
   // do fallback) — evita dupla contagem.
   assert.equal(event.partiallyCompleted, false);
+});
+
+// ── status por dia (DayDots no relatório) ───────────────────────────────
+test("dayStatus: refeição cheia → done", () => {
+  assert.equal(dayStatus(mealEvent(5, 5)), "done");
+});
+
+test("dayStatus: refeição tocada parcialmente → done (não missed)", () => {
+  assert.equal(dayStatus(mealEvent(5, 2)), "done");
+});
+
+test("dayStatus: refeição intocada → missed", () => {
+  assert.equal(dayStatus(mealEvent(5, 0)), "missed");
+});
+
+test("dayStatus: hidratação com qualquer água → done", () => {
+  assert.equal(
+    dayStatus(hydrationEvent({ completed: false, hydratedToday: true })),
+    "done",
+  );
+});
+
+test("dayStatus: hidratação sem água → missed", () => {
+  assert.equal(
+    dayStatus(hydrationEvent({ completed: false, hydratedToday: false })),
+    "missed",
+  );
+});
+
+test("dayStatus: treino off-schedule não-feito → absent (não missed)", () => {
+  const event = { kind: "workout", isOffSchedule: true, completed: false };
+  assert.equal(dayStatus(event), "absent");
+});
+
+test("dayStatus: treino off-schedule feito → done", () => {
+  const event = { kind: "workout", isOffSchedule: true, completed: true };
+  assert.equal(dayStatus(event), "done");
+});
+
+test("dayStatus: treino canônico não-feito → missed", () => {
+  const event = { kind: "workout", isOffSchedule: false, completed: false };
+  assert.equal(dayStatus(event), "missed");
 });

@@ -7,10 +7,13 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Circle,
 } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
+import { useToast } from "@/components/ui/toast";
 import { buildWeekAgenda, type AgendaEvent } from "@/lib/agenda";
-import { formatDateKey } from "@/lib/utils";
+import { formatDateKey, makeId } from "@/lib/utils";
+import type { RecoveryDayCompletion } from "@/lib/types";
 
 const agendaSlots = [
   "05:00",
@@ -110,25 +113,42 @@ function isSameDate(left: Date, right: Date) {
   return left.toDateString() === right.toDateString();
 }
 
-function AgendaEventLink({ item }: { item: AgendaEvent }) {
+/**
+ * Chip de evento da Agenda.
+ *
+ * Pedido do usuário: clicar deve DAR/TIRAR baixa na própria Agenda
+ * (sincronizado com Missões), inclusive em dias passados (esqueceu de
+ * lançar). Então:
+ *  - dia de HOJE ou PASSADO → vira botão que alterna a conclusão.
+ *  - dia FUTURO → continua link pro módulo (não dá pra concluir o que
+ *    ainda não aconteceu; abrir o módulo serve pra planejar).
+ */
+function AgendaEventChip({
+  item,
+  canToggle,
+  onToggle,
+}: {
+  item: AgendaEvent;
+  canToggle: boolean;
+  onToggle: (item: AgendaEvent) => void;
+}) {
   const tone = toneForKind(item.kind);
+  const baseStyle = {
+    display: "block",
+    width: "100%",
+    minWidth: 0,
+    padding: "5px 7px",
+    borderRadius: 6,
+    borderLeft: `3px solid ${tone.color}`,
+    background: item.completed ? "rgba(14,14,17,0.62)" : "rgba(20,20,24,0.86)",
+    color: "inherit",
+    textDecoration: "none",
+    opacity: item.completed ? 0.68 : 1,
+    textAlign: "left" as const,
+  };
 
-  return (
-    <Link
-      href={item.route}
-      title={`${item.time ?? "Sem horário"} · ${item.title}`}
-      style={{
-        display: "block",
-        minWidth: 0,
-        padding: "5px 7px",
-        borderRadius: 6,
-        borderLeft: `3px solid ${tone.color}`,
-        background: item.completed ? "rgba(14,14,17,0.62)" : "rgba(20,20,24,0.86)",
-        color: "inherit",
-        textDecoration: "none",
-        opacity: item.completed ? 0.68 : 1,
-      }}
-    >
+  const inner = (
+    <>
       <div
         style={{
           display: "flex",
@@ -156,6 +176,17 @@ function AgendaEventLink({ item }: { item: AgendaEvent }) {
             className="h-3.5 w-3.5"
             style={{ color: "var(--ok)", flexShrink: 0 }}
           />
+        ) : item.partiallyCompleted ? (
+          // Refeição comida em parte (alguns itens) — meia-baixa.
+          <CheckCircle2
+            className="h-3.5 w-3.5"
+            style={{ color: "var(--accent)", flexShrink: 0, opacity: 0.6 }}
+          />
+        ) : canToggle ? (
+          <Circle
+            className="h-3.5 w-3.5"
+            style={{ color: "#52525b", flexShrink: 0 }}
+          />
         ) : null}
       </div>
       <div
@@ -172,15 +203,102 @@ function AgendaEventLink({ item }: { item: AgendaEvent }) {
       >
         {item.title}
       </div>
-    </Link>
+    </>
+  );
+
+  if (!canToggle) {
+    return (
+      <Link
+        href={item.route}
+        title={`${item.time ?? "Sem horário"} · ${item.title}`}
+        style={baseStyle}
+      >
+        {inner}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(item)}
+      title={`${item.completed ? "Tirar baixa" : "Dar baixa"} · ${item.title}`}
+      style={{
+        ...baseStyle,
+        border: "none",
+        borderLeft: `3px solid ${tone.color}`,
+        cursor: "pointer",
+      }}
+    >
+      {inner}
+    </button>
   );
 }
 
 export default function AgendaPage() {
-  const { state } = useAppStore();
+  const { state, actions } = useAppStore();
+  const toast = useToast();
   const today = useMemo(() => new Date(), []);
+  const todayKey = formatDateKey(today);
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedDateKey, setSelectedDateKey] = useState(() => formatDateKey(today));
+
+  // Dá/tira baixa direto da Agenda (sincronizado com Missões), pro DIA
+  // do evento — inclusive dias passados. Hoje usa o toggle padrão; dias
+  // passados gravam no histórico por data (completedDates / completion
+  // por dateKey), exatamente como a página de Missões faz.
+  function handleToggleItem(item: AgendaEvent) {
+    const dateKey = item.dateKey;
+    const isToday = dateKey === todayKey;
+    const wasDone = item.completed;
+
+    if (item.taskId) {
+      if (isToday) {
+        actions.toggleTask(item.taskId);
+      } else {
+        actions.toggleTaskCompletionForDate({ taskId: item.taskId, dateKey });
+      }
+    } else if (item.mealBlockId) {
+      actions.setMealBlockItemsCompleted({
+        blockId: item.mealBlockId,
+        completed: !item.completed,
+        dateKey,
+      });
+    } else if (item.workoutDayId) {
+      actions.toggleWorkoutDayCompleted({ dayId: item.workoutDayId, dateKey });
+    } else if (item.recoveryDayId) {
+      const list = state.recoveryDayCompletions ?? [];
+      const exists = list.some(
+        (entry) => entry.dayId === item.recoveryDayId && entry.dateKey === dateKey,
+      );
+      if (exists) {
+        actions.replaceRecoveryDayCompletions(
+          list.filter(
+            (entry) =>
+              !(entry.dayId === item.recoveryDayId && entry.dateKey === dateKey),
+          ),
+        );
+      } else {
+        const completion: RecoveryDayCompletion = {
+          id: makeId("rcomp"),
+          programId: "default",
+          dayId: item.recoveryDayId,
+          dayTitle: item.title,
+          dateKey,
+          completedAt: new Date().toISOString(),
+        };
+        actions.replaceRecoveryDayCompletions([completion, ...list]);
+      }
+    } else {
+      return;
+    }
+
+    toast.push({
+      message: wasDone
+        ? `Baixa removida: ${item.title}`
+        : `Concluída: ${item.title}`,
+    });
+  }
 
   const referenceDate = useMemo(
     () => buildReferenceDate(today, weekOffset),
@@ -408,7 +526,7 @@ export default function AgendaPage() {
                     </div>
                     <div style={{ display: "grid", gap: 6 }}>
                       {itemsInSlot.map((item) => (
-                        <AgendaEventLink key={item.id} item={item} />
+                        <AgendaEventChip key={item.id} item={item} canToggle={item.dateKey <= todayKey} onToggle={handleToggleItem} />
                       ))}
                     </div>
                   </div>
@@ -428,7 +546,7 @@ export default function AgendaPage() {
                 {selectedDay.items
                   .filter((item) => !item.time)
                   .map((item) => (
-                    <AgendaEventLink key={`m-day-${item.id}`} item={item} />
+                    <AgendaEventChip key={`m-day-${item.id}`} item={item} canToggle={item.dateKey <= todayKey} onToggle={handleToggleItem} />
                   ))}
               </div>
             </div>
@@ -547,7 +665,7 @@ export default function AgendaPage() {
                     >
                       <div style={{ display: "grid", gap: 4 }}>
                         {day.items.slice(0, 3).map((item) => (
-                          <AgendaEventLink key={item.id} item={item} />
+                          <AgendaEventChip key={item.id} item={item} canToggle={item.dateKey <= todayKey} onToggle={handleToggleItem} />
                         ))}
                         {day.items.length > 3 ? (
                           <button
@@ -603,7 +721,7 @@ export default function AgendaPage() {
                     >
                       <div style={{ display: "grid", gap: 4 }}>
                         {day.items.slice(0, 3).map((item) => (
-                          <AgendaEventLink key={item.id} item={item} />
+                          <AgendaEventChip key={item.id} item={item} canToggle={item.dateKey <= todayKey} onToggle={handleToggleItem} />
                         ))}
                       </div>
                     </div>
