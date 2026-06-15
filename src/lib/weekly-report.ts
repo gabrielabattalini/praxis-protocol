@@ -24,6 +24,17 @@ export type WeeklyReportDay = {
   percent: number;
 };
 
+export type WeeklyReportActivityDayStatus =
+  | "done"      // concluído (ou parcialmente — meal block tocado)
+  | "missed"    // estava agendado e ficou pra trás
+  | "absent";   // não estava agendado nesse dia (ex.: treino de quinta)
+
+export type WeeklyReportActivityDay = {
+  dateKey: string;
+  shortLabel: string;
+  status: WeeklyReportActivityDayStatus;
+};
+
 export type WeeklyReportActivity = {
   key: string;
   title: string;
@@ -32,6 +43,10 @@ export type WeeklyReportActivity = {
   completed: number;
   missed: number;
   percent: number;
+  // 7 entradas, sempre de segunda a domingo da semana — ajuda o usuário a
+  // diagnosticar visualmente em quais dias a baixa não foi registrada
+  // (vs. dias em que a atividade simplesmente não caiu).
+  days: WeeklyReportActivityDay[];
 };
 
 export type WeeklyReportModule = {
@@ -148,6 +163,10 @@ export function buildWeeklyReport(
   // Agrega atividades (mesma tarefa/bloco ao longo dos 7 dias) e módulos.
   const activityMap = new Map<string, WeeklyReportActivity>();
   const moduleMap = new Map<string, WeeklyReportModule>();
+  // Status por dia, por atividade — preenchido durante a iteração e
+  // usado pra mostrar a fileira visual "fez/não fez" no relatório,
+  // ajudando o usuário a diagnosticar em qual dia a baixa sumiu.
+  const dayStatusByActivity = new Map<string, Map<string, WeeklyReportActivityDayStatus>>();
   // Pra treinos, conta apenas as aparições CANONICAL (não off-schedule)
   // como "scheduled". Quando o usuário fez o treino fora do dia agendado
   // (canonical=quarta, executado=quinta), antes ficava 1/2 — agora 1/1.
@@ -184,7 +203,30 @@ export function buildWeeklyReport(
           completed: 0,
           missed: 0,
           percent: 0,
+          days: [],
         };
+
+      // Registra o status DESTE dia pra esta atividade. Aparição
+      // off-schedule de treino (executado num dia que não era o canônico)
+      // só conta como "done" se foi feito — não "missed", senão um
+      // treino remanejado faria o canônico aparecer como missed E o dia
+      // remanejado também (dupla penalização).
+      const dayStatus: WeeklyReportActivityDayStatus =
+        wasDone
+          ? "done"
+          : isWorkout && item.isOffSchedule
+            ? "absent"
+            : "missed";
+      const statusMap =
+        dayStatusByActivity.get(activityKey) ??
+        new Map<string, WeeklyReportActivityDayStatus>();
+      const previous = statusMap.get(day.dateKey);
+      // "done" prevalece sobre missed/absent caso a atividade apareça
+      // duas vezes no mesmo dia (raro mas possível).
+      if (previous !== "done") {
+        statusMap.set(day.dateKey, dayStatus);
+      }
+      dayStatusByActivity.set(activityKey, statusMap);
 
       if (isWorkout && item.workoutDayId) {
         if (!item.isOffSchedule) {
@@ -221,8 +263,20 @@ export function buildWeeklyReport(
     }
   }
 
+  // Monta `days` final pra cada atividade: 7 entradas (seg→dom). Dias em
+  // que a atividade não apareceu na agenda viram "absent".
+  function buildActivityDays(activityKey: string): WeeklyReportActivityDay[] {
+    const statusMap = dayStatusByActivity.get(activityKey);
+    return week.map((day) => ({
+      dateKey: day.dateKey,
+      shortLabel: day.shortLabel,
+      status: statusMap?.get(day.dateKey) ?? "absent",
+    }));
+  }
+
   const activities = Array.from(activityMap.values())
     .map((activity) => {
+      const days = buildActivityDays(activity.key);
       // Treinos: scheduled vem do conjunto canonical (capturado no
       // workoutCanonical). Se o usuário fez off-schedule num treino
       // não-agendado essa semana, ainda conta como 1 sessão prevista
@@ -239,12 +293,14 @@ export function buildWeeklyReport(
           completed,
           missed: scheduled - completed,
           percent: percentOf(completed, scheduled),
+          days,
         };
       }
       return {
         ...activity,
         missed: activity.scheduled - activity.completed,
         percent: percentOf(activity.completed, activity.scheduled),
+        days,
       };
     })
     .sort((left, right) => {

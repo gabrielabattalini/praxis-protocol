@@ -16,12 +16,100 @@ import {
   buildWeeklyReport,
   weekReference,
   type WeeklyReport,
+  type WeeklyReportActivityDay,
 } from "@/lib/weekly-report";
 
 function percentColor(percent: number) {
   if (percent >= 80) return "var(--ok)";
   if (percent >= 50) return "var(--accent)";
   return "#f87171";
+}
+
+/**
+ * Fileira de bolinhas com o status de cada dia (seg→dom) pra uma
+ * atividade. Diagnostica visualmente onde a baixa não foi registrada:
+ *  - ✓ verde      = fez (ou tocou, no caso de refeição/água)
+ *  - X vermelho   = atividade caiu nesse dia e ficou pra trás
+ *  - traço cinza  = não estava agendada nesse dia (não é missed)
+ */
+function DayDots({ days }: { days: WeeklyReportActivityDay[] }) {
+  return (
+    <div
+      role="list"
+      aria-label="Status por dia da semana"
+      style={{ display: "flex", gap: 6, flexWrap: "wrap" }}
+    >
+      {days.map((day) => {
+        const isDone = day.status === "done";
+        const isMissed = day.status === "missed";
+        const bg = isDone
+          ? "rgba(74,222,128,0.15)"
+          : isMissed
+            ? "rgba(248,113,113,0.15)"
+            : "rgba(39,39,42,0.4)";
+        const border = isDone
+          ? "rgba(74,222,128,0.5)"
+          : isMissed
+            ? "rgba(248,113,113,0.5)"
+            : "rgba(63,63,70,0.5)";
+        const color = isDone
+          ? "#86efac"
+          : isMissed
+            ? "#fca5a5"
+            : "#52525b";
+        const glyph = isDone ? "✓" : isMissed ? "✗" : "—";
+        const dayNumber = day.dateKey.slice(8, 10);
+        const title = `${day.shortLabel} ${dayNumber}: ${
+          isDone ? "feito" : isMissed ? "ficou pra trás" : "não agendado"
+        }`;
+        return (
+          <div
+            key={day.dateKey}
+            role="listitem"
+            title={title}
+            aria-label={title}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 2,
+              minWidth: 28,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 9,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                color: "var(--fg-3)",
+              }}
+            >
+              {day.shortLabel.slice(0, 3)}
+            </span>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 22,
+                height: 22,
+                borderRadius: 999,
+                border: `1px solid ${border}`,
+                background: bg,
+                color,
+                fontSize: 11,
+                fontWeight: 700,
+                lineHeight: 1,
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {glyph}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function Bar({ percent }: { percent: number }) {
@@ -265,12 +353,20 @@ export default function WeeklyReportPage() {
                 <div
                   key={activity.key}
                   className="rounded-sm border px-4 py-3"
-                  style={{ borderColor: "rgba(248,113,113,0.3)", background: "rgba(248,113,113,0.06)", display: "flex", alignItems: "center", gap: 12 }}
+                  style={{
+                    borderColor: "rgba(248,113,113,0.3)",
+                    background: "rgba(248,113,113,0.06)",
+                    display: "grid",
+                    gridTemplateColumns: "24px minmax(0,1fr) auto",
+                    alignItems: "center",
+                    gap: 12,
+                    rowGap: 8,
+                  }}
                 >
-                  <span style={{ fontSize: 18, fontWeight: 800, color: "#f87171", width: 24 }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: "#f87171" }}>
                     {index + 1}
                   </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ minWidth: 0 }}>
                     <p className="truncate" style={{ fontSize: 14, color: "var(--fg)", fontWeight: 500 }}>
                       {activity.title}
                     </p>
@@ -281,6 +377,13 @@ export default function WeeklyReportPage() {
                   <span style={{ fontSize: 13, fontWeight: 700, color: percentColor(activity.percent) }}>
                     {activity.percent}%
                   </span>
+                  {/* Fileira seg→dom: ✓ verde = fez, X vermelho = caiu e
+                      ficou pra trás, traço cinza = nem caiu nesse dia.
+                      Ajuda a diagnosticar se o dia "perdido" foi mesmo
+                      perdido ou se a atividade não tava agendada. */}
+                  <div style={{ gridColumn: "2 / -1" }}>
+                    <DayDots days={activity.days} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -295,7 +398,7 @@ export default function WeeklyReportPage() {
                     <div
                       key={activity.key}
                       className="rounded-sm border border-zinc-800 bg-[rgba(14,14,17,0.92)] px-4 py-2"
-                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}
+                      style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "center", gap: 12, rowGap: 8 }}
                     >
                       <div style={{ minWidth: 0 }}>
                         <p className="truncate" style={{ fontSize: 13, color: "var(--fg-2)" }}>
@@ -306,6 +409,9 @@ export default function WeeklyReportPage() {
                       <span style={{ fontSize: 12, color: "var(--fg-3)", whiteSpace: "nowrap" }}>
                         {activity.completed}/{activity.scheduled}
                       </span>
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <DayDots days={activity.days} />
+                      </div>
                     </div>
                   ))}
                 </div>
