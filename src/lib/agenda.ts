@@ -31,6 +31,14 @@ export type AgendaEvent = {
   partiallyCompleted?: boolean;
   route: string;
   xp?: number;
+  // Data (YYYY-MM-DD) a que este evento pertence — permite dar/tirar
+  // baixa na própria Agenda pro dia certo (inclusive dias passados).
+  dateKey: string;
+  // IDs da entidade por trás do evento, pra marcar conclusão direto da
+  // Agenda (sincronizado com Missões). Só um é populado por evento.
+  taskId?: string;
+  mealBlockId?: string;
+  recoveryDayId?: string;
   // Só populados pra kind="workout" — usados pelo agregador do
   // relatório semanal pra contar uma sessão por workout day em vez
   // de duplicar quando o usuário fez off-schedule (canonical=quarta,
@@ -161,6 +169,8 @@ export function buildAgendaEvents(
         partiallyCompleted,
         route: routeForModule(task.moduleId),
         xp: task.xp,
+        dateKey,
+        taskId: task.id,
       };
     });
 
@@ -202,6 +212,8 @@ export function buildAgendaEvents(
         completed: allDone,
         partiallyCompleted: touched,
         route: "/modules/nutrition",
+        dateKey,
+        mealBlockId: block.id,
       };
     });
 
@@ -228,6 +240,8 @@ export function buildAgendaEvents(
         time: undefined,
         completed,
         route: "/modules/recovery",
+        dateKey,
+        recoveryDayId: day.id,
       };
     });
 
@@ -285,6 +299,7 @@ export function buildAgendaEvents(
         time: reminder?.time || "17:30",
         completed,
         route: `/modules/workout?dayId=${day.id}`,
+        dateKey,
         workoutDayId: day.id,
         // Deferred-to conta como a sessão agendada (só mudou de dia).
         isOffSchedule: !scheduled && !deferredTo,
