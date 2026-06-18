@@ -44,6 +44,12 @@ export type AgendaEvent = {
   // de duplicar quando o usuário fez off-schedule (canonical=quarta,
   // executado=quinta gerava antes scheduled=2, completed=1).
   workoutDayId?: string;
+  // Ids dos workoutLoadEntries (logs de carga) que existem nesta data —
+  // populado só pra kind="workout". O handler de toggle do chip da
+  // Agenda usa isto pra desfazer um treino salvo no histórico de carga
+  // (remover só a completion não basta: a UI segue mostrando ✓ porque
+  // o log conta como "fez").
+  workoutLoadEntryIds?: string[];
   isOffSchedule?: boolean;
 };
 
@@ -301,6 +307,16 @@ export function buildAgendaEvents(
         route: `/modules/workout?dayId=${day.id}`,
         dateKey,
         workoutDayId: day.id,
+        // Ids dos logs de carga da data — sem isto, "tirar baixa" no
+        // chip da Agenda só apagava a completion e a UI continuava
+        // mostrando ✓ (porque hasLogOnDate ainda era true). Com a
+        // lista de ids, o handler do chip pode opcionalmente remover
+        // os logs juntos (com confirm, igual à página de Missões).
+        workoutLoadEntryIds: workoutLoadEntries
+          .filter(
+            (entry) => entry.dayId === day.id && entry.loggedAt.slice(0, 10) === dateKey,
+          )
+          .map((entry) => entry.id),
         // Deferred-to conta como a sessão agendada (só mudou de dia).
         isOffSchedule: !scheduled && !deferredTo,
       };
