@@ -218,11 +218,19 @@ function AgendaEventChip({
     );
   }
 
+  // Ações: completo → "Tirar baixa". Parcial (refeição comida em parte /
+  // hidratação tocada) → "Concluir" (sobe pra completo). Pendente → "Dar baixa".
+  const actionLabel = item.completed
+    ? "Tirar baixa"
+    : item.partiallyCompleted
+      ? "Concluir"
+      : "Dar baixa";
+
   return (
     <button
       type="button"
       onClick={() => onToggle(item)}
-      title={`${item.completed ? "Tirar baixa" : "Dar baixa"} · ${item.title}`}
+      title={`${actionLabel} · ${item.title}`}
       style={{
         ...baseStyle,
         border: "none",
@@ -244,12 +252,20 @@ export default function AgendaPage() {
   const [selectedDateKey, setSelectedDateKey] = useState(() => formatDateKey(today));
 
   // Dá/tira baixa direto da Agenda (sincronizado com Missões), pro DIA
-  // do evento — inclusive dias passados. Hoje usa o toggle padrão; dias
-  // passados gravam no histórico por data (completedDates / completion
-  // por dateKey), exatamente como a página de Missões faz.
+  // do evento — inclusive dias passados. Regra geral:
+  //   - pendente / parcial (✓ âmbar) → marca como CONCLUÍDO. Pra refeição
+  //     parcial, sobe pra completo (todos os items do dia). Pra hidratação
+  //     parcial (bebeu mas não fechou a meta), marca a task como completa
+  //     manualmente — sem isto o clique parecia "não fazer nada" porque a
+  //     UI seguia em ✓ âmbar.
+  //   - já completo (✓ verde) → TIRA a baixa. Pra treino com log de carga,
+  //     pede confirm e apaga também os logs (sem isto, remover só a
+  //     completion deixava a UI ainda como ✓ porque o log conta como feito).
   function handleToggleItem(item: AgendaEvent) {
     const dateKey = item.dateKey;
     const isToday = dateKey === todayKey;
+    // "Concluído" = check verde. Parcial (âmbar) é tratado como pendente
+    // pra que o clique SUBA pra completo, não tente desmarcar.
     const wasDone = item.completed;
 
     if (item.taskId) {
@@ -259,12 +275,25 @@ export default function AgendaPage() {
         actions.toggleTaskCompletionForDate({ taskId: item.taskId, dateKey });
       }
     } else if (item.mealBlockId) {
+      // Parcial vira completo (marca todos itens); já-completo desmarca tudo.
       actions.setMealBlockItemsCompleted({
         blockId: item.mealBlockId,
-        completed: !item.completed,
+        completed: !wasDone,
         dateKey,
       });
     } else if (item.workoutDayId) {
+      const entryIds = item.workoutLoadEntryIds ?? [];
+      if (wasDone && entryIds.length > 0) {
+        // Tem log de carga — sem apagar o log, a UI segue mostrando ✓
+        // (hasLogOnDate continua true). Confirm pra não destruir
+        // histórico de pesos por engano.
+        const ok = window.confirm(
+          `Desfazer "${item.title}"? Isso vai remover ${entryIds.length} registro(s) de carga salvos no histórico — não dá pra desfazer depois.`,
+        );
+        if (!ok) return;
+        actions.removeWorkoutLoadBatch(entryIds);
+      }
+      // Toggle da completion (cria se não havia, remove se havia).
       actions.toggleWorkoutDayCompleted({ dayId: item.workoutDayId, dateKey });
     } else if (item.recoveryDayId) {
       const list = state.recoveryDayCompletions ?? [];
