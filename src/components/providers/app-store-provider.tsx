@@ -1379,10 +1379,28 @@ function reducer(state: PersistedState, action: Action): PersistedState {
           const alreadyComplete = currentList.includes(dateKey);
           const nextList = alreadyComplete
             ? currentList.filter((entry) => entry !== dateKey)
-            : [...currentList, dateKey];
+            : [...currentList, dateKey].sort();
+          // Sincroniza completed/completedAt legados com a nova lista,
+          // igual ao toggle-task. Sem isso, desmarcar um dia passado em
+          // que a task tinha completed=true e completedAt apontando pro
+          // mesmo dia esvaziava completedDates mas deixava o fallback
+          // legado de isTaskCompletedForDate ainda dizer "concluído" —
+          // UI continuava ✓ visualmente. Bug que segurava a "tirar baixa".
+          const todayKey = formatDateKey(new Date());
+          const willBeCompletedToday = nextList.includes(todayKey);
+          const latestRemainingKey = nextList.length
+            ? nextList[nextList.length - 1]
+            : null;
+          const nextCompletedAt = willBeCompletedToday
+            ? new Date().toISOString()
+            : latestRemainingKey
+              ? new Date(`${latestRemainingKey}T12:00:00`).toISOString()
+              : undefined;
           return {
             ...task,
             completedDates: nextList,
+            completed: willBeCompletedToday,
+            completedAt: nextCompletedAt,
           };
         }),
       };
