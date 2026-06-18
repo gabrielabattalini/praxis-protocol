@@ -96,6 +96,128 @@ test("completed (booleano de hoje) = OR dos dois lados", () => {
   assert.equal(merged.tasks[0].completed, true);
 });
 
+// ── 3-way: pull do server NÃO ressuscita baixa removida pelo local ─────
+//
+// Bug reportado: usuário clicava "tirar baixa" na Agenda, toast confirmava,
+// mas o pull periódico do servidor (60s) trazia o estado antigo e o merge
+// por união simples re-incluía a data tirada. Solução: 3-way usa a BASE
+// (último snapshot servidor) pra distinguir "ainda não tem" de "tinha e foi
+// removido". Estes testes travam isso.
+
+test("tasks: tirar baixa local NÃO é ressuscitada pelo pull do server", () => {
+  const b = base({
+    tasks: [
+      task("t-acordar", ["2026-06-14"], {
+        completed: true,
+        completedAt: "2026-06-14T12:00:00.000Z",
+      }),
+    ],
+  });
+  // local: usuário tirou baixa do dia 14.
+  const local = base({
+    tasks: [task("t-acordar", [], { completed: false })],
+  });
+  // server: ainda não recebeu o save — tem o estado antigo.
+  const server = base({
+    tasks: [
+      task("t-acordar", ["2026-06-14"], {
+        completed: true,
+        completedAt: "2026-06-14T12:00:00.000Z",
+      }),
+    ],
+  });
+
+  const merged = threeWayMergeState(b, local, server);
+  // 14/06 NÃO ressuscita.
+  assert.deepEqual(merged.tasks[0].completedDates, undefined);
+  // Legado também zera (pra isTaskCompletedForDate não cair no fallback).
+  assert.equal(merged.tasks[0].completed, false);
+  assert.equal(merged.tasks[0].completedAt, undefined);
+});
+
+test("tasks: outro dispositivo adicionou um dia novo — ambos preservados", () => {
+  const b = base({ tasks: [task("t", ["2026-06-13"])] });
+  // local: tirou baixa do 13 (e nada mais)
+  const local = base({ tasks: [task("t", [])] });
+  // server: outro device manteve 13 E adicionou 14
+  const server = base({ tasks: [task("t", ["2026-06-13", "2026-06-14"])] });
+
+  const merged = threeWayMergeState(b, local, server);
+  // 13 some (local removeu); 14 fica (server adicionou).
+  assert.deepEqual(merged.tasks[0].completedDates, ["2026-06-14"]);
+});
+
+test("tasks: dia adicionado SÓ pelo server (não estava em base) entra", () => {
+  const b = base({ tasks: [task("t", [])] });
+  const local = base({ tasks: [task("t", [])] });
+  const server = base({ tasks: [task("t", ["2026-06-15"])] });
+
+  const merged = threeWayMergeState(b, local, server);
+  assert.deepEqual(merged.tasks[0].completedDates, ["2026-06-15"]);
+});
+
+test("mealPlan: refeição parcialmente desmarcada não é ressuscitada", () => {
+  const b = base({
+    mealPlan: [
+      mealBlock("lunch", [
+        mealItem("a", ["2026-06-13", "2026-06-14"]),
+        mealItem("b", ["2026-06-13"]),
+      ]),
+    ],
+  });
+  // local: tirou 14 do item a (deixou só 13); manteve b.
+  const local = base({
+    mealPlan: [
+      mealBlock("lunch", [
+        mealItem("a", ["2026-06-13"]),
+        mealItem("b", ["2026-06-13"]),
+      ]),
+    ],
+  });
+  // server: ainda tem o 14 do a.
+  const server = base({
+    mealPlan: [
+      mealBlock("lunch", [
+        mealItem("a", ["2026-06-13", "2026-06-14"]),
+        mealItem("b", ["2026-06-13"]),
+      ]),
+    ],
+  });
+
+  const merged = threeWayMergeState(b, local, server);
+  const lunch = merged.mealPlan[0];
+  assert.deepEqual(lunch.items[0].completedDates, ["2026-06-13"]);
+  assert.deepEqual(lunch.items[1].completedDates, ["2026-06-13"]);
+});
+
+test("workoutDayCompletions: desfazer não é ressuscitado pelo pull", () => {
+  const completion = (id, dayId, dateKey) => ({
+    id,
+    programId: "p1",
+    dayId,
+    dateKey,
+    dayTitle: "Peito",
+    completedAt: "2026-06-14T20:00:00Z",
+  });
+  const b = base({ workoutDayCompletions: [completion("x", "d1", "2026-06-14")] });
+  const local = base({ workoutDayCompletions: [] }); // desfez
+  const server = base({ workoutDayCompletions: [completion("x", "d1", "2026-06-14")] });
+
+  const merged = threeWayMergeState(b, local, server);
+  assert.equal(merged.workoutDayCompletions.length, 0);
+});
+
+test("waterEntries: zerar consumo do dia local não é ressuscitado", () => {
+  const b = base({ waterEntries: [{ date: "2026-06-14", consumedMl: 2000 }] });
+  // local: removeu o registro do dia 14.
+  const local = base({ waterEntries: [] });
+  // server: ainda tem.
+  const server = base({ waterEntries: [{ date: "2026-06-14", consumedMl: 2000 }] });
+
+  const merged = threeWayMergeState(b, local, server);
+  assert.equal(merged.waterEntries.length, 0);
+});
+
 // ── mealPlan: o bug reportado (almoço/jantar/jejum "voltando") ──────────
 function mealItem(id, completedDates = [], extra = {}) {
   return {

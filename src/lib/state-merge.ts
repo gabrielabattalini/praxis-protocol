@@ -10,37 +10,47 @@ import type {
 /**
  * Merge 3-way do estado persistido (account-state).
  *
- * Usado quando dois dispositivos editam em paralelo: o servidor rejeita
- * o save com versão defasada (409), o cliente busca o estado do servidor
- * e reconcilia LOCAL + SERVER usando a BASE comum (o último estado que
- * ambos compartilhavam — `lastServerSnapshot`).
+ * Usado em dois lugares:
+ *  - save 409 (servidor rejeita versão defasada → cliente reconcilia)
+ *  - pull periódico (cross-device sync): a cada 60s o cliente puxa o
+ *    estado do servidor e, se tem edições locais não-salvas, reconcilia.
+ *
+ * BASE = último snapshot que cliente e servidor compartilhavam
+ * (`lastServerSnapshotRef`). LOCAL = estado atual do cliente. SERVER =
+ * estado novo que veio do servidor.
  *
  * Estratégia:
- *  - Granularidade por chave de topo: se só um lado mudou a fatia em
- *    relação à base, fica a versão alterada. Se os dois mudaram, o LOCAL
- *    vence (o dispositivo que está com o usuário na frente). Cobre o
- *    caso comum (A edita finanças, B edita treino → ambos preservados).
- *  - Fatias de HISTÓRICO/CONCLUSÃO têm merge FINO (são as mais editadas
- *    em paralelo — toggle de hábito, dar baixa em refeição pelo app E
- *    pelo Telegram, registrar água, concluir treino). Sem isto, marcar a
- *    refeição no app e concluir pelo Telegram fazia a fatia inteira de um
- *    lado ser descartada, "voltando" a semana toda pra pendente:
- *      · tasks                 → une completedDates por id
- *      · mealPlan              → une completedDates por bloco/item
- *      · waterEntries          → maior consumo por dia
- *      · workoutDayCompletions → união por (programa, dia, data)
- *      · recoveryDayCompletions→ união por (programa, dia, data)
- *      · workoutLoadEntries    → união por id
+ *  - Granularidade por chave de topo (fatias não-histórico: reminders,
+ *    finanças, plano de treino, settings): se só um lado mudou em relação
+ *    à base, fica a versão alterada; se os dois mudaram, LOCAL vence (é o
+ *    dispositivo ativo na frente do usuário).
+ *  - Fatias de HISTÓRICO/CONCLUSÃO têm merge FINO 3-way que respeita
+ *    REMOÇÕES. Antes era união simples (local ∪ server), o que ressuscitava
+ *    silenciosamente baixas que o usuário tirou — bug do "ele fala que
+ *    remove mas continua" no toggle da Agenda: o pull de 60s trazia o
+ *    estado antigo do server, a união voltava a baixa, e a UI revertia.
  *
- * Função PURA — sem React/IO. Testada em tests/store/state-merge.test.mjs.
+ *  Regra de inclusão 3-way (pra cada item identificável):
+ *      base │ local │ server │ resultado
+ *      ─────┼───────┼────────┼─────────────────────────────────
+ *       —   │   ✓   │   —    │ ✓  (adicionado pelo local)
+ *       —   │   —   │   ✓    │ ✓  (adicionado pelo server)
+ *       ✓   │   ✓   │   ✓    │ ✓  (mantido nos dois lados)
+ *       ✓   │   —   │   ✓    │ —  (REMOVIDO pelo local, respeita)
+ *       ✓   │   ✓   │   —    │ —  (REMOVIDO pelo server, respeita)
+ *       ✓   │   —   │   —    │ —  (removido nos dois)
+ *
+ *  Resumo: incluir se está em local OR server, MENOS o que estava em base
+ *  mas sumiu de pelo menos um lado (= foi removido intencionalmente).
+ *  Se ambos editam a MESMA conclusão em paralelo, prevalece o "removido"
+ *  (escolha conservadora: melhor exigir um clique a mais do que ressuscitar
+ *  algo que o usuário tirou).
+ *
+ *  Função PURA — sem React/IO. Testada em tests/store/state-merge.test.mjs.
  */
 
 function stableEqual(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
-}
-
-function unionSorted(a: string[] = [], b: string[] = []): string[] {
-  return Array.from(new Set([...a, ...b])).sort();
 }
 
 function laterIso(a?: string, b?: string): string | undefined {
@@ -50,185 +60,243 @@ function laterIso(a?: string, b?: string): string | undefined {
 }
 
 /**
- * Une duas versões da MESMA task (mesmo id) preservando histórico de
- * conclusão dos dois lados. Campos não-temporais preferem `local`.
+ * 3-way merge de uma lista de strings que age como SET (datas, ids).
+ * Respeita remoções pelo lado que removeu — sem isto, união simples
+ * fazia o pull do servidor ressuscitar conclusões removidas localmente.
  */
-function mergeTask(local: Task, server: Task): Task {
-  const completedDates = unionSorted(
-    local.completedDates ?? [],
-    server.completedDates ?? [],
+function mergeStringSet(
+  base: string[] = [],
+  local: string[] = [],
+  server: string[] = [],
+): string[] {
+  const baseSet = new Set(base);
+  const localSet = new Set(local);
+  const serverSet = new Set(server);
+  const result = new Set<string>();
+  for (const value of new Set([...localSet, ...serverSet])) {
+    const wasInBase = baseSet.has(value);
+    const removedByLocal = wasInBase && !localSet.has(value);
+    const removedByServer = wasInBase && !serverSet.has(value);
+    if (removedByLocal || removedByServer) continue;
+    result.add(value);
+  }
+  return Array.from(result).sort();
+}
+
+/**
+ * 3-way merge genérico de coleções identificáveis (tasks, mealItems,
+ * blocks, completions, logs). Inclusão segue a tabela do header:
+ *   - itens só em local OU server (não estavam em base) → adicionados
+ *   - itens em base mas removidos por algum lado → tirados
+ *   - itens em ambos → reconciliados via `mergeItem`
+ *
+ * `keyOf` extrai a chave de identidade (id pra tasks/items, tripla
+ * (programa, dia, data) pra completions). Quando ambos os lados têm o
+ * mesmo item, `mergeItem` decide o que fazer com os campos internos.
+ */
+function mergeCollection<T>(
+  base: T[],
+  local: T[],
+  server: T[],
+  keyOf: (item: T) => string,
+  mergeItem: (
+    localItem: T | undefined,
+    serverItem: T | undefined,
+    baseItem: T | undefined,
+  ) => T,
+): T[] {
+  const baseByKey = new Map(base.map((item) => [keyOf(item), item]));
+  const localByKey = new Map(local.map((item) => [keyOf(item), item]));
+  const serverByKey = new Map(server.map((item) => [keyOf(item), item]));
+  const localOrder = local.map(keyOf);
+
+  const allKeys = new Set<string>([
+    ...localByKey.keys(),
+    ...serverByKey.keys(),
+  ]);
+
+  const merged: T[] = [];
+  const seen = new Set<string>();
+
+  // Mantém ordem do local pros que existem nele; resto entra no fim.
+  for (const key of localOrder) {
+    if (!allKeys.has(key)) continue;
+    const localItem = localByKey.get(key);
+    const serverItem = serverByKey.get(key);
+    const baseItem = baseByKey.get(key);
+    const wasInBase = baseByKey.has(key);
+    const removedByLocal = wasInBase && !localByKey.has(key);
+    const removedByServer = wasInBase && !serverByKey.has(key);
+    if (removedByLocal || removedByServer) {
+      seen.add(key);
+      continue;
+    }
+    merged.push(mergeItem(localItem, serverItem, baseItem));
+    seen.add(key);
+  }
+  for (const key of allKeys) {
+    if (seen.has(key)) continue;
+    const localItem = localByKey.get(key);
+    const serverItem = serverByKey.get(key);
+    const baseItem = baseByKey.get(key);
+    const wasInBase = baseByKey.has(key);
+    const removedByLocal = wasInBase && !localByKey.has(key);
+    const removedByServer = wasInBase && !serverByKey.has(key);
+    if (removedByLocal || removedByServer) continue;
+    merged.push(mergeItem(localItem, serverItem, baseItem));
+  }
+
+  return merged;
+}
+
+/**
+ * Reconcilia uma task que existe nos dois lados. Campos de plano (título,
+ * recorrência, descrição) preferem local — é o dispositivo ativo. Histórico
+ * de conclusão (completedDates) usa o merge 3-way que respeita remoção:
+ * desmarcar um dia no app não é "ressuscitado" pelo pull do servidor.
+ */
+function mergeTaskPair(
+  local: Task | undefined,
+  server: Task | undefined,
+  base: Task | undefined,
+): Task {
+  if (!local) return server as Task;
+  if (!server) return local;
+  const completedDates = mergeStringSet(
+    base?.completedDates,
+    local.completedDates,
+    server.completedDates,
   );
-  const completedAt = laterIso(local.completedAt, server.completedAt);
+  const hasAnyDate = completedDates.length > 0;
+  // Se há datas: completed reflete a OR (algum lado marcou). Se NÃO há
+  // datas mas base também não tinha (task legada que usa só o booleano
+  // completed): preserva OR pra não regredir marcação antiga. Se base
+  // TINHA e agora está vazio: foi REMOVIDO de propósito → zera tudo.
+  const baseHadDates = (base?.completedDates?.length ?? 0) > 0;
+  const datesWereRemoved = baseHadDates && !hasAnyDate;
+  const completed = datesWereRemoved
+    ? false
+    : Boolean(local.completed || server.completed);
+  const completedAt = datesWereRemoved
+    ? undefined
+    : laterIso(local.completedAt, server.completedAt);
   return {
-    // local vence nos campos editáveis (título, recorrência, etc.) — é o
-    // dispositivo ativo. Mas o histórico de conclusão é a UNIÃO.
     ...server,
     ...local,
-    completedDates: completedDates.length ? completedDates : undefined,
+    completedDates: hasAnyDate ? completedDates : undefined,
     completedAt,
-    // `completed` (booleano de hoje) reflete qualquer lado que marcou.
-    completed: Boolean(local.completed || server.completed),
+    completed,
   };
 }
 
-/**
- * Merge da lista de tasks por id. União dos ids presentes em local OU
- * server (não perde tarefa nem ressuscita silenciosamente o que ambos
- * apagaram). Ordem segue a do `local` primeiro, depois extras do server.
- */
-function mergeTasks(localTasks: Task[], serverTasks: Task[]): Task[] {
-  const serverById = new Map(serverTasks.map((task) => [task.id, task]));
-  const localIds = new Set(localTasks.map((task) => task.id));
-
-  const merged: Task[] = localTasks.map((localTask) => {
-    const serverTask = serverById.get(localTask.id);
-    return serverTask ? mergeTask(localTask, serverTask) : localTask;
-  });
-
-  // Tasks que só existem no server (criadas no outro dispositivo, ou
-  // que o local não tem) entram no fim.
-  for (const serverTask of serverTasks) {
-    if (!localIds.has(serverTask.id)) {
-      merged.push(serverTask);
-    }
-  }
-
-  return merged;
-}
-
-/**
- * Une um item de refeição (mesmo id) preservando a conclusão dos dois
- * lados. Mesma filosofia de mergeTask: campos do plano (label, macros,
- * quantidade) preferem local; histórico de conclusão é UNIÃO.
- */
-function mergeMealItem(local: MealPlanItem, server: MealPlanItem): MealPlanItem {
-  const completedDates = unionSorted(
-    local.completedDates ?? [],
-    server.completedDates ?? [],
+function mergeMealItemPair(
+  local: MealPlanItem | undefined,
+  server: MealPlanItem | undefined,
+  base: MealPlanItem | undefined,
+): MealPlanItem {
+  if (!local) return server as MealPlanItem;
+  if (!server) return local;
+  const completedDates = mergeStringSet(
+    base?.completedDates,
+    local.completedDates,
+    server.completedDates,
   );
+  const hasAnyDate = completedDates.length > 0;
+  const baseHadDates = (base?.completedDates?.length ?? 0) > 0;
+  const datesWereRemoved = baseHadDates && !hasAnyDate;
   return {
     ...server,
     ...local,
-    completedDates: completedDates.length ? completedDates : undefined,
-    completedAt: laterIso(local.completedAt, server.completedAt),
-    completed: Boolean(local.completed || server.completed),
+    completedDates: hasAnyDate ? completedDates : undefined,
+    completedAt: datesWereRemoved
+      ? undefined
+      : laterIso(local.completedAt, server.completedAt),
+    completed: datesWereRemoved
+      ? false
+      : Boolean(local.completed || server.completed),
   };
 }
 
-function mergeMealItems(
-  localItems: MealPlanItem[] = [],
-  serverItems: MealPlanItem[] = [],
-): MealPlanItem[] {
-  const serverById = new Map(serverItems.map((item) => [item.id, item]));
-  const localIds = new Set(localItems.map((item) => item.id));
-
-  const merged: MealPlanItem[] = localItems.map((localItem) => {
-    const serverItem = serverById.get(localItem.id);
-    return serverItem ? mergeMealItem(localItem, serverItem) : localItem;
-  });
-
-  for (const serverItem of serverItems) {
-    if (!localIds.has(serverItem.id)) {
-      merged.push(serverItem);
-    }
-  }
-
-  return merged;
-}
-
-function mergeMealBlock(
-  local: MealPlanBlock,
-  server: MealPlanBlock,
+function mergeMealBlockPair(
+  local: MealPlanBlock | undefined,
+  server: MealPlanBlock | undefined,
+  base: MealPlanBlock | undefined,
 ): MealPlanBlock {
+  if (!local) return server as MealPlanBlock;
+  if (!server) return local;
   return {
-    // local vence na estrutura do plano (título, horário, categoria,
-    // notas); os itens são mesclados item-a-item pra unir as conclusões.
     ...server,
     ...local,
-    items: mergeMealItems(local.items ?? [], server.items ?? []),
+    items: mergeCollection<MealPlanItem>(
+      base?.items ?? [],
+      local.items ?? [],
+      server.items ?? [],
+      (item) => item.id,
+      mergeMealItemPair,
+    ),
   };
 }
 
 /**
- * Merge do mealPlan por bloco. Une as conclusões dos dois dispositivos —
- * sem isso, dar baixa no almoço pelo app e no Telegram (que salva em
- * paralelo) fazia uma das marcações sumir no merge.
- */
-function mergeMealPlan(
-  localBlocks: MealPlanBlock[],
-  serverBlocks: MealPlanBlock[],
-): MealPlanBlock[] {
-  const serverById = new Map(serverBlocks.map((block) => [block.id, block]));
-  const localIds = new Set(localBlocks.map((block) => block.id));
-
-  const merged: MealPlanBlock[] = localBlocks.map((localBlock) => {
-    const serverBlock = serverById.get(localBlock.id);
-    return serverBlock ? mergeMealBlock(localBlock, serverBlock) : localBlock;
-  });
-
-  for (const serverBlock of serverBlocks) {
-    if (!localIds.has(serverBlock.id)) {
-      merged.push(serverBlock);
-    }
-  }
-
-  return merged;
-}
-
-/**
- * Une as entradas de água por dia, ficando com o MAIOR consumo registrado
- * naquele dia (consumedMl é o total acumulado do dia — o dispositivo que
- * registrou mais tem o número mais verdadeiro).
+ * waterEntries: 3-way por data. Respeita remoção (zerar consumo em algum
+ * lado de fato remove a entrada). Quando os dois lados têm o mesmo dia,
+ * vence o MAIOR consumo (consumedMl é total acumulado; o dispositivo que
+ * registrou mais tem a verdade mais completa).
  */
 function mergeWaterEntries(
-  localEntries: NutritionWaterEntry[],
-  serverEntries: NutritionWaterEntry[],
+  base: NutritionWaterEntry[],
+  local: NutritionWaterEntry[],
+  server: NutritionWaterEntry[],
 ): NutritionWaterEntry[] {
-  const byDate = new Map<string, number>();
-  for (const entry of [...serverEntries, ...localEntries]) {
-    const previous = byDate.get(entry.date);
-    byDate.set(
-      entry.date,
-      previous === undefined
-        ? entry.consumedMl
-        : Math.max(previous, entry.consumedMl),
-    );
+  const baseSet = new Set(base.map((entry) => entry.date));
+  const localByDate = new Map(local.map((entry) => [entry.date, entry.consumedMl]));
+  const serverByDate = new Map(server.map((entry) => [entry.date, entry.consumedMl]));
+  const dates = new Set<string>([...localByDate.keys(), ...serverByDate.keys()]);
+  const result: NutritionWaterEntry[] = [];
+  for (const date of dates) {
+    const wasInBase = baseSet.has(date);
+    const inLocal = localByDate.has(date);
+    const inServer = serverByDate.has(date);
+    const removedByLocal = wasInBase && !inLocal;
+    const removedByServer = wasInBase && !inServer;
+    if (removedByLocal || removedByServer) continue;
+    const localMl = inLocal ? (localByDate.get(date) ?? 0) : -Infinity;
+    const serverMl = inServer ? (serverByDate.get(date) ?? 0) : -Infinity;
+    result.push({ date, consumedMl: Math.max(localMl, serverMl) });
   }
-  return Array.from(byDate.entries())
-    .map(([date, consumedMl]) => ({ date, consumedMl }))
-    .sort((left, right) => left.date.localeCompare(right.date));
+  return result.sort((left, right) => left.date.localeCompare(right.date));
 }
 
 /**
- * União de conclusões de dia (treino/recuperação) deduplicando pela
- * tripla (programa, dia, data) — os dois dispositivos geram ids
- * diferentes pra mesma conclusão lógica, então dedupe por id criaria
- * duplicata. Local primeiro.
+ * Conclusões de dia (treino/recuperação): chave lógica = (programa, dia,
+ * data). 3-way mantendo o registro de QUEM (id) preferindo o local; se só
+ * o server tinha, mantém esse id.
  */
 function mergeDayCompletions<
-  T extends { programId: string; dayId: string; dateKey: string },
->(local: T[], server: T[]): T[] {
-  const seen = new Set<string>();
-  const out: T[] = [];
-  for (const completion of [...local, ...server]) {
-    const key = `${completion.programId}::${completion.dayId}::${completion.dateKey}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(completion);
-  }
-  return out;
+  T extends { id: string; programId: string; dayId: string; dateKey: string },
+>(base: T[], local: T[], server: T[]): T[] {
+  return mergeCollection<T>(
+    base,
+    local,
+    server,
+    (entry) => `${entry.programId}::${entry.dayId}::${entry.dateKey}`,
+    (localItem, serverItem) => (localItem ?? (serverItem as T)),
+  );
 }
 
-/** União de registros com id único (logs append-only). Local primeiro. */
-function mergeById<T extends { id: string }>(local: T[], server: T[]): T[] {
-  const seen = new Set<string>();
-  const out: T[] = [];
-  for (const entry of [...local, ...server]) {
-    if (seen.has(entry.id)) continue;
-    seen.add(entry.id);
-    out.push(entry);
-  }
-  return out;
+/** Logs append-only (workoutLoadEntries): 3-way por id. */
+function mergeById<T extends { id: string }>(
+  base: T[],
+  local: T[],
+  server: T[],
+): T[] {
+  return mergeCollection<T>(
+    base,
+    local,
+    server,
+    (entry) => entry.id,
+    (localItem, serverItem) => (localItem ?? (serverItem as T)),
+  );
 }
 
 function asArray<T>(value: unknown): T[] {
@@ -257,23 +325,32 @@ export function threeWayMergeState(
     const localValue = localRecord[key];
     const serverValue = serverRecord[key];
 
-    // Fatias de histórico/conclusão: merge fino que UNE os dois lados,
-    // pra nenhuma baixa (hábito, refeição, treino, água) ser perdida
-    // quando dois saves concorrem. Sem isto, marcar pelo app + Telegram
-    // fazia a fatia inteira de um lado sobrescrever a do outro.
+    // Fatias de HISTÓRICO/CONCLUSÃO: merge 3-way que respeita remoção.
+    // Sem o base aqui, união simples ressuscitava baixas removidas (bug
+    // do "ele fala que remove mas continua").
     if (key === "tasks") {
-      result[key] = mergeTasks(asArray<Task>(localValue), asArray<Task>(serverValue));
+      result[key] = mergeCollection<Task>(
+        asArray<Task>(baseValue),
+        asArray<Task>(localValue),
+        asArray<Task>(serverValue),
+        (task) => task.id,
+        mergeTaskPair,
+      );
       continue;
     }
     if (key === "mealPlan") {
-      result[key] = mergeMealPlan(
+      result[key] = mergeCollection<MealPlanBlock>(
+        asArray<MealPlanBlock>(baseValue),
         asArray<MealPlanBlock>(localValue),
         asArray<MealPlanBlock>(serverValue),
+        (block) => block.id,
+        mergeMealBlockPair,
       );
       continue;
     }
     if (key === "waterEntries") {
       result[key] = mergeWaterEntries(
+        asArray<NutritionWaterEntry>(baseValue),
         asArray<NutritionWaterEntry>(localValue),
         asArray<NutritionWaterEntry>(serverValue),
       );
@@ -281,13 +358,30 @@ export function threeWayMergeState(
     }
     if (key === "workoutDayCompletions" || key === "recoveryDayCompletions") {
       result[key] = mergeDayCompletions(
-        asArray<{ programId: string; dayId: string; dateKey: string }>(localValue),
-        asArray<{ programId: string; dayId: string; dateKey: string }>(serverValue),
+        asArray<{
+          id: string;
+          programId: string;
+          dayId: string;
+          dateKey: string;
+        }>(baseValue),
+        asArray<{
+          id: string;
+          programId: string;
+          dayId: string;
+          dateKey: string;
+        }>(localValue),
+        asArray<{
+          id: string;
+          programId: string;
+          dayId: string;
+          dateKey: string;
+        }>(serverValue),
       );
       continue;
     }
     if (key === "workoutLoadEntries") {
       result[key] = mergeById(
+        asArray<WorkoutLoadEntry>(baseValue),
         asArray<WorkoutLoadEntry>(localValue),
         asArray<WorkoutLoadEntry>(serverValue),
       );
