@@ -2625,7 +2625,18 @@ export function getRankFromXp(totalXp: number) {
 
 export function buildUserProfile(state: PersistedState): UserProfile {
   const completedTasks = state.tasks.filter((task) => task.completed);
-  const totalTaskXp = completedTasks.reduce((sum, task) => sum + task.xp, 0);
+  // XP de tarefa = soma de (xp × nº de conclusões por data). Antes era
+  // só o booleano `completed` (1× por tarefa, qualquer que fosse a
+  // recorrência) — então marcar uma tarefa diária 7 dias na semana dava
+  // o MESMO XP que marcar uma única vez. E baixas retroativas lançadas
+  // pela Agenda não geravam XP. Agora cada dia em completedDates conta
+  // como 1× XP; tasks legadas sem o array (só com `completed: true`)
+  // seguem valendo 1× pra não regredir.
+  const totalTaskXp = state.tasks.reduce((sum, task) => {
+    const dateCount = task.completedDates?.length ?? 0;
+    const credits = dateCount > 0 ? dateCount : task.completed ? 1 : 0;
+    return sum + task.xp * credits;
+  }, 0);
   const lessonsXp = state.financeLessons
     .filter((lesson) => lesson.completed)
     .reduce((sum, lesson) => sum + lesson.points, 0);
