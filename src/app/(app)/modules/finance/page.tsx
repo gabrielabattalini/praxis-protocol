@@ -247,26 +247,42 @@ export default function FinanceModulePage() {
     selectedMonthInvoiceBase + selectedMonthSettledCardAmount,
   );
 
+  // Uma linha aparece no mês mesmo zerada, desde que faça parte do
+  // orçamento (tem valor em ALGUM mês do ano, ou já foi paga/quitada
+  // em algum mês). Sem isto, zerar o valor no mês fazia a linha sumir
+  // — e o usuário perdia a referência do que "tirou daquele mês".
+  // Quem quer apagar de vez usa o botão lixeira (removeFinanceLine).
+  const hasAnyMonthlyValue = useMemo(
+    () => (line: FinanceBudgetLine) => {
+      for (const month of financeMonthOrder) {
+        if ((line.monthly[month] ?? 0) > 0) return true;
+        if ((line.settledAmounts?.[month] ?? 0) > 0) return true;
+      }
+      return false;
+    },
+    [],
+  );
+
   const incomeLines = useMemo(
     () =>
       sortLines(
         visibleLines.filter(
-          (line) => line.kind === "income" && (line.monthly[selectedMonthId] ?? 0) > 0,
+          (line) => line.kind === "income" && hasAnyMonthlyValue(line),
         ),
         selectedMonthId,
       ),
-    [selectedMonthId, visibleLines],
+    [hasAnyMonthlyValue, selectedMonthId, visibleLines],
   );
   const expenseLines = useMemo(
     () =>
       sortLines(
         visibleLines.filter(
-          (line) => line.kind === "expense" && (line.monthly[selectedMonthId] ?? 0) > 0,
+          (line) => line.kind === "expense" && hasAnyMonthlyValue(line),
         ),
         selectedMonthId,
         expenseSort,
       ),
-    [expenseSort, selectedMonthId, visibleLines],
+    [expenseSort, hasAnyMonthlyValue, selectedMonthId, visibleLines],
   );
   const cardExpenseLines = useMemo(
     () =>
