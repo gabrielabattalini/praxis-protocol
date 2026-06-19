@@ -350,6 +350,13 @@ export default function FinanceModulePage() {
   );
   const annualExpenses = roundCurrencyValue(annualCardExpenses + annualNonCardExpenses);
   const annualOperatingBalance = roundCurrencyValue(annualIncome - annualExpenses);
+  // detailedMonths carrega o PLANEJADO (soma das linhas), enquanto
+  // `selectedMonth` (vindo de getFinanceMonthSummaries) só tem o
+  // settled (já pago/lançado). Pra "Saídas imediatas" o usuário quer
+  // ver a soma das linhas listadas abaixo — não só o que JÁ saiu.
+  const selectedDetailedMonth =
+    detailedMonths.find((month) => month.id === selectedMonthId) ??
+    detailedMonths[0];
   const annualBalance = roundCurrencyValue(
     budget.startCash + annualOperatingBalance,
   );
@@ -1326,9 +1333,11 @@ export default function FinanceModulePage() {
         </GlassPanel>
         <GlassPanel>
           <p className="text-sm text-zinc-500">Saídas imediatas</p>
-          <p className="text-xs text-zinc-600">Aparecem aqui depois de dar baixa</p>
+          <p className="text-xs text-zinc-600">
+            Pix, débito, boleto, transferência e dinheiro
+          </p>
           <p className="mt-3 text-3xl font-semibold text-[var(--accent)]">
-            {formatCurrency(selectedMonth.cashExpenses)}
+            {formatCurrency(selectedDetailedMonth.cashExpenses)}
           </p>
         </GlassPanel>
       </div>
@@ -1684,10 +1693,10 @@ export default function FinanceModulePage() {
             <div>
               <p className="text-sm text-zinc-500">Saídas imediatas</p>
               <p className="text-xs text-zinc-600">
-                Pix, débito, boleto, transferência e dinheiro so entram aqui depois da baixa
+                Pix, débito, boleto, transferência e dinheiro
               </p>
               <h2 className="text-2xl font-semibold text-white">
-                {formatCurrency(selectedMonth.cashExpenses)}
+                {formatCurrency(selectedDetailedMonth.cashExpenses)}
               </h2>
             </div>
             <div className="rounded-sm border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-[var(--accent)]">
