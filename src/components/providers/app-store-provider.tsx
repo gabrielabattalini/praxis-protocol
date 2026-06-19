@@ -3029,9 +3029,14 @@ function reducer(state: PersistedState, action: Action): PersistedState {
           lines: [
             (() => {
               const initialValue = roundCurrencyValue(action.payload.initialValue);
+              // Fixed: começa em `initialMonth` (não preenche meses anteriores).
+              // Antes era fillFinanceMonths (todos os 12), o que aplicava o
+              // "Vale Mercado fixo" lançado em agosto também em jul-jan, mesmo
+              // o usuário ainda não recebendo. Editar mês a mês continua livre
+              // (UI tem campo por mês).
               const monthly =
                 action.payload.frequency === "fixed"
-                  ? fillFinanceMonths(initialValue)
+                  ? fillFinanceMonthsFrom(initialValue, action.payload.initialMonth)
                   : {
                       ...emptyFinanceMonthlyValues(),
                       [action.payload.initialMonth]: initialValue,
@@ -3168,13 +3173,27 @@ function reducer(state: PersistedState, action: Action): PersistedState {
           lines: state.financeBudget.lines.map((line) =>
             line.id === action.payload.lineId
                ? (() => {
-                  const monthly =
-                    line.frequency === "fixed"
-                       ? fillFinanceMonths(roundCurrencyValue(action.payload.value))
-                      : {
-                          ...line.monthly,
-                          [action.payload.month]: roundCurrencyValue(action.payload.value),
-                        };
+                  // Sempre atualiza SÓ o mês alvo. Antes, linha "fixed"
+                  // propagava o novo valor pros 12 meses — pediu o usuário:
+                  // "lancei só pra frente e voltou pra trás". Se a linha
+                  // era fixed e o novo valor é diferente dos outros meses
+                  // já preenchidos, ela vira "variable" automaticamente —
+                  // não dá mais pra chamar de "fixa" quando um mês destoa.
+                  const nextValue = roundCurrencyValue(action.payload.value);
+                  const monthly = {
+                    ...line.monthly,
+                    [action.payload.month]: nextValue,
+                  };
+                  let nextFrequency = line.frequency;
+                  if (line.frequency === "fixed") {
+                    const otherValues = financeMonthOrder
+                      .filter((month) => month !== action.payload.month)
+                      .map((month) => roundCurrencyValue(monthly[month] ?? 0));
+                    const someNonZero = otherValues.find((v) => v > 0);
+                    if (someNonZero !== undefined && someNonZero !== nextValue) {
+                      nextFrequency = "variable";
+                    }
+                  }
                   const settledAmounts = normalizeFinanceAmounts(
                     line.settledAmounts,
                     monthly,
@@ -3182,6 +3201,7 @@ function reducer(state: PersistedState, action: Action): PersistedState {
                   );
                   return {
                     ...line,
+                    frequency: nextFrequency,
                     monthly,
                     settledAmounts: financeMonthOrder.reduce(
                       (nextAmounts, month) => {
@@ -4350,12 +4370,12 @@ function getShoppingAutoLineConfig(scope: ShoppingModuleScope) {
   }
 
   return {
-    name: "Suplementos sincronizados",
+    name: "Suplementos / Remédios sincronizados",
     category: "Saude",
     paymentMethod: "pix" as const,
     sourceKey: "shopping-sync:supplements",
     notes:
-      "Linha sincronizada automaticamente a partir do módulo Suplementos.",
+      "Linha sincronizada automaticamente a partir do módulo Suplementos / Remédios.",
   };
 }
 
@@ -4491,6 +4511,26 @@ function fillFinanceMonths(value: number) {
   return financeMonthOrder.reduce(
     (monthly, month) => {
       monthly[month] = roundCurrencyValue(value);
+      return monthly;
+    },
+    {} as Record<FinanceMonthId, number>,
+  );
+}
+
+// Como fillFinanceMonths, mas zera os meses ANTERIORES a `startMonth`.
+// Usado ao CRIAR uma linha fixa: o usuário diz "começa em agosto" e não
+// faz sentido o valor aparecer em jan-jul (ele nem recebia ainda). Sem
+// isto, criar "Vale Mercado R$ 600/mês fixo" no card de agosto enchia
+// julho também — bug reportado. Editar mês a mês depois continua livre.
+function fillFinanceMonthsFrom(
+  value: number,
+  startMonth: FinanceMonthId,
+): Record<FinanceMonthId, number> {
+  const startIndex = financeMonthOrder.indexOf(startMonth);
+  return financeMonthOrder.reduce(
+    (monthly, month, index) => {
+      monthly[month] =
+        index < startIndex ? 0 : roundCurrencyValue(value);
       return monthly;
     },
     {} as Record<FinanceMonthId, number>,
@@ -4706,6 +4746,23 @@ function normalizeRecurringFinanceLine(line: FinanceBudgetLine): FinanceBudgetLi
         paymentMethod: "credit-card",
       };
     }
+  }
+
+  // Migration: linha sincronizada com o módulo "Suplementos / Remédios"
+  // veio do nome antigo "Suplementos sincronizados". Renomeia pra bater
+  // com o módulo (pedido do usuário) sem perder o histórico/configuração.
+  if (
+    line.sourceKey === "shopping-sync:supplements" &&
+    line.name === "Suplementos sincronizados"
+  ) {
+    return {
+      ...line,
+      name: "Suplementos / Remédios sincronizados",
+      notes:
+        line.notes === "Linha sincronizada automaticamente a partir do módulo Suplementos."
+          ? "Linha sincronizada automaticamente a partir do módulo Suplementos / Remédios."
+          : line.notes,
+    };
   }
 
   return line;

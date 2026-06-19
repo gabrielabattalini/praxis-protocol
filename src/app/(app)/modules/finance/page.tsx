@@ -8,7 +8,9 @@ import {
   ChevronDown,
   Fuel,
   Landmark,
+  Pill,
   Plus,
+  ShoppingBag,
   Sparkles,
   Trash2,
 } from "lucide-react";
@@ -594,11 +596,25 @@ export default function FinanceModulePage() {
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
             <div className="min-w-0 flex-1">
               <p
-                className={`truncate text-base font-semibold ${
+                className={`flex items-center gap-2 truncate text-base font-semibold ${
                   isSettled ? "text-zinc-500 line-through" : "text-white"
                 }`}
               >
-                {line.name}
+                {/* Ícone das linhas sincronizadas com os módulos correspondentes.
+                    Sinaliza que aquela linha não foi criada manualmente: vem do
+                    Mercado (ShoppingBag) ou de Suplementos / Remédios (Pill). */}
+                {line.sourceKey === "shopping-sync:market" ? (
+                  <ShoppingBag
+                    className="h-4 w-4 shrink-0 text-amber-300"
+                    aria-hidden
+                  />
+                ) : line.sourceKey === "shopping-sync:supplements" ? (
+                  <Pill
+                    className="h-4 w-4 shrink-0 text-cyan-300"
+                    aria-hidden
+                  />
+                ) : null}
+                <span className="truncate">{line.name}</span>
               </p>
               <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-500">
                 {isFuelLine ? (
