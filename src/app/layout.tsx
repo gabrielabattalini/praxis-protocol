@@ -40,11 +40,9 @@ export const metadata: Metadata = {
   description:
     "Transforme sua rotina com o Praxis Protocol, um sistema de evolução operado por IA, com missões, XP e progresso inteligente.",
   applicationName: "Praxis Protocol",
-  icons: {
-    icon: "/logo.png",
-    shortcut: "/logo.png",
-    apple: "/logo.png",
-  },
+  // Next.js auto-detecta src/app/icon.png e src/app/apple-icon.png e
+  // serve em /icon.png e /apple-icon.png — não precisa declarar aqui.
+  // Open Graph / Twitter seguem com logo.png (já é a arte da landing).
   openGraph: {
     title: "Praxis Protocol | Sistema de Evolução",
     description:
@@ -61,7 +59,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#050505",
+  themeColor: "#0a0a0d",
   colorScheme: "dark",
 };
 
