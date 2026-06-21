@@ -8,13 +8,25 @@ export default function manifest(): MetadataRoute.Manifest {
       "Transforme sua rotina com o Praxis Protocol, um sistema de evolução operado por IA, com XP automático, módulos integrados e progresso real.",
     start_url: "/",
     display: "standalone",
-    background_color: "#020202",
-    theme_color: "#F00000",
+    background_color: "#0a0a0d",
+    theme_color: "#fb923c",
     lang: "pt-BR",
     orientation: "portrait",
     icons: [
       {
-        src: "/logo.png",
+        src: "/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/icon-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
