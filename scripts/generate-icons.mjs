@@ -20,27 +20,42 @@ const repoRoot = path.resolve(new URL(".", import.meta.url).pathname, "..");
 const ACCENT = "#fb923c";
 const BG = "#0a0a0d";
 
-// viewBox 256×256. "P" angular composto por 3 retângulos:
-//   - haste vertical à esquerda  (60,58)→(100,198)
-//   - barra superior horizontal  (60,58)→(186,98)
-//   - barra inferior horizontal  (60,118)→(186,158)  ← fecha o "olho"
-//   - haste vertical direita     (146,58)→(186,158)
-// Tudo preenchido em laranja, sem stroke (mantém legível em 16×16).
+// viewBox 256×256. Design inspirado em referência do usuário:
+//  - hexágono "pointy-top" outline laranja (raio 110, centro 128/128)
+//  - fundo dark dentro do hexágono e do canvas
+//  - "P" angular geométrico em laranja, centralizado
+//
+// Hexágono pointy-top (vértices em cima/baixo) com r=110, cx=128 cy=132:
+//   top          (128, 22)
+//   upper-right  (223.3, 77)
+//   lower-right  (223.3, 187)
+//   bottom       (128, 242)
+//   lower-left   (32.7, 187)
+//   upper-left   (32.7, 77)
+// (√3/2 · 110 ≈ 95.26)
+//
+// "P" angular feito de 4 retângulos pra renderizar nítido em 16×16
+// (sem depender de fonte do sistema):
+//   - haste vertical esquerda      (96, 76) 24×104
+//   - barra superior do "olho"     (96, 76) 60×24
+//   - haste vertical direita do "olho" (132, 76) 24×52
+//   - barra inferior do "olho"     (96, 104) 60×24
 function makeSvg(size = 256) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="${size}" height="${size}">
-  <rect width="256" height="256" rx="48" ry="48" fill="${BG}"/>
-  <rect x="2" y="2" width="252" height="252" rx="46" ry="46"
-        fill="none" stroke="${ACCENT}" stroke-opacity="0.22" stroke-width="2"/>
+  <rect width="256" height="256" fill="${BG}"/>
+  <polygon
+    points="128,22 223.26,77 223.26,187 128,242 32.74,187 32.74,77"
+    fill="none"
+    stroke="${ACCENT}"
+    stroke-width="14"
+    stroke-linejoin="round"
+  />
   <g fill="${ACCENT}">
-    <!-- haste esquerda do P -->
-    <rect x="60" y="58" width="40" height="140"/>
-    <!-- barra superior do "olho" -->
-    <rect x="60" y="58" width="126" height="40"/>
-    <!-- barra inferior do "olho" -->
-    <rect x="60" y="118" width="126" height="40"/>
-    <!-- haste direita do "olho" -->
-    <rect x="146" y="58" width="40" height="100"/>
+    <rect x="96" y="76" width="24" height="104"/>
+    <rect x="96" y="76" width="60" height="24"/>
+    <rect x="132" y="76" width="24" height="52"/>
+    <rect x="96" y="104" width="60" height="24"/>
   </g>
 </svg>`;
 }
