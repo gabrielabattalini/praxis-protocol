@@ -1304,7 +1304,24 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         ...base,
         reminders: dedupeRedundantReminders(base.reminders, base.tasks),
       };
-      return syncShoppingFinanceState(deduped, allowSeed);
+      const next = syncShoppingFinanceState(deduped, allowSeed);
+      // IDEMPOTÊNCIA: se o resultado é idêntico em CONTEÚDO ao state atual,
+      // devolve a MESMA referência. Sem isto, todo hydrate (pull a cada
+      // 5min, foco/visibilidade) criava um objeto novo mesmo com dados
+      // iguais do servidor — e como `state` está nas deps de vários
+      // effects (save, pull) e alimenta o syncPayload das notificações,
+      // cada hydrate disparava PUT /account-state + POST /notifications/sync
+      // redundantes e re-registrava listeners. Numa aba aberta o dia todo,
+      // isso sozinho estourava a cota do KV (Upstash) "sem o usuário fazer
+      // nada". Comparar e retornar `state` corta o ciclo na raiz.
+      try {
+        if (JSON.stringify(next) === JSON.stringify(state)) {
+          return state;
+        }
+      } catch {
+        // stringify circular/erro improvável — segue com o novo state.
+      }
+      return next;
     }
     case "sync-session":
       return {
@@ -6261,7 +6278,11 @@ export function AppStoreProvider({
       if (cancelled) return;
       // Skip if a local push is still pending — would race and overwrite.
       if (saveAccountTimeoutRef.current) return;
-      const localSnapshot = JSON.stringify(state);
+      // Lê via ref (não closure) pra este effect não precisar de `state`
+      // nas deps — senão ele re-registrava listeners + reiniciava o
+      // setInterval a CADA mudança de state (que muda em todo hydrate).
+      const liveState = stateRef.current;
+      const localSnapshot = JSON.stringify(liveState);
       const hasLocalDivergence =
         localSnapshot !== lastServerSnapshotRef.current;
       try {
@@ -6297,7 +6318,7 @@ export function AppStoreProvider({
             baseState = null;
           }
           const mergedState = baseState
-            ? threeWayMergeState(baseState, state, envelope.state)
+            ? threeWayMergeState(baseState, liveState, envelope.state)
             : envelope.state;
           lastServerSnapshotRef.current = serverSnapshot;
           dispatch({ type: "hydrate", payload: mergedState, allowSeed: false });
@@ -6333,7 +6354,10 @@ export function AppStoreProvider({
       window.removeEventListener("focus", handleFocus);
       window.clearInterval(pollHandle);
     };
-  }, [currentEmail, effectiveAuthLoaded, hydrated, state, userId]);
+    // `state` NÃO entra aqui de propósito: pullFromServer lê stateRef.current.
+    // Com state nas deps, o effect re-montava (novo setInterval + re-bind de
+    // focus/visibilitychange) a cada hydrate — desperdício e fonte do loop.
+  }, [currentEmail, effectiveAuthLoaded, hydrated, userId]);
 
   useEffect(() => {
     if (!effectiveAuthLoaded || !hydrated || !userId || !remoteSyncReadyRef.current) return;
