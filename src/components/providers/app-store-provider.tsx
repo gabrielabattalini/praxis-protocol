@@ -6319,7 +6319,13 @@ export function AppStoreProvider({
     };
     document.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("focus", handleFocus);
-    const pollHandle = window.setInterval(() => void pullFromServer(), 60_000);
+    // 300s (5 min): antes era 60s, mas isso somava 1440 GET/dia por
+    // usuário só no polling — sozinho consumia ~70% da quota Free do
+    // Upstash (500k cmds/dia, compartilhada). Cross-device sync continua
+    // funcionando via visibilitychange/focus (instantâneo ao voltar a aba)
+    // + flush no app-blur. Pra mudar a tarde inteira sem voltar à aba,
+    // o tempo médio de propagação cai de ~60s pra ~5min — aceitável.
+    const pollHandle = window.setInterval(() => void pullFromServer(), 300_000);
 
     return () => {
       cancelled = true;
@@ -6346,9 +6352,15 @@ export function AppStoreProvider({
     // "salvando…" without waiting for the network call to begin.
     setRemoteSaveStatus((prev) => (prev === "error" ? prev : "saving"));
 
+    // Debounce 2000ms (antes era 700ms): consolidar bursts de edição
+    // (5 toggles seguidos viram 1 PUT em vez de 5). Cada PUT custa
+    // ~5 commands no KV (GET + SET + GET histórico + LPUSH + LTRIM),
+    // então cortar PUTs reduz mais que proporcionalmente. UX não sofre:
+    // o flush em pagehide/visibilitychange continua segurando o caso
+    // de "fechei a aba imediatamente após marcar".
     saveAccountTimeoutRef.current = window.setTimeout(() => {
       void flushRemoteSave();
-    }, 700);
+    }, 2000);
 
     return () => {
       if (saveAccountTimeoutRef.current) {
