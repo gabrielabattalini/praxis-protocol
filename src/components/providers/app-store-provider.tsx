@@ -5415,21 +5415,39 @@ function parseStateValue(
       activeDailyNutritionTargets,
     );
     const hasExistingData = Boolean(
+      // Marcadores explícitos de onboarding concluído.
       parsedState.bodyMetricsProfile?.completedAt ||
         parsedState.lifeAreaProfile?.completedAt ||
         parsedState.personalProfile?.completedAt ||
+        // Indicadores fortes de uso real do app — se EXISTE qualquer dessas
+        // coisas, o usuário JÁ usou o app e não pode ser forçado de volta
+        // pro fluxo de boas-vindas. Sem isso, qualquer perda do
+        // guidedOnboarding.completedAt (migration, race, dispositivo novo
+        // sem state local) bloqueava o usuário no modal de onboarding com
+        // a conta já cheia de dados.
         parsedState.tasks?.length ||
         parsedState.mealPlan?.length ||
         parsedState.dietPlans?.length ||
         parsedState.workoutPrograms?.length ||
         parsedState.workoutPlan?.length ||
         parsedState.workoutLoadEntries?.length ||
+        parsedState.workoutDayCompletions?.length ||
+        parsedState.recoveryPlan?.length ||
+        parsedState.recoveryDayCompletions?.length ||
         parsedState.weightEntries?.length ||
+        parsedState.waterEntries?.length ||
         parsedState.reminders?.length ||
         parsedState.workControlEntries?.length ||
         parsedState.householdSupplies?.length ||
         parsedState.shoppingModules?.market?.items?.length ||
-        parsedState.shoppingModules?.supplements?.items?.length,
+        parsedState.shoppingModules?.supplements?.items?.length ||
+        parsedState.customQuotes?.length ||
+        (parsedState.financeBudget?.lines?.length ?? 0) > 0 ||
+        // O onboarding em si — se já escolheu módulos ou colocou whatsapp,
+        // ele passou pelo fluxo mesmo sem `completedAt` carimbado.
+        (parsedState.guidedOnboarding?.selectedModules?.length ?? 0) > 0 ||
+        Boolean(parsedState.guidedOnboarding?.whatsappNumber?.trim()) ||
+        Boolean(parsedState.guidedOnboarding?.whatsappSkippedAt),
     );
     const settings = {
       ...emptyPersistedState.settings,
