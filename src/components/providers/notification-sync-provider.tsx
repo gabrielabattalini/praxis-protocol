@@ -96,6 +96,9 @@ export function NotificationSyncProvider({
   });
   const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
   const syncTimerRef = useRef<number | null>(null);
+  // JSON do último payload sincronizado com sucesso — usado pra pular
+  // POSTs /sync redundantes quando o conteúdo não mudou (só a referência).
+  const lastSyncedPayloadRef = useRef<string>("");
 
   const timezone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo",
@@ -244,8 +247,19 @@ export function NotificationSyncProvider({
     return subscription;
   }, [fetchStatus, registerServiceWorker, timezone]);
 
-  const syncNow = useCallback(async () => {
+  const syncNow = useCallback(async (opts?: { force?: boolean }) => {
     if (!userId || !hydrated) {
+      return;
+    }
+
+    // Pula o POST quando o payload é IDÊNTICO ao último sincronizado com
+    // sucesso. Sem isto, todo hydrate (pull cross-device) recriava as
+    // referências de tasks/reminders/mealPlan → syncPayload mudava de
+    // referência (mesmo com conteúdo igual) → este sync re-disparava e
+    // escrevia o schedule no KV à toa. Era um dos vetores que estouravam
+    // a cota do Upstash. `force` cobre a ativação manual (primeiro opt-in).
+    const payloadJson = JSON.stringify(syncPayload);
+    if (!opts?.force && payloadJson === lastSyncedPayloadRef.current) {
       return;
     }
 
@@ -259,13 +273,14 @@ export function NotificationSyncProvider({
           "Content-Type": "application/json",
         },
         credentials: "same-origin",
-        body: JSON.stringify(syncPayload),
+        body: payloadJson,
       });
 
       if (!response.ok) {
         throw new Error("N\u00e3o foi poss\u00edvel sincronizar a agenda de notifica\u00e7\u00f5es.");
       }
 
+      lastSyncedPayloadRef.current = payloadJson;
       const nextStatus = (await response.json()) as NotificationStatus;
       setStatus({
         deviceCount: nextStatus.deviceCount ?? 0,
@@ -307,7 +322,9 @@ export function NotificationSyncProvider({
       }
 
       await ensurePushSubscription();
-      await syncNow();
+      // force: garante o primeiro envio do schedule no opt-in, mesmo que
+      // o payload coincida com algo já em cache no ref.
+      await syncNow({ force: true });
     } catch (nextError) {
       setError(
         nextError instanceof Error
