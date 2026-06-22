@@ -5967,6 +5967,38 @@ export function AppStoreProvider({
         return;
       }
 
+      // SAFETY GUARD: se o state local "parece vazio" (sem tasks,
+      // mealPlan, finance lines, reminders…) E o servidor já tinha algum
+      // version > 0, NÃO sobrescreve — o que está aqui é hidratação
+      // pré-fetch ou empty fallback, não um clear genuíno. Sem isto, um
+      // re-hydrate falho podia mandar PUT vazio com baseVersion=0 e — se
+      // o servidor por algum motivo aceitasse — apagar tudo da conta.
+      // Clear deliberado vem do reducer "reset"/import com state cheio
+      // de marcadores ou via debug route; aqui só bloqueia o desastre.
+      if (!opts?.isRetry && serverVersionRef.current > 0) {
+        const live = stateRef.current;
+        const looksEmpty =
+          (live.tasks?.length ?? 0) === 0 &&
+          (live.mealPlan?.length ?? 0) === 0 &&
+          (live.reminders?.length ?? 0) === 0 &&
+          (live.dietPlans?.length ?? 0) === 0 &&
+          (live.workoutPrograms?.length ?? 0) === 0 &&
+          (live.workoutPlan?.length ?? 0) === 0 &&
+          (live.workoutLoadEntries?.length ?? 0) === 0 &&
+          (live.workoutDayCompletions?.length ?? 0) === 0 &&
+          (live.weightEntries?.length ?? 0) === 0 &&
+          (live.financeBudget?.lines?.length ?? 0) === 0 &&
+          (live.householdSupplies?.length ?? 0) === 0;
+        if (looksEmpty) {
+          console.warn(
+            "[account-state] suspect empty state vs server version>0 — refusing PUT to avoid data loss",
+            { serverVersion: serverVersionRef.current },
+          );
+          setRemoteSaveStatus("error");
+          return;
+        }
+      }
+
       if (saveAccountTimeoutRef.current) {
         window.clearTimeout(saveAccountTimeoutRef.current);
         saveAccountTimeoutRef.current = null;
