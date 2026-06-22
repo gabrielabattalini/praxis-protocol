@@ -4873,6 +4873,13 @@ function migrateFinanceBudget(
 
 function normalizeLifeAreaProfile(
   profile?: Partial<PersistedState["lifeAreaProfile"]> | null,
+  // Mesma defensiva do guidedOnboarding (PR #152): conta com dados reais
+  // nunca cai num fluxo de "primeira vez". Sem isso, perda acidental do
+  // completedAt (migration, race, device novo) podia trancar o usuário
+  // no editor de prioridades — ele já pediu pra retirar isso do fluxo
+  // bloqueante (app-shell), e a heurística aqui é o segundo cinto.
+  hasExistingData = false,
+  fallbackCompletedAt?: string,
 ): PersistedState["lifeAreaProfile"] {
   const fallback = createDefaultLifeAreaProfile();
   const areas = { ...fallback.areas };
@@ -4891,17 +4898,33 @@ function normalizeLifeAreaProfile(
     };
   }
 
+  const shouldAutoComplete = hasExistingData && !profile?.completedAt;
   return {
-    completedAt: profile?.completedAt,
+    completedAt:
+      profile?.completedAt ??
+      (shouldAutoComplete
+        ? fallbackCompletedAt ?? new Date().toISOString()
+        : undefined),
     areas,
   };
 }
 
 function normalizeBodyMetricsProfile(
   profile?: Partial<PersistedState["bodyMetricsProfile"]> | null,
+  // Idem: se a conta JÁ tem dado (finanças, tasks, treinos…), o fluxo
+  // de "Última etapa: Suas Métricas" não deve ressuscitar — usuário
+  // reportou o loop: completava body metrics → ia pra prioridades →
+  // voltava pro body metrics, infinito. Auto-marca o completedAt.
+  hasExistingData = false,
+  fallbackCompletedAt?: string,
 ): PersistedState["bodyMetricsProfile"] {
+  const shouldAutoComplete = hasExistingData && !profile?.completedAt;
   return {
-    completedAt: profile?.completedAt,
+    completedAt:
+      profile?.completedAt ??
+      (shouldAutoComplete
+        ? fallbackCompletedAt ?? new Date().toISOString()
+        : undefined),
     skippedAt: profile?.skippedAt,
   };
 }
@@ -5406,14 +5429,10 @@ function parseStateValue(
         allowSeed,
       ),
     };
-    const lifeAreaProfile = normalizeLifeAreaProfile(parsedState.lifeAreaProfile);
-    const bodyMetricsProfile = normalizeBodyMetricsProfile(
-      parsedState.bodyMetricsProfile,
-    );
-    const personalProfile = normalizePersonalProfile(
-      parsedState.personalProfile,
-      activeDailyNutritionTargets,
-    );
+    // hasExistingData precisa ser calculado ANTES das normalizações dos
+    // 3 profiles de onboarding (lifeArea, bodyMetrics, guided) — todas
+    // usam ele pra decidir auto-completar quando o `completedAt` veio
+    // undefined em conta que já tem dados.
     const hasExistingData = Boolean(
       // Marcadores explícitos de onboarding concluído.
       parsedState.bodyMetricsProfile?.completedAt ||
@@ -5448,6 +5467,23 @@ function parseStateValue(
         (parsedState.guidedOnboarding?.selectedModules?.length ?? 0) > 0 ||
         Boolean(parsedState.guidedOnboarding?.whatsappNumber?.trim()) ||
         Boolean(parsedState.guidedOnboarding?.whatsappSkippedAt),
+    );
+
+    const lifeAreaProfile = normalizeLifeAreaProfile(
+      parsedState.lifeAreaProfile,
+      hasExistingData,
+      parsedState.bodyMetricsProfile?.completedAt ??
+        parsedState.personalProfile?.completedAt,
+    );
+    const bodyMetricsProfile = normalizeBodyMetricsProfile(
+      parsedState.bodyMetricsProfile,
+      hasExistingData,
+      parsedState.lifeAreaProfile?.completedAt ??
+        parsedState.personalProfile?.completedAt,
+    );
+    const personalProfile = normalizePersonalProfile(
+      parsedState.personalProfile,
+      activeDailyNutritionTargets,
     );
     const settings = {
       ...emptyPersistedState.settings,
