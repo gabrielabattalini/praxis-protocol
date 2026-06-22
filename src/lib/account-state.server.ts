@@ -45,6 +45,12 @@ function kvHistoryKey(userId: string) {
 
 const HISTORY_MAX_ENTRIES = 10;
 
+// Guarda histórico só 1 a cada N saves (em vez de toda vez). Reduz pela
+// metade as ops por save no KV — crítico no plano Free do Upstash. As 10
+// fotografias do histórico continuam disponíveis, só ficam espaçadas em
+// 5 versões cada uma (cobre ~50 versões de retroceder em vez de 10).
+const HISTORY_THROTTLE = 5;
+
 /**
  * Empilha a versão atual no histórico do usuário antes de gravar a nova.
  * Mantém as N últimas (LPUSH + LTRIM 0..N-1). Sem await crítico — falha
@@ -203,14 +209,7 @@ export async function saveAccountState(
     : 1;
 
   if (KV_ENABLED) {
-    // Empilha a versão CORRENTE no histórico ANTES de sobrescrever.
-    // Se o save de hoje destruir dados (ex.: duplicação bugada como já
-    // aconteceu), dá pra restaurar pela versão anterior. Mantém as 10
-    // últimas. Best-effort: erro de histórico não bloqueia o save.
     const current = await kvGet(userId);
-    // Versão MONOTÔNICA: nunca regride. Sem isto, um save com versão
-    // defasada (ex.: race entre PUT do app e ação do Telegram, ou import)
-    // baixava o número e quebrava a concorrência otimista (baseVersion).
     const currentVersion = Number.isFinite(current?.version)
       ? (current!.version as number)
       : 0;
@@ -219,7 +218,15 @@ export async function saveAccountState(
       updatedAt: payload.updatedAt || new Date().toISOString(),
       state: payload.state,
     };
-    if (current) {
+    // Histórico: empilha a CORRENTE no histórico antes de sobrescrever
+    // — mas só 1 a cada HISTORY_THROTTLE saves. Antes era TODA vez:
+    // cada save custava ~5 commands (GET + SET + GET-corrente +
+    // LPUSH + LTRIM); throttle corta pra ~2-3. As 10 fotografias do
+    // histórico continuam disponíveis (só ficam mais espaçadas em
+    // versão — você ganha 10×T pontos de restore em vez de 10).
+    // T=5: a cada 5 saves, 1 vai pro histórico. Versão monotônica
+    // crescente, então `currentVersion % T` distribui uniformemente.
+    if (current && currentVersion % HISTORY_THROTTLE === 0) {
       await kvPushHistory(userId, current);
     }
     await kvSet(userId, envelope);
