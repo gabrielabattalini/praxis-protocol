@@ -36,7 +36,6 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { BodyMetricsOnboarding } from "@/components/body-metrics-onboarding";
 import { GuidedAccountOnboarding } from "@/components/guided-account-onboarding";
-import { LifeAreaProfileEditor } from "@/components/life-area-profile-editor";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import {
   useAuthClient,
@@ -200,8 +199,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       .join("")
       .toUpperCase() || "PP";
 
-  const needsLifeAreaSetup =
-    hydrated && shouldShowAccountOnboarding && !state.lifeAreaProfile.completedAt;
   const needsBodyMetricsSetup =
     hydrated && shouldShowAccountOnboarding && !state.bodyMetricsProfile.completedAt;
   const needsGuidedOnboarding =
@@ -308,7 +305,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               initialCharacterId={state.guidedOnboarding.selectedCharacterId}
               initialRoomId={state.guidedOnboarding.selectedRoomId}
               completionLabel={
-                needsBodyMetricsSetup || needsLifeAreaSetup
+                needsBodyMetricsSetup
                   ? "Continuar configuração"
                   : "Entrar no sistema"
               }
@@ -399,26 +396,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             />
           </div>
         </div>
-      ) : needsLifeAreaSetup ? (
-        <div className="fixed inset-0 z-[90] overflow-y-auto bg-[rgba(5,5,5,0.86)] px-4 py-6 backdrop-blur-xl">
-          <div className="mx-auto max-w-6xl rounded-[20px] border border-zinc-800 bg-[rgba(5,5,5,0.96)] p-6 shadow-[0_24px_90px_rgba(0,0,0,0.55)]">
-            <LifeAreaProfileEditor
-              key={JSON.stringify(state.lifeAreaProfile.areas)}
-              title="Prioridades de evolução"
-              description="Antes de começar, defina a prioridade e o nível atual de cada área da vida. O sistema usa isso para valorizar mais as tarefas onde existe necessidade real de evolução."
-              initialAreas={state.lifeAreaProfile.areas}
-              moduleIds={
-                state.guidedOnboarding.selectedModules.length
-                  ? state.guidedOnboarding.selectedModules
-                  : visibleModules.map((module) => module.id)
-              }
-              onSave={(areas) => actions.saveLifeAreaProfile(areas)}
-              onSkip={() => actions.saveLifeAreaProfile(state.lifeAreaProfile.areas)}
-              saveLabel="Salvar prioridades e entrar"
-            />
-          </div>
-        </div>
       ) : null}
+      {/* Onboarding de "Prioridades de evolução" removido do fluxo
+          bloqueante a pedido do usuário. O LifeAreaProfileEditor continua
+          acessível em /profile pra quem quiser ajustar pesos por área. */}
 
       {/* Mobile drawer — slides in from the left on phones / narrow viewports.
           Renders the full nav (operação + módulos + sistema) so users on
