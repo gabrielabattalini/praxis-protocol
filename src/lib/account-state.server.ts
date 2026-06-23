@@ -119,22 +119,37 @@ export async function getAccountStateHistory(
 async function kvGet(
   userId: string,
 ): Promise<PersistedAccountEnvelope | null> {
-  try {
-    const response = await fetch(
-      `${KV_URL}/get/${encodeURIComponent(kvKey(userId))}`,
-      {
-        headers: { Authorization: `Bearer ${KV_TOKEN}` },
-        cache: "no-store",
-      },
-    );
-    if (!response.ok) return null;
+  // FAIL-CLOSED: antes esta função tinha `try { … } catch { return null }`
+  // e `if (!response.ok) return null`. Resultado: quando o KV estava com
+  // quota exceeded (429), network blip, ou qualquer erro transitório, o
+  // servidor "esquecia" o estado existente do usuário e tratava o PUT
+  // seguinte como primeiro save (currentVersion=0 → aceita o body sem
+  // 409 → kvSet sobrescreve com o que o cliente mandar — inclusive vazio
+  // se o cliente também estava em re-hydration falha). Era a causa REAL
+  // do "sumiu tudo" recorrente. Agora qualquer erro real lança — a rota
+  // PUT precisa converter pra 503 e o cliente NÃO sobrescreve nada.
+  const response = await fetch(
+    `${KV_URL}/get/${encodeURIComponent(kvKey(userId))}`,
+    {
+      headers: { Authorization: `Bearer ${KV_TOKEN}` },
+      cache: "no-store",
+    },
+  );
+  if (response.ok) {
     const payload = (await response.json()) as { result?: string | null };
-    if (!payload.result) return null;
-    return JSON.parse(payload.result) as PersistedAccountEnvelope;
-  } catch (error) {
-    console.error("[account-state] KV get failed:", error);
-    return null;
+    if (payload.result === null || payload.result === undefined) return null;
+    try {
+      return JSON.parse(payload.result) as PersistedAccountEnvelope;
+    } catch (error) {
+      // Corrupção no KV — trata como ausência pra o cliente recuperar do
+      // localStorage; não silencia o log pra diagnóstico.
+      console.error("[account-state] KV value corrupt:", error);
+      return null;
+    }
   }
+  // Erro transitório (429, 5xx, etc) — propaga pra rota retornar 503.
+  const detail = `${response.status} ${response.statusText}`.trim();
+  throw new Error(`[account-state] KV get failed: ${detail}`);
 }
 
 async function kvSet(

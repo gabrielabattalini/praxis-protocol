@@ -141,7 +141,23 @@ export async function GET() {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   }
 
-  const state = await getAccountState(userId);
+  let state: Awaited<ReturnType<typeof getAccountState>> = null;
+  try {
+    state = await getAccountState(userId);
+  } catch (error) {
+    // kvGet agora propaga em erro de KV (429/5xx/network) em vez de
+    // mascarar como null. Devolve 503 pro cliente NÃO confundir com 404
+    // (que dispararia hydrate vazio) e re-tentar mais tarde.
+    const message = error instanceof Error ? error.message : "";
+    if (message.startsWith("[account-state]")) {
+      console.error("[account-state GET] KV error:", message);
+      return NextResponse.json(
+        { error: "Armazenamento temporariamente indisponível.", transient: true },
+        { status: 503 },
+      );
+    }
+    throw error;
+  }
 
   if (!state) {
     return NextResponse.json({ error: "Estado não encontrado." }, { status: 404 });
@@ -230,6 +246,20 @@ export async function PUT(request: Request) {
       return NextResponse.json(
         { error: "Carga de estado maior do que o permitido." },
         { status: 413 },
+      );
+    }
+
+    // Erros do KV (kvGet/kvSet propagam com prefix `[account-state]`)
+    // viram 503, NÃO 400. Cliente sabe que é transitório e tenta de novo
+    // depois — em vez de tratar como "payload inválido" e desistir. Sem
+    // isto, um erro de quota do KV no meio do PUT era mascarado e o
+    // cliente parava de salvar sem aviso.
+    const message = error instanceof Error ? error.message : "";
+    if (message.startsWith("[account-state]")) {
+      console.error("[account-state PUT] KV error:", message);
+      return NextResponse.json(
+        { error: "Armazenamento temporariamente indisponível.", transient: true },
+        { status: 503 },
       );
     }
 

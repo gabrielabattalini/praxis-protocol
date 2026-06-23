@@ -6183,6 +6183,12 @@ export function AppStoreProvider({
           : null;
 
       let serverEnvelope: ParsedStateEnvelope | null = null;
+      // 503 = KV transitório (quota/network/erro). NÃO podemos hidratar
+      // vazio nem habilitar o auto-save, ou o cliente sobrescreve o KV
+      // assim que ele voltar (causa do "sumiu tudo de novo"). Sinaliza
+      // pra ABORTAR a sequência: mantém o que já está em memória, deixa
+      // remoteSyncReady=false. O próximo focus/visibility tenta de novo.
+      let serverTransientFailure = false;
 
       if (userId) {
         try {
@@ -6199,10 +6205,42 @@ export function AppStoreProvider({
             )
               ? parsedServerEnvelope
               : null;
+          } else if (response.status >= 500 || response.status === 429) {
+            // 503/5xx/429 → servidor indisponível, NÃO trate como 404.
+            serverTransientFailure = true;
           }
+          // 404 (estado não encontrado): segue o fluxo normal de novo
+          // usuário — serverEnvelope fica null e a hidratação usa local
+          // ou empty.
         } catch {
-          serverEnvelope = null;
+          // Network blip do lado do cliente — trata como transitório.
+          serverTransientFailure = true;
         }
+      }
+
+      if (cancelled) return;
+
+      if (serverTransientFailure) {
+        // Não hidratar com empty + não habilitar save remoto: previne
+        // a regressão "salvou vazio sobre lotado" quando o KV está com
+        // problema. Hidrata só do localStorage (se houver) pra a UI ter
+        // algo; senão deixa o estado atual em memória. Re-tenta em
+        // focus/visibility (effect de pull).
+        if (localEnvelope) {
+          lastServerSnapshotRef.current = "";
+          serverVersionRef.current = 0;
+          dispatch({
+            type: "hydrate",
+            payload: localEnvelope.state,
+            allowSeed: false,
+          });
+        }
+        remoteSyncReadyRef.current = false;
+        const hydrationTickFailure = window.setTimeout(() => {
+          if (!cancelled) setHydrated(true);
+        }, 0);
+        if (cancelled) window.clearTimeout(hydrationTickFailure);
+        return;
       }
 
       const resolvedEnvelope = resolveHydrationEnvelope(
@@ -6210,8 +6248,6 @@ export function AppStoreProvider({
         localEnvelope,
         legacyPayload?.envelope ?? null,
       );
-
-      if (cancelled) return;
 
       legacyKeysToClearRef.current =
         resolvedEnvelope === legacyPayload?.envelope
