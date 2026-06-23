@@ -5848,6 +5848,17 @@ function resolveHydrationEnvelope(
   legacyEnvelope: ParsedStateEnvelope | null,
 ) {
   if (serverEnvelope && localEnvelope) {
+    // Anti-perda: se o LOCAL está VAZIO (data score 0) mas o SERVER
+    // tem dados de verdade, o server VENCE — mesmo que o timestamp do
+    // local seja mais recente. Sem isso, um local salvo vazio por
+    // qualquer bug transitório (race com erro de KV, hydrate empty
+    // intermediário) era promovido sobre o server lotado, e o próximo
+    // save sobrescrevia o KV. Acontecia mesmo SEM erro de cota.
+    const localScore = getEnvelopeDataScore(localEnvelope);
+    const serverScore = getEnvelopeDataScore(serverEnvelope);
+    if (localScore === 0 && serverScore > 0) {
+      return serverEnvelope;
+    }
     return getEnvelopeTimestamp(localEnvelope) > getEnvelopeTimestamp(serverEnvelope)
       ? localEnvelope
       : serverEnvelope;
