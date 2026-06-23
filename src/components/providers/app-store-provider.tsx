@@ -6025,6 +6025,40 @@ export function AppStoreProvider({
           setRemoteSaveStatus("error");
           return;
         }
+
+        // SEGUNDA CAMADA: queda CATASTRÓFICA de dados. O looksEmpty acima
+        // só pega state 100% vazio — mas "hidratou vazio + 1 toggle"
+        // (1 item) escapava e sobrescrevia o servidor lotado. Aqui
+        // comparamos o "score" de dados do que vamos enviar com o do
+        // último snapshot do servidor: se o servidor tinha um volume
+        // relevante (>=12 itens somados) e o local despencou pra <1/3
+        // disso, é quase certo um bug de hidratação — recusa o PUT.
+        // Exclusão deliberada em massa (raríssima) cai aqui também, mas
+        // o custo (refazer/retentar) é ínfimo perto de perder tudo; o
+        // banner de erro avisa. Re-pull/foco recupera o estado bom.
+        try {
+          const prev = lastServerSnapshotRef.current
+            ? (JSON.parse(lastServerSnapshotRef.current) as PersistedState)
+            : null;
+          if (prev) {
+            const prevScore = getEnvelopeDataScore({
+              state: prev,
+            } as ParsedStateEnvelope);
+            const nextScore = getEnvelopeDataScore({
+              state: live,
+            } as ParsedStateEnvelope);
+            if (prevScore >= 12 && nextScore < prevScore / 3) {
+              console.warn(
+                "[account-state] suspect catastrophic data drop — refusing PUT",
+                { prevScore, nextScore, serverVersion: serverVersionRef.current },
+              );
+              setRemoteSaveStatus("error");
+              return;
+            }
+          }
+        } catch {
+          // snapshot ilegível — não bloqueia o save (não piora nada).
+        }
       }
 
       if (saveAccountTimeoutRef.current) {
