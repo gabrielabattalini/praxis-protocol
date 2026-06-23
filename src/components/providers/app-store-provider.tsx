@@ -36,6 +36,7 @@ import {
 } from "@/lib/mock-data";
 import { isLocalAuthBypassEnabled } from "@/lib/auth-mode";
 import { getShoppingSeedState } from "@/lib/shopping-seed";
+import { saveLocalSnapshot } from "@/lib/local-backup";
 import { threeWayMergeState } from "@/lib/state-merge";
 import type {
   DashboardSectionId,
@@ -5966,6 +5967,10 @@ export function AppStoreProvider({
   const saveAccountTimeoutRef = useRef<number | null>(null);
   const retryTimeoutRef = useRef<number | null>(null);
   const retryAttemptRef = useRef(0);
+  // Throttle do backup local em IndexedDB — 1 snapshot a cada 5 saves
+  // bem-sucedidos (mesmo critério do histórico no servidor). Evita
+  // encher o IDB com fotos quase idênticas em sessões de muito toggle.
+  const localBackupCounterRef = useRef(0);
   const stateRef = useRef(state);
   const userIdRef = useRef(userId);
   const remoteSaveInFlightRef = useRef(false);
@@ -6184,6 +6189,18 @@ export function AppStoreProvider({
         lastServerSnapshotRef.current = snapshot;
         retryAttemptRef.current = 0;
         setRemoteSaveStatus("idle");
+        // Backup local em IndexedDB DEPOIS de save confirmado — só
+        // quando o servidor aceitou, então sabemos que é estado bom.
+        // Throttle leve: 1 a cada 5 saves (igual ao server history)
+        // pra não encher o IDB com snapshots quase idênticos.
+        localBackupCounterRef.current += 1;
+        if (localBackupCounterRef.current % 5 === 0) {
+          void saveLocalSnapshot({
+            userId: currentUserId,
+            state: stateRef.current,
+            serverVersion: serverVersionRef.current,
+          });
+        }
       } catch {
         setRemoteSaveStatus("error");
         // Don't retry on keepalive flushes — the page is already gone
@@ -6338,10 +6355,13 @@ export function AppStoreProvider({
   useEffect(() => {
     if (!hydrated || !activeStorageKey) return;
     window.localStorage.setItem(activeStorageKey, serializePersistedState(state));
-    legacyKeysToClearRef.current.forEach((key) => window.localStorage.removeItem(key));
-    if (legacyStorageKey !== activeStorageKey) {
-      window.localStorage.removeItem(legacyStorageKey);
-    }
+    // PRESERVA legacy keys em vez de deletar. Antes essa rotina apagava
+    // a cópia local de OUTROS userIds (ex.: quando o Clerk regerava
+    // userId pro mesmo email, o local do userId antigo era apagado
+    // segundos depois). Isso já custou uma recuperação real. Agora
+    // legacy keys ficam intactas como BACKUP — ocupam alguns KB cada
+    // e podem salvar a conta em desastre. Limpeza só via ação explícita
+    // do usuário (página de Configurações / debug).
   }, [activeStorageKey, hydrated, state]);
 
   // Cross-device pull: refresh server snapshot when the tab regains

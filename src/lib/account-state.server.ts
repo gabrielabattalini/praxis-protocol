@@ -43,7 +43,11 @@ function kvHistoryKey(userId: string) {
   return `praxis:account-state:${userId}:history`;
 }
 
-const HISTORY_MAX_ENTRIES = 10;
+// 30 versões (era 10) — combinado com HISTORY_THROTTLE=5 cobre ~150
+// saves de retroceder. Custo no KV é o mesmo: 1 LPUSH + 1 LTRIM por
+// gravação; só o LTRIM mantém 30 em vez de 10. Storage: ~30× ~30KB
+// = ~900KB por usuário no pior caso, dentro do orçamento confortável.
+const HISTORY_MAX_ENTRIES = 30;
 
 // Guarda histórico só 1 a cada N saves (em vez de toda vez). Reduz pela
 // metade as ops por save no KV — crítico no plano Free do Upstash. As 10
