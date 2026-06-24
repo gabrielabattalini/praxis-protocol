@@ -1545,6 +1545,16 @@ export default function FinanceModulePage() {
             </select>
             <button
               type="button"
+              onClick={() => setNewCardPanelOpen((current) => !current)}
+              aria-label={newCardPanelOpen ? "Fechar formulário de cartão" : "Novo cartão"}
+              title={newCardPanelOpen ? "Fechar formulário de cartão" : "Novo cartão"}
+              className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-sm border border-zinc-700 bg-black/40 px-4 py-3.5 text-sm font-semibold text-white transition hover:border-white/30 hover:bg-black/60 sm:w-auto"
+            >
+              <CreditCardIcon className={`h-5 w-5 transition ${newCardPanelOpen ? "rotate-12" : ""}`} />
+              {newCardPanelOpen ? "Fechar" : "Novo cartão"}
+            </button>
+            <button
+              type="button"
               onClick={() => setCreatePanelOpen((current) => !current)}
               aria-label={createPanelOpen ? "Fechar formulário" : "Adicionar receita ou gasto"}
               title={createPanelOpen ? "Fechar formulário" : "Adicionar receita ou gasto"}
@@ -1563,6 +1573,96 @@ export default function FinanceModulePage() {
         {draftHasContent ? (
           <div className="rounded-sm border border-zinc-800 bg-black/40 px-4 py-4 text-sm text-zinc-300">
             {`Rascunho atual: ${draft.kind === "income" ? "Receita" : "Gasto"}${draft.name.trim() ? ` - ${draft.name.trim()}` : ""}${draft.amount.trim() ? ` - ${draft.amount.trim()}` : ""}`}
+          </div>
+        ) : null}
+
+        {newCardPanelOpen ? (
+          <div className="space-y-3 rounded-sm border border-zinc-800 bg-black/50 p-4">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-600">
+              Novo cartão
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input
+                value={cardDraft.name}
+                onChange={(event) =>
+                  setCardDraft((current) => ({ ...current, name: event.target.value }))
+                }
+                placeholder="Nome (ex.: Nubank)"
+                className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white placeholder:text-zinc-600"
+              />
+              <input
+                value={cardDraft.dueDay}
+                onChange={(event) =>
+                  setCardDraft((current) => ({ ...current, dueDay: event.target.value }))
+                }
+                type="number"
+                min="1"
+                max="31"
+                placeholder="Vencimento (ex.: 15)"
+                className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white placeholder:text-zinc-600"
+              />
+              <select
+                value={cardDraft.brand}
+                onChange={(event) =>
+                  setCardDraft((current) => ({
+                    ...current,
+                    brand: event.target.value as FinanceCardBrand,
+                  }))
+                }
+                className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white"
+              >
+                <option value="other">Bandeira</option>
+                <option value="visa">Visa</option>
+                <option value="mastercard">Mastercard</option>
+                <option value="elo">Elo</option>
+                <option value="amex">Amex</option>
+              </select>
+              <input
+                value={cardDraft.last4}
+                onChange={(event) =>
+                  setCardDraft((current) => ({
+                    ...current,
+                    last4: event.target.value.replace(/\D/g, "").slice(0, 4),
+                  }))
+                }
+                inputMode="numeric"
+                placeholder="4 últimos dígitos"
+                className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white placeholder:text-zinc-600"
+              />
+            </div>
+            <div>
+              <p className="mb-2 text-[11px] uppercase tracking-[0.18em] text-zinc-600">
+                Cor
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {FINANCE_CARD_COLORS.map((swatch) => (
+                  <button
+                    key={swatch.value}
+                    type="button"
+                    onClick={() =>
+                      setCardDraft((current) => ({ ...current, color: swatch.value }))
+                    }
+                    aria-label={swatch.label}
+                    className="h-8 w-8 rounded-full transition"
+                    style={{
+                      background: swatch.value,
+                      boxShadow:
+                        cardDraft.color === swatch.value
+                          ? `0 0 0 2px #000, 0 0 0 4px ${swatch.value}`
+                          : undefined,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={createCard}
+              disabled={!cardDraft.name.trim()}
+              className="rounded-sm border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 font-medium text-emerald-100 transition hover:bg-emerald-400/15 disabled:opacity-50"
+            >
+              Criar cartão
+            </button>
           </div>
         ) : null}
 
@@ -1748,101 +1848,12 @@ export default function FinanceModulePage() {
                       </button>
                     );
                   })}
-                  <button
-                    type="button"
-                    onClick={() => setNewCardPanelOpen((current) => !current)}
-                    className="flex items-center gap-1 rounded-full border border-dashed border-zinc-700 px-3 py-2 text-sm text-zinc-400 transition hover:border-white/30 hover:text-white"
-                  >
-                    <Plus className="h-4 w-4" /> Novo cartão
-                  </button>
+                  {cards.length === 0 ? (
+                    <span className="text-xs text-zinc-500">
+                      Use o botão <strong className="text-zinc-300">Novo cartão</strong> acima pra cadastrar.
+                    </span>
+                  ) : null}
                 </div>
-
-                {newCardPanelOpen ? (
-                  <div className="mt-4 space-y-3 rounded-sm border border-zinc-800 bg-black/50 p-4">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <input
-                        value={cardDraft.name}
-                        onChange={(event) =>
-                          setCardDraft((current) => ({ ...current, name: event.target.value }))
-                        }
-                        placeholder="Nome (ex.: Nubank)"
-                        className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white placeholder:text-zinc-600"
-                      />
-                      <input
-                        value={cardDraft.dueDay}
-                        onChange={(event) =>
-                          setCardDraft((current) => ({ ...current, dueDay: event.target.value }))
-                        }
-                        type="number"
-                        min="1"
-                        max="31"
-                        placeholder="Vencimento (ex.: 15)"
-                        className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white placeholder:text-zinc-600"
-                      />
-                      <select
-                        value={cardDraft.brand}
-                        onChange={(event) =>
-                          setCardDraft((current) => ({
-                            ...current,
-                            brand: event.target.value as FinanceCardBrand,
-                          }))
-                        }
-                        className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white"
-                      >
-                        <option value="other">Bandeira</option>
-                        <option value="visa">Visa</option>
-                        <option value="mastercard">Mastercard</option>
-                        <option value="elo">Elo</option>
-                        <option value="amex">Amex</option>
-                      </select>
-                      <input
-                        value={cardDraft.last4}
-                        onChange={(event) =>
-                          setCardDraft((current) => ({
-                            ...current,
-                            last4: event.target.value.replace(/\D/g, "").slice(0, 4),
-                          }))
-                        }
-                        inputMode="numeric"
-                        placeholder="4 últimos dígitos"
-                        className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white placeholder:text-zinc-600"
-                      />
-                    </div>
-                    <div>
-                      <p className="mb-2 text-[11px] uppercase tracking-[0.18em] text-zinc-600">
-                        Cor
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {FINANCE_CARD_COLORS.map((swatch) => (
-                          <button
-                            key={swatch.value}
-                            type="button"
-                            onClick={() =>
-                              setCardDraft((current) => ({ ...current, color: swatch.value }))
-                            }
-                            aria-label={swatch.label}
-                            className="h-8 w-8 rounded-full transition"
-                            style={{
-                              background: swatch.value,
-                              boxShadow:
-                                cardDraft.color === swatch.value
-                                  ? `0 0 0 2px #000, 0 0 0 4px ${swatch.value}`
-                                  : undefined,
-                            }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={createCard}
-                      disabled={!cardDraft.name.trim()}
-                      className="rounded-sm border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 font-medium text-emerald-100 transition hover:bg-emerald-400/15 disabled:opacity-50"
-                    >
-                      Criar cartão
-                    </button>
-                  </div>
-                ) : null}
               </div>
             ) : null}
 

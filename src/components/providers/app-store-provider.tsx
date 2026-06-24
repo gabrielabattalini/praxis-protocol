@@ -4948,16 +4948,25 @@ function migrateFinanceBudget(
       budget.lines,
       budget.cards,
     );
+    // Heurística: se existe EXATAMENTE 1 cartão cadastrado (caso típico
+    // de quem ainda não migrou os lançamentos antigos pra feature de
+    // cardId), atribui esse cartão a toda linha credit-card "solta"
+    // (sem cardId e sem cardName). Idempotente: linhas que já têm
+    // cardId ficam intactas. Com 2+ cartões, não dá pra adivinhar.
+    const soleCardId =
+      cards.filter((card) => !card.archived).length === 1
+        ? cards.find((card) => !card.archived)!.id
+        : undefined;
     const lines = budget.lines.map((line) => {
       const legacyCardId =
         line.cardId ??
         (line.cardName ? nameToId.get(line.cardName.trim().toLowerCase()) : undefined);
+      const isCreditCard = isFinanceCreditCardPaymentMethod(line.paymentMethod);
+      const resolvedCardId = isCreditCard ? legacyCardId ?? soleCardId : undefined;
       return normalizeRecurringFinanceLine({
         ...line,
         category: normalizeFinanceCategory(line.category, line.kind),
-        cardId: isFinanceCreditCardPaymentMethod(line.paymentMethod)
-          ? legacyCardId
-          : undefined,
+        cardId: resolvedCardId,
         cardName: undefined,
         monthly: normalizeFinanceMonths(line.monthly),
         settledMonths: normalizeFinanceFlags(line.settledMonths),

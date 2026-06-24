@@ -48,14 +48,20 @@ function buildFinanceCardsFromLines(lines, existingCards) {
   return { cards, nameToId };
 }
 
-function migrateLines(lines, nameToId) {
+function migrateLines(lines, nameToId, cards = []) {
+  // Heurística do provider: se há exatamente 1 cartão não-arquivado,
+  // atribui ele às linhas credit-card sem cardId.
+  const live = cards.filter((c) => !c.archived);
+  const soleCardId = live.length === 1 ? live[0].id : undefined;
   return lines.map((line) => {
-    const cardId =
+    const legacyCardId =
       line.cardId ??
       (line.cardName ? nameToId.get(line.cardName.trim().toLowerCase()) : undefined);
+    const isCC = isCreditCard(line.paymentMethod);
+    const resolved = isCC ? legacyCardId ?? soleCardId : undefined;
     return {
       ...line,
-      cardId: isCreditCard(line.paymentMethod) ? cardId : undefined,
+      cardId: resolved,
       cardName: undefined,
     };
   });
@@ -102,6 +108,42 @@ test("linha que já tem cardId é preservada", () => {
   const { nameToId } = buildFinanceCardsFromLines(lines, [
     { id: "fin-card-existing", name: "Inter", color: "#fb923c", order: 0 },
   ]);
-  const migrated = migrateLines(lines, nameToId);
+  const migrated = migrateLines(lines, nameToId, [
+    { id: "fin-card-existing", name: "Inter", color: "#fb923c", order: 0 },
+  ]);
   assert.equal(migrated[0].cardId, "fin-card-existing");
+});
+
+test("com 1 cartão único, linhas credit-card soltas são auto-atribuídas a ele", () => {
+  const cards = [{ id: "fin-card-inter", name: "Inter", color: "#fb923c", order: 0 }];
+  const lines = [
+    { paymentMethod: "credit-card" },
+    { paymentMethod: "credit-card" },
+    { paymentMethod: "pix" },
+  ];
+  const { nameToId } = buildFinanceCardsFromLines(lines, cards);
+  const migrated = migrateLines(lines, nameToId, cards);
+  assert.equal(migrated[0].cardId, "fin-card-inter", "linha 1 vai pro cartão único");
+  assert.equal(migrated[1].cardId, "fin-card-inter", "linha 2 vai pro cartão único");
+  assert.equal(migrated[2].cardId, undefined, "pix não recebe cartão");
+});
+
+test("com 2+ cartões, linhas credit-card soltas NÃO recebem cardId (ambíguo)", () => {
+  const cards = [
+    { id: "fin-card-inter", name: "Inter", color: "#fb923c", order: 0 },
+    { id: "fin-card-nubank", name: "Nubank", color: "#a78bfa", order: 1 },
+  ];
+  const lines = [{ paymentMethod: "credit-card" }];
+  const { nameToId } = buildFinanceCardsFromLines(lines, cards);
+  const migrated = migrateLines(lines, nameToId, cards);
+  assert.equal(migrated[0].cardId, undefined);
+});
+
+test("auto-atribuir é idempotente: rodar duas vezes dá o mesmo resultado", () => {
+  const cards = [{ id: "fin-card-inter", name: "Inter", color: "#fb923c", order: 0 }];
+  const lines = [{ paymentMethod: "credit-card" }];
+  const { nameToId } = buildFinanceCardsFromLines(lines, cards);
+  const first = migrateLines(lines, nameToId, cards);
+  const second = migrateLines(first, nameToId, cards);
+  assert.equal(second[0].cardId, "fin-card-inter");
 });
