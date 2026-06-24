@@ -185,6 +185,11 @@ export default function FinanceModulePage() {
   });
   const [categoryPanelOpen, setCategoryPanelOpen] = useState(false);
   const [categoryDraftName, setCategoryDraftName] = useState("");
+  // Colapso das listas de lançamento por seção. Começam abertas; o
+  // usuário pode esconder a lista de gastos do cartão e a de saídas
+  // imediatas pra deixar a tela mais limpa (totais continuam visíveis).
+  const [cardSectionOpen, setCardSectionOpen] = useState(true);
+  const [cashSectionOpen, setCashSectionOpen] = useState(true);
 
   const visibleLines = useMemo(
     () =>
@@ -1647,45 +1652,62 @@ export default function FinanceModulePage() {
                 {formatCurrency(selectedMonth.cardExpenses)}
               </h2>
             </div>
-            <div className="rounded-sm border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-[var(--accent)]">
-              {cardExpenseLines.length} linhas
+            <div className="flex items-center gap-2">
+              <div className="rounded-sm border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-[var(--accent)]">
+                {cardExpenseLines.length} linhas
+              </div>
+              <button
+                type="button"
+                onClick={() => setCardSectionOpen((current) => !current)}
+                aria-expanded={cardSectionOpen}
+                aria-label={cardSectionOpen ? "Esconder lançamentos do cartão" : "Mostrar lançamentos do cartão"}
+                className="rounded-sm border border-zinc-800 bg-black/40 p-2 text-zinc-400 transition hover:border-white/20 hover:text-white"
+              >
+                <ChevronDown
+                  className={`h-5 w-5 transition ${cardSectionOpen ? "" : "-rotate-90"}`}
+                />
+              </button>
             </div>
           </div>
-          <div className="grid gap-3 md:grid-cols-[1fr_180px]">
-            <div className="rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-600">
-                Já lançado na fatura
-              </p>
-              <p className="mt-1 text-sm text-zinc-500">
-                Total que já caiu no cartão, somando a base manual e os lançamentos feitos abaixo.
-              </p>
-            </div>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={
-                invoiceDrafts[selectedMonthId] ??
-                formatMoneyInputBR(selectedMonthInvoiceLaunchedTotal)
-              }
-              onChange={(event) =>
-                setInvoiceDrafts((current) => ({
-                  ...current,
-                  [selectedMonthId]: event.target.value,
-                }))
-              }
-              onBlur={() => commitInvoiceDraft(selectedMonthId)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.currentTarget.blur();
-                }
-              }}
-              className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-right font-semibold text-white"
-              placeholder="Total lançado na fatura"
-            />
-          </div>
-          <div className="space-y-3">
-            {cardExpenseLines.map(renderLineCard)}
-          </div>
+          {cardSectionOpen ? (
+            <>
+              <div className="grid gap-3 md:grid-cols-[1fr_180px]">
+                <div className="rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-600">
+                    Já lançado na fatura
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    Total que já caiu no cartão, somando a base manual e os lançamentos feitos abaixo.
+                  </p>
+                </div>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={
+                    invoiceDrafts[selectedMonthId] ??
+                    formatMoneyInputBR(selectedMonthInvoiceLaunchedTotal)
+                  }
+                  onChange={(event) =>
+                    setInvoiceDrafts((current) => ({
+                      ...current,
+                      [selectedMonthId]: event.target.value,
+                    }))
+                  }
+                  onBlur={() => commitInvoiceDraft(selectedMonthId)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                    }
+                  }}
+                  className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-right font-semibold text-white"
+                  placeholder="Total lançado na fatura"
+                />
+              </div>
+              <div className="space-y-3">
+                {cardExpenseLines.map(renderLineCard)}
+              </div>
+            </>
+          ) : null}
         </GlassPanel>
 
         <GlassPanel className="space-y-4">
@@ -1699,13 +1721,28 @@ export default function FinanceModulePage() {
                 {formatCurrency(selectedDetailedMonth.cashExpenses)}
               </h2>
             </div>
-            <div className="rounded-sm border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-[var(--accent)]">
-              {nonCardExpenseLines.length} linhas
+            <div className="flex items-center gap-2">
+              <div className="rounded-sm border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-[var(--accent)]">
+                {nonCardExpenseLines.length} linhas
+              </div>
+              <button
+                type="button"
+                onClick={() => setCashSectionOpen((current) => !current)}
+                aria-expanded={cashSectionOpen}
+                aria-label={cashSectionOpen ? "Esconder saídas imediatas" : "Mostrar saídas imediatas"}
+                className="rounded-sm border border-zinc-800 bg-black/40 p-2 text-zinc-400 transition hover:border-white/20 hover:text-white"
+              >
+                <ChevronDown
+                  className={`h-5 w-5 transition ${cashSectionOpen ? "" : "-rotate-90"}`}
+                />
+              </button>
             </div>
           </div>
-          <div className="space-y-3">
-            {nonCardExpenseLines.map(renderLineCard)}
-          </div>
+          {cashSectionOpen ? (
+            <div className="space-y-3">
+              {nonCardExpenseLines.map(renderLineCard)}
+            </div>
+          ) : null}
         </GlassPanel>
       </div>
 
