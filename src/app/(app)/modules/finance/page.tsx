@@ -6,6 +6,7 @@ import {
   BadgeDollarSign,
   CalendarDays,
   ChevronDown,
+  CreditCard as CreditCardIcon,
   Fuel,
   Landmark,
   Pill,
@@ -17,9 +18,13 @@ import {
 import { StripeCheckoutButton } from "@/components/billing/stripe-checkout-button";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { FinanceFuelPlanner } from "@/components/modules/finance-fuel-planner";
+import { CreditCardTile } from "@/components/finance/credit-card-tile";
 import { GlassPanel } from "@/components/ui/glass-panel";
+import { FINANCE_CARD_COLORS } from "@/lib/mock-data";
 import type {
   FinanceBudgetLine,
+  FinanceCard,
+  FinanceCardBrand,
   FinanceLineFrequency,
   FinanceLineKind,
   FinanceMonthId,
@@ -182,9 +187,33 @@ export default function FinanceModulePage() {
     frequency: "fixed" as FinanceLineFrequency,
     paymentMethod: "credit-card" as FinancePaymentMethod,
     dueDay: "",
+    cardId: "",
   });
   const [categoryPanelOpen, setCategoryPanelOpen] = useState(false);
   const [categoryDraftName, setCategoryDraftName] = useState("");
+  // Mini-form de "novo cartão" (inline, espelha o padrão do categoryPanel).
+  const [newCardPanelOpen, setNewCardPanelOpen] = useState(false);
+  const [cardDraft, setCardDraft] = useState({
+    name: "",
+    color: FINANCE_CARD_COLORS[0].value,
+    dueDay: "",
+    brand: "other" as FinanceCardBrand,
+    last4: "",
+  });
+  // Cartão selecionado na carteira (filtro visual; null = todos).
+  const [activeWalletCardId, setActiveWalletCardId] = useState<string | null>(null);
+  const cards = useMemo(
+    () =>
+      (budget.cards ?? [])
+        .filter((card) => !card.archived)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    [budget.cards],
+  );
+  const cardsById = useMemo(() => {
+    const map = new Map<string, FinanceCard>();
+    for (const card of cards) map.set(card.id, card);
+    return map;
+  }, [cards]);
   // Colapso das listas de lançamento por seção. Começam abertas; o
   // usuário pode esconder a lista de gastos do cartão e a de saídas
   // imediatas pra deixar a tela mais limpa (totais continuam visíveis).
@@ -291,10 +320,14 @@ export default function FinanceModulePage() {
   );
   const cardExpenseLines = useMemo(
     () =>
-      expenseLines.filter((line) =>
-        isFinanceCreditCardPaymentMethod(line.paymentMethod),
+      expenseLines.filter(
+        (line) =>
+          isFinanceCreditCardPaymentMethod(line.paymentMethod) &&
+          // Filtro da carteira: quando um cartão está selecionado, só
+          // mostra os gastos dele.
+          (!activeWalletCardId || line.cardId === activeWalletCardId),
       ),
-    [expenseLines],
+    [expenseLines, activeWalletCardId],
   );
   const nonCardExpenseLines = useMemo(
     () =>
@@ -430,6 +463,7 @@ export default function FinanceModulePage() {
     ) {
       return;
     }
+    const isCard = isFinanceCreditCardPaymentMethod(draft.paymentMethod);
     actions.addFinanceLine({
       name: draft.name.trim(),
       initialMonth: selectedMonthId,
@@ -439,6 +473,7 @@ export default function FinanceModulePage() {
       frequency: draft.frequency,
       paymentMethod: draft.paymentMethod,
       dueDay: draft.dueDay ? Number(draft.dueDay) : undefined,
+      cardId: isCard && draft.cardId ? draft.cardId : undefined,
     });
     setDraft({
       name: "",
@@ -448,9 +483,30 @@ export default function FinanceModulePage() {
       frequency: "fixed",
       paymentMethod: "credit-card",
       dueDay: "",
+      cardId: "",
     });
     setCreatePanelOpen(false);
     setCategoryPanelOpen(false);
+  }
+
+  function createCard() {
+    const name = cardDraft.name.trim();
+    if (!name) return;
+    actions.addFinanceCard({
+      name,
+      color: cardDraft.color,
+      dueDay: cardDraft.dueDay ? Number(cardDraft.dueDay) : undefined,
+      brand: cardDraft.brand,
+      last4: cardDraft.last4.trim() || undefined,
+    });
+    setNewCardPanelOpen(false);
+    setCardDraft({
+      name: "",
+      color: FINANCE_CARD_COLORS[0].value,
+      dueDay: "",
+      brand: "other",
+      last4: "",
+    });
   }
 
   // applyShoppingSuggestion removed alongside the "Sugestões rápidas"
@@ -669,6 +725,22 @@ export default function FinanceModulePage() {
                 <span className="rounded-sm border border-zinc-800 bg-black/20 px-2 py-1">
                   {formatFinancePaymentMethod(line.paymentMethod)}
                 </span>
+                {line.cardId && cardsById.get(line.cardId) ? (
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-sm border px-2 py-1"
+                    style={{
+                      borderColor: `color-mix(in srgb, ${cardsById.get(line.cardId)!.color} 45%, transparent)`,
+                      background: `color-mix(in srgb, ${cardsById.get(line.cardId)!.color} 14%, transparent)`,
+                      color: "#fff",
+                    }}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ background: cardsById.get(line.cardId)!.color }}
+                    />
+                    {cardsById.get(line.cardId)!.name}
+                  </span>
+                ) : null}
                 <span className="rounded-sm border border-zinc-800 bg-black/20 px-2 py-1">
                   {formatFinanceFrequency(line.frequency)}
                 </span>
@@ -988,6 +1060,48 @@ export default function FinanceModulePage() {
                   ))}
                 </select>
 
+                {isFinanceCreditCardPaymentMethod(line.paymentMethod) &&
+                cards.length > 0 ? (
+                  <div className="space-y-2 lg:col-span-2">
+                    <div className="px-1 text-[11px] uppercase tracking-[0.18em] text-zinc-600">
+                      Cartão
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {cards.map((card) => {
+                        const selected = line.cardId === card.id;
+                        return (
+                          <button
+                            key={card.id}
+                            type="button"
+                            onClick={() =>
+                              actions.updateFinanceLine({
+                                lineId: line.id,
+                                contextMonth: selectedMonthId,
+                                patch: { cardId: selected ? undefined : card.id },
+                              })
+                            }
+                            className="flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition"
+                            style={{
+                              borderColor: selected ? card.color : "rgb(39 39 42)",
+                              background: selected
+                                ? `color-mix(in srgb, ${card.color} 18%, transparent)`
+                                : "rgba(0,0,0,0.4)",
+                              color: selected ? "#fff" : "#d4d4d8",
+                              boxShadow: selected ? `0 0 0 1px ${card.color}` : undefined,
+                            }}
+                          >
+                            <span
+                              className="h-3 w-3 rounded-full"
+                              style={{ background: card.color }}
+                            />
+                            <span className="truncate">{card.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="space-y-2">
                   <div className="px-1 text-[11px] uppercase tracking-[0.18em] text-zinc-600">
                     Vencimento
@@ -1259,6 +1373,51 @@ export default function FinanceModulePage() {
             <option key={category.id} value={category.name} />
           ))}
         </datalist>
+
+        {cards.length > 0 ? (
+          <GlassPanel className="space-y-4">
+            <div className="flex items-center gap-3">
+              <CreditCardIcon className="h-6 w-6 text-[var(--accent)]" />
+              <div>
+                <p className="text-sm text-zinc-500">Carteira</p>
+                <h2 className="text-2xl font-semibold text-white">
+                  Meus cartões
+                </h2>
+              </div>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-2">
+              {cards.map((card) => (
+                <div key={card.id} className="w-[280px] shrink-0">
+                  <CreditCardTile
+                    card={card}
+                    selected={activeWalletCardId === card.id}
+                    onClick={() =>
+                      setActiveWalletCardId((current) =>
+                        current === card.id ? null : card.id,
+                      )
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+            {activeWalletCardId ? (
+              <p className="text-xs text-zinc-500">
+                Mostrando lançamentos de{" "}
+                <span className="text-white">
+                  {cardsById.get(activeWalletCardId)?.name}
+                </span>
+                .{" "}
+                <button
+                  type="button"
+                  onClick={() => setActiveWalletCardId(null)}
+                  className="text-[var(--accent)] hover:underline"
+                >
+                  Ver todos
+                </button>
+              </p>
+            ) : null}
+          </GlassPanel>
+        ) : null}
 
         <GlassPanel className="space-y-4">
         <div className="flex items-center gap-3">
@@ -1533,6 +1692,159 @@ export default function FinanceModulePage() {
                 />
               </div>
             </div>
+
+            {isFinanceCreditCardPaymentMethod(draft.paymentMethod) ? (
+              <div className="rounded-sm border border-zinc-800 bg-black/40 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-600">
+                    Cartão
+                  </p>
+                  {draft.cardId ? (
+                    <span className="text-xs text-zinc-500">
+                      Vence dia {cardsById.get(draft.cardId)?.dueDay ?? "—"}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {cards.map((card) => {
+                    const selected = draft.cardId === card.id;
+                    return (
+                      <button
+                        key={card.id}
+                        type="button"
+                        onClick={() =>
+                          setDraft((current) => ({
+                            ...current,
+                            cardId: current.cardId === card.id ? "" : card.id,
+                            dueDay:
+                              current.dueDay ||
+                              (typeof card.dueDay === "number" ? String(card.dueDay) : ""),
+                          }))
+                        }
+                        className="flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition"
+                        style={{
+                          borderColor: selected
+                            ? card.color
+                            : "rgb(39 39 42)",
+                          background: selected
+                            ? `color-mix(in srgb, ${card.color} 18%, transparent)`
+                            : "rgba(0,0,0,0.4)",
+                          color: selected ? "#fff" : "#d4d4d8",
+                          boxShadow: selected
+                            ? `0 0 0 1px ${card.color}`
+                            : undefined,
+                        }}
+                      >
+                        <span
+                          className="h-3 w-3 rounded-full"
+                          style={{ background: card.color }}
+                        />
+                        <span className="truncate">{card.name}</span>
+                        {card.last4 ? (
+                          <span className="font-mono text-xs text-zinc-400">
+                            ••{card.last4}
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => setNewCardPanelOpen((current) => !current)}
+                    className="flex items-center gap-1 rounded-full border border-dashed border-zinc-700 px-3 py-2 text-sm text-zinc-400 transition hover:border-white/30 hover:text-white"
+                  >
+                    <Plus className="h-4 w-4" /> Novo cartão
+                  </button>
+                </div>
+
+                {newCardPanelOpen ? (
+                  <div className="mt-4 space-y-3 rounded-sm border border-zinc-800 bg-black/50 p-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <input
+                        value={cardDraft.name}
+                        onChange={(event) =>
+                          setCardDraft((current) => ({ ...current, name: event.target.value }))
+                        }
+                        placeholder="Nome (ex.: Nubank)"
+                        className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white placeholder:text-zinc-600"
+                      />
+                      <input
+                        value={cardDraft.dueDay}
+                        onChange={(event) =>
+                          setCardDraft((current) => ({ ...current, dueDay: event.target.value }))
+                        }
+                        type="number"
+                        min="1"
+                        max="31"
+                        placeholder="Vencimento (ex.: 15)"
+                        className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white placeholder:text-zinc-600"
+                      />
+                      <select
+                        value={cardDraft.brand}
+                        onChange={(event) =>
+                          setCardDraft((current) => ({
+                            ...current,
+                            brand: event.target.value as FinanceCardBrand,
+                          }))
+                        }
+                        className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white"
+                      >
+                        <option value="other">Bandeira</option>
+                        <option value="visa">Visa</option>
+                        <option value="mastercard">Mastercard</option>
+                        <option value="elo">Elo</option>
+                        <option value="amex">Amex</option>
+                      </select>
+                      <input
+                        value={cardDraft.last4}
+                        onChange={(event) =>
+                          setCardDraft((current) => ({
+                            ...current,
+                            last4: event.target.value.replace(/\D/g, "").slice(0, 4),
+                          }))
+                        }
+                        inputMode="numeric"
+                        placeholder="4 últimos dígitos"
+                        className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white placeholder:text-zinc-600"
+                      />
+                    </div>
+                    <div>
+                      <p className="mb-2 text-[11px] uppercase tracking-[0.18em] text-zinc-600">
+                        Cor
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {FINANCE_CARD_COLORS.map((swatch) => (
+                          <button
+                            key={swatch.value}
+                            type="button"
+                            onClick={() =>
+                              setCardDraft((current) => ({ ...current, color: swatch.value }))
+                            }
+                            aria-label={swatch.label}
+                            className="h-8 w-8 rounded-full transition"
+                            style={{
+                              background: swatch.value,
+                              boxShadow:
+                                cardDraft.color === swatch.value
+                                  ? `0 0 0 2px #000, 0 0 0 4px ${swatch.value}`
+                                  : undefined,
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={createCard}
+                      disabled={!cardDraft.name.trim()}
+                      className="rounded-sm border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 font-medium text-emerald-100 transition hover:bg-emerald-400/15 disabled:opacity-50"
+                    >
+                      Criar cartão
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
 
                 <div className="rounded-sm border border-zinc-800 bg-black/40 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">

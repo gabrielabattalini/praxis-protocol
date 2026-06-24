@@ -622,6 +622,30 @@ export interface FinanceCategory {
   icon: string;
 }
 
+export type FinanceCardBrand = "visa" | "mastercard" | "elo" | "amex" | "other";
+
+/**
+ * Cartão de crédito como entidade de primeira classe. Antes "cartão" era
+ * só um cardName string solto numa linha (nunca exibido, apagado a cada
+ * edit). Agora tem id próprio, cor pra identificação visual e vencimento
+ * que serve de default pras linhas que apontam pra ele via cardId.
+ */
+export interface FinanceCard {
+  id: string;
+  name: string;
+  /** Hex da paleta fixa, usado direto em style inline (cada cartão é independente do tema). */
+  color: string;
+  /** Dia de vencimento do cartão; vira default da linha quando ela não tem dueDay próprio. */
+  dueDay?: number;
+  brand?: FinanceCardBrand;
+  /** 4 últimos dígitos, só pra exibir •••• 1234. */
+  last4?: string;
+  /** Ordenação na carteira. */
+  order?: number;
+  /** Soft-delete: some da carteira sem apagar lançamentos. */
+  archived?: boolean;
+}
+
 export interface FinanceBudgetLine {
   id: string;
   name: string;
@@ -629,7 +653,10 @@ export interface FinanceBudgetLine {
   category: string;
   frequency: FinanceLineFrequency;
   paymentMethod: FinancePaymentMethod;
+  /** @deprecated usar cardId — mantido só para migração de dados salvos. */
   cardName?: string;
+  /** FK → FinanceCard.id; relevante quando paymentMethod === 'credit-card'. */
+  cardId?: string;
   dueDay?: number;
   notes?: string;
   sourceKey?: string;
@@ -666,7 +693,11 @@ export interface FinanceYearBudget {
   year: number;
   startCash: number;
   lines: FinanceBudgetLine[];
+  cards?: FinanceCard[];
+  /** Base manual da fatura "sem cartão" (legado: linhas credit-card sem cardId). */
   cardInvoiceBase?: Partial<Record<FinanceMonthId, number>>;
+  /** Base manual por cartão (fase 2): cardId → mês → valor. */
+  cardInvoiceBaseByCard?: Partial<Record<string, Partial<Record<FinanceMonthId, number>>>>;
   sheetReportedExpenseTotal?: number;
 }
 
