@@ -622,6 +622,25 @@ function monthValues(
   };
 }
 
+/**
+ * Paleta fixa de cores pros cartões de crédito. 8 swatches alinhados com
+ * os temas do app, pra cada cartão ter identidade própria sem destoar do
+ * visual. Usados direto em style inline (color-mix no gradiente).
+ */
+export const FINANCE_CARD_COLORS: ReadonlyArray<{ label: string; value: string }> = [
+  { label: "Âmbar", value: "#fb923c" },
+  { label: "Rosa", value: "#fb7185" },
+  { label: "Roxo", value: "#a78bfa" },
+  { label: "Azul", value: "#60a5fa" },
+  { label: "Ciano", value: "#22d3ee" },
+  { label: "Verde", value: "#4ade80" },
+  { label: "Dourado", value: "#facc15" },
+  { label: "Cinza", value: "#94a3b8" },
+];
+
+/** Id fixo do cartão Inter no seed — referenciado pelas linhas demo. */
+export const FINANCE_CARD_INTER_ID = "fin-card-inter";
+
 function budgetLine(
   id: string,
   name: string,
@@ -633,6 +652,7 @@ function budgetLine(
   options?: {
     dueDay?: number;
     cardName?: string;
+    cardId?: string;
     notes?: string;
   },
 ): FinanceBudgetLine {
@@ -646,6 +666,7 @@ function budgetLine(
     monthly,
     dueDay: options?.dueDay,
     cardName: options?.cardName,
+    cardId: options?.cardId,
     notes: options?.notes,
   };
 }
@@ -653,6 +674,16 @@ function budgetLine(
 export const financeBudgetSeed: FinanceYearBudget = {
   year: 2026,
   startCash: 463,
+  cards: [
+    {
+      id: FINANCE_CARD_INTER_ID,
+      name: "Inter",
+      color: "#fb923c",
+      dueDay: 15,
+      brand: "mastercard",
+      order: 0,
+    },
+  ],
   cardInvoiceBase: monthValues(
     0,
     0,
@@ -697,7 +728,7 @@ export const financeBudgetSeed: FinanceYearBudget = {
       "fixed",
       "credit-card",
       monthValues(0, 0, 0, 9.9, 9.9, 9.9, 9.9, 9.9, 9.9, 9.9, 9.9, 9.9),
-      { dueDay: 4, cardName: "Inter" },
+      { dueDay: 4, cardId: FINANCE_CARD_INTER_ID },
     ),
     budgetLine(
       "expense-youtube",
@@ -707,7 +738,7 @@ export const financeBudgetSeed: FinanceYearBudget = {
       "fixed",
       "credit-card",
       monthValues(0, 0, 0, 26.9, 26.9, 26.9, 26.9, 26.9, 26.9, 26.9, 26.9, 26.9),
-      { dueDay: 11, cardName: "Inter" },
+      { dueDay: 11, cardId: FINANCE_CARD_INTER_ID },
     ),
     budgetLine(
       "expense-sobrancelha",
@@ -736,7 +767,7 @@ export const financeBudgetSeed: FinanceYearBudget = {
       "fixed",
       "credit-card",
       monthValues(0, 0, 0, 120, 120, 120, 120, 120, 120, 120, 120, 120),
-      { dueDay: 20, cardName: "Inter" },
+      { dueDay: 20, cardId: FINANCE_CARD_INTER_ID },
     ),
     budgetLine(
       "expense-barber",
@@ -833,7 +864,7 @@ export const financeBudgetSeed: FinanceYearBudget = {
       "fixed",
       "credit-card",
       monthValues(0, 0, 0, 143.54, 143.54, 143.54, 143.54, 143.54, 143.54, 143.54, 143.54, 143.54),
-      { dueDay: 15, cardName: "Inter" },
+      { dueDay: 15, cardId: FINANCE_CARD_INTER_ID },
     ),
     budgetLine(
       "expense-iptu",

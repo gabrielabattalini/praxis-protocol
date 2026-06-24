@@ -26,6 +26,7 @@ import {
   createDefaultLifeAreaProfile,
   defaultDashboardSectionOrder,
   defaultModuleOrder,
+  FINANCE_CARD_COLORS,
   foodDatabaseSeed,
   getScopedStorageKey,
   initialPersistedState,
@@ -42,6 +43,7 @@ import type {
   DashboardSectionId,
   DietWorkoutLinkSettings,
   FinanceBudgetLine,
+  FinanceCard,
   FinanceCategory,
   FinanceLineFrequency,
   FinanceLineKind,
@@ -494,7 +496,7 @@ type AppStoreValue = {
       initialMonth: FinanceMonthId;
       initialValue: number;
       dueDay?: number;
-      cardName?: string;
+      cardId?: string;
       notes?: string;
     }) => void;
     updateFinanceLine: (payload: {
@@ -503,10 +505,22 @@ type AppStoreValue = {
       patch: Partial<
         Pick<
           FinanceBudgetLine,
-          "name" | "category" | "frequency" | "paymentMethod" | "dueDay" | "cardName" | "notes"
+          "name" | "category" | "frequency" | "paymentMethod" | "dueDay" | "cardId" | "notes"
         >
       >;
     }) => void;
+    addFinanceCard: (payload: {
+      name: string;
+      color: string;
+      dueDay?: number;
+      brand?: FinanceCard["brand"];
+      last4?: string;
+    }) => void;
+    updateFinanceCard: (payload: {
+      cardId: string;
+      patch: Partial<Pick<FinanceCard, "name" | "color" | "dueDay" | "brand" | "last4" | "archived">>;
+    }) => void;
+    removeFinanceCard: (cardId: string) => void;
     updateFinanceMonthlyValue: (payload: {
       lineId: string;
       month: FinanceMonthId;
@@ -990,7 +1004,7 @@ type Action =
         initialMonth: FinanceMonthId;
         initialValue: number;
         dueDay?: number;
-        cardName?: string;
+        cardId?: string;
         notes?: string;
       };
     }
@@ -1002,11 +1016,29 @@ type Action =
         patch: Partial<
           Pick<
             FinanceBudgetLine,
-            "name" | "category" | "frequency" | "paymentMethod" | "dueDay" | "cardName" | "notes"
+            "name" | "category" | "frequency" | "paymentMethod" | "dueDay" | "cardId" | "notes"
           >
         >;
       };
     }
+  | {
+      type: "add-finance-card";
+      payload: {
+        name: string;
+        color: string;
+        dueDay?: number;
+        brand?: FinanceCard["brand"];
+        last4?: string;
+      };
+    }
+  | {
+      type: "update-finance-card";
+      payload: {
+        cardId: string;
+        patch: Partial<Pick<FinanceCard, "name" | "color" | "dueDay" | "brand" | "last4" | "archived">>;
+      };
+    }
+  | { type: "remove-finance-card"; cardId: string }
   | {
       type: "update-finance-monthly-value";
       payload: {
@@ -3039,6 +3071,64 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         }),
       };
     }
+    case "add-finance-card": {
+      const existingCards = state.financeBudget.cards ?? [];
+      const name = action.payload.name.trim();
+      if (!name) return state;
+      const newCard: FinanceCard = {
+        id: makeId("fin-card"),
+        name,
+        color: action.payload.color,
+        dueDay: action.payload.dueDay,
+        brand: action.payload.brand,
+        last4: action.payload.last4?.trim() || undefined,
+        order: existingCards.length,
+      };
+      return {
+        ...state,
+        financeBudget: {
+          ...state.financeBudget,
+          cards: [...existingCards, newCard],
+        },
+      };
+    }
+    case "update-finance-card": {
+      const existingCards = state.financeBudget.cards ?? [];
+      return {
+        ...state,
+        financeBudget: {
+          ...state.financeBudget,
+          cards: existingCards.map((card) =>
+            card.id === action.payload.cardId
+              ? {
+                  ...card,
+                  ...action.payload.patch,
+                  name: action.payload.patch.name?.trim() || card.name,
+                  last4:
+                    action.payload.patch.last4 !== undefined
+                      ? action.payload.patch.last4.trim() || undefined
+                      : card.last4,
+                }
+              : card,
+          ),
+        },
+      };
+    }
+    case "remove-finance-card": {
+      const existingCards = state.financeBudget.cards ?? [];
+      return {
+        ...state,
+        financeBudget: {
+          ...state.financeBudget,
+          cards: existingCards.filter((card) => card.id !== action.cardId),
+          // Linhas que apontavam pro cartão removido viram "sem cartão"
+          // (caem na fatura consolidada). Não apaga os lançamentos.
+          lines: state.financeBudget.lines.map((line) =>
+            line.cardId === action.cardId ? { ...line, cardId: undefined } : line,
+          ),
+        },
+      };
+    }
     case "add-finance-line":
       return {
         ...state,
@@ -3088,7 +3178,9 @@ function reducer(state: PersistedState, action: Action): PersistedState {
                 frequency: action.payload.frequency,
                 paymentMethod: action.payload.paymentMethod,
                 dueDay: action.payload.dueDay,
-                cardName: action.payload.cardName,
+                cardId: isFinanceCreditCardPaymentMethod(action.payload.paymentMethod)
+                  ? action.payload.cardId
+                  : undefined,
                 notes: action.payload.notes,
               };
             })(),
@@ -3116,8 +3208,19 @@ function reducer(state: PersistedState, action: Action): PersistedState {
                     ...line,
                     ...action.payload.patch,
                     category: nextCategory,
+                    // Descarta o cardName legado (já migrado pra cardId no
+                    // hydrate). cardId vem de ...patch quando o usuário troca
+                    // o cartão, ou é preservado de ...line.
                     cardName: undefined,
                   };
+                  // Se trocou o método de pagamento pra algo que não é
+                  // cartão, a linha perde o vínculo com o cartão.
+                  if (
+                    action.payload.patch.paymentMethod !== undefined &&
+                    !isFinanceCreditCardPaymentMethod(action.payload.patch.paymentMethod)
+                  ) {
+                    nextLine.cardId = undefined;
+                  }
                   let updatedLine = nextLine;
 
                   if (
@@ -4786,6 +4889,42 @@ function normalizeRecurringFinanceLine(line: FinanceBudgetLine): FinanceBudgetLi
   return line;
 }
 
+/**
+ * Constrói a lista de cartões a partir do cardName legado das linhas,
+ * preservando cartões já existentes (idempotente). Retorna também o mapa
+ * nome→id pra reatribuir cardId nas linhas durante a migração. Crítico:
+ * roda ANTES de descartar o cardName, senão o vínculo se perde pra sempre.
+ */
+function buildFinanceCardsFromLines(
+  lines: Array<Partial<FinanceBudgetLine>>,
+  existingCards: FinanceCard[] | undefined,
+): { cards: FinanceCard[]; nameToId: Map<string, string> } {
+  const cards: FinanceCard[] = (existingCards ?? []).map((card, index) => ({
+    ...card,
+    order: card.order ?? index,
+  }));
+  const nameToId = new Map<string, string>();
+  for (const card of cards) {
+    nameToId.set(card.name.trim().toLowerCase(), card.id);
+  }
+  for (const line of lines) {
+    const rawName = line.cardName?.trim();
+    if (!rawName) continue;
+    const key = rawName.toLowerCase();
+    if (nameToId.has(key)) continue;
+    const id = makeId("fin-card");
+    nameToId.set(key, id);
+    cards.push({
+      id,
+      name: rawName,
+      color: FINANCE_CARD_COLORS[cards.length % FINANCE_CARD_COLORS.length].value,
+      dueDay: line.dueDay,
+      order: cards.length,
+    });
+  }
+  return { cards, nameToId };
+}
+
 function migrateFinanceBudget(
   budget: Partial<FinanceYearBudget> | null | undefined,
 ): FinanceYearBudget {
@@ -4804,10 +4943,21 @@ function migrateFinanceBudget(
     // would re-add the values, save, hydrate again, lose them again.
     // Removed — those lines now stay as regular budget lines.
     const invoiceBase = normalizeFinanceMonths(budget.cardInvoiceBase);
-    const lines = budget.lines.map((line) =>
-      normalizeRecurringFinanceLine({
+    // Migra cardName legado → cardId ANTES de descartar o nome.
+    const { cards, nameToId } = buildFinanceCardsFromLines(
+      budget.lines,
+      budget.cards,
+    );
+    const lines = budget.lines.map((line) => {
+      const legacyCardId =
+        line.cardId ??
+        (line.cardName ? nameToId.get(line.cardName.trim().toLowerCase()) : undefined);
+      return normalizeRecurringFinanceLine({
         ...line,
         category: normalizeFinanceCategory(line.category, line.kind),
+        cardId: isFinanceCreditCardPaymentMethod(line.paymentMethod)
+          ? legacyCardId
+          : undefined,
         cardName: undefined,
         monthly: normalizeFinanceMonths(line.monthly),
         settledMonths: normalizeFinanceFlags(line.settledMonths),
@@ -4816,8 +4966,8 @@ function migrateFinanceBudget(
           normalizeFinanceMonths(line.monthly),
           line.settledMonths,
         ),
-      }),
-    );
+      });
+    });
 
     return {
       year: budget.year ?? emptyPersistedState.financeBudget.year,
@@ -4825,7 +4975,9 @@ function migrateFinanceBudget(
         typeof budget.startCash === "number"
           ? budget.startCash
           : emptyPersistedState.financeBudget.startCash,
+      cards,
       cardInvoiceBase: invoiceBase,
+      cardInvoiceBaseByCard: budget.cardInvoiceBaseByCard,
       sheetReportedExpenseTotal: budget.sheetReportedExpenseTotal,
       lines,
     };
@@ -4838,11 +4990,22 @@ function migrateFinanceBudget(
     annualExpenseFromSheet: number;
   }>;
 
+  const legacyAllLines = [
+    ...(legacyBudget.incomeLines ?? []),
+    ...(legacyBudget.expenseLines ?? []),
+  ];
+  const { cards: legacyCards, nameToId: legacyNameToId } =
+    buildFinanceCardsFromLines(legacyAllLines, budget.cards);
+
   const toLine = (
     line: Partial<FinanceBudgetLine>,
     kind: FinanceLineKind,
-  ): FinanceBudgetLine =>
-    normalizeRecurringFinanceLine({
+  ): FinanceBudgetLine => {
+    const paymentMethod = line.paymentMethod ?? inferFinancePaymentMethod(line);
+    const cardId =
+      line.cardId ??
+      (line.cardName ? legacyNameToId.get(line.cardName.trim().toLowerCase()) : undefined);
+    return normalizeRecurringFinanceLine({
       id: line.id ?? makeId("finance"),
       name: line.name ?? "Linha financeira",
       kind,
@@ -4851,9 +5014,9 @@ function migrateFinanceBudget(
         kind,
       ),
       frequency: "fixed",
-      paymentMethod:
-        line.paymentMethod ?? inferFinancePaymentMethod(line),
+      paymentMethod,
       dueDay: line.dueDay,
+      cardId: isFinanceCreditCardPaymentMethod(paymentMethod) ? cardId : undefined,
       cardName: undefined,
       notes: line.notes,
       monthly: normalizeFinanceMonths(line.monthly),
@@ -4864,6 +5027,7 @@ function migrateFinanceBudget(
         line.settledMonths,
       ),
     });
+  };
 
   // Same migration as the modern branch above: no longer swallowing
   // "Inter" / "Fatura" / "Resultado dos cartões" lines into
@@ -4880,6 +5044,7 @@ function migrateFinanceBudget(
       typeof legacyBudget.startCash === "number"
         ? legacyBudget.startCash
         : initialPersistedState.financeBudget.startCash,
+    cards: legacyCards,
     cardInvoiceBase: invoiceBase,
     sheetReportedExpenseTotal: legacyBudget.annualExpenseFromSheet,
     lines: [
@@ -5259,6 +5424,7 @@ const emptyPersistedState: PersistedState = {
     ...initialPersistedState.financeBudget,
     startCash: 0,
     lines: [],
+    cards: [],
     cardInvoiceBase: emptyFinanceMonthlyValues(),
   },
   workoutPlan: [],
@@ -7021,6 +7187,15 @@ export function AppStoreProvider({
       },
       updateFinanceLine(payload) {
         dispatch({ type: "update-finance-line", payload });
+      },
+      addFinanceCard(payload) {
+        dispatch({ type: "add-finance-card", payload });
+      },
+      updateFinanceCard(payload) {
+        dispatch({ type: "update-finance-card", payload });
+      },
+      removeFinanceCard(cardId) {
+        dispatch({ type: "remove-finance-card", cardId });
       },
       updateFinanceMonthlyValue(payload) {
         dispatch({ type: "update-finance-monthly-value", payload });
