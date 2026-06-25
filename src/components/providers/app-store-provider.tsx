@@ -3543,32 +3543,29 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         },
       };
     case "update-finance-invoice-base": {
+      // Regra: só grava base de fatura se cardId estiver presente E apontar
+      // pra cartão existente e não-arquivado. Base "sem cartão" é proibida
+      // (pedido do usuário pra não ter valor preso em cartão fantasma).
+      const cardId = action.payload.cardId;
+      if (!cardId) return state;
+      const cardExists = (state.financeBudget.cards ?? []).some(
+        (card) => card.id === cardId && !card.archived,
+      );
+      if (!cardExists) return state;
+
       const value = roundCurrencyValue(action.payload.value);
-      // Com cardId: grava a base manual daquele cartão. Sem: base legada.
-      if (action.payload.cardId) {
-        const byCard = state.financeBudget.cardInvoiceBaseByCard ?? {};
-        const cardMonths = byCard[action.payload.cardId] ?? {};
-        return {
-          ...state,
-          financeBudget: {
-            ...state.financeBudget,
-            cardInvoiceBaseByCard: {
-              ...byCard,
-              [action.payload.cardId]: {
-                ...cardMonths,
-                [action.payload.month]: value,
-              },
-            },
-          },
-        };
-      }
+      const byCard = state.financeBudget.cardInvoiceBaseByCard ?? {};
+      const cardMonths = byCard[cardId] ?? {};
       return {
         ...state,
         financeBudget: {
           ...state.financeBudget,
-          cardInvoiceBase: {
-            ...normalizeFinanceMonths(state.financeBudget.cardInvoiceBase),
-            [action.payload.month]: value,
+          cardInvoiceBaseByCard: {
+            ...byCard,
+            [cardId]: {
+              ...cardMonths,
+              [action.payload.month]: value,
+            },
           },
         },
       };
@@ -5011,21 +5008,23 @@ function migrateFinanceBudget(
 
     // Fatura por cartão: se há EXATAMENTE 1 cartão e ainda não existe base
     // manual por-cartão, migra a base global (cardInvoiceBase) pra esse
-    // cartão — o usuário já tinha lançado a fatura no cartão único. Zera a
-    // base legada pra não contar em dobro. Idempotente: só roda enquanto
-    // cardInvoiceBaseByCard está vazio.
+    // cartão. Zera SEMPRE a base legada no retorno — base "sem cartão" não
+    // é mais permitida (pedido do usuário: não se atribui valor a cartão
+    // não cadastrado). Linhas credit-card órfãs continuam aparecendo no
+    // balde "Fatura sem cartão" só pra serem editadas, sem base manual.
     const hasPerCardBase =
       budget.cardInvoiceBaseByCard &&
       Object.keys(budget.cardInvoiceBaseByCard).length > 0;
     const globalBaseHasValue = financeMonthOrder.some(
       (month) => (invoiceBase[month] ?? 0) !== 0,
     );
-    let finalInvoiceBase = invoiceBase;
     let finalByCard = budget.cardInvoiceBaseByCard;
     if (soleCardId && !hasPerCardBase && globalBaseHasValue) {
       finalByCard = { [soleCardId]: { ...invoiceBase } };
-      finalInvoiceBase = normalizeFinanceMonths();
     }
+    // SEMPRE zera a base legada — qualquer valor remanescente "sem cartão"
+    // é descartado (após a migração pro soleCardId acima, se aplicável).
+    const finalInvoiceBase = normalizeFinanceMonths();
 
     return {
       year: budget.year ?? emptyPersistedState.financeBudget.year,

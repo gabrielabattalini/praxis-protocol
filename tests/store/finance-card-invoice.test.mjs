@@ -39,23 +39,20 @@ test("base total sem por-cartão cai só na legada", () => {
   assert.equal(getTotalCardInvoiceBaseForMonth(budget, "june"), 100);
 });
 
-// Migração: cartão único + base global → base por-cartão, zera a legada.
+// Migração: cartão único migra base global → base por-cartão; SEMPRE
+// zera a base legada (base "sem cartão" não é mais permitida).
 function migrateSoleCardBase(budget, soleCardId) {
   const invoiceBase = budget.cardInvoiceBase ?? {};
   const hasPerCardBase =
     budget.cardInvoiceBaseByCard &&
     Object.keys(budget.cardInvoiceBaseByCard).length > 0;
   const globalHasValue = Object.values(invoiceBase).some((v) => (v ?? 0) !== 0);
+  let finalByCard = budget.cardInvoiceBaseByCard;
   if (soleCardId && !hasPerCardBase && globalHasValue) {
-    return {
-      cardInvoiceBase: {},
-      cardInvoiceBaseByCard: { [soleCardId]: { ...invoiceBase } },
-    };
+    finalByCard = { [soleCardId]: { ...invoiceBase } };
   }
-  return {
-    cardInvoiceBase: invoiceBase,
-    cardInvoiceBaseByCard: budget.cardInvoiceBaseByCard,
-  };
+  // SEMPRE zera a legada.
+  return { cardInvoiceBase: {}, cardInvoiceBaseByCard: finalByCard };
 }
 
 test("cartão único: base global migra pra base do cartão e zera a legada", () => {
@@ -76,14 +73,72 @@ test("migração da base é idempotente (não roda se já há base por-cartão)"
   };
   const result = migrateSoleCardBase(budget, "inter");
   assert.deepEqual(result.cardInvoiceBaseByCard, { inter: { april: 2387.59 } });
-  assert.deepEqual(result.cardInvoiceBase, { april: 100 });
+  // A base legada é zerada mesmo no caso idempotente — não é permitida.
+  assert.deepEqual(result.cardInvoiceBase, {});
 });
 
-test("com 2+ cartões a base global NÃO migra (ambíguo)", () => {
-  const budget = { cardInvoiceBase: { april: 100 } };
+test("com 2+ cartões: base legada some (não migra pra ninguém, é descartada)", () => {
+  const budget = { cardInvoiceBase: { april: 1396.46 } };
   const result = migrateSoleCardBase(budget, undefined);
-  assert.deepEqual(result.cardInvoiceBase, { april: 100 });
+  assert.deepEqual(result.cardInvoiceBase, {});
   assert.equal(result.cardInvoiceBaseByCard, undefined);
+  // O valor "sem cartão" some do total consolidado.
+  assert.equal(getTotalCardInvoiceBaseForMonth(result, "april"), 0);
+});
+
+// Reducer: só aceita base se cardId existe e não está arquivado.
+function reduceInvoiceBase(state, action) {
+  const cardId = action.payload.cardId;
+  if (!cardId) return state;
+  const cardExists = (state.cards ?? []).some(
+    (c) => c.id === cardId && !c.archived,
+  );
+  if (!cardExists) return state;
+  const value = action.payload.value;
+  const byCard = state.cardInvoiceBaseByCard ?? {};
+  const cardMonths = byCard[cardId] ?? {};
+  return {
+    ...state,
+    cardInvoiceBaseByCard: {
+      ...byCard,
+      [cardId]: { ...cardMonths, [action.payload.month]: value },
+    },
+  };
+}
+
+test("reducer rejeita base sem cardId", () => {
+  const state = { cards: [{ id: "inter" }], cardInvoiceBaseByCard: {} };
+  const next = reduceInvoiceBase(state, {
+    payload: { month: "june", value: 100 },
+  });
+  assert.equal(next, state, "retorna o state intacto");
+});
+
+test("reducer rejeita base apontando pra cartão inexistente", () => {
+  const state = { cards: [{ id: "inter" }], cardInvoiceBaseByCard: {} };
+  const next = reduceInvoiceBase(state, {
+    payload: { month: "june", value: 100, cardId: "fantasma" },
+  });
+  assert.equal(next, state);
+});
+
+test("reducer rejeita base apontando pra cartão arquivado", () => {
+  const state = {
+    cards: [{ id: "inter", archived: true }],
+    cardInvoiceBaseByCard: {},
+  };
+  const next = reduceInvoiceBase(state, {
+    payload: { month: "june", value: 100, cardId: "inter" },
+  });
+  assert.equal(next, state);
+});
+
+test("reducer aceita base com cardId válido", () => {
+  const state = { cards: [{ id: "inter" }], cardInvoiceBaseByCard: {} };
+  const next = reduceInvoiceBase(state, {
+    payload: { month: "june", value: 500, cardId: "inter" },
+  });
+  assert.deepEqual(next.cardInvoiceBaseByCard, { inter: { june: 500 } });
 });
 
 // commitInvoiceDraft por cartão: guarda base = total - settled (>= 0).

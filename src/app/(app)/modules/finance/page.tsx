@@ -378,22 +378,7 @@ export default function FinanceModulePage() {
       : allCardLines.filter(
           (line) => !line.cardId || !cardsById.has(line.cardId),
         );
-    const orphanSettled = roundCurrencyValue(
-      orphanLines.reduce(
-        (sum, line) => sum + getFinanceSettledAmount(line, selectedMonthId, budget.year),
-        0,
-      ),
-    );
-    // Base legada "sem cartão" (não migrada quando há 2+ cartões).
-    const orphanBase = activeWalletCardId
-      ? 0
-      : roundCurrencyValue(budget.cardInvoiceBase?.[selectedMonthId] ?? 0);
-    return {
-      groups,
-      orphanLines,
-      orphanLaunchedTotal: roundCurrencyValue(orphanBase + orphanSettled),
-      orphanBase,
-    };
+    return { groups, orphanLines };
   }, [
     expenseLines,
     cards,
@@ -646,22 +631,17 @@ export default function FinanceModulePage() {
 
   // Base de fatura por cartão. O usuário digita o TOTAL já na fatura
   // daquele cartão; guardamos base = total - settled das linhas, pra não
-  // contar em dobro. Draft chaveado por `${cardId}:${month}`. cardId
-  // undefined = base legada "sem cartão" (balde órfão).
-  function commitInvoiceDraft(cardId: string | undefined, month: FinanceMonthId) {
-    const key = `${cardId ?? "__orphan__"}:${month}`;
+  // contar em dobro. Draft chaveado por `${cardId}:${month}`. Só aceita
+  // cartões cadastrados — base "sem cartão" não é permitida.
+  function commitInvoiceDraft(cardId: string, month: FinanceMonthId) {
+    const key = `${cardId}:${month}`;
     const rawValue = invoiceDrafts[key];
     if (rawValue === undefined) return;
 
-    const settled = cardId
-      ? cardSettledForMonth(cardId, month)
-      : roundCurrencyValue(
-          cardInvoiceGroups.orphanLines.reduce(
-            (sum, line) => sum + getFinanceSettledAmount(line, month, budget.year),
-            0,
-          ),
-        );
-    const nextValue = Math.max(0, parseMoneyInput(rawValue) - settled);
+    const nextValue = Math.max(
+      0,
+      parseMoneyInput(rawValue) - cardSettledForMonth(cardId, month),
+    );
     actions.updateFinanceInvoiceBase({ month, value: nextValue, cardId });
     setInvoiceDrafts((current) => {
       const nextDrafts = { ...current };
@@ -2326,60 +2306,22 @@ export default function FinanceModulePage() {
           );
         })}
 
-        {cardInvoiceGroups.orphanLines.length > 0 ||
-        cardInvoiceGroups.orphanBase > 0 ? (
+        {cardInvoiceGroups.orphanLines.length > 0 ? (
           <GlassPanel className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-zinc-500">Fatura sem cartão</p>
+                <p className="text-sm text-zinc-500">Crédito sem cartão</p>
                 <p className="text-xs text-zinc-600">
-                  Gastos no crédito ainda não atribuídos a um cartão
+                  Atribua um cartão a cada linha pra ela aparecer na fatura do cartão.
                 </p>
-                <h2 className="text-2xl font-semibold text-white">
-                  {formatCurrency(cardInvoiceGroups.orphanLaunchedTotal)}
-                </h2>
               </div>
               <div className="rounded-sm border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-[var(--accent)]">
                 {cardInvoiceGroups.orphanLines.length} linhas
               </div>
             </div>
-            <div className="grid gap-3 md:grid-cols-[1fr_180px]">
-              <div className="rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-600">
-                  Já lançado na fatura
-                </p>
-                <p className="mt-1 text-sm text-zinc-500">
-                  Base manual dos gastos no crédito sem cartão atribuído.
-                </p>
-              </div>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={
-                  invoiceDrafts[`__orphan__:${selectedMonthId}`] ??
-                  formatMoneyInputBR(cardInvoiceGroups.orphanLaunchedTotal)
-                }
-                onChange={(event) =>
-                  setInvoiceDrafts((current) => ({
-                    ...current,
-                    [`__orphan__:${selectedMonthId}`]: event.target.value,
-                  }))
-                }
-                onBlur={() => commitInvoiceDraft(undefined, selectedMonthId)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.currentTarget.blur();
-                  }
-                }}
-                className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-right font-semibold text-white"
-                placeholder="Total lançado na fatura"
-              />
+            <div className="space-y-3">
+              {cardInvoiceGroups.orphanLines.map(renderLineCard)}
             </div>
-            {cardInvoiceGroups.orphanLines.length > 0 ? (
-              <div className="space-y-3">
-                {cardInvoiceGroups.orphanLines.map(renderLineCard)}
-              </div>
-            ) : null}
           </GlassPanel>
         ) : null}
 
