@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 // Legacy GlassPanel — delegates to the redesign rx-panel. Keeps the same API
@@ -8,16 +8,18 @@ export function GlassPanel({
   children,
   className,
   id,
+  style,
 }: {
   children: ReactNode;
   className?: string;
   id?: string;
+  style?: CSSProperties;
 }) {
   return (
     <section
       id={id}
       className={cn("rx-panel relative", className)}
-      style={{ padding: 20 }}
+      style={{ padding: 20, ...style }}
     >
       {children}
     </section>

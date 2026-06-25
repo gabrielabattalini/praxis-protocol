@@ -238,6 +238,33 @@ export function getFinanceSettledAmount(
     : 0;
 }
 
+/** Base manual da fatura de UM cartão num mês (cardInvoiceBaseByCard). */
+export function getFinanceCardInvoiceBase(
+  budget: Pick<FinanceYearBudget, "cardInvoiceBaseByCard">,
+  cardId: string,
+  month: FinanceMonthId,
+): number {
+  return roundCurrencyValue(budget.cardInvoiceBaseByCard?.[cardId]?.[month] ?? 0);
+}
+
+/**
+ * Base manual TOTAL de fatura num mês = base legada "sem cartão"
+ * (cardInvoiceBase) + soma das bases por cartão (cardInvoiceBaseByCard).
+ * Usado nos cálculos consolidados de gasto mensal/anual.
+ */
+export function getTotalCardInvoiceBaseForMonth(
+  budget: Pick<FinanceYearBudget, "cardInvoiceBase" | "cardInvoiceBaseByCard">,
+  month: FinanceMonthId,
+): number {
+  const legacy = budget.cardInvoiceBase?.[month] ?? 0;
+  let perCard = 0;
+  const byCard = budget.cardInvoiceBaseByCard ?? {};
+  for (const cardId of Object.keys(byCard)) {
+    perCard += byCard[cardId]?.[month] ?? 0;
+  }
+  return roundCurrencyValue(legacy + perCard);
+}
+
 export function isFinanceInvoiceBaseLine(
   line: Pick<FinanceBudgetLine, "kind" | "paymentMethod" | "category" | "name">,
 ) {
@@ -291,7 +318,10 @@ export function getFinanceMonthSummaries(budget: FinanceYearBudget) {
       .reduce((sum, line) => sum + (line.monthly[month] ?? 0), 0),
     );
     const expenseLines = budget.lines.filter((line) => line.kind === "expense");
-    const invoiceBase = roundCurrencyValue(budget.cardInvoiceBase?.[month] ?? 0);
+    // Base manual TOTAL = legada "sem cartão" + soma das bases por cartão.
+    // Pós-Fase 2 a base vive em cardInvoiceBaseByCard, então usar só
+    // cardInvoiceBase deixaria o total da fatura incompleto.
+    const invoiceBase = getTotalCardInvoiceBaseForMonth(budget, month);
     const expenses = roundCurrencyValue(expenseLines.reduce(
       (sum, line) => sum + getFinanceSettledAmount(line, month, budget.year),
       invoiceBase,
