@@ -141,6 +141,44 @@ test("reducer aceita base com cardId válido", () => {
   assert.deepEqual(next.cardInvoiceBaseByCard, { inter: { june: 500 } });
 });
 
+// Regressão: o sync das linhas Mercado/Suplementos sincronizadas precisa
+// preservar cardId e dueDay (escolhas do usuário sobre o lançamento) —
+// senão eles somem a cada rodada de sync.
+function syncShoppingLine(existingLine, scope, nextAmount) {
+  if (nextAmount <= 0) return null;
+  return {
+    id: existingLine?.id ?? "new-id",
+    name: scope === "market" ? "Mercado sincronizado" : "Suplementos sincronizados",
+    kind: "expense",
+    category: scope === "market" ? "Mercado" : "Saúde",
+    frequency: "fixed",
+    paymentMethod: existingLine?.paymentMethod ?? "credit-card",
+    cardId: existingLine?.cardId,
+    dueDay: existingLine?.dueDay,
+    managedBySystem: true,
+    syncScope: scope,
+    monthly: { june: nextAmount },
+  };
+}
+
+test("sync preserva cardId da linha Mercado/Suplementos sincronizada", () => {
+  const existing = {
+    id: "fin-1",
+    cardId: "inter",
+    dueDay: 15,
+    paymentMethod: "credit-card",
+  };
+  const next = syncShoppingLine(existing, "market", 500);
+  assert.equal(next.cardId, "inter", "cardId é preservado");
+  assert.equal(next.dueDay, 15, "dueDay é preservado");
+});
+
+test("sync de linha nova (sem existing) cria sem cardId", () => {
+  const next = syncShoppingLine(undefined, "supplements", 200);
+  assert.equal(next.cardId, undefined);
+  assert.equal(next.dueDay, undefined);
+});
+
 // commitInvoiceDraft por cartão: guarda base = total - settled (>= 0).
 function commitCardBase(totalDigitado, settledDoCartao) {
   return Math.max(0, round(totalDigitado - settledDoCartao));

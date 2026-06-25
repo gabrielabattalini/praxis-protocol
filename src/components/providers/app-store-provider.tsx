@@ -4620,6 +4620,12 @@ function syncShoppingFinanceState(
       category: normalizeFinanceCategory(config.category, "expense"),
       frequency: "fixed",
       paymentMethod: existingLine?.paymentMethod ?? config.paymentMethod,
+      // Preserva escolhas do usuário sobre o lançamento: cartão e dia de
+      // vencimento. Sem isso, o sync sobrescrevia cardId/dueDay toda vez
+      // que rodava (a cada hidratação/mudança em Mercado ou Suplementos),
+      // tirando a linha do cartão escolhido sozinha.
+      cardId: existingLine?.cardId,
+      dueDay: existingLine?.dueDay,
       notes: config.notes,
       sourceKey: config.sourceKey,
       managedBySystem: true,
