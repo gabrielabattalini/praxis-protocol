@@ -34,7 +34,6 @@ import {
   financeMonthOrder,
   formatCurrency,
   formatFinanceFrequency,
-  formatFinancePaymentMethod,
   getFinanceSettledAmount,
   getFinanceMonthSummaries,
   isFinanceAutoDebitPaymentMethod,
@@ -48,15 +47,31 @@ import {
   sumFinanceLine,
 } from "@/lib/utils";
 
+// Pagamento agora é agrupado em 3 categorias na UI: Crédito, À vista
+// (dinheiro/pix/débito/boleto/transferência — todos têm o mesmo
+// comportamento de "sai imediato da conta") e Débito automático
+// (separado por ter semântica diferente: programado, não-imediato).
+// Os tipos do modelo continuam todos (FinancePaymentMethod), pra
+// preservar dados antigos no KV; só o display é agrupado.
 const paymentOptions: FinancePaymentMethod[] = [
-  "cash",
-  "pix",
-  "debit-card",
   "credit-card",
+  "cash",
   "auto-debit",
-  "bank-slip",
-  "bank-transfer",
 ];
+
+/** Normaliza qualquer FinancePaymentMethod pro grupo canônico exibido. */
+function getPaymentGroup(method: FinancePaymentMethod): FinancePaymentMethod {
+  if (method === "credit-card") return "credit-card";
+  if (method === "auto-debit") return "auto-debit";
+  return "cash";
+}
+
+/** Rótulo agrupado do método de pagamento (display unificado). */
+function formatPaymentGroupLabel(method: FinancePaymentMethod): string {
+  if (method === "credit-card") return "Crédito";
+  if (method === "auto-debit") return "Débito automático";
+  return "À vista";
+}
 
 const frequencyOptions: FinanceLineFrequency[] = ["fixed", "variable"];
 
@@ -776,7 +791,7 @@ export default function FinanceModulePage() {
                   {line.category}
                 </span>
                 <span className="rounded-sm border border-zinc-800 bg-black/20 px-2 py-1">
-                  {formatFinancePaymentMethod(line.paymentMethod)}
+                  {formatPaymentGroupLabel(line.paymentMethod)}
                 </span>
                 {line.cardId && cardsById.get(line.cardId) ? (
                   <span
@@ -1093,7 +1108,7 @@ export default function FinanceModulePage() {
                 </select>
 
                 <select
-                  value={line.paymentMethod}
+                  value={getPaymentGroup(line.paymentMethod)}
                   onChange={(event) =>
                     actions.updateFinanceLine({
                       lineId: line.id,
@@ -1108,7 +1123,7 @@ export default function FinanceModulePage() {
                 >
                   {paymentOptions.map((option) => (
                     <option key={option} value={option}>
-                      {formatFinancePaymentMethod(option)}
+                      {formatPaymentGroupLabel(option)}
                     </option>
                   ))}
                 </select>
@@ -1506,7 +1521,7 @@ export default function FinanceModulePage() {
         <GlassPanel>
           <p className="text-sm text-zinc-500">Saídas imediatas</p>
           <p className="text-xs text-zinc-600">
-            Pix, débito, boleto, transferência e dinheiro
+            Pagamentos à vista (pix, débito, boleto, transferência, dinheiro)
           </p>
           <p className="mt-3 text-3xl font-semibold text-[var(--accent)]">
             {formatCurrency(selectedDetailedMonth.cashExpenses)}
@@ -1954,7 +1969,7 @@ export default function FinanceModulePage() {
                   Pagamento
                 </div>
                 <select
-                  value={draft.paymentMethod}
+                  value={getPaymentGroup(draft.paymentMethod)}
                   onChange={(event) =>
                     setDraft((current) => ({
                       ...current,
@@ -1965,7 +1980,7 @@ export default function FinanceModulePage() {
                 >
                   {paymentOptions.map((option) => (
                     <option key={option} value={option}>
-                      {formatFinancePaymentMethod(option)}
+                      {formatPaymentGroupLabel(option)}
                     </option>
                   ))}
                 </select>
@@ -2238,7 +2253,7 @@ export default function FinanceModulePage() {
             <div>
               <p className="text-sm text-zinc-500">Saídas imediatas</p>
               <p className="text-xs text-zinc-600">
-                Pix, débito, boleto, transferência e dinheiro
+                Pagamentos à vista (pix, débito, boleto, transferência, dinheiro)
               </p>
               <h2 className="text-2xl font-semibold text-white">
                 {formatCurrency(selectedDetailedMonth.cashExpenses)}
@@ -2293,7 +2308,7 @@ export default function FinanceModulePage() {
           </GlassPanel>
           <GlassPanel>
             <p className="text-sm text-zinc-500">Saídas imediatas no ano</p>
-            <p className="text-xs text-zinc-600">Pix, boleto, débito, débito automático, dinheiro e transferência</p>
+            <p className="text-xs text-zinc-600">Tudo que não é cartão de crédito (à vista + débito automático)</p>
             <p className="mt-3 text-3xl font-semibold text-[var(--accent)]">
               {formatCurrency(annualNonCardExpenses)}
             </p>
