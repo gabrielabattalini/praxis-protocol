@@ -215,10 +215,20 @@ export default function FinanceModulePage() {
     return map;
   }, [cards]);
   // Colapso das listas de lançamento por seção. Começam abertas; o
-  // usuário pode esconder a lista de gastos do cartão e a de saídas
-  // imediatas pra deixar a tela mais limpa (totais continuam visíveis).
+  // usuário pode esconder a lista de gastos do cartão, a de saídas
+  // imediatas e a de receitas pra deixar a tela mais limpa (totais
+  // continuam visíveis).
   const [cardSectionOpen, setCardSectionOpen] = useState(true);
   const [cashSectionOpen, setCashSectionOpen] = useState(true);
+  const [incomeSectionOpen, setIncomeSectionOpen] = useState(true);
+  // Edição de cartão (aparece quando um cartão está selecionado na carteira).
+  const [cardEditDraft, setCardEditDraft] = useState<{
+    name: string;
+    color: string;
+    dueDay: string;
+    brand: FinanceCardBrand;
+    last4: string;
+  } | null>(null);
 
   const visibleLines = useMemo(
     () =>
@@ -487,6 +497,49 @@ export default function FinanceModulePage() {
     });
     setCreatePanelOpen(false);
     setCategoryPanelOpen(false);
+  }
+
+  function openCardForEdit(cardId: string) {
+    const card = cardsById.get(cardId);
+    if (!card) return;
+    setActiveWalletCardId(cardId);
+    setCardEditDraft({
+      name: card.name,
+      color: card.color,
+      dueDay: typeof card.dueDay === "number" ? String(card.dueDay) : "",
+      brand: card.brand ?? "other",
+      last4: card.last4 ?? "",
+    });
+  }
+
+  function saveCardEdit() {
+    if (!activeWalletCardId || !cardEditDraft) return;
+    const name = cardEditDraft.name.trim();
+    if (!name) return;
+    actions.updateFinanceCard({
+      cardId: activeWalletCardId,
+      patch: {
+        name,
+        color: cardEditDraft.color,
+        dueDay: cardEditDraft.dueDay ? Number(cardEditDraft.dueDay) : undefined,
+        brand: cardEditDraft.brand,
+        last4: cardEditDraft.last4.trim() || undefined,
+      },
+    });
+    setCardEditDraft(null);
+  }
+
+  function deleteCard(cardId: string) {
+    const card = cardsById.get(cardId);
+    if (!card) return;
+    const linkedCount = budget.lines.filter((line) => line.cardId === cardId).length;
+    const msg = linkedCount
+      ? `Excluir o cartão "${card.name}"? ${linkedCount} lançamento(s) ficarão sem cartão (não serão apagados).`
+      : `Excluir o cartão "${card.name}"?`;
+    if (!window.confirm(msg)) return;
+    actions.removeFinanceCard(cardId);
+    setActiveWalletCardId(null);
+    setCardEditDraft(null);
   }
 
   function createCard() {
@@ -1374,51 +1427,6 @@ export default function FinanceModulePage() {
           ))}
         </datalist>
 
-        {cards.length > 0 ? (
-          <GlassPanel className="space-y-4">
-            <div className="flex items-center gap-3">
-              <CreditCardIcon className="h-6 w-6 text-[var(--accent)]" />
-              <div>
-                <p className="text-sm text-zinc-500">Carteira</p>
-                <h2 className="text-2xl font-semibold text-white">
-                  Meus cartões
-                </h2>
-              </div>
-            </div>
-            <div className="flex gap-4 overflow-x-auto pb-2">
-              {cards.map((card) => (
-                <div key={card.id} className="w-[280px] shrink-0">
-                  <CreditCardTile
-                    card={card}
-                    selected={activeWalletCardId === card.id}
-                    onClick={() =>
-                      setActiveWalletCardId((current) =>
-                        current === card.id ? null : card.id,
-                      )
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-            {activeWalletCardId ? (
-              <p className="text-xs text-zinc-500">
-                Mostrando lançamentos de{" "}
-                <span className="text-white">
-                  {cardsById.get(activeWalletCardId)?.name}
-                </span>
-                .{" "}
-                <button
-                  type="button"
-                  onClick={() => setActiveWalletCardId(null)}
-                  className="text-[var(--accent)] hover:underline"
-                >
-                  Ver todos
-                </button>
-              </p>
-            ) : null}
-          </GlassPanel>
-        ) : null}
-
         <GlassPanel className="space-y-4">
         <div className="flex items-center gap-3">
           <CalendarDays className="h-6 w-6 text-[var(--accent)]" />
@@ -1514,14 +1522,206 @@ export default function FinanceModulePage() {
               {formatCurrency(selectedMonth.income)}
             </h2>
           </div>
-          <div className="rounded-sm border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs text-[var(--accent)]">
-            {incomeLines.length} linhas
+          <div className="flex items-center gap-2">
+            <div className="rounded-sm border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs text-[var(--accent)]">
+              {incomeLines.length} linhas
+            </div>
+            <button
+              type="button"
+              onClick={() => setIncomeSectionOpen((current) => !current)}
+              aria-expanded={incomeSectionOpen}
+              aria-label={incomeSectionOpen ? "Esconder receitas do mês" : "Mostrar receitas do mês"}
+              className="rounded-sm border border-zinc-800 bg-black/40 p-2 text-zinc-400 transition hover:border-white/20 hover:text-white"
+            >
+              <ChevronDown
+                className={`h-5 w-5 transition ${incomeSectionOpen ? "" : "-rotate-90"}`}
+              />
+            </button>
           </div>
         </div>
-        <div className="space-y-3">
-          {incomeLines.map(renderLineCard)}
-        </div>
+        {incomeSectionOpen ? (
+          <div className="space-y-3">
+            {incomeLines.map(renderLineCard)}
+          </div>
+        ) : null}
       </GlassPanel>
+
+      {cards.length > 0 ? (
+        <GlassPanel className="space-y-4">
+          <div className="flex items-center gap-3">
+            <CreditCardIcon className="h-6 w-6 text-[var(--accent)]" />
+            <div>
+              <p className="text-sm text-zinc-500">Carteira</p>
+              <h2 className="text-2xl font-semibold text-white">
+                Meus cartões
+              </h2>
+            </div>
+          </div>
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {cards.map((card) => (
+              <div key={card.id} className="w-[280px] shrink-0">
+                <CreditCardTile
+                  card={card}
+                  selected={activeWalletCardId === card.id}
+                  onClick={() => {
+                    if (activeWalletCardId === card.id) {
+                      setActiveWalletCardId(null);
+                      setCardEditDraft(null);
+                    } else {
+                      openCardForEdit(card.id);
+                    }
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          {activeWalletCardId && cardEditDraft ? (
+            <div className="space-y-3 rounded-sm border border-zinc-800 bg-black/50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-600">
+                  Editar cartão
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveWalletCardId(null);
+                    setCardEditDraft(null);
+                  }}
+                  className="text-xs text-zinc-500 hover:text-white"
+                >
+                  Fechar
+                </button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input
+                  value={cardEditDraft.name}
+                  onChange={(event) =>
+                    setCardEditDraft((current) =>
+                      current ? { ...current, name: event.target.value } : current,
+                    )
+                  }
+                  placeholder="Nome (ex.: Nubank)"
+                  className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white placeholder:text-zinc-600"
+                />
+                <input
+                  value={cardEditDraft.dueDay}
+                  onChange={(event) =>
+                    setCardEditDraft((current) =>
+                      current ? { ...current, dueDay: event.target.value } : current,
+                    )
+                  }
+                  type="number"
+                  min="1"
+                  max="31"
+                  placeholder="Vencimento (ex.: 15)"
+                  className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white placeholder:text-zinc-600"
+                />
+                <select
+                  value={cardEditDraft.brand}
+                  onChange={(event) =>
+                    setCardEditDraft((current) =>
+                      current
+                        ? { ...current, brand: event.target.value as FinanceCardBrand }
+                        : current,
+                    )
+                  }
+                  className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white"
+                >
+                  <option value="other">Bandeira</option>
+                  <option value="visa">Visa</option>
+                  <option value="mastercard">Mastercard</option>
+                  <option value="elo">Elo</option>
+                  <option value="amex">Amex</option>
+                </select>
+                <input
+                  value={cardEditDraft.last4}
+                  onChange={(event) =>
+                    setCardEditDraft((current) =>
+                      current
+                        ? {
+                            ...current,
+                            last4: event.target.value.replace(/\D/g, "").slice(0, 4),
+                          }
+                        : current,
+                    )
+                  }
+                  inputMode="numeric"
+                  placeholder="4 últimos dígitos"
+                  className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white placeholder:text-zinc-600"
+                />
+              </div>
+              <div>
+                <p className="mb-2 text-[11px] uppercase tracking-[0.18em] text-zinc-600">
+                  Cor
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {FINANCE_CARD_COLORS.map((swatch) => (
+                    <button
+                      key={swatch.value}
+                      type="button"
+                      onClick={() =>
+                        setCardEditDraft((current) =>
+                          current ? { ...current, color: swatch.value } : current,
+                        )
+                      }
+                      aria-label={swatch.label}
+                      className="h-8 w-8 rounded-full transition"
+                      style={{
+                        background: swatch.value,
+                        boxShadow:
+                          cardEditDraft.color === swatch.value
+                            ? `0 0 0 2px #000, 0 0 0 4px ${swatch.value}`
+                            : undefined,
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => deleteCard(activeWalletCardId)}
+                  className="inline-flex items-center gap-2 rounded-sm border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm font-medium text-rose-200 transition hover:bg-rose-400/20"
+                >
+                  <Trash2 className="h-4 w-4" /> Excluir cartão
+                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openCardForEdit(activeWalletCardId)}
+                    className="rounded-sm border border-zinc-700 bg-black/40 px-4 py-3 text-sm text-zinc-300 transition hover:border-white/30 hover:text-white"
+                  >
+                    Reverter
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveCardEdit}
+                    disabled={!cardEditDraft.name.trim()}
+                    className="rounded-sm border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/15 disabled:opacity-50"
+                  >
+                    Salvar alterações
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs text-zinc-500">
+                Mostrando lançamentos de{" "}
+                <span className="text-white">{cardsById.get(activeWalletCardId)?.name}</span>
+                .{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveWalletCardId(null);
+                    setCardEditDraft(null);
+                  }}
+                  className="text-[var(--accent)] hover:underline"
+                >
+                  Ver todos
+                </button>
+              </p>
+            </div>
+          ) : null}
+        </GlassPanel>
+      ) : null}
 
       <GlassPanel className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
