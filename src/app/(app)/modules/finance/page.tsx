@@ -193,8 +193,10 @@ export default function FinanceModulePage() {
   const [settlementDrafts, setSettlementDrafts] = useState<Record<string, string>>({});
   // Chaveado por `${cardId}:${month}` (base de fatura por cartão).
   const [invoiceDrafts, setInvoiceDrafts] = useState<Record<string, string>>({});
-  // Colapso por cartão na seção de faturas (default: aberto).
-  const [collapsedCardInvoices, setCollapsedCardInvoices] = useState<
+  // Abertura por cartão na seção de faturas. Padrão: fechado (mapa só
+  // guarda quais o usuário expandiu — true = aberto). Bate com a regra
+  // "todas as abas começam recolhidas".
+  const [openCardInvoices, setOpenCardInvoices] = useState<
     Record<string, boolean>
   >({});
   const [lineValueDrafts, setLineValueDrafts] = useState<Record<string, string>>({});
@@ -238,8 +240,13 @@ export default function FinanceModulePage() {
   // usuário pode esconder a lista de gastos do cartão, a de saídas
   // imediatas e a de receitas pra deixar a tela mais limpa (totais
   // continuam visíveis).
-  const [cashSectionOpen, setCashSectionOpen] = useState(true);
-  const [incomeSectionOpen, setIncomeSectionOpen] = useState(true);
+  // Colapso das listas por seção. Padrão: TODAS começam fechadas pra
+  // tela carregar limpa — totais/cabeçalhos ficam sempre visíveis, e o
+  // usuário expande o que quer ver. As faturas por cartão usam um mapa
+  // separado (collapsedCardInvoices) com a mesma semântica.
+  const [cashSectionOpen, setCashSectionOpen] = useState(false);
+  const [incomeSectionOpen, setIncomeSectionOpen] = useState(false);
+  const [walletSectionOpen, setWalletSectionOpen] = useState(false);
   // Edição de cartão (aparece quando um cartão está selecionado na carteira).
   const [cardEditDraft, setCardEditDraft] = useState<{
     name: string;
@@ -1592,15 +1599,35 @@ export default function FinanceModulePage() {
 
       {cards.length > 0 ? (
         <GlassPanel className="space-y-4">
-          <div className="flex items-center gap-3">
-            <CreditCardIcon className="h-6 w-6 text-[var(--accent)]" />
-            <div>
-              <p className="text-sm text-zinc-500">Carteira</p>
-              <h2 className="text-2xl font-semibold text-white">
-                Meus cartões
-              </h2>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <CreditCardIcon className="h-6 w-6 text-[var(--accent)]" />
+              <div>
+                <p className="text-sm text-zinc-500">Carteira</p>
+                <h2 className="text-2xl font-semibold text-white">
+                  Meus cartões
+                </h2>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="rounded-sm border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-[var(--accent)]">
+                {cards.length} {cards.length === 1 ? "cartão" : "cartões"}
+              </div>
+              <button
+                type="button"
+                onClick={() => setWalletSectionOpen((current) => !current)}
+                aria-expanded={walletSectionOpen}
+                aria-label={walletSectionOpen ? "Esconder carteira" : "Mostrar carteira"}
+                className="rounded-sm border border-zinc-800 bg-black/40 p-2 text-zinc-400 transition hover:border-white/20 hover:text-white"
+              >
+                <ChevronDown
+                  className={`h-5 w-5 transition ${walletSectionOpen ? "" : "-rotate-90"}`}
+                />
+              </button>
             </div>
           </div>
+          {walletSectionOpen ? (
+            <>
           <div className="flex gap-4 overflow-x-auto pb-2">
             {cards.map((card) => (
               <div key={card.id} className="w-[280px] shrink-0">
@@ -1763,6 +1790,8 @@ export default function FinanceModulePage() {
                 </button>
               </p>
             </div>
+          ) : null}
+            </>
           ) : null}
         </GlassPanel>
       ) : null}
@@ -2209,7 +2238,7 @@ export default function FinanceModulePage() {
 
       <div className="space-y-6">
         {cardInvoiceGroups.groups.map(({ card, lines, launchedTotal }) => {
-          const open = collapsedCardInvoices[card.id] !== true;
+          const open = openCardInvoices[card.id] === true;
           const draftKey = `${card.id}:${selectedMonthId}`;
           return (
             <GlassPanel
@@ -2245,7 +2274,7 @@ export default function FinanceModulePage() {
                   <button
                     type="button"
                     onClick={() =>
-                      setCollapsedCardInvoices((current) => ({
+                      setOpenCardInvoices((current) => ({
                         ...current,
                         [card.id]: current[card.id] !== true,
                       }))
