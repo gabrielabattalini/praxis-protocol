@@ -550,6 +550,7 @@ type AppStoreValue = {
     updateFinanceInvoiceBase: (payload: {
       month: FinanceMonthId;
       value: number;
+      cardId?: string;
     }) => void;
     removeFinanceLine: (lineId: string) => void;
     closeFinanceMonth: (month: FinanceMonthId) => void;
@@ -1088,6 +1089,8 @@ type Action =
       payload: {
         month: FinanceMonthId;
         value: number;
+        /** Quando presente, grava a base manual DESTE cartão (cardInvoiceBaseByCard). Sem cardId, é a base legada "sem cartão". */
+        cardId?: string;
       };
     }
   | { type: "remove-finance-line"; lineId: string }
@@ -3539,17 +3542,37 @@ function reducer(state: PersistedState, action: Action): PersistedState {
           ),
         },
       };
-    case "update-finance-invoice-base":
+    case "update-finance-invoice-base": {
+      const value = roundCurrencyValue(action.payload.value);
+      // Com cardId: grava a base manual daquele cartão. Sem: base legada.
+      if (action.payload.cardId) {
+        const byCard = state.financeBudget.cardInvoiceBaseByCard ?? {};
+        const cardMonths = byCard[action.payload.cardId] ?? {};
+        return {
+          ...state,
+          financeBudget: {
+            ...state.financeBudget,
+            cardInvoiceBaseByCard: {
+              ...byCard,
+              [action.payload.cardId]: {
+                ...cardMonths,
+                [action.payload.month]: value,
+              },
+            },
+          },
+        };
+      }
       return {
         ...state,
         financeBudget: {
           ...state.financeBudget,
           cardInvoiceBase: {
             ...normalizeFinanceMonths(state.financeBudget.cardInvoiceBase),
-            [action.payload.month]: roundCurrencyValue(action.payload.value),
+            [action.payload.month]: value,
           },
         },
       };
+    }
     case "remove-finance-line": {
       const removedLine = state.financeBudget.lines.find(
         (line) => line.id === action.lineId,
@@ -3671,6 +3694,13 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         return nextLine;
       });
 
+      // Zera também a base manual por cartão do mês fechado.
+      const clearedByCard: NonNullable<FinanceYearBudget["cardInvoiceBaseByCard"]> = {};
+      const byCardSource = state.financeBudget.cardInvoiceBaseByCard ?? {};
+      for (const cardId of Object.keys(byCardSource)) {
+        clearedByCard[cardId] = { ...byCardSource[cardId], [month]: 0 };
+      }
+
       return {
         ...state,
         financeBudget: {
@@ -3680,6 +3710,7 @@ function reducer(state: PersistedState, action: Action): PersistedState {
             ...normalizeFinanceMonths(state.financeBudget.cardInvoiceBase),
             [month]: 0,
           },
+          cardInvoiceBaseByCard: clearedByCard,
         },
       };
     }
@@ -4978,6 +5009,24 @@ function migrateFinanceBudget(
       });
     });
 
+    // Fatura por cartão: se há EXATAMENTE 1 cartão e ainda não existe base
+    // manual por-cartão, migra a base global (cardInvoiceBase) pra esse
+    // cartão — o usuário já tinha lançado a fatura no cartão único. Zera a
+    // base legada pra não contar em dobro. Idempotente: só roda enquanto
+    // cardInvoiceBaseByCard está vazio.
+    const hasPerCardBase =
+      budget.cardInvoiceBaseByCard &&
+      Object.keys(budget.cardInvoiceBaseByCard).length > 0;
+    const globalBaseHasValue = financeMonthOrder.some(
+      (month) => (invoiceBase[month] ?? 0) !== 0,
+    );
+    let finalInvoiceBase = invoiceBase;
+    let finalByCard = budget.cardInvoiceBaseByCard;
+    if (soleCardId && !hasPerCardBase && globalBaseHasValue) {
+      finalByCard = { [soleCardId]: { ...invoiceBase } };
+      finalInvoiceBase = normalizeFinanceMonths();
+    }
+
     return {
       year: budget.year ?? emptyPersistedState.financeBudget.year,
       startCash:
@@ -4985,8 +5034,8 @@ function migrateFinanceBudget(
           ? budget.startCash
           : emptyPersistedState.financeBudget.startCash,
       cards,
-      cardInvoiceBase: invoiceBase,
-      cardInvoiceBaseByCard: budget.cardInvoiceBaseByCard,
+      cardInvoiceBase: finalInvoiceBase,
+      cardInvoiceBaseByCard: finalByCard,
       sheetReportedExpenseTotal: budget.sheetReportedExpenseTotal,
       lines,
     };

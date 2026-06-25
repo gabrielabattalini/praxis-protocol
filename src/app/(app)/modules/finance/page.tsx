@@ -34,6 +34,8 @@ import {
   financeMonthOrder,
   formatCurrency,
   formatFinanceFrequency,
+  getFinanceCardInvoiceBase,
+  getTotalCardInvoiceBaseForMonth,
   getFinanceSettledAmount,
   getFinanceMonthSummaries,
   isFinanceAutoDebitPaymentMethod,
@@ -189,8 +191,11 @@ export default function FinanceModulePage() {
   });
   const [expenseSort, setExpenseSort] = useState<ExpenseSortMode>("due-date");
   const [settlementDrafts, setSettlementDrafts] = useState<Record<string, string>>({});
-  const [invoiceDrafts, setInvoiceDrafts] = useState<
-    Partial<Record<FinanceMonthId, string>>
+  // Chaveado por `${cardId}:${month}` (base de fatura por cartão).
+  const [invoiceDrafts, setInvoiceDrafts] = useState<Record<string, string>>({});
+  // Colapso por cartão na seção de faturas (default: aberto).
+  const [collapsedCardInvoices, setCollapsedCardInvoices] = useState<
+    Record<string, boolean>
   >({});
   const [lineValueDrafts, setLineValueDrafts] = useState<Record<string, string>>({});
   const [createPanelOpen, setCreatePanelOpen] = useState(false);
@@ -233,7 +238,6 @@ export default function FinanceModulePage() {
   // usuário pode esconder a lista de gastos do cartão, a de saídas
   // imediatas e a de receitas pra deixar a tela mais limpa (totais
   // continuam visíveis).
-  const [cardSectionOpen, setCardSectionOpen] = useState(true);
   const [cashSectionOpen, setCashSectionOpen] = useState(true);
   const [incomeSectionOpen, setIncomeSectionOpen] = useState(true);
   // Edição de cartão (aparece quando um cartão está selecionado na carteira).
@@ -269,7 +273,7 @@ export default function FinanceModulePage() {
             .reduce((sum, line) => sum + (line.monthly[month.id] ?? 0), 0),
         );
         const plannedExpenses = roundCurrencyValue(
-          plannedLineExpenses + (budget.cardInvoiceBase?.[month.id] ?? 0),
+          plannedLineExpenses + getTotalCardInvoiceBaseForMonth(budget, month.id),
         );
         return {
           ...month,
@@ -277,33 +281,37 @@ export default function FinanceModulePage() {
           plannedBalance: roundCurrencyValue(month.income - plannedExpenses),
         };
       }),
-    [budget.cardInvoiceBase, months, visibleLines],
+    [budget, months, visibleLines],
   );
   const selectedMonth =
     months.find((month) => month.id === selectedMonthId) ?? months[0];
   const selectedPlannedMonth =
     plannedMonths.find((month) => month.id === selectedMonthId) ?? plannedMonths[0];
   const invoiceTitle = "Fatura do cartão de crédito";
-  const selectedMonthInvoiceBase = budget.cardInvoiceBase?.[selectedMonthId] ?? 0;
-  const selectedMonthSettledCardAmount = useMemo(
-    () =>
+  // Base manual TOTAL do mês (legada "sem cartão" + soma por cartão) —
+  // usada no gráfico de detalhamento do mês.
+  const selectedMonthInvoiceBase = getTotalCardInvoiceBaseForMonth(
+    budget,
+    selectedMonthId,
+  );
+  // Total já lançado (settled) de UM cartão num mês: soma os settled das
+  // linhas credit-card daquele cartão.
+  const cardSettledForMonth = useMemo(
+    () => (cardId: string, month: FinanceMonthId) =>
       roundCurrencyValue(
         visibleLines
-        .filter(
-          (line) =>
-            line.kind === "expense" &&
-            isFinanceCreditCardPaymentMethod(line.paymentMethod),
-        )
-        .reduce(
-          (sum, line) =>
-            sum + getFinanceSettledAmount(line, selectedMonthId, budget.year),
-          0,
-        ),
+          .filter(
+            (line) =>
+              line.kind === "expense" &&
+              isFinanceCreditCardPaymentMethod(line.paymentMethod) &&
+              line.cardId === cardId,
+          )
+          .reduce(
+            (sum, line) => sum + getFinanceSettledAmount(line, month, budget.year),
+            0,
+          ),
       ),
-    [budget.year, selectedMonthId, visibleLines],
-  );
-  const selectedMonthInvoiceLaunchedTotal = roundCurrencyValue(
-    selectedMonthInvoiceBase + selectedMonthSettledCardAmount,
+    [budget.year, visibleLines],
   );
 
   // Uma linha aparece no mês mesmo zerada, desde que faça parte do
@@ -343,17 +351,6 @@ export default function FinanceModulePage() {
       ),
     [expenseSort, hasAnyMonthlyValue, selectedMonthId, visibleLines],
   );
-  const cardExpenseLines = useMemo(
-    () =>
-      expenseLines.filter(
-        (line) =>
-          isFinanceCreditCardPaymentMethod(line.paymentMethod) &&
-          // Filtro da carteira: quando um cartão está selecionado, só
-          // mostra os gastos dele.
-          (!activeWalletCardId || line.cardId === activeWalletCardId),
-      ),
-    [expenseLines, activeWalletCardId],
-  );
   const nonCardExpenseLines = useMemo(
     () =>
       expenseLines.filter(
@@ -361,13 +358,58 @@ export default function FinanceModulePage() {
       ),
     [expenseLines],
   );
+  // Faturas POR cartão: um grupo por cartão (respeitando o filtro da
+  // carteira), mais um balde "sem cartão" pras linhas credit-card órfãs.
+  const cardInvoiceGroups = useMemo(() => {
+    const allCardLines = expenseLines.filter((line) =>
+      isFinanceCreditCardPaymentMethod(line.paymentMethod),
+    );
+    const visibleCards = cards.filter(
+      (card) => !activeWalletCardId || card.id === activeWalletCardId,
+    );
+    const groups = visibleCards.map((card) => {
+      const lines = allCardLines.filter((line) => line.cardId === card.id);
+      const settled = cardSettledForMonth(card.id, selectedMonthId);
+      const base = getFinanceCardInvoiceBase(budget, card.id, selectedMonthId);
+      return { card, lines, launchedTotal: roundCurrencyValue(base + settled) };
+    });
+    const orphanLines = activeWalletCardId
+      ? []
+      : allCardLines.filter(
+          (line) => !line.cardId || !cardsById.has(line.cardId),
+        );
+    const orphanSettled = roundCurrencyValue(
+      orphanLines.reduce(
+        (sum, line) => sum + getFinanceSettledAmount(line, selectedMonthId, budget.year),
+        0,
+      ),
+    );
+    // Base legada "sem cartão" (não migrada quando há 2+ cartões).
+    const orphanBase = activeWalletCardId
+      ? 0
+      : roundCurrencyValue(budget.cardInvoiceBase?.[selectedMonthId] ?? 0);
+    return {
+      groups,
+      orphanLines,
+      orphanLaunchedTotal: roundCurrencyValue(orphanBase + orphanSettled),
+      orphanBase,
+    };
+  }, [
+    expenseLines,
+    cards,
+    activeWalletCardId,
+    selectedMonthId,
+    budget,
+    cardSettledForMonth,
+    cardsById,
+  ]);
   const selectedMonthExpenseTotal = selectedPlannedMonth?.plannedExpenses ?? 0;
   const selectedMonthPlannedBalance = selectedPlannedMonth?.plannedBalance ?? 0;
   const detailedMonths = useMemo(
     () =>
       months.map((month) => {
         const plannedCardExpenses = roundCurrencyValue(
-          (budget.cardInvoiceBase?.[month.id] ?? 0) +
+          getTotalCardInvoiceBaseForMonth(budget, month.id) +
             visibleLines
               .filter(
                 (line) =>
@@ -397,7 +439,7 @@ export default function FinanceModulePage() {
           balance: roundCurrencyValue(month.income - plannedExpenses),
         };
       }),
-    [budget.cardInvoiceBase, months, visibleLines],
+    [budget, months, visibleLines],
   );
   const annualIncome = useMemo(
     () => roundCurrencyValue(detailedMonths.reduce((sum, month) => sum + month.income, 0)),
@@ -450,11 +492,11 @@ export default function FinanceModulePage() {
     () =>
       roundCurrencyValue(
         financeMonthOrder.reduce(
-        (sum, month) => sum + (budget.cardInvoiceBase?.[month] ?? 0),
-        0,
+          (sum, month) => sum + getTotalCardInvoiceBaseForMonth(budget, month),
+          0,
         ),
       ),
-    [budget.cardInvoiceBase],
+    [budget],
   );
 
   const incomeCategories = useMemo(
@@ -602,21 +644,28 @@ export default function FinanceModulePage() {
     return `${lineId}:${selectedMonthId}`;
   }
 
-  function commitInvoiceDraft(month: FinanceMonthId) {
-    const rawValue = invoiceDrafts[month];
+  // Base de fatura por cartão. O usuário digita o TOTAL já na fatura
+  // daquele cartão; guardamos base = total - settled das linhas, pra não
+  // contar em dobro. Draft chaveado por `${cardId}:${month}`. cardId
+  // undefined = base legada "sem cartão" (balde órfão).
+  function commitInvoiceDraft(cardId: string | undefined, month: FinanceMonthId) {
+    const key = `${cardId ?? "__orphan__"}:${month}`;
+    const rawValue = invoiceDrafts[key];
     if (rawValue === undefined) return;
 
-    const nextValue = Math.max(
-      0,
-      parseMoneyInput(rawValue) - selectedMonthSettledCardAmount,
-    );
-    actions.updateFinanceInvoiceBase({
-      month,
-      value: nextValue,
-    });
+    const settled = cardId
+      ? cardSettledForMonth(cardId, month)
+      : roundCurrencyValue(
+          cardInvoiceGroups.orphanLines.reduce(
+            (sum, line) => sum + getFinanceSettledAmount(line, month, budget.year),
+            0,
+          ),
+        );
+    const nextValue = Math.max(0, parseMoneyInput(rawValue) - settled);
+    actions.updateFinanceInvoiceBase({ month, value: nextValue, cardId });
     setInvoiceDrafts((current) => {
       const nextDrafts = { ...current };
-      delete nextDrafts[month];
+      delete nextDrafts[key];
       return nextDrafts;
     });
   }
@@ -2179,74 +2228,160 @@ export default function FinanceModulePage() {
       </GlassPanel>
 
       <div className="space-y-6">
-        <GlassPanel className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-zinc-500">{invoiceTitle}</p>
-              <p className="text-xs text-zinc-600">
-                Clique em um gasto para mover ele para a fatura
-              </p>
-              <h2 className="text-2xl font-semibold text-white">
-                {formatCurrency(selectedMonth.cardExpenses)}
-              </h2>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="rounded-sm border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-[var(--accent)]">
-                {cardExpenseLines.length} linhas
-              </div>
-              <button
-                type="button"
-                onClick={() => setCardSectionOpen((current) => !current)}
-                aria-expanded={cardSectionOpen}
-                aria-label={cardSectionOpen ? "Esconder lançamentos do cartão" : "Mostrar lançamentos do cartão"}
-                className="rounded-sm border border-zinc-800 bg-black/40 p-2 text-zinc-400 transition hover:border-white/20 hover:text-white"
-              >
-                <ChevronDown
-                  className={`h-5 w-5 transition ${cardSectionOpen ? "" : "-rotate-90"}`}
-                />
-              </button>
-            </div>
-          </div>
-          {cardSectionOpen ? (
-            <>
-              <div className="grid gap-3 md:grid-cols-[1fr_180px]">
-                <div className="rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-600">
-                    Já lançado na fatura
-                  </p>
-                  <p className="mt-1 text-sm text-zinc-500">
-                    Total que já caiu no cartão, somando a base manual e os lançamentos feitos abaixo.
-                  </p>
+        {cardInvoiceGroups.groups.map(({ card, lines, launchedTotal }) => {
+          const open = collapsedCardInvoices[card.id] !== true;
+          const draftKey = `${card.id}:${selectedMonthId}`;
+          return (
+            <GlassPanel
+              key={card.id}
+              className="space-y-4"
+              style={{
+                borderColor: `color-mix(in srgb, ${card.color} 35%, transparent)`,
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-start gap-3">
+                  <span
+                    className="mt-1 h-8 w-8 shrink-0 rounded-md"
+                    style={{
+                      background: `linear-gradient(135deg, color-mix(in srgb, ${card.color} 80%, #000) 0%, color-mix(in srgb, ${card.color} 30%, #0a0a0c) 100%)`,
+                    }}
+                    aria-hidden
+                  />
+                  <div>
+                    <p className="text-sm text-zinc-500">Fatura {card.name}</p>
+                    <p className="text-xs text-zinc-600">
+                      Clique em um gasto para mover ele para a fatura
+                    </p>
+                    <h2 className="text-2xl font-semibold text-white">
+                      {formatCurrency(launchedTotal)}
+                    </h2>
+                  </div>
                 </div>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={
-                    invoiceDrafts[selectedMonthId] ??
-                    formatMoneyInputBR(selectedMonthInvoiceLaunchedTotal)
-                  }
-                  onChange={(event) =>
-                    setInvoiceDrafts((current) => ({
-                      ...current,
-                      [selectedMonthId]: event.target.value,
-                    }))
-                  }
-                  onBlur={() => commitInvoiceDraft(selectedMonthId)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.currentTarget.blur();
+                <div className="flex items-center gap-2">
+                  <div className="rounded-sm border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-[var(--accent)]">
+                    {lines.length} linhas
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCollapsedCardInvoices((current) => ({
+                        ...current,
+                        [card.id]: current[card.id] !== true,
+                      }))
                     }
-                  }}
-                  className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-right font-semibold text-white"
-                  placeholder="Total lançado na fatura"
-                />
+                    aria-expanded={open}
+                    aria-label={open ? `Esconder fatura ${card.name}` : `Mostrar fatura ${card.name}`}
+                    className="rounded-sm border border-zinc-800 bg-black/40 p-2 text-zinc-400 transition hover:border-white/20 hover:text-white"
+                  >
+                    <ChevronDown
+                      className={`h-5 w-5 transition ${open ? "" : "-rotate-90"}`}
+                    />
+                  </button>
+                </div>
               </div>
+              {open ? (
+                <>
+                  <div className="grid gap-3 md:grid-cols-[1fr_180px]">
+                    <div className="rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-600">
+                        Já lançado na fatura
+                      </p>
+                      <p className="mt-1 text-sm text-zinc-500">
+                        Total que já caiu no {card.name}, somando a base manual e os lançamentos abaixo.
+                      </p>
+                    </div>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={invoiceDrafts[draftKey] ?? formatMoneyInputBR(launchedTotal)}
+                      onChange={(event) =>
+                        setInvoiceDrafts((current) => ({
+                          ...current,
+                          [draftKey]: event.target.value,
+                        }))
+                      }
+                      onBlur={() => commitInvoiceDraft(card.id, selectedMonthId)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.currentTarget.blur();
+                        }
+                      }}
+                      className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-right font-semibold text-white"
+                      placeholder="Total lançado na fatura"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    {lines.length > 0 ? (
+                      lines.map(renderLineCard)
+                    ) : (
+                      <p className="rounded-sm border border-zinc-800 bg-black/20 px-4 py-3 text-sm text-zinc-500">
+                        Nenhum lançamento neste cartão ainda.
+                      </p>
+                    )}
+                  </div>
+                </>
+              ) : null}
+            </GlassPanel>
+          );
+        })}
+
+        {cardInvoiceGroups.orphanLines.length > 0 ||
+        cardInvoiceGroups.orphanBase > 0 ? (
+          <GlassPanel className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-zinc-500">Fatura sem cartão</p>
+                <p className="text-xs text-zinc-600">
+                  Gastos no crédito ainda não atribuídos a um cartão
+                </p>
+                <h2 className="text-2xl font-semibold text-white">
+                  {formatCurrency(cardInvoiceGroups.orphanLaunchedTotal)}
+                </h2>
+              </div>
+              <div className="rounded-sm border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-[var(--accent)]">
+                {cardInvoiceGroups.orphanLines.length} linhas
+              </div>
+            </div>
+            <div className="grid gap-3 md:grid-cols-[1fr_180px]">
+              <div className="rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-600">
+                  Já lançado na fatura
+                </p>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Base manual dos gastos no crédito sem cartão atribuído.
+                </p>
+              </div>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={
+                  invoiceDrafts[`__orphan__:${selectedMonthId}`] ??
+                  formatMoneyInputBR(cardInvoiceGroups.orphanLaunchedTotal)
+                }
+                onChange={(event) =>
+                  setInvoiceDrafts((current) => ({
+                    ...current,
+                    [`__orphan__:${selectedMonthId}`]: event.target.value,
+                  }))
+                }
+                onBlur={() => commitInvoiceDraft(undefined, selectedMonthId)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
+                className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-right font-semibold text-white"
+                placeholder="Total lançado na fatura"
+              />
+            </div>
+            {cardInvoiceGroups.orphanLines.length > 0 ? (
               <div className="space-y-3">
-                {cardExpenseLines.map(renderLineCard)}
+                {cardInvoiceGroups.orphanLines.map(renderLineCard)}
               </div>
-            </>
-          ) : null}
-        </GlassPanel>
+            ) : null}
+          </GlassPanel>
+        ) : null}
 
         <GlassPanel className="space-y-4">
           <div className="flex items-center justify-between">
