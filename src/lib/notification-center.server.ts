@@ -1034,7 +1034,13 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
         )
         .slice(0, MAX_DISPATCH_LOG_PER_USER);
     }
-    const dispatchLogBefore = rawUserLog.length;
+    // Flag explícita de "precisa salvar". Antes a decisão usava
+    // dispatchLog.length !== rawUserLog.length, o que falhava no caso
+    // poda-1 + push-1: os tamanhos coincidiam, a condição dava false e
+    // o novo dispatch ficava SÓ na memória, sem persistir. Próxima rodada
+    // do cron lia o KV antigo, não via a entrada, e re-disparava — bug
+    // que duplicava notificações por minutos seguidos.
+    let dispatchLogDirty = dispatchLog.length !== rawUserLog.length;
 
     const schedule = await loadUserSchedule(userId);
     // Estado VIVO da conta — usado pra filtrar items órfãos no schedule
@@ -1138,6 +1144,7 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
         key,
         sentAt: referenceDate.toISOString(),
       });
+      dispatchLogDirty = true;
     }
 
     // Envia UMA mensagem Telegram POR item que disparou — cada uma com
@@ -1299,8 +1306,10 @@ export async function dispatchDueNotifications(referenceDate = new Date()) {
 
     // Persiste o log de dispatch DESTE usuário se mudou (novos envios
     // ou prune de entradas velhas). Escopo por usuário — sem corrida com
-    // outros usuários nem eviction cruzada.
-    if (dispatchLog.length !== dispatchLogBefore) {
+    // outros usuários nem eviction cruzada. Flag dirty (não comparação
+    // de length) — evita o bug poda-1 + push-1 que mantinha tamanhos
+    // iguais e impedia o save.
+    if (dispatchLogDirty) {
       await saveUserDispatchLog(userId, dispatchLog);
     }
   }
