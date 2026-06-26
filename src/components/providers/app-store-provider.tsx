@@ -91,6 +91,7 @@ import {
   getAdjustedTaskXp,
   formatDateKey,
   getTaskBaseXp,
+  isFinanceBalanceCategory,
   isFinanceCreditCardPaymentMethod,
   isTaskCompletedForDate,
   makeId,
@@ -3140,13 +3141,19 @@ function reducer(state: PersistedState, action: Action): PersistedState {
           lines: [
             (() => {
               const initialValue = roundCurrencyValue(action.payload.initialValue);
+              // Categoria "Saldo em conta" é SEMPRE variable e ocupa só o
+              // mês alvo — saldo bancário fecha por mês, não pode replicar.
+              const forceVariable = isFinanceBalanceCategory(action.payload.category);
+              const effectiveFrequency = forceVariable
+                ? ("variable" as FinanceLineFrequency)
+                : action.payload.frequency;
               // Fixed: começa em `initialMonth` (não preenche meses anteriores).
               // Antes era fillFinanceMonths (todos os 12), o que aplicava o
               // "Vale Mercado fixo" lançado em agosto também em jul-jan, mesmo
               // o usuário ainda não recebendo. Editar mês a mês continua livre
               // (UI tem campo por mês).
               const monthly =
-                action.payload.frequency === "fixed"
+                effectiveFrequency === "fixed"
                   ? fillFinanceMonthsFrom(initialValue, action.payload.initialMonth)
                   : {
                       ...emptyFinanceMonthlyValues(),
@@ -3178,7 +3185,7 @@ function reducer(state: PersistedState, action: Action): PersistedState {
                   action.payload.category,
                   action.payload.kind,
                 ),
-                frequency: action.payload.frequency,
+                frequency: effectiveFrequency,
                 paymentMethod: action.payload.paymentMethod,
                 dueDay: action.payload.dueDay,
                 cardId: isFinanceCreditCardPaymentMethod(action.payload.paymentMethod)
@@ -3249,6 +3256,11 @@ function reducer(state: PersistedState, action: Action): PersistedState {
                     // o cartão, ou é preservado de ...line.
                     cardName: undefined,
                   };
+                  // Categoria "Saldo em conta" trava frequency=variable —
+                  // saldo bancário fecha por mês, não pode ser fixed.
+                  if (isFinanceBalanceCategory(nextLine.category)) {
+                    nextLine.frequency = "variable";
+                  }
                   // Se trocou o método de pagamento pra algo que não é
                   // cartão, a linha perde o vínculo com o cartão.
                   if (
@@ -5033,22 +5045,38 @@ function migrateFinanceBudget(
       cards.filter((card) => !card.archived).length === 1
         ? cards.find((card) => !card.archived)!.id
         : undefined;
+    // Saldo em conta = variable, e meses futuros (após o mês atual) ficam
+    // zerados. Saldo bancário fecha por mês — não dá pra projetar pra frente.
+    const currentMonthIndex = new Date().getMonth(); // 0..11
+    const futureMonths = financeMonthOrder.slice(currentMonthIndex + 1);
     const lines = budget.lines.map((line) => {
       const legacyCardId =
         line.cardId ??
         (line.cardName ? nameToId.get(line.cardName.trim().toLowerCase()) : undefined);
       const isCreditCard = isFinanceCreditCardPaymentMethod(line.paymentMethod);
       const resolvedCardId = isCreditCard ? legacyCardId ?? soleCardId : undefined;
+      const normalizedCategory = normalizeFinanceCategory(line.category, line.kind);
+      const isBalance = isFinanceBalanceCategory(normalizedCategory);
+      let monthly = normalizeFinanceMonths(line.monthly);
+      let frequency = line.frequency;
+      if (isBalance) {
+        frequency = "variable";
+        // Zera meses futuros — o user vai relançar conforme o mês fechar.
+        const trimmed = { ...monthly };
+        for (const month of futureMonths) trimmed[month] = 0;
+        monthly = trimmed;
+      }
       return normalizeRecurringFinanceLine({
         ...line,
-        category: normalizeFinanceCategory(line.category, line.kind),
+        category: normalizedCategory,
+        frequency,
         cardId: resolvedCardId,
         cardName: undefined,
-        monthly: normalizeFinanceMonths(line.monthly),
+        monthly,
         settledMonths: normalizeFinanceFlags(line.settledMonths),
         settledAmounts: normalizeFinanceAmounts(
           line.settledAmounts,
-          normalizeFinanceMonths(line.monthly),
+          monthly,
           line.settledMonths,
         ),
       });
