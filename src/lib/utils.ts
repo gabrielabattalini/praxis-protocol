@@ -189,6 +189,17 @@ export function isFinanceAutoDebitPaymentMethod(method: FinancePaymentMethod) {
   return method === "auto-debit";
 }
 
+/**
+ * Categoria "Saldo em conta" tem semântica especial: o saldo bancário
+ * fecha por mês (entradas/saídas mudam o saldo do mês seguinte), então
+ * NÃO pode ser fixed/replicado. O reducer força frequency=variable e o
+ * migrate zera meses futuros.
+ */
+export function isFinanceBalanceCategory(category: string | undefined): boolean {
+  if (!category) return false;
+  return category.trim().toLowerCase() === "saldo em conta";
+}
+
 function isFinanceAutoDebitDue(
   line: Pick<FinanceBudgetLine, "paymentMethod" | "dueDay">,
   month: FinanceMonthId,
