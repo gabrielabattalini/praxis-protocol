@@ -3195,9 +3195,42 @@ function reducer(state: PersistedState, action: Action): PersistedState {
           kind: action.payload.kind,
         }),
       };
-    case "update-finance-line":
+    case "update-finance-line": {
+      const targetLine = state.financeBudget.lines.find(
+        (line) => line.id === action.payload.lineId,
+      );
+      // Se o user atribuiu cardId/dueDay a uma linha SINCRONIZADA (managed
+      // by system, Mercado/Suplementos), guarda a preferência num lugar
+      // protegido. O sync recria a linha a cada hidratação — sem essa
+      // preferência persistida, qualquer race/migração apagava o cartão.
+      let nextShoppingPrefs = state.shoppingFinancePreferences;
+      const managedScope = targetLine?.managedBySystem
+        ? targetLine.syncScope
+        : undefined;
+      if (
+        managedScope &&
+        (action.payload.patch.cardId !== undefined ||
+          action.payload.patch.dueDay !== undefined)
+      ) {
+        const current = nextShoppingPrefs?.[managedScope] ?? {};
+        const nextPref: { cardId?: string; dueDay?: number } = {
+          cardId:
+            action.payload.patch.cardId !== undefined
+              ? action.payload.patch.cardId
+              : current.cardId,
+          dueDay:
+            action.payload.patch.dueDay !== undefined
+              ? action.payload.patch.dueDay
+              : current.dueDay,
+        };
+        nextShoppingPrefs = {
+          ...(nextShoppingPrefs ?? {}),
+          [managedScope]: nextPref,
+        };
+      }
       return {
         ...state,
+        shoppingFinancePreferences: nextShoppingPrefs,
         financeBudget: {
           ...state.financeBudget,
           lines: state.financeBudget.lines.map((line) =>
@@ -3289,6 +3322,7 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         },
         financeCategories: state.financeCategories,
       };
+    }
     case "update-finance-monthly-value":
       return {
         ...state,
@@ -4613,19 +4647,27 @@ function syncShoppingFinanceState(
 
     const existingLine = existingIndex >= 0 ? nextLines[existingIndex] : undefined;
     const monthly = fillFinanceMonths(nextAmount);
+    // Preferências persistidas pela linha sincronizada (sobrevivem mesmo
+    // se a linha for recriada do zero). Camada extra de defesa: caso o
+    // existingLine vier do KV sem cardId por race/migração, reaplica
+    // a escolha que o user fez por último.
+    const pref = state.shoppingFinancePreferences?.[scope];
+    // Se há preferência de cartão, a linha É credit-card por definição
+    // (user atribuiu cartão = decidiu cobrar no crédito). Isso evita que
+    // o migrateFinanceBudget zere o cardId achando que paymentMethod não
+    // é credit-card.
+    const resolvedPaymentMethod = pref?.cardId
+      ? ("credit-card" as const)
+      : existingLine?.paymentMethod ?? config.paymentMethod;
     const syncedLine: FinanceBudgetLine = normalizeRecurringFinanceLine({
       id: existingLine?.id ?? makeId("finance"),
       name: config.name,
       kind: "expense",
       category: normalizeFinanceCategory(config.category, "expense"),
       frequency: "fixed",
-      paymentMethod: existingLine?.paymentMethod ?? config.paymentMethod,
-      // Preserva escolhas do usuário sobre o lançamento: cartão e dia de
-      // vencimento. Sem isso, o sync sobrescrevia cardId/dueDay toda vez
-      // que rodava (a cada hidratação/mudança em Mercado ou Suplementos),
-      // tirando a linha do cartão escolhido sozinha.
-      cardId: existingLine?.cardId,
-      dueDay: existingLine?.dueDay,
+      paymentMethod: resolvedPaymentMethod,
+      cardId: existingLine?.cardId ?? pref?.cardId,
+      dueDay: existingLine?.dueDay ?? pref?.dueDay,
       notes: config.notes,
       sourceKey: config.sourceKey,
       managedBySystem: true,

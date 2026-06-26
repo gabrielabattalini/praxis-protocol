@@ -777,6 +777,17 @@ export interface PersistedState {
   householdSupplies: HouseholdSupplyItem[];
   workControlEntries: WorkControlEntry[];
   shoppingModules: ShoppingModulesState;
+  /**
+   * Preferências persistidas pras linhas SINCRONIZADAS de Mercado/Suplementos
+   * (Mercado sincronizado / Suplementos sincronizados). O sync recria as
+   * linhas a cada hidratação; guardar aqui o cardId/dueDay garante que a
+   * escolha do usuário sobrevive mesmo se a linha for recriada do zero
+   * (ex.: o KV sincronizou uma versão antiga sem cardId, sync reaplica do
+   * lugar protegido).
+   */
+  shoppingFinancePreferences?: Partial<
+    Record<"market" | "supplements", { cardId?: string; dueDay?: number }>
+  >;
   financeBudget: FinanceYearBudget;
   financeCategories: FinanceCategory[];
   sleepPlan: SleepWeeklyPlan;
