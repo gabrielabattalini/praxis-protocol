@@ -1382,18 +1382,61 @@ export default function FinanceModulePage() {
 
   return (
     <div className="space-y-6">
-      <div className="mod-hero">
-        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          <div className="mod-icon" style={{ width: 56, height: 56, borderRadius: 14, fontSize: 24 }}>💰</div>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <div className="praxis-label" style={{ color: "var(--accent)", marginBottom: 4 }}>▸ MÓDULO · FINANÇAS</div>
-            <div className="praxis-title" style={{ fontSize: 26 }}>Painel mensal</div>
-            <div style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 4 }}>
-              Receitas, fatura, gastos pendentes e sugestões de compra no mesmo lugar.
-            </div>
-          </div>
+      {/* Hero editorial: borda lateral em accent + kicker com traço, ícone
+          discreto no canto, título grande com a palavra "mensal" destacada.
+          Mais "chique" que o hero genérico antigo, mas continua respeitando
+          o design system (.rx-panel, --accent, font Space Grotesk). */}
+      <section
+        className="rx-panel relative overflow-hidden"
+        style={{
+          padding: "26px 28px",
+          borderLeft: "3px solid var(--accent)",
+        }}
+      >
+        <span
+          aria-hidden
+          className="absolute opacity-50"
+          style={{ top: 22, right: 26, fontSize: 22 }}
+        >
+          💰
+        </span>
+        <div
+          className="praxis-label"
+          style={{
+            color: "var(--accent)",
+            marginBottom: 14,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <span
+            aria-hidden
+            style={{ width: 18, height: 1, background: "var(--accent)" }}
+          />
+          Módulo · Finanças
         </div>
-      </div>
+        <h1
+          className="praxis-title"
+          style={{
+            fontSize: 32,
+            letterSpacing: "-0.03em",
+            margin: "0 0 6px",
+          }}
+        >
+          Painel <span style={{ color: "var(--accent)" }}>mensal</span>
+        </h1>
+        <p
+          style={{
+            fontSize: 13,
+            color: "var(--fg-3)",
+            maxWidth: 440,
+            margin: 0,
+          }}
+        >
+          Receitas, fatura, gastos pendentes e sugestões de compra no mesmo lugar.
+        </p>
+      </section>
 
       {/* Seção de resumo (Mês ativo / Saldo / Receitas / Gastos / Linhas
           ativas) removida a pedido — os números já aparecem ao longo do
