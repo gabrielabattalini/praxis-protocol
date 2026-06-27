@@ -6,7 +6,7 @@ export type ShoppingSearchSourceStatus = "idle" | "ok" | "blocked" | "error";
 
 /** Unit of an active-substance daily dose. "serving" is a generic
  *  per-portion unit used by the market scope (e.g. 1 sachê/dia). */
-export type DoseUnit = "mg" | "g" | "mcg" | "ml" | "serving";
+export type DoseUnit = "mg" | "g" | "mcg" | "ml" | "serving" | "un";
 
 export type DoseConfidence = "confirmed" | "unconfirmed";
 

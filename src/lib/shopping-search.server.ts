@@ -404,7 +404,9 @@ function computeDoseEconomics(
   dailyCost: number;
 } | null {
   if (!dailyDoseAmount || !dailyDoseUnit || dailyDoseAmount <= 0) return null;
-  if (dailyDoseUnit === "serving") return null;
+  // "serving"/"un" são contados (não convertem pra mg/ml) — sem custo
+  // por-substância; o cálculo de potes/mês cobre esses casos.
+  if (dailyDoseUnit === "serving" || dailyDoseUnit === "un") return null;
   const dailyBase = toBaseAmount(dailyDoseAmount, dailyDoseUnit);
   if (!dailyBase) return null;
 
