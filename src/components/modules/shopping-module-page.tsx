@@ -154,6 +154,22 @@ function normalizeSeedName(value: string) {
  *  frequência de uso pro contexto mercado/suplementos. */
 const QUANTITY_UNITS = ["g", "kg", "mg", "ml", "l", "un"] as const;
 
+/** A dose tem que seguir a MESMA dimensão da Qtd. (pedido do usuário:
+ *  "se escolhi gramas no início, é grama no fim"). Massa → mg/g/mcg;
+ *  volume → ml; contado (un) → un. Sem isso, dava pra cadastrar "500 g"
+ *  de pote com dose em "un", e o cálculo de potes/mês saía sem sentido. */
+function doseUnitsForQuantityUnit(quantityUnit: string): string[] {
+  if (quantityUnit === "ml" || quantityUnit === "l") return ["ml"];
+  if (quantityUnit === "un") return ["un"];
+  return ["mg", "g", "mcg"];
+}
+
+function defaultDoseUnitForQuantityUnit(quantityUnit: string): string {
+  if (quantityUnit === "ml" || quantityUnit === "l") return "ml";
+  if (quantityUnit === "un") return "un";
+  return "g";
+}
+
 /** Quebra uma string "500 g" / "1.5 kg" / "200ml" em { amount, unit }
  *  pra repopular o draft quando editar um item existente. Se não
  *  conseguir parsear (string vazia, formato esquisito), volta amount
@@ -742,6 +758,14 @@ export function ShoppingModulePage({
     // o formato for esquisito, fica com amount vazio e unit "g" (parts
     // entrega esse fallback), aí o user re-digita.
     const quantityParts = parseQuantityToParts(fresh.quantity);
+    // Coerção: a dose tem que estar na mesma dimensão da Qtd. Itens
+    // legados (ex.: dose "serving" com Qtd em g) recebem o default
+    // compatível, pra o dropdown dinâmico bater com o valor do draft.
+    const allowedDose = doseUnitsForQuantityUnit(quantityParts.unit);
+    const loadedDoseUnit = fresh.dailyDoseUnit ?? "g";
+    const coercedDoseUnit = allowedDose.includes(loadedDoseUnit)
+      ? loadedDoseUnit
+      : defaultDoseUnitForQuantityUnit(quantityParts.unit);
     setDraft({
       name: fresh.name,
       brand: fresh.brand,
@@ -751,7 +775,7 @@ export function ShoppingModulePage({
       dailyDose: fresh.dailyDose.toString(),
       dailyDoseAmount:
         fresh.dailyDoseAmount !== undefined ? String(fresh.dailyDoseAmount) : "",
-      dailyDoseUnit: fresh.dailyDoseUnit ?? "g",
+      dailyDoseUnit: coercedDoseUnit,
       servingsPerDay: String(inferredServings),
       servingAmount:
         inferredServingAmount && inferredServingAmount > 0
@@ -816,7 +840,7 @@ export function ShoppingModulePage({
       // os cálculos de custo-por-dia-da-substância no search engine.
       dailyDoseAmount: dailyDose > 0 ? dailyDose : undefined,
       dailyDoseUnit: (() => {
-        const valid = ["mg", "g", "mcg", "ml", "serving"];
+        const valid = ["mg", "g", "mcg", "ml", "serving", "un"];
         return valid.includes(draft.dailyDoseUnit)
           ? (draft.dailyDoseUnit as ShoppingTrackedItem["dailyDoseUnit"])
           : undefined;
@@ -933,7 +957,12 @@ export function ShoppingModulePage({
               <input value={draft.brand} onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))} placeholder={examples[1] ?? "Ex.: Growth"} className={fieldClassName} />
             </label>
             <label className="block space-y-1 min-w-0">
-              <span className="praxis-label text-[var(--accent)]">Qtd.</span>
+              <span className="praxis-label text-[var(--accent)]">
+                Qtd. do pote
+              </span>
+              <span className="block text-[10px] leading-3 text-zinc-500">
+                tamanho da embalagem · ex.: 500 g, 1 kg, 60 un
+              </span>
               {/* Qtd. agora é composta: [número] + [unidade]. Mantém o
                   draft.quantity sincronizado como string "X unit" pra
                   não quebrar o engine de parsing/preço que lê esse
@@ -967,7 +996,14 @@ export function ShoppingModulePage({
                       const quantity = current.quantityAmount.trim()
                         ? `${current.quantityAmount.trim()} ${unit}`
                         : "";
-                      return { ...current, quantityUnit: unit, quantity };
+                      // Mantém a dose na mesma dimensão da Qtd. Se mudou de
+                      // dimensão (ex.: g → un), reseta a dose pro default
+                      // compatível pra não cruzar massa com unidade.
+                      const allowedDose = doseUnitsForQuantityUnit(unit);
+                      const dailyDoseUnit = allowedDose.includes(current.dailyDoseUnit)
+                        ? current.dailyDoseUnit
+                        : defaultDoseUnitForQuantityUnit(unit);
+                      return { ...current, quantityUnit: unit, quantity, dailyDoseUnit };
                     })
                   }
                   className={fieldClassName}
@@ -1013,7 +1049,10 @@ export function ShoppingModulePage({
             </label>
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">
-                Tomadas × dose
+                Quanto você toma
+              </span>
+              <span className="block text-[10px] leading-3 text-zinc-500">
+                vezes por dia × quanto em cada vez · ex.: 2 /dia × 1 un
               </span>
               {/* Opção 2 + frequência. Layout (5 sub-células):
                   [tomadas] / [freq] × [dose] [unit]
@@ -1090,11 +1129,11 @@ export function ShoppingModulePage({
                   className={fieldClassName}
                   aria-label="Unidade da dose"
                 >
-                  <option value="g">g</option>
-                  <option value="mg">mg</option>
-                  <option value="mcg">mcg</option>
-                  <option value="ml">ml</option>
-                  <option value="serving">por.</option>
+                  {doseUnitsForQuantityUnit(draft.quantityUnit).map((unit) => (
+                    <option key={unit} value={unit}>
+                      {unit}
+                    </option>
+                  ))}
                 </select>
               </div>
               {(() => {
