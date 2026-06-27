@@ -937,9 +937,15 @@ export function ShoppingModulePage({
               lg (≥1024) → 4 cols
               xl (≥1280) → todos os 7 numa linha só */}
         <section className="space-y-2">
-          <div className="praxis-label flex items-center gap-2 border-b border-white/5 pb-1 text-[10px] text-zinc-400">
-            <span className="inline-block h-1 w-1 rounded-full bg-[var(--accent)]" />
-            Item
+          <div className="space-y-1 border-b border-white/5 pb-1.5">
+            <div className="praxis-label flex items-center gap-2 text-[10px] text-zinc-400">
+              <span className="inline-block h-1 w-1 rounded-full bg-[var(--accent)]" />
+              Item
+            </div>
+            <p className="text-[11px] leading-4 text-zinc-500">
+              <span className="text-zinc-400">Qtd. do pote</span> = tamanho da embalagem (ex.: 500 g, 1 kg, 60 un).{" "}
+              <span className="text-zinc-400">Quanto você toma</span> = vezes por dia × quanto em cada vez (ex.: 2 /dia × 1 un).
+            </p>
           </div>
           {/* Rebalanceamento (sexto passe): Compra foi pro canto
               direito a pedido do user — Tomadas × dose volta pra
@@ -947,7 +953,7 @@ export function ShoppingModulePage({
                 Nome 1.2 / Marca / Qtd / Preço 0.7 / Link 0.7 /
                 Tomadas × dose 1.8 / Compra 1.2
               Os outros campos continuam mais à esquerda como pedido. */}
-          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.8fr)_minmax(0,1.2fr)]">
+          <div className="grid items-end gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.8fr)_minmax(0,1.2fr)]">
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">Nome</span>
               <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder={examples[0] ?? "Ex.: detergente"} className={fieldClassName} />
@@ -959,9 +965,6 @@ export function ShoppingModulePage({
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">
                 Qtd. do pote
-              </span>
-              <span className="block text-[10px] leading-3 text-zinc-500">
-                tamanho da embalagem · ex.: 500 g, 1 kg, 60 un
               </span>
               {/* Qtd. agora é composta: [número] + [unidade]. Mantém o
                   draft.quantity sincronizado como string "X unit" pra
@@ -1050,9 +1053,6 @@ export function ShoppingModulePage({
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">
                 Quanto você toma
-              </span>
-              <span className="block text-[10px] leading-3 text-zinc-500">
-                vezes por dia × quanto em cada vez · ex.: 2 /dia × 1 un
               </span>
               {/* Opção 2 + frequência. Layout (5 sub-células):
                   [tomadas] / [freq] × [dose] [unit]
