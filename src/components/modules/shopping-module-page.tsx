@@ -164,9 +164,14 @@ function doseUnitsForQuantityUnit(quantityUnit: string): string[] {
   return ["mg", "g", "mcg"];
 }
 
+// A dose acompanha a unidade da Qtd: kg → g, g → g, mg → mg, ml/l → ml,
+// un → un. (kg não existe como dose — vira g; l vira ml.)
 function defaultDoseUnitForQuantityUnit(quantityUnit: string): string {
   if (quantityUnit === "ml" || quantityUnit === "l") return "ml";
   if (quantityUnit === "un") return "un";
+  if (quantityUnit === "mg") return "mg";
+  if (quantityUnit === "mcg") return "mcg";
+  // g e kg → g
   return "g";
 }
 
@@ -1000,13 +1005,10 @@ export function ShoppingModulePage({
                       const quantity = current.quantityAmount.trim()
                         ? `${current.quantityAmount.trim()} ${unit}`
                         : "";
-                      // Mantém a dose na mesma dimensão da Qtd. Se mudou de
-                      // dimensão (ex.: g → un), reseta a dose pro default
-                      // compatível pra não cruzar massa com unidade.
-                      const allowedDose = doseUnitsForQuantityUnit(unit);
-                      const dailyDoseUnit = allowedDose.includes(current.dailyDoseUnit)
-                        ? current.dailyDoseUnit
-                        : defaultDoseUnitForQuantityUnit(unit);
+                      // A dose acompanha a unidade da Qtd: kg → g, g → g,
+                      // mg → mg, ml → ml, un → un. Trocar a unidade da Qtd
+                      // reajusta a dose pro par natural (pedido do usuário).
+                      const dailyDoseUnit = defaultDoseUnitForQuantityUnit(unit);
                       return { ...current, quantityUnit: unit, quantity, dailyDoseUnit };
                     })
                   }
