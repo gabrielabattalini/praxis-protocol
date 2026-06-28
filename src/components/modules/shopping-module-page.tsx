@@ -953,7 +953,7 @@ export function ShoppingModulePage({
                 Nome 1.2 / Marca / Qtd / Preço 0.7 / Link 0.7 /
                 Tomadas × dose 1.8 / Compra 1.2
               Os outros campos continuam mais à esquerda como pedido. */}
-          <div className="grid items-end gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.8fr)_minmax(0,1.2fr)]">
+          <div className="grid items-end gap-2.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.85fr)_minmax(0,1.1fr)]">
             <label className="block space-y-1 min-w-0">
               <span className="praxis-label text-[var(--accent)]">Nome</span>
               <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder={examples[0] ?? "Ex.: detergente"} className={fieldClassName} />
@@ -972,7 +972,7 @@ export function ShoppingModulePage({
                   campo cru (parseTrackedQuantity / getMonthlyUnits).
                   Unit column subiu de 3.6rem pra 5.5rem — o select
                   estava cortando "kg/mg/ml" muito apertado. */}
-              <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-1">
+              <div className="praxis-group">
                 <input
                   value={draft.quantityAmount}
                   onChange={(event) =>
@@ -988,9 +988,10 @@ export function ShoppingModulePage({
                   min="0"
                   step="0.01"
                   placeholder={examples[2]?.replace(/\s*(kg|g|mg|ml|l|un|unidade|unidades)\s*$/i, "").trim() || "Ex.: 500"}
-                  className={fieldClassName}
+                  className="praxis-field-bare w-full px-3 py-1.5 text-sm"
                   aria-label="Quantidade do pacote"
                 />
+                <span className="praxis-group-div" />
                 <select
                   value={draft.quantityUnit}
                   onChange={(event) =>
@@ -1009,7 +1010,7 @@ export function ShoppingModulePage({
                       return { ...current, quantityUnit: unit, quantity, dailyDoseUnit };
                     })
                   }
-                  className={fieldClassName}
+                  className="praxis-field-bare w-[3.6rem] shrink-0 px-2 py-1.5 text-sm"
                   aria-label="Unidade da quantidade"
                 >
                   {QUANTITY_UNITS.map((unit) => (
@@ -1065,7 +1066,7 @@ export function ShoppingModulePage({
                   não cabia número + setinhas do browser. Freq em
                   5.5rem. Dose capado em minmax(0,6rem) pra ficar do
                   tamanho dos outros inputs numéricos do form. */}
-              <div className="grid grid-cols-[5rem_5.5rem_auto_minmax(0,6rem)_3.6rem] items-center gap-1">
+              <div className="praxis-group">
                 <input
                   value={draft.servingsPerDay}
                   onChange={(event) =>
@@ -1084,9 +1085,10 @@ export function ShoppingModulePage({
                   min="0.1"
                   step="0.1"
                   placeholder="1"
-                  className={fieldClassName}
+                  className="praxis-field-bare w-[3.2rem] shrink-0 px-2 py-1.5 text-center text-sm"
                   aria-label="Número de tomadas"
                 />
+                <span className="praxis-group-div" />
                 <select
                   value={draft.servingFrequency}
                   onChange={(event) =>
@@ -1095,14 +1097,14 @@ export function ShoppingModulePage({
                       servingFrequency: event.target.value as typeof current.servingFrequency,
                     }))
                   }
-                  className={fieldClassName}
+                  className="praxis-field-bare w-[4.1rem] shrink-0 px-2 py-1.5 text-sm"
                   aria-label="Frequência"
                 >
                   <option value="daily">/dia</option>
                   <option value="weekly">/sem</option>
                   <option value="monthly">/mês</option>
                 </select>
-                <span className="px-0.5 text-center text-xs text-zinc-500">×</span>
+                <span className="shrink-0 self-center px-1 text-center text-xs text-zinc-500">×</span>
                 <input
                   value={draft.servingAmount}
                   onChange={(event) =>
@@ -1115,9 +1117,10 @@ export function ShoppingModulePage({
                   min="0"
                   step="0.01"
                   placeholder={scope === "supplements" ? "Ex.: 40" : "Ex.: 30"}
-                  className={fieldClassName}
+                  className="praxis-field-bare w-full min-w-0 px-2 py-1.5 text-center text-sm"
                   aria-label="Dose por tomada"
                 />
+                <span className="praxis-group-div" />
                 <select
                   value={draft.dailyDoseUnit}
                   onChange={(event) =>
@@ -1126,7 +1129,7 @@ export function ShoppingModulePage({
                       dailyDoseUnit: event.target.value,
                     }))
                   }
-                  className={fieldClassName}
+                  className="praxis-field-bare w-[3.2rem] shrink-0 px-2 py-1.5 text-sm"
                   aria-label="Unidade da dose"
                 >
                   {doseUnitsForQuantityUnit(draft.quantityUnit).map((unit) => (
@@ -1614,7 +1617,7 @@ export function ShoppingModulePage({
                 Editar (ver no map abaixo), pra dar a sensação de fluxo
                 contínuo em vez de levar o usuário pro topo da página. */}
             {isAddingNew ? (
-              <div className="rounded-sm border border-[var(--accent)]/30 bg-[rgba(251,146,60,0.04)] p-4">
+              <div className="rounded-lg border border-[var(--accent)]/25 border-l-[3px] border-l-[var(--accent)] bg-[rgba(251,146,60,0.04)] p-4 shadow-[0_8px_30px_rgba(0,0,0,0.35)]">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <p className="praxis-label text-[var(--accent)]">
                     Novo {scope === "supplements" ? "suplemento" : "item"}

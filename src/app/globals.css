@@ -311,6 +311,58 @@ select.praxis-field {
   color: #f4f4f5;
 }
 
+/* Chip agrupado: vários inputs/selects num único controle bordado, com
+   divisores internos (usado em Qtd. do pote e "Quanto você toma" pra
+   deixar a linha limpa e premium). Os filhos usam .praxis-field-bare
+   (sem borda própria). */
+.praxis-group {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid rgba(63, 63, 70, 0.84);
+  background: linear-gradient(180deg, rgba(14, 14, 17, 0.96), rgba(7, 7, 9, 0.98));
+  border-radius: 12px;
+  overflow: hidden;
+}
+.praxis-group:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent),
+    0 0 18px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.praxis-group-div {
+  width: 1px;
+  align-self: stretch;
+  background: rgba(63, 63, 70, 0.55);
+  flex: none;
+}
+.praxis-field-bare {
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: #f4f4f5;
+  border-radius: 0;
+  outline: none;
+}
+.praxis-field-bare::placeholder {
+  color: #71717a;
+}
+select.praxis-field-bare {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23fb923c' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px;
+  color: #f4f4f5;
+  cursor: pointer;
+}
+.praxis-field-bare option {
+  background-color: #0e0e11;
+  color: #f4f4f5;
+}
+
 .praxis-button {
   border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   background: linear-gradient(180deg, rgba(18, 18, 20, 0.98), rgba(8, 8, 10, 1));
