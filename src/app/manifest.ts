@@ -2,6 +2,11 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    // `id` fixo: estabiliza a IDENTIDADE do PWA entre deploys. Sem ele, o
+    // navegador identifica o app pela start_url e pode "perder" a
+    // instalação (ícone órfão/some) em updates. Com id estável, a mesma
+    // instalação é reconhecida sempre.
+    id: "/",
     name: "Praxis Protocol",
     short_name: "Praxis",
     description:
