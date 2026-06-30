@@ -206,6 +206,11 @@ export function buildNotificationSyncPayload(
       .filter((reminder) => reminder.entityType === "meal" || reminder.entityType === "supplement")
       .map((reminder) => reminder.entityId),
   );
+  // Ids de blocos de refeição que REALMENTE existem. Lembrete de refeição
+  // apontando pra um bloco já apagado é ÓRFÃO — não pode virar
+  // notificação (era a causa do "Lanche da tarde" fantasma num horário
+  // antigo que continuava disparando depois de mudar/recriar o bloco).
+  const mealBlockIds = new Set(mealPlan.map((block) => block.id));
 
   const taskItems = tasks
     .filter((task) => Boolean(task.scheduledTime))
@@ -304,6 +309,16 @@ export function buildNotificationSyncPayload(
       const time = normalizeTime(reminder.time);
 
       if (!time) {
+        return [];
+      }
+
+      // Lembrete de refeição cujo bloco não existe mais = órfão. Pula —
+      // senão dispara num horário fantasma pra sempre.
+      if (
+        reminder.entityType === "meal" &&
+        reminder.entityId &&
+        !mealBlockIds.has(reminder.entityId)
+      ) {
         return [];
       }
 
@@ -478,6 +493,16 @@ export function isScheduleItemEntityAlive(
         r.entityId === item.entityId,
     );
     if (!reminder || !reminder.enabled) return false;
+    // Lembrete de refeição apontando pra bloco inexistente = órfão. Silencia
+    // (o bloco foi apagado/recriado; o lembrete velho ficava disparando num
+    // horário fantasma). Mesma defesa do builder, agora no dispatch — vale
+    // mesmo que o snapshot do schedule ainda esteja defasado.
+    if (
+      reminder.entityType === "meal" &&
+      !(state.mealPlan ?? []).some((b) => b.id === reminder.entityId)
+    ) {
+      return false;
+    }
     if (reminder.entityType === "task") {
       const linkedTask = (state.tasks ?? []).find(
         (t) => t.id === reminder.entityId,

@@ -60,6 +60,12 @@ function isScheduleItemEntityAlive(item, state, referenceDate) {
         r.entityId === item.entityId,
     );
     if (!reminder || !reminder.enabled) return false;
+    if (
+      reminder.entityType === "meal" &&
+      !(state.mealPlan ?? []).some((b) => b.id === reminder.entityId)
+    ) {
+      return false;
+    }
     if (reminder.entityType === "task") {
       const linkedTask = (state.tasks ?? []).find(
         (t) => t.id === reminder.entityId,
@@ -179,12 +185,14 @@ test("interval-days vencida de novo → passa", () => {
   assert.equal(isScheduleItemEntityAlive(taskItem("t1"), state, TODAY), true);
 });
 
-test("reminder vivo e enabled → passa", () => {
+test("reminder vivo e enabled (com bloco existente) → passa", () => {
   const state = {
     tasks: [],
     reminders: [
       { id: "r1", entityType: "meal", entityId: "meal-1", enabled: true },
     ],
+    // bloco precisa existir, senão o lembrete de refeição é tratado como órfão
+    mealPlan: [{ id: "meal-1", items: [] }],
   };
   assert.equal(
     isScheduleItemEntityAlive(reminderItem("meal", "meal-1"), state, TODAY),
@@ -304,4 +312,37 @@ test("meal block concluído ONTEM (não hoje) → passa", () => {
     ],
   };
   assert.equal(isScheduleItemEntityAlive(mealItem("b1"), state, TODAY), true);
+});
+
+test("lembrete de refeição ÓRFÃO (bloco apagado) → silencia", () => {
+  // Reusa um item de reminder apontando pra meal block inexistente.
+  const item = {
+    source: "reminder",
+    entityType: "meal",
+    entityId: "block-deletado",
+  };
+  const state = {
+    tasks: [],
+    reminders: [
+      { entityType: "meal", entityId: "block-deletado", enabled: true },
+    ],
+    mealPlan: [{ id: "block-atual", items: [] }],
+  };
+  assert.equal(isScheduleItemEntityAlive(item, state, TODAY), false);
+});
+
+test("lembrete de refeição com bloco existente → passa", () => {
+  const item = {
+    source: "reminder",
+    entityType: "meal",
+    entityId: "block-atual",
+  };
+  const state = {
+    tasks: [],
+    reminders: [
+      { entityType: "meal", entityId: "block-atual", enabled: true },
+    ],
+    mealPlan: [{ id: "block-atual", items: [] }],
+  };
+  assert.equal(isScheduleItemEntityAlive(item, state, TODAY), true);
 });
