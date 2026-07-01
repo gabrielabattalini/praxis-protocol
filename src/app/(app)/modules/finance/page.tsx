@@ -205,6 +205,8 @@ export default function FinanceModulePage() {
     Record<string, boolean>
   >({});
   const [lineValueDrafts, setLineValueDrafts] = useState<Record<string, string>>({});
+  // Edição manual do saldo de cartão-vale (chaveado por cardId).
+  const [balanceDrafts, setBalanceDrafts] = useState<Record<string, string>>({});
   const [createPanelOpen, setCreatePanelOpen] = useState(false);
   const [draft, setDraft] = useState({
     name: "",
@@ -721,6 +723,24 @@ export default function FinanceModulePage() {
     });
   }
 
+  // Ajusta o saldo do cartão-vale pro valor que o usuário digitou. Guarda
+  // um ajuste (desejado − calculado) em vez de sobrescrever, pra que as
+  // recargas futuras continuem entrando por cima do saldo corrigido.
+  function commitBalanceDraft(cardId: string) {
+    const raw = balanceDrafts[cardId];
+    if (raw === undefined) return;
+    const desired = parseMoneyInput(raw);
+    const bal = getFinanceCardBalance(budget, cardId, currentMonthId);
+    const base = bal.recharged - bal.spent; // saldo sem o ajuste manual
+    const adjustment = Math.round((desired - base + Number.EPSILON) * 100) / 100;
+    actions.updateFinanceCard({ cardId, patch: { manualBalanceAdjustment: adjustment } });
+    setBalanceDrafts((current) => {
+      const next = { ...current };
+      delete next[cardId];
+      return next;
+    });
+  }
+
   function commitLineMonthValue(lineId: string, rawValue: string) {
     actions.updateFinanceMonthlyValue({
       lineId,
@@ -811,12 +831,11 @@ export default function FinanceModulePage() {
     const settledLabel = isFinanceCreditCardPaymentMethod(line.paymentMethod)
       ? "Já foi lançado na fatura"
       : "Já foi pago";
-    const totalSettleHint =
-      pendingAmount > 0
-        ? isFinanceCreditCardPaymentMethod(line.paymentMethod)
-          ? "Lança todo o valor pendente deste mês na fatura do cartão de crédito."
-          : "Dá baixa em todo o valor pendente deste mês e abate isso do saldo disponível."
-        : "Desfaz o lançamento completo deste mês e devolve o valor para pendente.";
+    const totalSettleHint = !isSettled
+      ? isFinanceCreditCardPaymentMethod(line.paymentMethod)
+        ? "Lança todo o valor pendente deste mês na fatura do cartão de crédito."
+        : "Dá baixa em todo o valor pendente deste mês e abate isso do saldo disponível."
+      : "Desfaz o lançamento completo deste mês e devolve o valor para pendente.";
     const partialSettleHint = isFinanceCreditCardPaymentMethod(line.paymentMethod)
       ? "Lança apenas uma parte do valor deste mês na fatura. Use o campo parcial ao abrir o item."
       : "Dá baixa em apenas uma parte do valor deste mês. Use o campo parcial ao abrir o item.";
@@ -826,10 +845,9 @@ export default function FinanceModulePage() {
       "Desfaz todos os lançamentos ou baixas deste mês e devolve o valor para ficar totalmente pendente.";
     const cancelMonthHint =
       "Mantém o que já foi lançado ou pago e remove apenas o restante deste mês.";
-    const totalActionConfirmation =
-      pendingAmount > 0
-        ? `${isFinanceCreditCardPaymentMethod(line.paymentMethod) ? "Lançar" : "Dar baixa"} todo o valor pendente de ${line.name} em ${selectedMonth.label}?`
-        : `Desfazer o ${isFinanceCreditCardPaymentMethod(line.paymentMethod) ? "lançamento" : "pagamento"} total de ${line.name} em ${selectedMonth.label}?`;
+    const totalActionConfirmation = !isSettled
+      ? `${isFinanceCreditCardPaymentMethod(line.paymentMethod) ? "Lançar" : "Dar baixa"} todo o valor pendente de ${line.name} em ${selectedMonth.label}?`
+      : `Desfazer o ${isFinanceCreditCardPaymentMethod(line.paymentMethod) ? "lançamento" : "pagamento"} total de ${line.name} em ${selectedMonth.label}?`;
     const clearActionConfirmation = `Desfazer todos os ${isFinanceCreditCardPaymentMethod(line.paymentMethod) ? "lançamentos" : "pagamentos"} de ${line.name} em ${selectedMonth.label}?`;
     const nextMonthConfirmation = `Passar o valor pendente de ${line.name} para o próximo mês?`;
     const cancelMonthConfirmation = `Remover apenas o valor pendente de ${line.name} em ${selectedMonth.label}?`;
@@ -965,7 +983,7 @@ export default function FinanceModulePage() {
                         requestFinanceConfirmation(
                           totalActionConfirmation,
                           () => {
-                            if (pendingAmount > 0) {
+                            if (!isSettled) {
                               actions.applyFinanceSettlement({
                                 lineId: line.id,
                                 month: selectedMonthId,
@@ -988,7 +1006,7 @@ export default function FinanceModulePage() {
                             : "border border-amber-400/20 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15"
                       }`}
                     >
-                      {pendingAmount > 0 ? totalSettleLabel : "Desfazer total"}
+                      {isSettled ? "Desfazer total" : totalSettleLabel}
                     </button>
                   </FinanceActionHint>
                   <FinanceActionHint text={partialSettleHint}>
@@ -2470,8 +2488,11 @@ export default function FinanceModulePage() {
           const open = openCardInvoices[card.id] === true;
           const draftKey = `${card.id}:${selectedMonthId}`;
           const isBenefit = isFinanceBenefitCard(card);
+          // Saldo do vale = "quanto tenho agora", então usa o mês real
+          // (currentMonthId), não o selectedMonthId — que abre um mês à
+          // frente pro fluxo de fechamento e contava a recarga em dobro.
           const bal = isBenefit
-            ? getFinanceCardBalance(budget, card.id, selectedMonthId)
+            ? getFinanceCardBalance(budget, card.id, currentMonthId)
             : null;
           return (
             <GlassPanel
@@ -2537,6 +2558,7 @@ export default function FinanceModulePage() {
               {open ? (
                 <>
                   {isBenefit && bal ? (
+                    <>
                     <div className="space-y-2 rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">
                       <div className="grid grid-cols-3 gap-2 text-center">
                         <div>
@@ -2584,6 +2606,44 @@ export default function FinanceModulePage() {
                         Saldo acumulado desde {card.recharge ? financeMonthLabels[card.recharge.startMonth] : "—"}. Gastos no vale não entram no orçamento.
                       </p>
                     </div>
+                    {/* Mesmo layout do campo de fatura do cartão de crédito:
+                        caixa de explicação + input à direita. Digitar o saldo
+                        real substitui o calculado (vira ajuste manual). */}
+                    <div className="grid gap-3 md:grid-cols-[1fr_180px]">
+                      <div className="rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-600">
+                          Saldo atual do cartão
+                        </p>
+                        <p className="mt-1 text-sm text-zinc-500">
+                          Digite o saldo real do {card.name} pra corrigir o valor. As
+                          próximas recargas continuam somando em cima.
+                          {bal.adjustment !== 0
+                            ? ` Ajuste manual de ${formatCurrency(bal.adjustment)} aplicado.`
+                            : ""}
+                        </p>
+                      </div>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={balanceDrafts[card.id] ?? formatMoneyInputBR(bal.balance)}
+                        onChange={(event) =>
+                          setBalanceDrafts((current) => ({
+                            ...current,
+                            [card.id]: event.target.value,
+                          }))
+                        }
+                        onBlur={() => commitBalanceDraft(card.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.currentTarget.blur();
+                          }
+                        }}
+                        className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-right font-semibold text-white"
+                        placeholder="Saldo real do cartão"
+                        aria-label={`Saldo atual do ${card.name}`}
+                      />
+                    </div>
+                    </>
                   ) : (
                   <div className="grid gap-3 md:grid-cols-[1fr_180px]">
                     <div className="rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">

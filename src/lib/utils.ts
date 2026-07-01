@@ -223,9 +223,13 @@ export function isFinanceSettledInMonth(
   month: FinanceMonthId,
   year = new Date().getFullYear(),
 ) {
-  return (
-    getFinanceSettledAmount(line, month, year) >= roundCurrencyValue(line.monthly[month] ?? 0)
-  );
+  // Uma linha de valor 0 não tem nada a lançar/pagar — não pode contar
+  // como "já lançado" só porque 0 >= 0. Se contasse, ela apareceria
+  // riscada como "Já foi lançado" e o "Desfazer total" não teria o que
+  // desfazer (nunca sai do estado lançado).
+  const monthValue = roundCurrencyValue(line.monthly[month] ?? 0);
+  if (monthValue <= 0) return false;
+  return getFinanceSettledAmount(line, month, year) >= monthValue;
 }
 
 export function getFinanceSettledAmount(
@@ -311,7 +315,13 @@ export function getFinanceCardBalance(
   budget: Pick<FinanceYearBudget, "cards" | "lines" | "year">,
   cardId: string,
   month: FinanceMonthId,
-): { recharged: number; spent: number; balance: number; monthsCount: number } {
+): {
+  recharged: number;
+  spent: number;
+  balance: number;
+  monthsCount: number;
+  adjustment: number;
+} {
   const card = (budget.cards ?? []).find((c) => c.id === cardId);
   const recharge = card?.recharge;
   const endIdx = financeMonthOrder.indexOf(month);
@@ -332,7 +342,14 @@ export function getFinanceCardBalance(
     }
   }
   spent = roundCurrencyValue(spent);
-  return { recharged, spent, balance: roundCurrencyValue(recharged - spent), monthsCount };
+  const adjustment = roundCurrencyValue(card?.manualBalanceAdjustment ?? 0);
+  return {
+    recharged,
+    spent,
+    adjustment,
+    balance: roundCurrencyValue(recharged - spent + adjustment),
+    monthsCount,
+  };
 }
 
 export function isFinanceInvoiceBaseLine(
