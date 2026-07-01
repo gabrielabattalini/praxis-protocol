@@ -365,31 +365,27 @@ export default function FinanceModulePage() {
       ),
     [expenseLines],
   );
-  // Faturas POR cartão: um grupo por cartão (respeitando o filtro da
-  // carteira), mais um balde "sem cartão" pras linhas credit-card órfãs.
+  // Faturas POR cartão: SEMPRE um painel por cartão (todos os cartões
+  // aparecem), mais um balde "sem cartão" pras linhas credit-card órfãs.
+  // A seleção na carteira (activeWalletCardId) controla só o painel de
+  // edição — não filtra mais quais faturas aparecem.
   const cardInvoiceGroups = useMemo(() => {
     const allCardLines = expenseLines.filter((line) =>
       isFinanceCreditCardPaymentMethod(line.paymentMethod),
     );
-    const visibleCards = cards.filter(
-      (card) => !activeWalletCardId || card.id === activeWalletCardId,
-    );
-    const groups = visibleCards.map((card) => {
+    const groups = cards.map((card) => {
       const lines = allCardLines.filter((line) => line.cardId === card.id);
       const settled = cardSettledForMonth(card.id, selectedMonthId);
       const base = getFinanceCardInvoiceBase(budget, card.id, selectedMonthId);
       return { card, lines, launchedTotal: roundCurrencyValue(base + settled) };
     });
-    const orphanLines = activeWalletCardId
-      ? []
-      : allCardLines.filter(
-          (line) => !line.cardId || !cardsById.has(line.cardId),
-        );
+    const orphanLines = allCardLines.filter(
+      (line) => !line.cardId || !cardsById.has(line.cardId),
+    );
     return { groups, orphanLines };
   }, [
     expenseLines,
     cards,
-    activeWalletCardId,
     selectedMonthId,
     budget,
     cardSettledForMonth,
@@ -1818,19 +1814,8 @@ export default function FinanceModulePage() {
                 </div>
               </div>
               <p className="text-xs text-zinc-500">
-                Mostrando lançamentos de{" "}
-                <span className="text-white">{cardsById.get(activeWalletCardId)?.name}</span>
-                .{" "}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveWalletCardId(null);
-                    setCardEditDraft(null);
-                  }}
-                  className="text-[var(--accent)] hover:underline"
-                >
-                  Ver todos
-                </button>
+                Editando <span className="text-white">{cardsById.get(activeWalletCardId)?.name}</span>.
+                As faturas de todos os cartões continuam visíveis abaixo.
               </p>
             </div>
           ) : null}
