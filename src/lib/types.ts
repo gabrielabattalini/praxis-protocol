@@ -625,6 +625,25 @@ export interface FinanceCategory {
 export type FinanceCardBrand = "visa" | "mastercard" | "elo" | "amex" | "other";
 
 /**
+ * Tipo do cartão:
+ *  - "credit"  → cartão de crédito comum: acumula fatura que o usuário paga.
+ *  - "benefit" → vale/saldo (alimentação, combustível, transporte): recebe
+ *                recarga recorrente e o usuário gasta o SALDO. Gastos num
+ *                vale NÃO entram no orçamento (é benefício, não sai do caixa)
+ *                — só controlam o saldo do próprio cartão.
+ */
+export type FinanceCardType = "credit" | "benefit";
+
+/** Recarga recorrente de um cartão-vale: valor creditado todo mês num dia,
+ *  a partir de `startMonth` (pra não contar recargas antes de o cartão
+ *  existir e superestimar o saldo acumulado). */
+export interface FinanceCardRecharge {
+  amount: number;
+  dayOfMonth: number;
+  startMonth: FinanceMonthId;
+}
+
+/**
  * Cartão de crédito como entidade de primeira classe. Antes "cartão" era
  * só um cardName string solto numa linha (nunca exibido, apagado a cada
  * edit). Agora tem id próprio, cor pra identificação visual e vencimento
@@ -644,6 +663,11 @@ export interface FinanceCard {
   order?: number;
   /** Soft-delete: some da carteira sem apagar lançamentos. */
   archived?: boolean;
+  /** Tipo do cartão (default "credit" p/ retrocompat). "benefit" = vale/saldo. */
+  type?: FinanceCardType;
+  /** Recarga recorrente (só p/ cartão-vale): crédito mensal no dia X.
+   *  O saldo ACUMULA: saldo = soma das recargas − soma dos gastos no cartão. */
+  recharge?: FinanceCardRecharge;
 }
 
 export interface FinanceBudgetLine {

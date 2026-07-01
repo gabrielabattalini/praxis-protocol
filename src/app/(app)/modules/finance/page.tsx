@@ -24,6 +24,7 @@ import { FINANCE_CARD_COLORS } from "@/lib/mock-data";
 import type {
   FinanceBudgetLine,
   FinanceCard,
+  FinanceCardType,
   FinanceCardBrand,
   FinanceLineFrequency,
   FinanceLineKind,
@@ -32,13 +33,17 @@ import type {
 } from "@/lib/types";
 import {
   financeMonthOrder,
+  financeMonthLabels,
   formatCurrency,
   formatFinanceFrequency,
+  getFinanceBenefitCardIds,
+  getFinanceCardBalance,
   getFinanceCardInvoiceBase,
   getTotalCardInvoiceBaseForMonth,
   getFinanceSettledAmount,
   getFinanceMonthSummaries,
   isFinanceAutoDebitPaymentMethod,
+  isFinanceBenefitCard,
   isFinanceCreditCardPaymentMethod,
   isFinanceInvoiceBaseLine,
   isFinanceSummaryHelperLine,
@@ -221,6 +226,9 @@ export default function FinanceModulePage() {
     dueDay: "",
     brand: "other" as FinanceCardBrand,
     last4: "",
+    type: "credit" as FinanceCardType,
+    rechargeAmount: "",
+    rechargeDay: "",
   });
   // Cartão selecionado na carteira (filtro visual; null = todos).
   const [activeWalletCardId, setActiveWalletCardId] = useState<string | null>(null);
@@ -236,6 +244,13 @@ export default function FinanceModulePage() {
     for (const card of cards) map.set(card.id, card);
     return map;
   }, [cards]);
+  // Cartões-vale: gastos neles ficam FORA do orçamento (é benefício).
+  const benefitCardIds = useMemo(() => getFinanceBenefitCardIds(budget), [budget]);
+  const isBenefitLine = useMemo(
+    () => (line: FinanceBudgetLine) =>
+      Boolean(line.cardId && benefitCardIds.has(line.cardId)),
+    [benefitCardIds],
+  );
   // Colapso das listas de lançamento por seção. Começam abertas; o
   // usuário pode esconder a lista de gastos do cartão, a de saídas
   // imediatas e a de receitas pra deixar a tela mais limpa (totais
@@ -254,6 +269,9 @@ export default function FinanceModulePage() {
     dueDay: string;
     brand: FinanceCardBrand;
     last4: string;
+    type: FinanceCardType;
+    rechargeAmount: string;
+    rechargeDay: string;
   } | null>(null);
 
   const visibleLines = useMemo(
@@ -276,7 +294,7 @@ export default function FinanceModulePage() {
       months.map((month) => {
         const plannedLineExpenses = roundCurrencyValue(
           visibleLines
-            .filter((line) => line.kind === "expense")
+            .filter((line) => line.kind === "expense" && !isBenefitLine(line))
             .reduce((sum, line) => sum + (line.monthly[month.id] ?? 0), 0),
         );
         const plannedExpenses = roundCurrencyValue(
@@ -288,7 +306,7 @@ export default function FinanceModulePage() {
           plannedBalance: roundCurrencyValue(month.income - plannedExpenses),
         };
       }),
-    [budget, months, visibleLines],
+    [budget, months, visibleLines, isBenefitLine],
   );
   const selectedMonth =
     months.find((month) => month.id === selectedMonthId) ?? months[0];
@@ -365,31 +383,27 @@ export default function FinanceModulePage() {
       ),
     [expenseLines],
   );
-  // Faturas POR cartão: um grupo por cartão (respeitando o filtro da
-  // carteira), mais um balde "sem cartão" pras linhas credit-card órfãs.
+  // Faturas POR cartão: SEMPRE um painel por cartão (todos os cartões
+  // aparecem), mais um balde "sem cartão" pras linhas credit-card órfãs.
+  // A seleção na carteira (activeWalletCardId) controla só o painel de
+  // edição — não filtra mais quais faturas aparecem.
   const cardInvoiceGroups = useMemo(() => {
     const allCardLines = expenseLines.filter((line) =>
       isFinanceCreditCardPaymentMethod(line.paymentMethod),
     );
-    const visibleCards = cards.filter(
-      (card) => !activeWalletCardId || card.id === activeWalletCardId,
-    );
-    const groups = visibleCards.map((card) => {
+    const groups = cards.map((card) => {
       const lines = allCardLines.filter((line) => line.cardId === card.id);
       const settled = cardSettledForMonth(card.id, selectedMonthId);
       const base = getFinanceCardInvoiceBase(budget, card.id, selectedMonthId);
       return { card, lines, launchedTotal: roundCurrencyValue(base + settled) };
     });
-    const orphanLines = activeWalletCardId
-      ? []
-      : allCardLines.filter(
-          (line) => !line.cardId || !cardsById.has(line.cardId),
-        );
+    const orphanLines = allCardLines.filter(
+      (line) => !line.cardId || !cardsById.has(line.cardId),
+    );
     return { groups, orphanLines };
   }, [
     expenseLines,
     cards,
-    activeWalletCardId,
     selectedMonthId,
     budget,
     cardSettledForMonth,
@@ -406,7 +420,9 @@ export default function FinanceModulePage() {
               .filter(
                 (line) =>
                   line.kind === "expense" &&
-                  isFinanceCreditCardPaymentMethod(line.paymentMethod),
+                  isFinanceCreditCardPaymentMethod(line.paymentMethod) &&
+                  // vale fica fora do orçamento (é benefício, não sai do caixa)
+                  !isBenefitLine(line),
               )
               .reduce((sum, line) => sum + (line.monthly[month.id] ?? 0), 0),
         );
@@ -415,7 +431,8 @@ export default function FinanceModulePage() {
             .filter(
               (line) =>
                 line.kind === "expense" &&
-                !isFinanceCreditCardPaymentMethod(line.paymentMethod),
+                !isFinanceCreditCardPaymentMethod(line.paymentMethod) &&
+                !isBenefitLine(line),
             )
             .reduce((sum, line) => sum + (line.monthly[month.id] ?? 0), 0),
         );
@@ -431,7 +448,7 @@ export default function FinanceModulePage() {
           balance: roundCurrencyValue(month.income - plannedExpenses),
         };
       }),
-    [budget, months, visibleLines],
+    [budget, months, visibleLines, isBenefitLine],
   );
   const annualIncome = useMemo(
     () => roundCurrencyValue(detailedMonths.reduce((sum, month) => sum + month.income, 0)),
@@ -548,6 +565,25 @@ export default function FinanceModulePage() {
     setCategoryPanelOpen(false);
   }
 
+  // Mês default pro início da recarga = mês real atual.
+  const currentMonthId = financeMonthOrder[new Date().getMonth()] ?? "january";
+
+  function buildRecharge(
+    type: FinanceCardType,
+    amountRaw: string,
+    dayRaw: string,
+    startMonth: FinanceMonthId,
+  ) {
+    if (type !== "benefit") return undefined;
+    const amount = parseMoneyInput(amountRaw);
+    if (amount <= 0) return undefined;
+    return {
+      amount,
+      dayOfMonth: dayRaw ? Number(dayRaw) : 5,
+      startMonth,
+    };
+  }
+
   function openCardForEdit(cardId: string) {
     const card = cardsById.get(cardId);
     if (!card) return;
@@ -558,6 +594,13 @@ export default function FinanceModulePage() {
       dueDay: typeof card.dueDay === "number" ? String(card.dueDay) : "",
       brand: card.brand ?? "other",
       last4: card.last4 ?? "",
+      type: card.type ?? "credit",
+      rechargeAmount:
+        card.recharge?.amount ? formatMoneyInputBR(card.recharge.amount) : "",
+      rechargeDay:
+        typeof card.recharge?.dayOfMonth === "number"
+          ? String(card.recharge.dayOfMonth)
+          : "",
     });
   }
 
@@ -565,6 +608,10 @@ export default function FinanceModulePage() {
     if (!activeWalletCardId || !cardEditDraft) return;
     const name = cardEditDraft.name.trim();
     if (!name) return;
+    const existing = cardsById.get(activeWalletCardId);
+    // Preserva o startMonth se já existia; senão usa o mês atual.
+    const startMonth =
+      existing?.recharge?.startMonth ?? currentMonthId;
     actions.updateFinanceCard({
       cardId: activeWalletCardId,
       patch: {
@@ -573,6 +620,13 @@ export default function FinanceModulePage() {
         dueDay: cardEditDraft.dueDay ? Number(cardEditDraft.dueDay) : undefined,
         brand: cardEditDraft.brand,
         last4: cardEditDraft.last4.trim() || undefined,
+        type: cardEditDraft.type,
+        recharge: buildRecharge(
+          cardEditDraft.type,
+          cardEditDraft.rechargeAmount,
+          cardEditDraft.rechargeDay,
+          startMonth,
+        ),
       },
     });
     setCardEditDraft(null);
@@ -600,6 +654,13 @@ export default function FinanceModulePage() {
       dueDay: cardDraft.dueDay ? Number(cardDraft.dueDay) : undefined,
       brand: cardDraft.brand,
       last4: cardDraft.last4.trim() || undefined,
+      type: cardDraft.type,
+      recharge: buildRecharge(
+        cardDraft.type,
+        cardDraft.rechargeAmount,
+        cardDraft.rechargeDay,
+        currentMonthId,
+      ),
     });
     setNewCardPanelOpen(false);
     setCardDraft({
@@ -608,6 +669,9 @@ export default function FinanceModulePage() {
       dueDay: "",
       brand: "other",
       last4: "",
+      type: "credit",
+      rechargeAmount: "",
+      rechargeDay: "",
     });
   }
 
@@ -1706,6 +1770,31 @@ export default function FinanceModulePage() {
                   Fechar
                 </button>
               </div>
+              <div className="flex gap-2">
+                {(
+                  [
+                    { id: "credit" as FinanceCardType, label: "Crédito" },
+                    { id: "benefit" as FinanceCardType, label: "Vale / Saldo" },
+                  ]
+                ).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() =>
+                      setCardEditDraft((current) =>
+                        current ? { ...current, type: opt.id } : current,
+                      )
+                    }
+                    className={`flex-1 rounded-sm border px-3 py-2 text-sm transition ${
+                      cardEditDraft.type === opt.id
+                        ? "border-[var(--accent)] bg-[var(--accent)]/12 text-white"
+                        : "border-zinc-800 bg-black/40 text-zinc-400"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <input
                   value={cardEditDraft.name}
@@ -1764,6 +1853,48 @@ export default function FinanceModulePage() {
                   className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white placeholder:text-zinc-600"
                 />
               </div>
+              {cardEditDraft.type === "benefit" ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <p className="mb-1 text-[11px] uppercase tracking-[0.18em] text-zinc-600">
+                      Recarga (R$)
+                    </p>
+                    <input
+                      value={cardEditDraft.rechargeAmount}
+                      onChange={(event) =>
+                        setCardEditDraft((current) =>
+                          current
+                            ? { ...current, rechargeAmount: event.target.value }
+                            : current,
+                        )
+                      }
+                      inputMode="decimal"
+                      placeholder="Ex.: 600"
+                      className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white placeholder:text-zinc-600"
+                    />
+                  </div>
+                  <div>
+                    <p className="mb-1 text-[11px] uppercase tracking-[0.18em] text-zinc-600">
+                      Dia da recarga
+                    </p>
+                    <input
+                      value={cardEditDraft.rechargeDay}
+                      onChange={(event) =>
+                        setCardEditDraft((current) =>
+                          current
+                            ? { ...current, rechargeDay: event.target.value }
+                            : current,
+                        )
+                      }
+                      type="number"
+                      min="1"
+                      max="31"
+                      placeholder="Ex.: 5"
+                      className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white placeholder:text-zinc-600"
+                    />
+                  </div>
+                </div>
+              ) : null}
               <div>
                 <p className="mb-2 text-[11px] uppercase tracking-[0.18em] text-zinc-600">
                   Cor
@@ -1818,19 +1949,8 @@ export default function FinanceModulePage() {
                 </div>
               </div>
               <p className="text-xs text-zinc-500">
-                Mostrando lançamentos de{" "}
-                <span className="text-white">{cardsById.get(activeWalletCardId)?.name}</span>
-                .{" "}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveWalletCardId(null);
-                    setCardEditDraft(null);
-                  }}
-                  className="text-[var(--accent)] hover:underline"
-                >
-                  Ver todos
-                </button>
+                Editando <span className="text-white">{cardsById.get(activeWalletCardId)?.name}</span>.
+                As faturas de todos os cartões continuam visíveis abaixo.
               </p>
             </div>
           ) : null}
@@ -1897,6 +2017,27 @@ export default function FinanceModulePage() {
             <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-600">
               Novo cartão
             </p>
+            <div className="flex gap-2">
+              {(
+                [
+                  { id: "credit" as FinanceCardType, label: "Crédito" },
+                  { id: "benefit" as FinanceCardType, label: "Vale / Saldo" },
+                ]
+              ).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setCardDraft((current) => ({ ...current, type: opt.id }))}
+                  className={`flex-1 rounded-sm border px-3 py-2 text-sm transition ${
+                    cardDraft.type === opt.id
+                      ? "border-[var(--accent)] bg-[var(--accent)]/12 text-white"
+                      : "border-zinc-800 bg-black/40 text-zinc-400"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <input
                 value={cardDraft.name}
@@ -1946,6 +2087,51 @@ export default function FinanceModulePage() {
                 className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white placeholder:text-zinc-600"
               />
             </div>
+            {cardDraft.type === "benefit" ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="mb-1 text-[11px] uppercase tracking-[0.18em] text-zinc-600">
+                    Recarga (R$)
+                  </p>
+                  <input
+                    value={cardDraft.rechargeAmount}
+                    onChange={(event) =>
+                      setCardDraft((current) => ({
+                        ...current,
+                        rechargeAmount: event.target.value,
+                      }))
+                    }
+                    inputMode="decimal"
+                    placeholder="Ex.: 600"
+                    className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white placeholder:text-zinc-600"
+                  />
+                </div>
+                <div>
+                  <p className="mb-1 text-[11px] uppercase tracking-[0.18em] text-zinc-600">
+                    Dia da recarga
+                  </p>
+                  <input
+                    value={cardDraft.rechargeDay}
+                    onChange={(event) =>
+                      setCardDraft((current) => ({
+                        ...current,
+                        rechargeDay: event.target.value,
+                      }))
+                    }
+                    type="number"
+                    min="1"
+                    max="31"
+                    placeholder="Ex.: 5"
+                    className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-white placeholder:text-zinc-600"
+                  />
+                </div>
+                <p className="text-[11px] leading-4 text-zinc-500 sm:col-span-2">
+                  Vale-benefício: recarrega esse valor todo mês (a partir deste
+                  mês) e você acompanha o saldo. Gastos no vale não entram no
+                  seu orçamento.
+                </p>
+              </div>
+            ) : null}
             <div>
               <p className="mb-2 text-[11px] uppercase tracking-[0.18em] text-zinc-600">
                 Cor
@@ -2283,6 +2469,10 @@ export default function FinanceModulePage() {
         {cardInvoiceGroups.groups.map(({ card, lines, launchedTotal }) => {
           const open = openCardInvoices[card.id] === true;
           const draftKey = `${card.id}:${selectedMonthId}`;
+          const isBenefit = isFinanceBenefitCard(card);
+          const bal = isBenefit
+            ? getFinanceCardBalance(budget, card.id, selectedMonthId)
+            : null;
           return (
             <GlassPanel
               key={card.id}
@@ -2301,12 +2491,24 @@ export default function FinanceModulePage() {
                     aria-hidden
                   />
                   <div>
-                    <p className="text-sm text-zinc-500">Fatura {card.name}</p>
-                    <p className="text-xs text-zinc-600">
-                      Clique em um gasto para mover ele para a fatura
+                    <p className="text-sm text-zinc-500">
+                      {isBenefit ? `Saldo ${card.name}` : `Fatura ${card.name}`}
                     </p>
-                    <h2 className="text-2xl font-semibold text-white">
-                      {formatCurrency(launchedTotal)}
+                    <p className="text-xs text-zinc-600">
+                      {isBenefit
+                        ? `Vale · recarrega ${card.recharge ? formatCurrency(card.recharge.amount) : "—"} no dia ${card.recharge?.dayOfMonth ?? "—"}`
+                        : "Clique em um gasto para mover ele para a fatura"}
+                    </p>
+                    <h2
+                      className={`text-2xl font-semibold ${
+                        isBenefit && bal && bal.balance < 0
+                          ? "text-rose-300"
+                          : "text-white"
+                      }`}
+                    >
+                      {isBenefit && bal
+                        ? formatCurrency(bal.balance)
+                        : formatCurrency(launchedTotal)}
                     </h2>
                   </div>
                 </div>
@@ -2334,6 +2536,55 @@ export default function FinanceModulePage() {
               </div>
               {open ? (
                 <>
+                  {isBenefit && bal ? (
+                    <div className="space-y-2 rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-600">
+                            Recarregado
+                          </p>
+                          <p className="mt-1 font-semibold text-emerald-300">
+                            {formatCurrency(bal.recharged)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-600">
+                            Gasto
+                          </p>
+                          <p className="mt-1 font-semibold text-rose-300">
+                            {formatCurrency(bal.spent)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-600">
+                            Saldo
+                          </p>
+                          <p
+                            className={`mt-1 font-semibold ${
+                              bal.balance < 0 ? "text-rose-300" : "text-white"
+                            }`}
+                          >
+                            {formatCurrency(bal.balance)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-sm bg-white/8">
+                        <div
+                          className="h-full rounded-sm bg-[var(--accent)]"
+                          style={{
+                            width: `${
+                              bal.recharged > 0
+                                ? Math.min(100, Math.max(0, (bal.spent / bal.recharged) * 100))
+                                : 0
+                            }%`,
+                          }}
+                        />
+                      </div>
+                      <p className="text-[11px] text-zinc-500">
+                        Saldo acumulado desde {card.recharge ? financeMonthLabels[card.recharge.startMonth] : "—"}. Gastos no vale não entram no orçamento.
+                      </p>
+                    </div>
+                  ) : (
                   <div className="grid gap-3 md:grid-cols-[1fr_180px]">
                     <div className="rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">
                       <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-600">
@@ -2363,6 +2614,7 @@ export default function FinanceModulePage() {
                       placeholder="Total lançado na fatura"
                     />
                   </div>
+                  )}
                   <div className="space-y-3">
                     {lines.length > 0 ? (
                       lines.map(renderLineCard)
