@@ -2,6 +2,7 @@
   BasalMetabolicRateSource,
   BiologicalSex,
   FinanceBudgetLine,
+  FinanceCard,
   FinanceLineFrequency,
   FinanceMonthId,
   FinancePaymentMethod,
@@ -276,6 +277,64 @@ export function getTotalCardInvoiceBaseForMonth(
   return roundCurrencyValue(legacy + perCard);
 }
 
+/** Cartão-vale (saldo/benefício) — recarrega e você gasta o saldo. */
+export function isFinanceBenefitCard(
+  card: Pick<FinanceCard, "type"> | undefined | null,
+): boolean {
+  return card?.type === "benefit";
+}
+
+/** Ids dos cartões-vale do budget (pra excluir esses gastos do orçamento). */
+export function getFinanceBenefitCardIds(
+  budget: Pick<FinanceYearBudget, "cards">,
+): Set<string> {
+  return new Set(
+    (budget.cards ?? [])
+      .filter((c) => isFinanceBenefitCard(c))
+      .map((c) => c.id),
+  );
+}
+
+/** true se a linha é um gasto lançado num cartão-vale (fora do orçamento). */
+export function isFinanceBenefitLine(
+  line: Pick<FinanceBudgetLine, "cardId">,
+  benefitCardIds: Set<string>,
+): boolean {
+  return Boolean(line.cardId && benefitCardIds.has(line.cardId));
+}
+
+/**
+ * Saldo de um cartão-vale no mês selecionado. ACUMULA de recharge.startMonth
+ * até o mês atual: saldo = (recargas no período) − (gastos no período).
+ */
+export function getFinanceCardBalance(
+  budget: Pick<FinanceYearBudget, "cards" | "lines" | "year">,
+  cardId: string,
+  month: FinanceMonthId,
+): { recharged: number; spent: number; balance: number; monthsCount: number } {
+  const card = (budget.cards ?? []).find((c) => c.id === cardId);
+  const recharge = card?.recharge;
+  const endIdx = financeMonthOrder.indexOf(month);
+  const startIdx = recharge
+    ? Math.max(0, financeMonthOrder.indexOf(recharge.startMonth))
+    : 0;
+  const monthsCount = endIdx >= startIdx ? endIdx - startIdx + 1 : 0;
+  const recharged = roundCurrencyValue((recharge?.amount ?? 0) * monthsCount);
+
+  let spent = 0;
+  const year = budget.year ?? new Date().getFullYear();
+  for (let i = startIdx; i <= endIdx && i >= 0; i += 1) {
+    const m = financeMonthOrder[i];
+    for (const line of budget.lines) {
+      if (line.kind === "expense" && line.cardId === cardId) {
+        spent += getFinanceSettledAmount(line, m, year);
+      }
+    }
+  }
+  spent = roundCurrencyValue(spent);
+  return { recharged, spent, balance: roundCurrencyValue(recharged - spent), monthsCount };
+}
+
 export function isFinanceInvoiceBaseLine(
   line: Pick<FinanceBudgetLine, "kind" | "paymentMethod" | "category" | "name">,
 ) {
@@ -328,7 +387,13 @@ export function getFinanceMonthSummaries(budget: FinanceYearBudget) {
       .filter((line) => line.kind === "income")
       .reduce((sum, line) => sum + (line.monthly[month] ?? 0), 0),
     );
-    const expenseLines = budget.lines.filter((line) => line.kind === "expense");
+    // Gastos em cartão-vale são benefício (não saem do caixa) → ficam FORA
+    // do orçamento: não entram em expenses, cardExpenses nem no saldo.
+    const benefitCardIds = getFinanceBenefitCardIds(budget);
+    const expenseLines = budget.lines.filter(
+      (line) =>
+        line.kind === "expense" && !isFinanceBenefitLine(line, benefitCardIds),
+    );
     // Base manual TOTAL = legada "sem cartão" + soma das bases por cartão.
     // Pós-Fase 2 a base vive em cardInvoiceBaseByCard, então usar só
     // cardInvoiceBase deixaria o total da fatura incompleto.

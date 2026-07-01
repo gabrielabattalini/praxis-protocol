@@ -516,10 +516,17 @@ type AppStoreValue = {
       dueDay?: number;
       brand?: FinanceCard["brand"];
       last4?: string;
+      type?: FinanceCard["type"];
+      recharge?: FinanceCard["recharge"];
     }) => void;
     updateFinanceCard: (payload: {
       cardId: string;
-      patch: Partial<Pick<FinanceCard, "name" | "color" | "dueDay" | "brand" | "last4" | "archived">>;
+      patch: Partial<
+        Pick<
+          FinanceCard,
+          "name" | "color" | "dueDay" | "brand" | "last4" | "archived" | "type" | "recharge"
+        >
+      >;
     }) => void;
     removeFinanceCard: (cardId: string) => void;
     updateFinanceMonthlyValue: (payload: {
@@ -1031,13 +1038,20 @@ type Action =
         dueDay?: number;
         brand?: FinanceCard["brand"];
         last4?: string;
+        type?: FinanceCard["type"];
+        recharge?: FinanceCard["recharge"];
       };
     }
   | {
       type: "update-finance-card";
       payload: {
         cardId: string;
-        patch: Partial<Pick<FinanceCard, "name" | "color" | "dueDay" | "brand" | "last4" | "archived">>;
+        patch: Partial<
+          Pick<
+            FinanceCard,
+            "name" | "color" | "dueDay" | "brand" | "last4" | "archived" | "type" | "recharge"
+          >
+        >;
       };
     }
   | { type: "remove-finance-card"; cardId: string }
@@ -3087,6 +3101,8 @@ function reducer(state: PersistedState, action: Action): PersistedState {
         brand: action.payload.brand,
         last4: action.payload.last4?.trim() || undefined,
         order: existingCards.length,
+        type: action.payload.type ?? "credit",
+        recharge: action.payload.recharge,
       };
       return {
         ...state,
