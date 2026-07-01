@@ -1573,6 +1573,11 @@ export default function WorkoutModulePage() {
                   const latestEntry = latestExerciseLogMap.get(exercise.id);
                   const isCurveSelected =
                     resolvedCurveExerciseId === exercise.id;
+                  // Já tem série lançada HOJE pra este exercício? Usado pra
+                  // dar o feedback visual de "concluído" (badge + botão verde).
+                  const loggedToday =
+                    loggedExerciseIdsTodayByDay[activeDay.id]?.has(exercise.id) ??
+                    false;
 
                   return (
                     <div
@@ -1600,6 +1605,12 @@ export default function WorkoutModulePage() {
                               <h4 className="font-headline text-sm font-bold uppercase text-zinc-100">
                                 {exercise.name}
                               </h4>
+                              {loggedToday ? (
+                                <span className="inline-flex items-center gap-1 rounded-sm border border-emerald-400/45 bg-emerald-400/15 px-2 py-0.5 font-label text-[0.55rem] uppercase tracking-widest text-emerald-300">
+                                  <Check className="h-3 w-3" />
+                                  Concluído hoje
+                                </span>
+                              ) : null}
                               {isCurveSelected ? (
                                 <span className="rounded-sm border border-[rgba(251,146,60,0.45)] bg-[rgba(251,146,60,0.16)] px-2 py-0.5 font-label text-[0.55rem] uppercase tracking-widest text-[var(--accent)]">
                                   Curva ativa
@@ -1659,10 +1670,22 @@ export default function WorkoutModulePage() {
                                 current === exercise.id ? null : exercise.id,
                               )
                             }
-                            className="inline-flex items-center justify-center gap-2 rounded-sm border border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] px-3 py-2.5 text-xs font-medium text-[var(--accent)]"
+                            className={`inline-flex items-center justify-center gap-2 rounded-sm border px-3 py-2.5 text-xs font-medium transition ${
+                              loggedToday
+                                ? "border-emerald-400/40 bg-emerald-400/12 text-emerald-300"
+                                : "border-[rgba(251,146,60,0.24)] bg-[rgba(251,146,60,0.12)] text-[var(--accent)]"
+                            }`}
                           >
-                            <Plus className="h-3.5 w-3.5" />
-                            {isExpanded ? "Fechar lançamento" : "Registrar séries"}
+                            {loggedToday && !isExpanded ? (
+                              <Check className="h-3.5 w-3.5" />
+                            ) : (
+                              <Plus className="h-3.5 w-3.5" />
+                            )}
+                            {isExpanded
+                              ? "Fechar lançamento"
+                              : loggedToday
+                                ? "Lançado hoje · editar"
+                                : "Registrar séries"}
                           </button>
                           <Link
                             href={exerciseHistoryHref(exercise)}
@@ -1787,9 +1810,20 @@ export default function WorkoutModulePage() {
                               type="button"
                               onClick={() => saveLoad(activeDay.id, exercise)}
                               disabled={!canSaveLoad(activeDay.id, exercise)}
-                              className="praxis-button px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-40"
+                              className={
+                                loggedToday
+                                  ? "inline-flex items-center justify-center gap-2 rounded-sm border border-emerald-400/45 bg-emerald-400/15 px-4 py-2.5 font-semibold text-emerald-200 transition hover:bg-emerald-400/25 disabled:cursor-not-allowed disabled:opacity-50"
+                                  : "praxis-button px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-40"
+                              }
                             >
-                              Salvar no histórico
+                              {loggedToday ? (
+                                <>
+                                  <Check className="h-4 w-4" />
+                                  Concluído hoje · salvar de novo
+                                </>
+                              ) : (
+                                "Salvar no histórico"
+                              )}
                             </button>
                           </div>
                         </div>
