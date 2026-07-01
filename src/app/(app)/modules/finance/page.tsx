@@ -205,6 +205,8 @@ export default function FinanceModulePage() {
     Record<string, boolean>
   >({});
   const [lineValueDrafts, setLineValueDrafts] = useState<Record<string, string>>({});
+  // Edição manual do saldo de cartão-vale (chaveado por cardId).
+  const [balanceDrafts, setBalanceDrafts] = useState<Record<string, string>>({});
   const [createPanelOpen, setCreatePanelOpen] = useState(false);
   const [draft, setDraft] = useState({
     name: "",
@@ -718,6 +720,24 @@ export default function FinanceModulePage() {
       const nextDrafts = { ...current };
       delete nextDrafts[key];
       return nextDrafts;
+    });
+  }
+
+  // Ajusta o saldo do cartão-vale pro valor que o usuário digitou. Guarda
+  // um ajuste (desejado − calculado) em vez de sobrescrever, pra que as
+  // recargas futuras continuem entrando por cima do saldo corrigido.
+  function commitBalanceDraft(cardId: string) {
+    const raw = balanceDrafts[cardId];
+    if (raw === undefined) return;
+    const desired = parseMoneyInput(raw);
+    const bal = getFinanceCardBalance(budget, cardId, currentMonthId);
+    const base = bal.recharged - bal.spent; // saldo sem o ajuste manual
+    const adjustment = Math.round((desired - base + Number.EPSILON) * 100) / 100;
+    actions.updateFinanceCard({ cardId, patch: { manualBalanceAdjustment: adjustment } });
+    setBalanceDrafts((current) => {
+      const next = { ...current };
+      delete next[cardId];
+      return next;
     });
   }
 
@@ -2470,8 +2490,11 @@ export default function FinanceModulePage() {
           const open = openCardInvoices[card.id] === true;
           const draftKey = `${card.id}:${selectedMonthId}`;
           const isBenefit = isFinanceBenefitCard(card);
+          // Saldo do vale = "quanto tenho agora", então usa o mês real
+          // (currentMonthId), não o selectedMonthId — que abre um mês à
+          // frente pro fluxo de fechamento e contava a recarga em dobro.
           const bal = isBenefit
-            ? getFinanceCardBalance(budget, card.id, selectedMonthId)
+            ? getFinanceCardBalance(budget, card.id, currentMonthId)
             : null;
           return (
             <GlassPanel
@@ -2583,6 +2606,39 @@ export default function FinanceModulePage() {
                       <p className="text-[11px] text-zinc-500">
                         Saldo acumulado desde {card.recharge ? financeMonthLabels[card.recharge.startMonth] : "—"}. Gastos no vale não entram no orçamento.
                       </p>
+                      <div className="flex flex-col gap-1 border-t border-zinc-800 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                        <label
+                          htmlFor={`saldo-${card.id}`}
+                          className="text-[11px] uppercase tracking-[0.18em] text-zinc-600"
+                        >
+                          Ajustar saldo atual
+                        </label>
+                        <input
+                          id={`saldo-${card.id}`}
+                          type="text"
+                          inputMode="decimal"
+                          value={balanceDrafts[card.id] ?? formatMoneyInputBR(bal.balance)}
+                          onChange={(event) =>
+                            setBalanceDrafts((current) => ({
+                              ...current,
+                              [card.id]: event.target.value,
+                            }))
+                          }
+                          onBlur={() => commitBalanceDraft(card.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.currentTarget.blur();
+                            }
+                          }}
+                          className="w-full rounded-sm border border-zinc-800 bg-black/60 px-3 py-2 text-right font-semibold text-white sm:w-40"
+                          placeholder="Saldo real do cartão"
+                        />
+                      </div>
+                      {bal.adjustment !== 0 ? (
+                        <p className="text-[11px] text-zinc-600">
+                          Ajuste manual de {formatCurrency(bal.adjustment)} aplicado.
+                        </p>
+                      ) : null}
                     </div>
                   ) : (
                   <div className="grid gap-3 md:grid-cols-[1fr_180px]">

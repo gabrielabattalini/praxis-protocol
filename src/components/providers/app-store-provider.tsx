@@ -524,7 +524,15 @@ type AppStoreValue = {
       patch: Partial<
         Pick<
           FinanceCard,
-          "name" | "color" | "dueDay" | "brand" | "last4" | "archived" | "type" | "recharge"
+          | "name"
+          | "color"
+          | "dueDay"
+          | "brand"
+          | "last4"
+          | "archived"
+          | "type"
+          | "recharge"
+          | "manualBalanceAdjustment"
         >
       >;
     }) => void;
@@ -1049,7 +1057,15 @@ type Action =
         patch: Partial<
           Pick<
             FinanceCard,
-            "name" | "color" | "dueDay" | "brand" | "last4" | "archived" | "type" | "recharge"
+            | "name"
+            | "color"
+            | "dueDay"
+            | "brand"
+            | "last4"
+            | "archived"
+            | "type"
+            | "recharge"
+            | "manualBalanceAdjustment"
           >
         >;
       };

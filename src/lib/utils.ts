@@ -311,7 +311,13 @@ export function getFinanceCardBalance(
   budget: Pick<FinanceYearBudget, "cards" | "lines" | "year">,
   cardId: string,
   month: FinanceMonthId,
-): { recharged: number; spent: number; balance: number; monthsCount: number } {
+): {
+  recharged: number;
+  spent: number;
+  balance: number;
+  monthsCount: number;
+  adjustment: number;
+} {
   const card = (budget.cards ?? []).find((c) => c.id === cardId);
   const recharge = card?.recharge;
   const endIdx = financeMonthOrder.indexOf(month);
@@ -332,7 +338,14 @@ export function getFinanceCardBalance(
     }
   }
   spent = roundCurrencyValue(spent);
-  return { recharged, spent, balance: roundCurrencyValue(recharged - spent), monthsCount };
+  const adjustment = roundCurrencyValue(card?.manualBalanceAdjustment ?? 0);
+  return {
+    recharged,
+    spent,
+    adjustment,
+    balance: roundCurrencyValue(recharged - spent + adjustment),
+    monthsCount,
+  };
 }
 
 export function isFinanceInvoiceBaseLine(

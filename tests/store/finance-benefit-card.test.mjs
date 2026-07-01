@@ -35,7 +35,14 @@ function getBalance(budget, cardId, month) {
     }
   }
   spent = round(spent);
-  return { recharged, spent, balance: round(recharged - spent), monthsCount };
+  const adjustment = round(card?.manualBalanceAdjustment ?? 0);
+  return {
+    recharged,
+    spent,
+    adjustment,
+    balance: round(recharged - spent + adjustment),
+    monthsCount,
+  };
 }
 
 test("saldo acumula da startMonth até o mês (recarga × meses − gastos)", () => {
@@ -112,6 +119,48 @@ test("gasto em cartão-vale é excluído do orçamento; crédito normal não", (
     (l) => l.kind === "expense" && !isBenefitLine(l, ids),
   );
   assert.deepEqual(orcamento.map((l) => l.id), ["l2", "l3"]);
+});
+
+test("ajuste manual soma no saldo (recarga − gastos + ajuste)", () => {
+  const budget = {
+    cards: [
+      {
+        id: "vale",
+        type: "benefit",
+        manualBalanceAdjustment: 180,
+        recharge: { amount: 600, dayOfMonth: 5, startMonth: "july" },
+      },
+    ],
+    lines: [
+      { id: "l1", kind: "expense", cardId: "vale", settledAmounts: { july: 100 } },
+    ],
+  };
+  // julho: recarga 600 − gasto 100 + ajuste 180 = 680.
+  const r = getBalance(budget, "vale", "july");
+  assert.equal(r.recharged, 600);
+  assert.equal(r.spent, 100);
+  assert.equal(r.adjustment, 180);
+  assert.equal(r.balance, 680);
+});
+
+test("saldo desejado vira ajuste = desejado − (recarga − gastos)", () => {
+  // Espelha commitBalanceDraft: usuário digita o saldo real e guardamos
+  // o ajuste relativo ao calculado, pra recargas futuras entrarem por cima.
+  const budget = {
+    cards: [
+      { id: "vale", type: "benefit", recharge: { amount: 250, dayOfMonth: 5, startMonth: "july" } },
+    ],
+    lines: [
+      { id: "l1", kind: "expense", cardId: "vale", settledAmounts: { july: 50 } },
+    ],
+  };
+  const before = getBalance(budget, "vale", "july"); // 250 − 50 = 200
+  const desired = 430;
+  const adjustment = round(desired - (before.recharged - before.spent));
+  assert.equal(adjustment, 230);
+  budget.cards[0].manualBalanceAdjustment = adjustment;
+  const after = getBalance(budget, "vale", "july");
+  assert.equal(after.balance, 430);
 });
 
 test("card sem type é tratado como crédito (retrocompat)", () => {
