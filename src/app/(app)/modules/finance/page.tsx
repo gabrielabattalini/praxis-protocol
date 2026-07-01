@@ -831,12 +831,11 @@ export default function FinanceModulePage() {
     const settledLabel = isFinanceCreditCardPaymentMethod(line.paymentMethod)
       ? "Já foi lançado na fatura"
       : "Já foi pago";
-    const totalSettleHint =
-      pendingAmount > 0
-        ? isFinanceCreditCardPaymentMethod(line.paymentMethod)
-          ? "Lança todo o valor pendente deste mês na fatura do cartão de crédito."
-          : "Dá baixa em todo o valor pendente deste mês e abate isso do saldo disponível."
-        : "Desfaz o lançamento completo deste mês e devolve o valor para pendente.";
+    const totalSettleHint = !isSettled
+      ? isFinanceCreditCardPaymentMethod(line.paymentMethod)
+        ? "Lança todo o valor pendente deste mês na fatura do cartão de crédito."
+        : "Dá baixa em todo o valor pendente deste mês e abate isso do saldo disponível."
+      : "Desfaz o lançamento completo deste mês e devolve o valor para pendente.";
     const partialSettleHint = isFinanceCreditCardPaymentMethod(line.paymentMethod)
       ? "Lança apenas uma parte do valor deste mês na fatura. Use o campo parcial ao abrir o item."
       : "Dá baixa em apenas uma parte do valor deste mês. Use o campo parcial ao abrir o item.";
@@ -846,10 +845,9 @@ export default function FinanceModulePage() {
       "Desfaz todos os lançamentos ou baixas deste mês e devolve o valor para ficar totalmente pendente.";
     const cancelMonthHint =
       "Mantém o que já foi lançado ou pago e remove apenas o restante deste mês.";
-    const totalActionConfirmation =
-      pendingAmount > 0
-        ? `${isFinanceCreditCardPaymentMethod(line.paymentMethod) ? "Lançar" : "Dar baixa"} todo o valor pendente de ${line.name} em ${selectedMonth.label}?`
-        : `Desfazer o ${isFinanceCreditCardPaymentMethod(line.paymentMethod) ? "lançamento" : "pagamento"} total de ${line.name} em ${selectedMonth.label}?`;
+    const totalActionConfirmation = !isSettled
+      ? `${isFinanceCreditCardPaymentMethod(line.paymentMethod) ? "Lançar" : "Dar baixa"} todo o valor pendente de ${line.name} em ${selectedMonth.label}?`
+      : `Desfazer o ${isFinanceCreditCardPaymentMethod(line.paymentMethod) ? "lançamento" : "pagamento"} total de ${line.name} em ${selectedMonth.label}?`;
     const clearActionConfirmation = `Desfazer todos os ${isFinanceCreditCardPaymentMethod(line.paymentMethod) ? "lançamentos" : "pagamentos"} de ${line.name} em ${selectedMonth.label}?`;
     const nextMonthConfirmation = `Passar o valor pendente de ${line.name} para o próximo mês?`;
     const cancelMonthConfirmation = `Remover apenas o valor pendente de ${line.name} em ${selectedMonth.label}?`;
@@ -985,7 +983,7 @@ export default function FinanceModulePage() {
                         requestFinanceConfirmation(
                           totalActionConfirmation,
                           () => {
-                            if (pendingAmount > 0) {
+                            if (!isSettled) {
                               actions.applyFinanceSettlement({
                                 lineId: line.id,
                                 month: selectedMonthId,
@@ -1008,7 +1006,7 @@ export default function FinanceModulePage() {
                             : "border border-amber-400/20 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15"
                       }`}
                     >
-                      {pendingAmount > 0 ? totalSettleLabel : "Desfazer total"}
+                      {isSettled ? "Desfazer total" : totalSettleLabel}
                     </button>
                   </FinanceActionHint>
                   <FinanceActionHint text={partialSettleHint}>

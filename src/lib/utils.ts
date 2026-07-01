@@ -223,9 +223,13 @@ export function isFinanceSettledInMonth(
   month: FinanceMonthId,
   year = new Date().getFullYear(),
 ) {
-  return (
-    getFinanceSettledAmount(line, month, year) >= roundCurrencyValue(line.monthly[month] ?? 0)
-  );
+  // Uma linha de valor 0 não tem nada a lançar/pagar — não pode contar
+  // como "já lançado" só porque 0 >= 0. Se contasse, ela apareceria
+  // riscada como "Já foi lançado" e o "Desfazer total" não teria o que
+  // desfazer (nunca sai do estado lançado).
+  const monthValue = roundCurrencyValue(line.monthly[month] ?? 0);
+  if (monthValue <= 0) return false;
+  return getFinanceSettledAmount(line, month, year) >= monthValue;
 }
 
 export function getFinanceSettledAmount(
