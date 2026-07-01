@@ -2558,6 +2558,7 @@ export default function FinanceModulePage() {
               {open ? (
                 <>
                   {isBenefit && bal ? (
+                    <>
                     <div className="space-y-2 rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">
                       <div className="grid grid-cols-3 gap-2 text-center">
                         <div>
@@ -2604,40 +2605,45 @@ export default function FinanceModulePage() {
                       <p className="text-[11px] text-zinc-500">
                         Saldo acumulado desde {card.recharge ? financeMonthLabels[card.recharge.startMonth] : "—"}. Gastos no vale não entram no orçamento.
                       </p>
-                      <div className="flex flex-col gap-1 border-t border-zinc-800 pt-3 sm:flex-row sm:items-center sm:justify-between">
-                        <label
-                          htmlFor={`saldo-${card.id}`}
-                          className="text-[11px] uppercase tracking-[0.18em] text-zinc-600"
-                        >
-                          Ajustar saldo atual
-                        </label>
-                        <input
-                          id={`saldo-${card.id}`}
-                          type="text"
-                          inputMode="decimal"
-                          value={balanceDrafts[card.id] ?? formatMoneyInputBR(bal.balance)}
-                          onChange={(event) =>
-                            setBalanceDrafts((current) => ({
-                              ...current,
-                              [card.id]: event.target.value,
-                            }))
-                          }
-                          onBlur={() => commitBalanceDraft(card.id)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") {
-                              event.currentTarget.blur();
-                            }
-                          }}
-                          className="w-full rounded-sm border border-zinc-800 bg-black/60 px-3 py-2 text-right font-semibold text-white sm:w-40"
-                          placeholder="Saldo real do cartão"
-                        />
-                      </div>
-                      {bal.adjustment !== 0 ? (
-                        <p className="text-[11px] text-zinc-600">
-                          Ajuste manual de {formatCurrency(bal.adjustment)} aplicado.
-                        </p>
-                      ) : null}
                     </div>
+                    {/* Mesmo layout do campo de fatura do cartão de crédito:
+                        caixa de explicação + input à direita. Digitar o saldo
+                        real substitui o calculado (vira ajuste manual). */}
+                    <div className="grid gap-3 md:grid-cols-[1fr_180px]">
+                      <div className="rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-600">
+                          Saldo atual do cartão
+                        </p>
+                        <p className="mt-1 text-sm text-zinc-500">
+                          Digite o saldo real do {card.name} pra corrigir o valor. As
+                          próximas recargas continuam somando em cima.
+                          {bal.adjustment !== 0
+                            ? ` Ajuste manual de ${formatCurrency(bal.adjustment)} aplicado.`
+                            : ""}
+                        </p>
+                      </div>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={balanceDrafts[card.id] ?? formatMoneyInputBR(bal.balance)}
+                        onChange={(event) =>
+                          setBalanceDrafts((current) => ({
+                            ...current,
+                            [card.id]: event.target.value,
+                          }))
+                        }
+                        onBlur={() => commitBalanceDraft(card.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.currentTarget.blur();
+                          }
+                        }}
+                        className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-right font-semibold text-white"
+                        placeholder="Saldo real do cartão"
+                        aria-label={`Saldo atual do ${card.name}`}
+                      />
+                    </div>
+                    </>
                   ) : (
                   <div className="grid gap-3 md:grid-cols-[1fr_180px]">
                     <div className="rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">
