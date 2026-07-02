@@ -668,6 +668,11 @@ export interface FinanceCard {
   /** Recarga recorrente (só p/ cartão-vale): crédito mensal no dia X.
    *  O saldo ACUMULA: saldo = soma das recargas − soma dos gastos no cartão. */
   recharge?: FinanceCardRecharge;
+  /** Ajuste manual do saldo do cartão-vale (só p/ benefit). Somado ao
+   *  saldo calculado (recargas − gastos) pra o usuário corrigir o valor
+   *  real do cartão. Ex.: já tinha crédito antes de começar a controlar,
+   *  ou houve estorno. Persiste e as recargas futuras entram por cima. */
+  manualBalanceAdjustment?: number;
 }
 
 export interface FinanceBudgetLine {
