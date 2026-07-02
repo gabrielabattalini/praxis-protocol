@@ -207,6 +207,8 @@ export default function FinanceModulePage() {
   const [lineValueDrafts, setLineValueDrafts] = useState<Record<string, string>>({});
   // Edição manual do saldo de cartão-vale (chaveado por cardId).
   const [balanceDrafts, setBalanceDrafts] = useState<Record<string, string>>({});
+  // Edição do valor da recarga mensal do cartão-vale (chaveado por cardId).
+  const [rechargeDrafts, setRechargeDrafts] = useState<Record<string, string>>({});
   const [createPanelOpen, setCreatePanelOpen] = useState(false);
   const [draft, setDraft] = useState({
     name: "",
@@ -735,6 +737,31 @@ export default function FinanceModulePage() {
     const adjustment = Math.round((desired - base + Number.EPSILON) * 100) / 100;
     actions.updateFinanceCard({ cardId, patch: { manualBalanceAdjustment: adjustment } });
     setBalanceDrafts((current) => {
+      const next = { ...current };
+      delete next[cardId];
+      return next;
+    });
+  }
+
+  // Altera o valor da recarga mensal do cartão-vale, preservando o dia e o
+  // mês de início. Muda o "Recarregado" retroativo e as recargas futuras.
+  function commitRechargeDraft(cardId: string) {
+    const raw = rechargeDrafts[cardId];
+    if (raw === undefined) return;
+    const card = (budget.cards ?? []).find((c) => c.id === cardId);
+    if (!card) return;
+    const amount = Math.max(0, parseMoneyInput(raw));
+    actions.updateFinanceCard({
+      cardId,
+      patch: {
+        recharge: {
+          amount,
+          dayOfMonth: card.recharge?.dayOfMonth ?? 5,
+          startMonth: card.recharge?.startMonth ?? currentMonthId,
+        },
+      },
+    });
+    setRechargeDrafts((current) => {
       const next = { ...current };
       delete next[cardId];
       return next;
@@ -2607,8 +2634,41 @@ export default function FinanceModulePage() {
                       </p>
                     </div>
                     {/* Mesmo layout do campo de fatura do cartão de crédito:
-                        caixa de explicação + input à direita. Digitar o saldo
-                        real substitui o calculado (vira ajuste manual). */}
+                        caixa de explicação + input à direita. */}
+                    <div className="grid gap-3 md:grid-cols-[1fr_180px]">
+                      <div className="rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-600">
+                          Recarga mensal
+                        </p>
+                        <p className="mt-1 text-sm text-zinc-500">
+                          Valor creditado todo dia {card.recharge?.dayOfMonth ?? "—"} no {card.name}.
+                          Muda o total recarregado e as próximas recargas.
+                        </p>
+                      </div>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={
+                          rechargeDrafts[card.id] ??
+                          formatMoneyInputBR(card.recharge?.amount ?? 0)
+                        }
+                        onChange={(event) =>
+                          setRechargeDrafts((current) => ({
+                            ...current,
+                            [card.id]: event.target.value,
+                          }))
+                        }
+                        onBlur={() => commitRechargeDraft(card.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.currentTarget.blur();
+                          }
+                        }}
+                        className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-right font-semibold text-white"
+                        placeholder="Valor da recarga"
+                        aria-label={`Recarga mensal do ${card.name}`}
+                      />
+                    </div>
                     <div className="grid gap-3 md:grid-cols-[1fr_180px]">
                       <div className="rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">
                         <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-600">
