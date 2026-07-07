@@ -387,6 +387,20 @@ export default function FinanceModulePage() {
       ),
     [expenseLines],
   );
+  // Total de "Saídas imediatas" = só o que AINDA FALTA pagar no mês (valor
+  // do mês − já abatido por linha). O que o usuário já deu baixa some do
+  // topo; antes somava o planejado inteiro, inflando o número.
+  const pendingCashExpenses = useMemo(
+    () =>
+      roundCurrencyValue(
+        nonCardExpenseLines.reduce((sum, line) => {
+          const monthValue = roundCurrencyValue(line.monthly[selectedMonthId] ?? 0);
+          const settled = getFinanceSettledAmount(line, selectedMonthId, budget.year);
+          return sum + Math.max(monthValue - settled, 0);
+        }, 0),
+      ),
+    [nonCardExpenseLines, selectedMonthId, budget.year],
+  );
   // Faturas POR cartão: SEMPRE um painel por cartão (todos os cartões
   // aparecem), mais um balde "sem cartão" pras linhas credit-card órfãs.
   // A seleção na carteira (activeWalletCardId) controla só o painel de
@@ -468,13 +482,6 @@ export default function FinanceModulePage() {
   );
   const annualExpenses = roundCurrencyValue(annualCardExpenses + annualNonCardExpenses);
   const annualOperatingBalance = roundCurrencyValue(annualIncome - annualExpenses);
-  // detailedMonths carrega o PLANEJADO (soma das linhas), enquanto
-  // `selectedMonth` (vindo de getFinanceMonthSummaries) só tem o
-  // settled (já pago/lançado). Pra "Saídas imediatas" o usuário quer
-  // ver a soma das linhas listadas abaixo — não só o que JÁ saiu.
-  const selectedDetailedMonth =
-    detailedMonths.find((month) => month.id === selectedMonthId) ??
-    detailedMonths[0];
   const annualBalance = roundCurrencyValue(
     budget.startCash + annualOperatingBalance,
   );
@@ -1709,10 +1716,10 @@ export default function FinanceModulePage() {
         <GlassPanel>
           <p className="text-sm text-zinc-500">Saídas imediatas</p>
           <p className="text-xs text-zinc-600">
-            Pagamentos à vista (pix, débito, boleto, transferência, dinheiro)
+            O que ainda falta pagar à vista (pix, débito, boleto, transferência, dinheiro)
           </p>
           <p className="mt-3 text-3xl font-semibold text-[var(--accent)]">
-            {formatCurrency(selectedDetailedMonth.cashExpenses)}
+            {formatCurrency(pendingCashExpenses)}
           </p>
         </GlassPanel>
       </div>
@@ -2774,10 +2781,10 @@ export default function FinanceModulePage() {
             <div>
               <p className="text-sm text-zinc-500">Saídas imediatas</p>
               <p className="text-xs text-zinc-600">
-                Pagamentos à vista (pix, débito, boleto, transferência, dinheiro)
+                O que ainda falta pagar à vista (pix, débito, boleto, transferência, dinheiro)
               </p>
               <h2 className="text-2xl font-semibold text-white">
-                {formatCurrency(selectedDetailedMonth.cashExpenses)}
+                {formatCurrency(pendingCashExpenses)}
               </h2>
             </div>
             <div className="flex items-center gap-2">
