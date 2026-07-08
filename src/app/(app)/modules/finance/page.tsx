@@ -1778,26 +1778,45 @@ export default function FinanceModulePage() {
               key={month.id}
               type="button"
               onClick={() => setSelectedMonthId(month.id)}
-              className={`min-w-[92px] rounded-sm border px-3 py-3 text-left transition ${
+              className={`min-w-[150px] rounded-sm border px-3 py-3 text-left transition ${
                 selectedMonth.id === month.id
                   ? "border-amber-300/30 bg-amber-300/10"
                   : "border-zinc-800 bg-black/40"
               }`}
             >
               <p className="text-sm text-zinc-500">{month.label}</p>
-              <p
-                className={`mt-1 text-sm font-semibold ${
-                  month.plannedBalance < 0 ? "text-rose-300" : "text-[var(--accent)]"
-                }`}
-              >
-                {formatCurrency(month.plannedBalance)}
-              </p>
-              <div className="mt-2 space-y-1 text-xs text-zinc-600">
-                <p>Receita: {formatCurrency(month.income)}</p>
-                <p>Gastos: {formatCurrency(month.plannedExpenses)}</p>
-                <p>
-                  {month.plannedBalance < 0 ? "Falta" : "Sobra"}:{" "}
-                  {formatCurrency(Math.abs(month.plannedBalance))}
+              {/* Previsto = plano do mês (receita/gastos planejados). */}
+              <div className="mt-2 border-t border-white/5 pt-2">
+                <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-600">
+                  Previsto
+                </p>
+                <p
+                  className={`text-sm font-semibold ${
+                    month.plannedBalance < 0 ? "text-rose-300" : "text-[var(--accent)]"
+                  }`}
+                >
+                  {formatCurrency(month.plannedBalance)}
+                </p>
+                <p className="text-[11px] text-zinc-600">
+                  Rec {formatCurrency(month.income)} · Gasto{" "}
+                  {formatCurrency(month.plannedExpenses)}
+                </p>
+              </div>
+              {/* Realizado = só o que já aconteceu (recebido − pago). */}
+              <div className="mt-2 border-t border-white/5 pt-2">
+                <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-600">
+                  Realizado
+                </p>
+                <p
+                  className={`text-sm font-semibold ${
+                    month.realizedBalance < 0 ? "text-rose-300" : "text-emerald-300"
+                  }`}
+                >
+                  {formatCurrency(month.realizedBalance)}
+                </p>
+                <p className="text-[11px] text-zinc-600">
+                  Receb {formatCurrency(month.receivedIncome)} · Pago{" "}
+                  {formatCurrency(month.expenses)}
                 </p>
               </div>
             </button>
@@ -1808,7 +1827,7 @@ export default function FinanceModulePage() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <GlassPanel>
           <p className="text-sm text-zinc-500">Resultado do mês</p>
-          <p className="text-xs text-zinc-600">Receita, gastos planejados e saldo final</p>
+          <p className="text-xs text-zinc-600">Previsto (plano) e realizado (o que já aconteceu)</p>
           <p
             className={`mt-3 text-3xl font-semibold ${
               selectedMonthPlannedBalance < 0 ? "text-rose-300" : "text-[var(--accent)]"
@@ -1817,12 +1836,26 @@ export default function FinanceModulePage() {
             {formatCurrency(selectedMonthPlannedBalance)}
           </p>
           <div className="mt-3 space-y-1 text-sm text-zinc-500">
-            <p>Receitas: {formatCurrency(selectedMonth.income)}</p>
-            <p>Gastos: {formatCurrency(selectedMonthExpenseTotal)}</p>
+            <p>Receitas previstas: {formatCurrency(selectedMonth.income)}</p>
+            <p>Gastos previstos: {formatCurrency(selectedMonthExpenseTotal)}</p>
             <p>
               {selectedMonthPlannedBalance < 0 ? "Faltando" : "Sobrando"}:{" "}
               {formatCurrency(Math.abs(selectedMonthPlannedBalance))}
             </p>
+          </div>
+          <div className="mt-3 space-y-1 border-t border-white/5 pt-3 text-sm text-zinc-500">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-600">
+              Realizado
+            </p>
+            <p
+              className={`text-lg font-semibold ${
+                selectedMonth.realizedBalance < 0 ? "text-rose-300" : "text-emerald-300"
+              }`}
+            >
+              {formatCurrency(selectedMonth.realizedBalance)}
+            </p>
+            <p>Recebido: {formatCurrency(selectedMonth.receivedIncome)}</p>
+            <p>Pago: {formatCurrency(selectedMonth.expenses)}</p>
           </div>
         </GlassPanel>
         <GlassPanel>
