@@ -793,7 +793,13 @@ export default function FinanceModulePage() {
     const parsedAmount = parseMoneyInput(settlementDrafts[key] ?? "");
     if (parsedAmount <= 0) return;
     requestFinanceConfirmation(
-      `${isFinanceCreditCardPaymentMethod(line.paymentMethod) ? "Lançar" : "Dar baixa"} parcial de ${formatCurrency(parsedAmount)} em ${line.name} para ${selectedMonth.label}?`,
+      `${
+        line.kind === "income"
+          ? "Registrar recebimento"
+          : isFinanceCreditCardPaymentMethod(line.paymentMethod)
+            ? "Lançar"
+            : "Dar baixa"
+      } parcial de ${formatCurrency(parsedAmount)} em ${line.name} para ${selectedMonth.label}?`,
       () => {
         actions.applyFinanceSettlement({
           lineId: line.id,
@@ -849,12 +855,15 @@ export default function FinanceModulePage() {
       line.kind === "income" ? "income-categories" : "expense-categories";
     const dueLabel = line.dueDay ? `Vence dia ${line.dueDay}` : "Sem vencimento";
     const isExpense = line.kind === "expense";
+    const isIncome = line.kind === "income";
     const isAutoDebit = isFinanceAutoDebitPaymentMethod(line.paymentMethod);
     // Anything categorized as "Combustível" gets a shortcut to the
     // calculator right inside the line card. Match loosely so variants
     // like "combustivel" (no accent) still light up.
     const isFuelLine = /combust/i.test(line.category) || /combust/i.test(line.name);
-    const isSettled = isExpense && isFinanceSettledInMonth(line, selectedMonthId, budget.year);
+    const isSettled =
+      (isExpense || isIncome) &&
+      isFinanceSettledInMonth(line, selectedMonthId, budget.year);
     const isSystemManaged = Boolean(line.managedBySystem);
     const partialSettleLabel = isFinanceCreditCardPaymentMethod(line.paymentMethod)
       ? "Lançamento parcial"
@@ -1003,6 +1012,120 @@ export default function FinanceModulePage() {
                     : `Abatido ${formatCurrency(settledAmount)}`}{" "}
                   • Falta {formatCurrency(pendingAmount)}
                 </p>
+              ) : null}
+              {isIncome ? (
+                <p className="mt-2 text-xs text-zinc-500">
+                  Recebido {formatCurrency(settledAmount)} • Falta{" "}
+                  {formatCurrency(pendingAmount)}
+                </p>
+              ) : null}
+              {isIncome ? (
+                <div className="mt-3 flex flex-wrap gap-2 lg:justify-end">
+                  <FinanceActionHint text="Marca toda a entrada pendente deste mês como recebida.">
+                    <button
+                      type="button"
+                      title="Marca toda a entrada pendente deste mês como recebida."
+                      aria-label="Marca toda a entrada pendente deste mês como recebida."
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        requestFinanceConfirmation(
+                          isSettled
+                            ? `Desfazer o recebimento de ${line.name} em ${selectedMonth.label}?`
+                            : `Marcar ${line.name} como recebido em ${selectedMonth.label}?`,
+                          () => {
+                            if (!isSettled) {
+                              actions.applyFinanceSettlement({
+                                lineId: line.id,
+                                month: selectedMonthId,
+                                amount: pendingAmount,
+                              });
+                            } else {
+                              actions.clearFinanceSettlement({
+                                lineId: line.id,
+                                month: selectedMonthId,
+                              });
+                            }
+                          },
+                        );
+                      }}
+                      className={`rounded-sm px-3 py-2 text-[11px] font-medium transition ${
+                        isSettled
+                          ? "border border-zinc-800 bg-black/60 text-zinc-200 hover:bg-white/10"
+                          : "border border-emerald-400/20 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/15"
+                      }`}
+                    >
+                      {isSettled ? "Desfazer recebido" : "Recebido total"}
+                    </button>
+                  </FinanceActionHint>
+                  <FinanceActionHint text="Marca só uma parte da entrada como recebida. Use o campo parcial ao abrir o item.">
+                    <button
+                      type="button"
+                      title="Marca só uma parte da entrada como recebida. Use o campo parcial ao abrir o item."
+                      aria-label="Marca só uma parte da entrada como recebida. Use o campo parcial ao abrir o item."
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (
+                          parseMoneyInput(settlementDrafts[settlementKey] ?? "") > 0
+                        ) {
+                          applyPartialSettlement(line);
+                          return;
+                        }
+                        openPartialSettlementField(line.id, selectedMonthId);
+                      }}
+                      disabled={pendingAmount <= 0}
+                      className="rounded-sm border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-[11px] font-medium text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Recebido parcial
+                    </button>
+                  </FinanceActionHint>
+                  <FinanceActionHint text="Desfaz todos os recebimentos deste mês e volta a entrada pra pendente.">
+                    <button
+                      type="button"
+                      title="Desfaz todos os recebimentos deste mês e volta a entrada pra pendente."
+                      aria-label="Desfaz todos os recebimentos deste mês e volta a entrada pra pendente."
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        requestFinanceConfirmation(
+                          `Desfazer os recebimentos de ${line.name} em ${selectedMonth.label}?`,
+                          () => {
+                            actions.clearFinanceSettlement({
+                              lineId: line.id,
+                              month: selectedMonthId,
+                            });
+                          },
+                        );
+                      }}
+                      className="rounded-sm border border-zinc-800 bg-black/60 px-3 py-2 text-[11px] font-medium text-zinc-200"
+                    >
+                      Desfazer
+                    </button>
+                  </FinanceActionHint>
+                  {!isSystemManaged ? (
+                    <FinanceActionHint text="Apaga esta linha de receita em todos os meses.">
+                      <button
+                        type="button"
+                        title="Apagar receita"
+                        aria-label="Apagar receita"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          requestFinanceConfirmation(
+                            `Apagar a linha ${line.name} por completo? Essa ação remove a receita de todos os meses.`,
+                            () => {
+                              actions.removeFinanceLine(line.id);
+                            },
+                          );
+                        }}
+                        className="grid h-9 w-9 place-items-center rounded-sm border border-rose-400/20 bg-rose-400/10 text-rose-100 transition hover:bg-rose-400/15"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </FinanceActionHint>
+                  ) : null}
+                </div>
               ) : null}
               {isExpense ? (
                 <div className="mt-3 flex flex-wrap gap-2 lg:justify-end">
@@ -1163,9 +1286,11 @@ export default function FinanceModulePage() {
               ) : null}
               {isSettled ? (
                 <p className="mt-2 text-xs text-zinc-600">
-                  {isFinanceCreditCardPaymentMethod(line.paymentMethod)
-                    ? "Esse valor já entrou na fatura."
-                    : "Esse valor já foi abatido das receitas."}
+                  {isIncome
+                    ? "Essa entrada já foi recebida."
+                    : isFinanceCreditCardPaymentMethod(line.paymentMethod)
+                      ? "Esse valor já entrou na fatura."
+                      : "Esse valor já foi abatido das receitas."}
                 </p>
               ) : null}
               <p className="mt-2 text-xs text-zinc-600 group-open:hidden">
@@ -1365,11 +1490,11 @@ export default function FinanceModulePage() {
                     : "Categoria, pagamento e vencimento alteram a linha inteira. O que continua mensal aqui e apenas o valor do mês selecionado."}
               </div>
 
-              {isExpense ? (
+              {isExpense || isIncome ? (
                 <div className="grid gap-3 lg:grid-cols-[170px_170px_1fr]">
                   <div className="rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">
                     <p className="text-[11px] uppercase tracking-[0.25em] text-zinc-600">
-                      Já lançado
+                      {isIncome ? "Já recebido" : "Já lançado"}
                     </p>
                     <p className="mt-1 font-semibold text-white">
                       {formatCurrency(settledAmount)}
