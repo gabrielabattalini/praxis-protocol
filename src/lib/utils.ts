@@ -331,13 +331,16 @@ export function getFinanceCardBalance(
   const monthsCount = endIdx >= startIdx ? endIdx - startIdx + 1 : 0;
   const recharged = roundCurrencyValue((recharge?.amount ?? 0) * monthsCount);
 
+  // Gasto do vale = VALOR do mês de cada compra no cartão (não o settled).
+  // Num vale não existe "lançar na fatura": o dinheiro sai do saldo na
+  // hora que você gasta. Usar o settled deixava GASTO = 0 quando a linha
+  // não tinha sido lançada, e o saldo não descontava a compra.
   let spent = 0;
-  const year = budget.year ?? new Date().getFullYear();
   for (let i = startIdx; i <= endIdx && i >= 0; i += 1) {
     const m = financeMonthOrder[i];
     for (const line of budget.lines) {
       if (line.kind === "expense" && line.cardId === cardId) {
-        spent += getFinanceSettledAmount(line, m, year);
+        spent += roundCurrencyValue(line.monthly[m] ?? 0);
       }
     }
   }

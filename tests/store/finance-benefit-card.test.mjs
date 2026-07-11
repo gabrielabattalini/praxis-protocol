@@ -14,12 +14,6 @@ const MONTHS = [
 ];
 const round = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
-// settled simplificado: usa settledAmounts[m] se número, senão 0.
-function settled(line, m) {
-  const v = line.settledAmounts?.[m];
-  return typeof v === "number" ? v : 0;
-}
-
 function getBalance(budget, cardId, month) {
   const card = (budget.cards ?? []).find((c) => c.id === cardId);
   const recharge = card?.recharge;
@@ -27,11 +21,14 @@ function getBalance(budget, cardId, month) {
   const startIdx = recharge ? Math.max(0, MONTHS.indexOf(recharge.startMonth)) : 0;
   const monthsCount = endIdx >= startIdx ? endIdx - startIdx + 1 : 0;
   const recharged = round((recharge?.amount ?? 0) * monthsCount);
+  // Gasto do vale = VALOR do mês (não settled): num vale o dinheiro sai do
+  // saldo na hora da compra, sem "lançar na fatura".
   let spent = 0;
   for (let i = startIdx; i <= endIdx && i >= 0; i += 1) {
     const m = MONTHS[i];
     for (const line of budget.lines) {
-      if (line.kind === "expense" && line.cardId === cardId) spent += settled(line, m);
+      if (line.kind === "expense" && line.cardId === cardId)
+        spent += round(line.monthly?.[m] ?? 0);
     }
   }
   spent = round(spent);
@@ -55,7 +52,7 @@ test("saldo acumula da startMonth até o mês (recarga × meses − gastos)", ()
         id: "l1",
         kind: "expense",
         cardId: "vale",
-        settledAmounts: { may: 400, june: 500 },
+        monthly: { may: 400, june: 500 },
       },
     ],
   };
@@ -85,7 +82,7 @@ test("saldo pode ficar negativo se gastar mais que a recarga", () => {
       { id: "vale", type: "benefit", recharge: { amount: 250, dayOfMonth: 5, startMonth: "july" } },
     ],
     lines: [
-      { id: "l1", kind: "expense", cardId: "vale", settledAmounts: { july: 400 } },
+      { id: "l1", kind: "expense", cardId: "vale", monthly: { july: 400 } },
     ],
   };
   const r = getBalance(budget, "vale", "july");
@@ -132,7 +129,7 @@ test("ajuste manual soma no saldo (recarga − gastos + ajuste)", () => {
       },
     ],
     lines: [
-      { id: "l1", kind: "expense", cardId: "vale", settledAmounts: { july: 100 } },
+      { id: "l1", kind: "expense", cardId: "vale", monthly: { july: 100 } },
     ],
   };
   // julho: recarga 600 − gasto 100 + ajuste 180 = 680.
@@ -151,7 +148,7 @@ test("saldo desejado vira ajuste = desejado − (recarga − gastos)", () => {
       { id: "vale", type: "benefit", recharge: { amount: 250, dayOfMonth: 5, startMonth: "july" } },
     ],
     lines: [
-      { id: "l1", kind: "expense", cardId: "vale", settledAmounts: { july: 50 } },
+      { id: "l1", kind: "expense", cardId: "vale", monthly: { july: 50 } },
     ],
   };
   const before = getBalance(budget, "vale", "july"); // 250 − 50 = 200
