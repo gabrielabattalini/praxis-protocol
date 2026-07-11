@@ -207,6 +207,8 @@ export default function FinanceModulePage() {
   const [lineValueDrafts, setLineValueDrafts] = useState<Record<string, string>>({});
   // Edição manual do saldo de cartão-vale (chaveado por cardId).
   const [balanceDrafts, setBalanceDrafts] = useState<Record<string, string>>({});
+  // Edição do valor da recarga mensal do cartão-vale (chaveado por cardId).
+  const [rechargeDrafts, setRechargeDrafts] = useState<Record<string, string>>({});
   const [createPanelOpen, setCreatePanelOpen] = useState(false);
   const [draft, setDraft] = useState({
     name: "",
@@ -385,6 +387,20 @@ export default function FinanceModulePage() {
       ),
     [expenseLines],
   );
+  // Total de "Saídas imediatas" = só o que AINDA FALTA pagar no mês (valor
+  // do mês − já abatido por linha). O que o usuário já deu baixa some do
+  // topo; antes somava o planejado inteiro, inflando o número.
+  const pendingCashExpenses = useMemo(
+    () =>
+      roundCurrencyValue(
+        nonCardExpenseLines.reduce((sum, line) => {
+          const monthValue = roundCurrencyValue(line.monthly[selectedMonthId] ?? 0);
+          const settled = getFinanceSettledAmount(line, selectedMonthId, budget.year);
+          return sum + Math.max(monthValue - settled, 0);
+        }, 0),
+      ),
+    [nonCardExpenseLines, selectedMonthId, budget.year],
+  );
   // Faturas POR cartão: SEMPRE um painel por cartão (todos os cartões
   // aparecem), mais um balde "sem cartão" pras linhas credit-card órfãs.
   // A seleção na carteira (activeWalletCardId) controla só o painel de
@@ -466,13 +482,6 @@ export default function FinanceModulePage() {
   );
   const annualExpenses = roundCurrencyValue(annualCardExpenses + annualNonCardExpenses);
   const annualOperatingBalance = roundCurrencyValue(annualIncome - annualExpenses);
-  // detailedMonths carrega o PLANEJADO (soma das linhas), enquanto
-  // `selectedMonth` (vindo de getFinanceMonthSummaries) só tem o
-  // settled (já pago/lançado). Pra "Saídas imediatas" o usuário quer
-  // ver a soma das linhas listadas abaixo — não só o que JÁ saiu.
-  const selectedDetailedMonth =
-    detailedMonths.find((month) => month.id === selectedMonthId) ??
-    detailedMonths[0];
   const annualBalance = roundCurrencyValue(
     budget.startCash + annualOperatingBalance,
   );
@@ -741,6 +750,31 @@ export default function FinanceModulePage() {
     });
   }
 
+  // Altera o valor da recarga mensal do cartão-vale, preservando o dia e o
+  // mês de início. Muda o "Recarregado" retroativo e as recargas futuras.
+  function commitRechargeDraft(cardId: string) {
+    const raw = rechargeDrafts[cardId];
+    if (raw === undefined) return;
+    const card = (budget.cards ?? []).find((c) => c.id === cardId);
+    if (!card) return;
+    const amount = Math.max(0, parseMoneyInput(raw));
+    actions.updateFinanceCard({
+      cardId,
+      patch: {
+        recharge: {
+          amount,
+          dayOfMonth: card.recharge?.dayOfMonth ?? 5,
+          startMonth: card.recharge?.startMonth ?? currentMonthId,
+        },
+      },
+    });
+    setRechargeDrafts((current) => {
+      const next = { ...current };
+      delete next[cardId];
+      return next;
+    });
+  }
+
   function commitLineMonthValue(lineId: string, rawValue: string) {
     actions.updateFinanceMonthlyValue({
       lineId,
@@ -759,7 +793,13 @@ export default function FinanceModulePage() {
     const parsedAmount = parseMoneyInput(settlementDrafts[key] ?? "");
     if (parsedAmount <= 0) return;
     requestFinanceConfirmation(
-      `${isFinanceCreditCardPaymentMethod(line.paymentMethod) ? "Lançar" : "Dar baixa"} parcial de ${formatCurrency(parsedAmount)} em ${line.name} para ${selectedMonth.label}?`,
+      `${
+        line.kind === "income"
+          ? "Registrar recebimento"
+          : isFinanceCreditCardPaymentMethod(line.paymentMethod)
+            ? "Lançar"
+            : "Dar baixa"
+      } parcial de ${formatCurrency(parsedAmount)} em ${line.name} para ${selectedMonth.label}?`,
       () => {
         actions.applyFinanceSettlement({
           lineId: line.id,
@@ -815,12 +855,15 @@ export default function FinanceModulePage() {
       line.kind === "income" ? "income-categories" : "expense-categories";
     const dueLabel = line.dueDay ? `Vence dia ${line.dueDay}` : "Sem vencimento";
     const isExpense = line.kind === "expense";
+    const isIncome = line.kind === "income";
     const isAutoDebit = isFinanceAutoDebitPaymentMethod(line.paymentMethod);
     // Anything categorized as "Combustível" gets a shortcut to the
     // calculator right inside the line card. Match loosely so variants
     // like "combustivel" (no accent) still light up.
     const isFuelLine = /combust/i.test(line.category) || /combust/i.test(line.name);
-    const isSettled = isExpense && isFinanceSettledInMonth(line, selectedMonthId, budget.year);
+    const isSettled =
+      (isExpense || isIncome) &&
+      isFinanceSettledInMonth(line, selectedMonthId, budget.year);
     const isSystemManaged = Boolean(line.managedBySystem);
     const partialSettleLabel = isFinanceCreditCardPaymentMethod(line.paymentMethod)
       ? "Lançamento parcial"
@@ -969,6 +1012,120 @@ export default function FinanceModulePage() {
                     : `Abatido ${formatCurrency(settledAmount)}`}{" "}
                   • Falta {formatCurrency(pendingAmount)}
                 </p>
+              ) : null}
+              {isIncome ? (
+                <p className="mt-2 text-xs text-zinc-500">
+                  Recebido {formatCurrency(settledAmount)} • Falta{" "}
+                  {formatCurrency(pendingAmount)}
+                </p>
+              ) : null}
+              {isIncome ? (
+                <div className="mt-3 flex flex-wrap gap-2 lg:justify-end">
+                  <FinanceActionHint text="Marca toda a entrada pendente deste mês como recebida.">
+                    <button
+                      type="button"
+                      title="Marca toda a entrada pendente deste mês como recebida."
+                      aria-label="Marca toda a entrada pendente deste mês como recebida."
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        requestFinanceConfirmation(
+                          isSettled
+                            ? `Desfazer o recebimento de ${line.name} em ${selectedMonth.label}?`
+                            : `Marcar ${line.name} como recebido em ${selectedMonth.label}?`,
+                          () => {
+                            if (!isSettled) {
+                              actions.applyFinanceSettlement({
+                                lineId: line.id,
+                                month: selectedMonthId,
+                                amount: pendingAmount,
+                              });
+                            } else {
+                              actions.clearFinanceSettlement({
+                                lineId: line.id,
+                                month: selectedMonthId,
+                              });
+                            }
+                          },
+                        );
+                      }}
+                      className={`rounded-sm px-3 py-2 text-[11px] font-medium transition ${
+                        isSettled
+                          ? "border border-zinc-800 bg-black/60 text-zinc-200 hover:bg-white/10"
+                          : "border border-emerald-400/20 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/15"
+                      }`}
+                    >
+                      {isSettled ? "Desfazer recebido" : "Recebido total"}
+                    </button>
+                  </FinanceActionHint>
+                  <FinanceActionHint text="Marca só uma parte da entrada como recebida. Use o campo parcial ao abrir o item.">
+                    <button
+                      type="button"
+                      title="Marca só uma parte da entrada como recebida. Use o campo parcial ao abrir o item."
+                      aria-label="Marca só uma parte da entrada como recebida. Use o campo parcial ao abrir o item."
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (
+                          parseMoneyInput(settlementDrafts[settlementKey] ?? "") > 0
+                        ) {
+                          applyPartialSettlement(line);
+                          return;
+                        }
+                        openPartialSettlementField(line.id, selectedMonthId);
+                      }}
+                      disabled={pendingAmount <= 0}
+                      className="rounded-sm border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-[11px] font-medium text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Recebido parcial
+                    </button>
+                  </FinanceActionHint>
+                  <FinanceActionHint text="Desfaz todos os recebimentos deste mês e volta a entrada pra pendente.">
+                    <button
+                      type="button"
+                      title="Desfaz todos os recebimentos deste mês e volta a entrada pra pendente."
+                      aria-label="Desfaz todos os recebimentos deste mês e volta a entrada pra pendente."
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        requestFinanceConfirmation(
+                          `Desfazer os recebimentos de ${line.name} em ${selectedMonth.label}?`,
+                          () => {
+                            actions.clearFinanceSettlement({
+                              lineId: line.id,
+                              month: selectedMonthId,
+                            });
+                          },
+                        );
+                      }}
+                      className="rounded-sm border border-zinc-800 bg-black/60 px-3 py-2 text-[11px] font-medium text-zinc-200"
+                    >
+                      Desfazer
+                    </button>
+                  </FinanceActionHint>
+                  {!isSystemManaged ? (
+                    <FinanceActionHint text="Apaga esta linha de receita em todos os meses.">
+                      <button
+                        type="button"
+                        title="Apagar receita"
+                        aria-label="Apagar receita"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          requestFinanceConfirmation(
+                            `Apagar a linha ${line.name} por completo? Essa ação remove a receita de todos os meses.`,
+                            () => {
+                              actions.removeFinanceLine(line.id);
+                            },
+                          );
+                        }}
+                        className="grid h-9 w-9 place-items-center rounded-sm border border-rose-400/20 bg-rose-400/10 text-rose-100 transition hover:bg-rose-400/15"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </FinanceActionHint>
+                  ) : null}
+                </div>
               ) : null}
               {isExpense ? (
                 <div className="mt-3 flex flex-wrap gap-2 lg:justify-end">
@@ -1129,9 +1286,11 @@ export default function FinanceModulePage() {
               ) : null}
               {isSettled ? (
                 <p className="mt-2 text-xs text-zinc-600">
-                  {isFinanceCreditCardPaymentMethod(line.paymentMethod)
-                    ? "Esse valor já entrou na fatura."
-                    : "Esse valor já foi abatido das receitas."}
+                  {isIncome
+                    ? "Essa entrada já foi recebida."
+                    : isFinanceCreditCardPaymentMethod(line.paymentMethod)
+                      ? "Esse valor já entrou na fatura."
+                      : "Esse valor já foi abatido das receitas."}
                 </p>
               ) : null}
               <p className="mt-2 text-xs text-zinc-600 group-open:hidden">
@@ -1331,11 +1490,11 @@ export default function FinanceModulePage() {
                     : "Categoria, pagamento e vencimento alteram a linha inteira. O que continua mensal aqui e apenas o valor do mês selecionado."}
               </div>
 
-              {isExpense ? (
+              {isExpense || isIncome ? (
                 <div className="grid gap-3 lg:grid-cols-[170px_170px_1fr]">
                   <div className="rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">
                     <p className="text-[11px] uppercase tracking-[0.25em] text-zinc-600">
-                      Já lançado
+                      {isIncome ? "Já recebido" : "Já lançado"}
                     </p>
                     <p className="mt-1 font-semibold text-white">
                       {formatCurrency(settledAmount)}
@@ -1619,26 +1778,45 @@ export default function FinanceModulePage() {
               key={month.id}
               type="button"
               onClick={() => setSelectedMonthId(month.id)}
-              className={`min-w-[92px] rounded-sm border px-3 py-3 text-left transition ${
+              className={`min-w-[150px] rounded-sm border px-3 py-3 text-left transition ${
                 selectedMonth.id === month.id
                   ? "border-amber-300/30 bg-amber-300/10"
                   : "border-zinc-800 bg-black/40"
               }`}
             >
               <p className="text-sm text-zinc-500">{month.label}</p>
-              <p
-                className={`mt-1 text-sm font-semibold ${
-                  month.plannedBalance < 0 ? "text-rose-300" : "text-[var(--accent)]"
-                }`}
-              >
-                {formatCurrency(month.plannedBalance)}
-              </p>
-              <div className="mt-2 space-y-1 text-xs text-zinc-600">
-                <p>Receita: {formatCurrency(month.income)}</p>
-                <p>Gastos: {formatCurrency(month.plannedExpenses)}</p>
-                <p>
-                  {month.plannedBalance < 0 ? "Falta" : "Sobra"}:{" "}
-                  {formatCurrency(Math.abs(month.plannedBalance))}
+              {/* Previsto = plano do mês (receita/gastos planejados). */}
+              <div className="mt-2 border-t border-white/5 pt-2">
+                <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-600">
+                  Previsto
+                </p>
+                <p
+                  className={`text-sm font-semibold ${
+                    month.plannedBalance < 0 ? "text-rose-300" : "text-[var(--accent)]"
+                  }`}
+                >
+                  {formatCurrency(month.plannedBalance)}
+                </p>
+                <p className="text-[11px] text-zinc-600">
+                  Rec {formatCurrency(month.income)} · Gasto{" "}
+                  {formatCurrency(month.plannedExpenses)}
+                </p>
+              </div>
+              {/* Realizado = só o que já aconteceu (recebido − pago). */}
+              <div className="mt-2 border-t border-white/5 pt-2">
+                <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-600">
+                  Realizado
+                </p>
+                <p
+                  className={`text-sm font-semibold ${
+                    month.realizedBalance < 0 ? "text-rose-300" : "text-emerald-300"
+                  }`}
+                >
+                  {formatCurrency(month.realizedBalance)}
+                </p>
+                <p className="text-[11px] text-zinc-600">
+                  Receb {formatCurrency(month.receivedIncome)} · Pago{" "}
+                  {formatCurrency(month.expenses)}
                 </p>
               </div>
             </button>
@@ -1649,7 +1827,7 @@ export default function FinanceModulePage() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <GlassPanel>
           <p className="text-sm text-zinc-500">Resultado do mês</p>
-          <p className="text-xs text-zinc-600">Receita, gastos planejados e saldo final</p>
+          <p className="text-xs text-zinc-600">Previsto (plano) e realizado (o que já aconteceu)</p>
           <p
             className={`mt-3 text-3xl font-semibold ${
               selectedMonthPlannedBalance < 0 ? "text-rose-300" : "text-[var(--accent)]"
@@ -1658,12 +1836,26 @@ export default function FinanceModulePage() {
             {formatCurrency(selectedMonthPlannedBalance)}
           </p>
           <div className="mt-3 space-y-1 text-sm text-zinc-500">
-            <p>Receitas: {formatCurrency(selectedMonth.income)}</p>
-            <p>Gastos: {formatCurrency(selectedMonthExpenseTotal)}</p>
+            <p>Receitas previstas: {formatCurrency(selectedMonth.income)}</p>
+            <p>Gastos previstos: {formatCurrency(selectedMonthExpenseTotal)}</p>
             <p>
               {selectedMonthPlannedBalance < 0 ? "Faltando" : "Sobrando"}:{" "}
               {formatCurrency(Math.abs(selectedMonthPlannedBalance))}
             </p>
+          </div>
+          <div className="mt-3 space-y-1 border-t border-white/5 pt-3 text-sm text-zinc-500">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-600">
+              Realizado
+            </p>
+            <p
+              className={`text-lg font-semibold ${
+                selectedMonth.realizedBalance < 0 ? "text-rose-300" : "text-emerald-300"
+              }`}
+            >
+              {formatCurrency(selectedMonth.realizedBalance)}
+            </p>
+            <p>Recebido: {formatCurrency(selectedMonth.receivedIncome)}</p>
+            <p>Pago: {formatCurrency(selectedMonth.expenses)}</p>
           </div>
         </GlassPanel>
         <GlassPanel>
@@ -1682,10 +1874,10 @@ export default function FinanceModulePage() {
         <GlassPanel>
           <p className="text-sm text-zinc-500">Saídas imediatas</p>
           <p className="text-xs text-zinc-600">
-            Pagamentos à vista (pix, débito, boleto, transferência, dinheiro)
+            O que ainda falta pagar à vista (pix, débito, boleto, transferência, dinheiro)
           </p>
           <p className="mt-3 text-3xl font-semibold text-[var(--accent)]">
-            {formatCurrency(selectedDetailedMonth.cashExpenses)}
+            {formatCurrency(pendingCashExpenses)}
           </p>
         </GlassPanel>
       </div>
@@ -2607,8 +2799,41 @@ export default function FinanceModulePage() {
                       </p>
                     </div>
                     {/* Mesmo layout do campo de fatura do cartão de crédito:
-                        caixa de explicação + input à direita. Digitar o saldo
-                        real substitui o calculado (vira ajuste manual). */}
+                        caixa de explicação + input à direita. */}
+                    <div className="grid gap-3 md:grid-cols-[1fr_180px]">
+                      <div className="rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-600">
+                          Recarga mensal
+                        </p>
+                        <p className="mt-1 text-sm text-zinc-500">
+                          Valor creditado todo dia {card.recharge?.dayOfMonth ?? "—"} no {card.name}.
+                          Muda o total recarregado e as próximas recargas.
+                        </p>
+                      </div>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={
+                          rechargeDrafts[card.id] ??
+                          formatMoneyInputBR(card.recharge?.amount ?? 0)
+                        }
+                        onChange={(event) =>
+                          setRechargeDrafts((current) => ({
+                            ...current,
+                            [card.id]: event.target.value,
+                          }))
+                        }
+                        onBlur={() => commitRechargeDraft(card.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.currentTarget.blur();
+                          }
+                        }}
+                        className="w-full rounded-sm border border-zinc-800 bg-black/60 px-4 py-3 text-right font-semibold text-white"
+                        placeholder="Valor da recarga"
+                        aria-label={`Recarga mensal do ${card.name}`}
+                      />
+                    </div>
                     <div className="grid gap-3 md:grid-cols-[1fr_180px]">
                       <div className="rounded-sm border border-zinc-800 bg-black/20 px-4 py-3">
                         <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-600">
@@ -2675,6 +2900,36 @@ export default function FinanceModulePage() {
                     />
                   </div>
                   )}
+                  {!isBenefit ? (
+                    <div className="flex flex-col gap-2 rounded-sm border border-emerald-400/15 bg-emerald-400/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs text-zinc-500">
+                        Já pagou a fatura de {selectedMonth.label}? Zera os
+                        lançamentos e a base deste cartão só neste mês.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          requestFinanceConfirmation(
+                            `Marcar a fatura de ${card.name} em ${selectedMonth.label} como paga? Zera os lançamentos e a base deste cartão só neste mês (outros meses e cartões ficam intactos).`,
+                            () => {
+                              actions.clearFinanceCardInvoiceMonth({
+                                cardId: card.id,
+                                month: selectedMonthId,
+                              });
+                              setInvoiceDrafts((current) => {
+                                const next = { ...current };
+                                delete next[draftKey];
+                                return next;
+                              });
+                            },
+                          )
+                        }
+                        className="shrink-0 rounded-sm border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-400/15"
+                      >
+                        Marcar fatura como paga
+                      </button>
+                    </div>
+                  ) : null}
                   <div className="space-y-3">
                     {lines.length > 0 ? (
                       lines.map(renderLineCard)
@@ -2714,10 +2969,10 @@ export default function FinanceModulePage() {
             <div>
               <p className="text-sm text-zinc-500">Saídas imediatas</p>
               <p className="text-xs text-zinc-600">
-                Pagamentos à vista (pix, débito, boleto, transferência, dinheiro)
+                O que ainda falta pagar à vista (pix, débito, boleto, transferência, dinheiro)
               </p>
               <h2 className="text-2xl font-semibold text-white">
-                {formatCurrency(selectedDetailedMonth.cashExpenses)}
+                {formatCurrency(pendingCashExpenses)}
               </h2>
             </div>
             <div className="flex items-center gap-2">

@@ -570,6 +570,10 @@ type AppStoreValue = {
     }) => void;
     removeFinanceLine: (lineId: string) => void;
     closeFinanceMonth: (month: FinanceMonthId) => void;
+    clearFinanceCardInvoiceMonth: (payload: {
+      cardId: string;
+      month: FinanceMonthId;
+    }) => void;
     setSleepPlan: (plan: PersistedState["sleepPlan"]) => void;
     setSleepHistory: (history: PersistedState["sleepHistory"]) => void;
     /* Per-module KV bucket setter. Pass null/undefined value to clear
@@ -1126,6 +1130,11 @@ type Action =
     }
   | { type: "remove-finance-line"; lineId: string }
   | { type: "close-finance-month"; month: FinanceMonthId }
+  | {
+      type: "clear-finance-card-invoice-month";
+      cardId: string;
+      month: FinanceMonthId;
+    }
   | { type: "set-sleep-plan"; payload: PersistedState["sleepPlan"] }
   | { type: "set-sleep-history"; payload: PersistedState["sleepHistory"] }
   | { type: "set-module-state"; key: string; value: unknown };
@@ -3692,6 +3701,51 @@ function reducer(state: PersistedState, action: Action): PersistedState {
       }
 
       return baseState;
+    }
+    case "clear-finance-card-invoice-month": {
+      // "Fatura já foi paga" por UM cartão num mês: zera as linhas
+      // daquele cartão só nesse mês (valor, baixa e flag) e limpa a base
+      // manual da fatura desse cartão no mês. Outros meses e outros
+      // cartões ficam intactos. Mesma cirurgia do close-month, mas
+      // filtrada por cardId.
+      const { cardId, month } = action;
+      const nextLines = state.financeBudget.lines.map((line) => {
+        if (line.cardId !== cardId) return line;
+
+        const monthly = { ...line.monthly, [month]: 0 };
+        const settledAmounts = normalizeFinanceAmounts(
+          line.settledAmounts,
+          monthly,
+          line.settledMonths,
+        );
+        return {
+          ...line,
+          monthly,
+          settledAmounts: {
+            ...settledAmounts,
+            [month]: 0,
+          },
+          settledMonths: {
+            ...normalizeFinanceFlags(line.settledMonths),
+            [month]: false,
+          },
+        };
+      });
+
+      const byCardSource = state.financeBudget.cardInvoiceBaseByCard ?? {};
+      const clearedByCard = { ...byCardSource };
+      if (byCardSource[cardId]) {
+        clearedByCard[cardId] = { ...byCardSource[cardId], [month]: 0 };
+      }
+
+      return {
+        ...state,
+        financeBudget: {
+          ...state.financeBudget,
+          lines: nextLines,
+          cardInvoiceBaseByCard: clearedByCard,
+        },
+      };
     }
     case "close-finance-month": {
       // Atomic month-close. The key rule: every line (variable AND
@@ -7388,6 +7442,9 @@ export function AppStoreProvider({
       },
       closeFinanceMonth(month) {
         dispatch({ type: "close-finance-month", month });
+      },
+      clearFinanceCardInvoiceMonth(payload) {
+        dispatch({ type: "clear-finance-card-invoice-month", ...payload });
       },
       setSleepPlan(plan) {
         dispatch({ type: "set-sleep-plan", payload: plan });

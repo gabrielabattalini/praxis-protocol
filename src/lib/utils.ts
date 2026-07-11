@@ -404,6 +404,17 @@ export function getFinanceMonthSummaries(budget: FinanceYearBudget) {
       .filter((line) => line.kind === "income")
       .reduce((sum, line) => sum + (line.monthly[month] ?? 0), 0),
     );
+    // Receita REALIZADA = só o que já foi dado baixa (recebido) nas linhas
+    // de receita. Diferente de `income` (planejado). Usada na visão
+    // "realizado" dos cards de mês.
+    const receivedIncome = roundCurrencyValue(
+      budget.lines
+        .filter((line) => line.kind === "income")
+        .reduce(
+          (sum, line) => sum + getFinanceSettledAmount(line, month, budget.year),
+          0,
+        ),
+    );
     // Gastos em cartão-vale são benefício (não saem do caixa) → ficam FORA
     // do orçamento: não entram em expenses, cardExpenses nem no saldo.
     const benefitCardIds = getFinanceBenefitCardIds(budget);
@@ -436,8 +447,11 @@ export function getFinanceMonthSummaries(budget: FinanceYearBudget) {
       id: month,
       label: financeMonthLabels[month],
       income,
+      receivedIncome,
       expenses,
       balance: roundCurrencyValue(income - cashExpenses),
+      // Saldo REALIZADO = recebido − gastos já pagos/lançados no mês.
+      realizedBalance: roundCurrencyValue(receivedIncome - expenses),
       cardExpenses,
       cashExpenses,
     };
