@@ -2900,6 +2900,36 @@ export default function FinanceModulePage() {
                     />
                   </div>
                   )}
+                  {!isBenefit ? (
+                    <div className="flex flex-col gap-2 rounded-sm border border-emerald-400/15 bg-emerald-400/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs text-zinc-500">
+                        Já pagou a fatura de {selectedMonth.label}? Zera os
+                        lançamentos e a base deste cartão só neste mês.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          requestFinanceConfirmation(
+                            `Marcar a fatura de ${card.name} em ${selectedMonth.label} como paga? Zera os lançamentos e a base deste cartão só neste mês (outros meses e cartões ficam intactos).`,
+                            () => {
+                              actions.clearFinanceCardInvoiceMonth({
+                                cardId: card.id,
+                                month: selectedMonthId,
+                              });
+                              setInvoiceDrafts((current) => {
+                                const next = { ...current };
+                                delete next[draftKey];
+                                return next;
+                              });
+                            },
+                          )
+                        }
+                        className="shrink-0 rounded-sm border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-400/15"
+                      >
+                        Marcar fatura como paga
+                      </button>
+                    </div>
+                  ) : null}
                   <div className="space-y-3">
                     {lines.length > 0 ? (
                       lines.map(renderLineCard)
