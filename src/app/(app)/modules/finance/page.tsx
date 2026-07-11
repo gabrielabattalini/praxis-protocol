@@ -312,6 +312,31 @@ export default function FinanceModulePage() {
       }),
     [budget, months, visibleLines, isBenefitLine],
   );
+  // Detalhe do "Previsto": lista CADA linha que entra no gasto planejado
+  // do mês selecionado (mesmo filtro do plannedMonths), pra o usuário
+  // achar/remover linhas que ele não reconhece. Inclui a base manual de
+  // fatura como um item à parte quando existir.
+  const plannedExpenseBreakdown = useMemo(() => {
+    const items = visibleLines
+      .filter(
+        (line) =>
+          line.kind === "expense" &&
+          !isBenefitLine(line) &&
+          (line.monthly[selectedMonthId] ?? 0) > 0,
+      )
+      .map((line) => ({
+        id: line.id,
+        name: line.name,
+        category: line.category,
+        frequency: line.frequency,
+        value: roundCurrencyValue(line.monthly[selectedMonthId] ?? 0),
+      }))
+      .sort((a, b) => b.value - a.value);
+    const invoiceBase = roundCurrencyValue(
+      getTotalCardInvoiceBaseForMonth(budget, selectedMonthId),
+    );
+    return { items, invoiceBase };
+  }, [budget, visibleLines, isBenefitLine, selectedMonthId]);
   const selectedMonth =
     months.find((month) => month.id === selectedMonthId) ?? months[0];
   const selectedPlannedMonth =
@@ -1823,6 +1848,82 @@ export default function FinanceModulePage() {
           ))}
         </div>
       </GlassPanel>
+
+      {/* Detalhe do previsto: revela CADA linha que forma o gasto planejado
+          do mês, pra o usuário achar linhas que não reconhece e apagar. */}
+      <details className="group rounded-sm border border-zinc-800 bg-black/40">
+        <summary className="flex cursor-pointer items-center justify-between px-4 py-3 [&::-webkit-details-marker]:hidden">
+          <div>
+            <p className="text-sm text-zinc-300">
+              O que forma o Previsto de {selectedMonth.label}
+            </p>
+            <p className="text-xs text-zinc-600">
+              Cada gasto planejado deste mês, linha por linha
+            </p>
+          </div>
+          <ChevronDown className="h-5 w-5 text-zinc-500 transition group-open:rotate-180" />
+        </summary>
+        <div className="space-y-2 border-t border-zinc-800 px-4 py-3">
+          {plannedExpenseBreakdown.items.length === 0 &&
+          plannedExpenseBreakdown.invoiceBase <= 0 ? (
+            <p className="text-sm text-zinc-500">
+              Nenhum gasto planejado neste mês. Se o card acima mostra um
+              valor, me avise — é bug.
+            </p>
+          ) : (
+            <>
+              {plannedExpenseBreakdown.items.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between gap-3 rounded-sm border border-zinc-800 bg-black/20 px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-zinc-200">{item.name}</p>
+                    <p className="text-[11px] text-zinc-600">
+                      {item.category}
+                      {item.frequency === "fixed" ? " · fixo (todo mês)" : " · variável"}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="font-semibold text-white">
+                      {formatCurrency(item.value)}
+                    </span>
+                    <button
+                      type="button"
+                      title={`Apagar ${item.name}`}
+                      aria-label={`Apagar ${item.name}`}
+                      onClick={() =>
+                        requestFinanceConfirmation(
+                          `Apagar a linha ${item.name} por completo? Remove o gasto de todos os meses.`,
+                          () => actions.removeFinanceLine(item.id),
+                        )
+                      }
+                      className="grid h-8 w-8 place-items-center rounded-sm border border-rose-400/20 bg-rose-400/10 text-rose-100 transition hover:bg-rose-400/15"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {plannedExpenseBreakdown.invoiceBase > 0 ? (
+                <div className="flex items-center justify-between gap-3 rounded-sm border border-zinc-800 bg-black/20 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-zinc-200">
+                      Base manual de fatura
+                    </p>
+                    <p className="text-[11px] text-zinc-600">
+                      Valor digitado direto na fatura do cartão
+                    </p>
+                  </div>
+                  <span className="shrink-0 font-semibold text-white">
+                    {formatCurrency(plannedExpenseBreakdown.invoiceBase)}
+                  </span>
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
+      </details>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <GlassPanel>
