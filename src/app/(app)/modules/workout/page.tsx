@@ -672,23 +672,53 @@ export default function WorkoutModulePage() {
     setDraftLoadRepetitions((current) => ({ ...current, [key]: value }));
   }
 
-  function canSaveLoad(dayId: string, exercise: WorkoutExercise) {
-    return Array.from({ length: exercise.sets }, (_, index) => {
-      const setNumber = index + 1;
+  /**
+   * Lê o rascunho das séries de um exercício e separa em três baldes.
+   * O plano diz "3 séries", mas num dia ruim você faz 2 — então série em
+   * branco (ou 0) é série PULADA, não erro. Só é erro preencher metade da
+   * série (peso sem repetição ou vice-versa), que aí é distração mesmo.
+   */
+  function collectDraftSets(dayId: string, exercise: WorkoutExercise) {
+    const done: Array<{
+      setNumber: number;
+      weightKg: number;
+      repetitions: number;
+    }> = [];
+    const incomplete: number[] = [];
+    let skipped = 0;
+
+    for (let setNumber = 1; setNumber <= exercise.sets; setNumber += 1) {
       const key = draftSetKey(dayId, exercise.id, setNumber);
       const parsedWeight = Number(draftLoads[key]);
       const parsedRepetitions = Number.parseInt(
         draftLoadRepetitions[key] ?? "",
         10,
       );
+      // 0 e vazio contam igual: "não fiz esta série".
+      const hasWeight = Number.isFinite(parsedWeight) && parsedWeight > 0;
+      const hasRepetitions =
+        Number.isFinite(parsedRepetitions) && parsedRepetitions > 0;
 
-      return (
-        Number.isFinite(parsedWeight) &&
-        parsedWeight > 0 &&
-        Number.isFinite(parsedRepetitions) &&
-        parsedRepetitions > 0
-      );
-    }).every(Boolean);
+      if (hasWeight && hasRepetitions) {
+        done.push({
+          setNumber,
+          weightKg: parsedWeight,
+          repetitions: parsedRepetitions,
+        });
+      } else if (hasWeight || hasRepetitions) {
+        incomplete.push(setNumber);
+      } else {
+        skipped += 1;
+      }
+    }
+
+    return { done, incomplete, skipped };
+  }
+
+  function canSaveLoad(dayId: string, exercise: WorkoutExercise) {
+    const { done, incomplete } = collectDraftSets(dayId, exercise);
+    // Basta UMA série completa. As em branco são puladas.
+    return done.length > 0 && incomplete.length === 0;
   }
 
   function exerciseHistoryHref(exercise: WorkoutExercise) {
@@ -851,42 +881,15 @@ export default function WorkoutModulePage() {
   }
 
   function saveLoad(dayId: string, exercise: WorkoutExercise) {
-    const sets = Array.from({ length: exercise.sets }, (_, index) => {
-      const setNumber = index + 1;
-      const key = draftSetKey(dayId, exercise.id, setNumber);
-      const parsedWeight = Number(draftLoads[key]);
-      const parsedRepetitions = Number.parseInt(
-        draftLoadRepetitions[key] ?? "",
-        10,
-      );
-
-      if (
-        !Number.isFinite(parsedWeight) ||
-        parsedWeight <= 0 ||
-        !Number.isFinite(parsedRepetitions) ||
-        parsedRepetitions <= 0
-      ) {
-        return null;
-      }
-
-      return {
-        setNumber,
-        weightKg: parsedWeight,
-        repetitions: parsedRepetitions,
-      };
-    });
-
-    if (sets.some((set) => set === null)) return;
+    // Salva só as séries que você realmente fez. As em branco somem do
+    // registro em vez de travar o salvamento (fazer 2 de 3 é normal).
+    const { done, incomplete } = collectDraftSets(dayId, exercise);
+    if (done.length === 0 || incomplete.length > 0) return;
 
     actions.saveWorkoutLoad({
       dayId,
       exerciseId: exercise.id,
-      sets: sets.filter(
-        (
-          set,
-        ): set is { setNumber: number; weightKg: number; repetitions: number } =>
-          set !== null,
-      ),
+      sets: done,
     });
     setDraftLoads((current) => {
       const next = { ...current };
@@ -1790,7 +1793,9 @@ export default function WorkoutModulePage() {
                                         )
                                       }
                                       type="number"
-                                      min={1}
+                                      // 0 é permitido: significa "não fiz
+                                      // esta série" (o save pula ela).
+                                      min={0}
                                       placeholder={
                                         prevSet ? String(prevSet.repetitions) : "Ex.: 10"
                                       }
@@ -1803,9 +1808,41 @@ export default function WorkoutModulePage() {
                           </div>
 
                           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <p className="text-xs text-zinc-500">
-                              O sistema salva data, séries, repetições e carga de cada execução.
-                            </p>
+                            {(() => {
+                              // Antes o botão só apagava, sem dizer por quê —
+                              // e a pessoa não descobria que faltava algo.
+                              const draft = collectDraftSets(activeDay.id, exercise);
+                              if (draft.incomplete.length > 0) {
+                                return (
+                                  <p className="text-xs text-amber-300">
+                                    Falta completar a{" "}
+                                    {draft.incomplete
+                                      .map((n) => `${n}ª`)
+                                      .join(", ")}{" "}
+                                    série: preencha peso e repetições, ou
+                                    deixe as duas em branco pra pular.
+                                  </p>
+                                );
+                              }
+                              if (draft.done.length === 0) {
+                                return (
+                                  <p className="text-xs text-zinc-500">
+                                    Preencha ao menos uma série pra salvar.
+                                    Séries em branco são puladas.
+                                  </p>
+                                );
+                              }
+                              return (
+                                <p className="text-xs text-zinc-500">
+                                  Salvando {draft.done.length} de{" "}
+                                  {exercise.sets} séries
+                                  {draft.skipped > 0
+                                    ? ` (${draft.skipped} pulada${draft.skipped > 1 ? "s" : ""})`
+                                    : ""}
+                                  .
+                                </p>
+                              );
+                            })()}
                             <button
                               type="button"
                               onClick={() => saveLoad(activeDay.id, exercise)}
