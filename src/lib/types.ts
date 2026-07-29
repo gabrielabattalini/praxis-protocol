@@ -727,6 +727,18 @@ export interface FinanceYearBudget {
   cardInvoiceBase?: Partial<Record<FinanceMonthId, number>>;
   /** Base manual por cartão (fase 2): cardId → mês → valor. */
   cardInvoiceBaseByCard?: Partial<Record<string, Partial<Record<FinanceMonthId, number>>>>;
+  /**
+   * Meses fechados pelo usuário ("Fechar mês"). O sync automático de
+   * Mercado/Suplementos NÃO pode reescrever valor num mês fechado — sem
+   * isso o mês voltava a valer no próximo hydrate.
+   */
+  closedMonths?: Partial<Record<FinanceMonthId, boolean>>;
+  /**
+   * Marca que a limpeza única dos meses passados das linhas automáticas
+   * já rodou. Antes, o sync espalhava o valor nos 12 meses (inclusive
+   * passados); esta flag evita repetir a limpeza a cada virada de mês.
+   */
+  syncPastCleanupDone?: boolean;
   sheetReportedExpenseTotal?: number;
 }
 
