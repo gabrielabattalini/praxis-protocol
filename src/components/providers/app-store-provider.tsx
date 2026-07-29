@@ -5254,6 +5254,13 @@ function migrateFinanceBudget(
       cardInvoiceBase: finalInvoiceBase,
       cardInvoiceBaseByCard: finalByCard,
       sheetReportedExpenseTotal: budget.sheetReportedExpenseTotal,
+      // ATENÇÃO: este return é uma whitelist e roda em TODO hydrate, antes
+      // do sync. Campo esquecido aqui é campo perdido a cada load — foi o
+      // que quase matou o fix dos meses fechados (closedMonths sumia e o
+      // mês voltava a valer; syncPastCleanupDone sumia e a limpeza única
+      // rodava pra sempre, apagando valor digitado à mão em mês passado).
+      closedMonths: budget.closedMonths,
+      syncPastCleanupDone: budget.syncPastCleanupDone,
       lines,
     };
   }
@@ -5322,6 +5329,9 @@ function migrateFinanceBudget(
     cards: legacyCards,
     cardInvoiceBase: invoiceBase,
     sheetReportedExpenseTotal: legacyBudget.annualExpenseFromSheet,
+    // Mesma whitelist do ramo novo — ver comentário lá.
+    closedMonths: budget.closedMonths,
+    syncPastCleanupDone: budget.syncPastCleanupDone,
     lines: [
       ...(legacyBudget.incomeLines ?? []).map((line) => toLine(line, "income")),
       ...expenseLines,
