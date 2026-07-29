@@ -3325,7 +3325,14 @@ function reducer(state: PersistedState, action: Action): PersistedState {
 
                     updatedLine = {
                       ...updatedLine,
-                      monthly: fillFinanceMonths(updatedLine.monthly[anchorMonth] ?? 0),
+                      // A partir do mês âncora, não os 12 meses: virar "Fixo"
+                      // em julho não pode inventar gasto em jan-jun (meses que
+                      // já passaram / foram fechados). Mesmo critério do
+                      // caminho de criação de linha fixa.
+                      monthly: fillFinanceMonthsFrom(
+                        updatedLine.monthly[anchorMonth] ?? 0,
+                        anchorMonth,
+                      ),
                     };
                   }
 
@@ -3840,6 +3847,13 @@ function reducer(state: PersistedState, action: Action): PersistedState {
             [month]: 0,
           },
           cardInvoiceBaseByCard: clearedByCard,
+          // Marca o mês como fechado pra o sync automático de
+          // Mercado/Suplementos não reescrever valor nele depois. Sem
+          // isto o mês fechado voltava a valer no próximo hydrate.
+          closedMonths: {
+            ...(state.financeBudget.closedMonths ?? {}),
+            [month]: true,
+          },
         },
       };
     }
@@ -4726,6 +4740,12 @@ function syncShoppingFinanceState(
   };
 
   let nextLines = [...state.financeBudget.lines];
+  // Limpeza única: antes o sync espalhava o valor nos 12 meses, então
+  // meses passados ficaram com gasto que nunca existiu (e voltavam mesmo
+  // depois de "Fechar mês"). Na primeira passada após o fix, zeramos os
+  // meses anteriores ao atual dessas linhas automáticas. Depois disso o
+  // passado é congelado (nunca mais reescrito).
+  const pastCleanupPending = state.financeBudget.syncPastCleanupDone !== true;
 
   (["market", "supplements"] as ShoppingModuleScope[]).forEach((scope) => {
     const config = getShoppingAutoLineConfig(scope);
@@ -4744,7 +4764,12 @@ function syncShoppingFinanceState(
     }
 
     const existingLine = existingIndex >= 0 ? nextLines[existingIndex] : undefined;
-    const monthly = fillFinanceMonths(nextAmount);
+    const monthly = buildSyncedMonthly(
+      nextAmount,
+      existingLine?.monthly,
+      state.financeBudget.closedMonths,
+      pastCleanupPending,
+    );
     // Preferências persistidas pela linha sincronizada (sobrevivem mesmo
     // se a linha for recriada do zero). Camada extra de defesa: caso o
     // existingLine vier do KV sem cardId por race/migração, reaplica
@@ -4789,6 +4814,7 @@ function syncShoppingFinanceState(
   const nextFinanceBudget = {
     ...state.financeBudget,
     lines: nextLines,
+    syncPastCleanupDone: true,
   };
 
   return {
@@ -4802,17 +4828,47 @@ function syncShoppingFinanceState(
   };
 }
 
-function fillFinanceMonths(value: number) {
+/**
+ * Monta o `monthly` de uma linha AUTOMÁTICA (Mercado/Suplementos) sem
+ * pisar em histórico. Regras, do mais forte pro mais fraco:
+ *
+ *  - mês PASSADO: congelado. Mantém o que já estava (e, na limpeza única,
+ *    zera o resíduo do fan-out antigo). O sync é uma previsão do gasto de
+ *    hoje pra frente — ele não tem o que dizer sobre mês que já passou.
+ *  - mês FECHADO ("Fechar mês"): preserva o valor atual (normalmente 0).
+ *    Era exatamente aqui que o mês voltava a valer no próximo hydrate.
+ *  - mês atual/futuro: recebe o valor novo da lista de compras.
+ *
+ * Antes isto era `fillFinanceMonths(valor)`, que gravava o MESMO valor nos
+ * 12 meses a cada hidratação (a cada load/foco), ressuscitando meses que o
+ * usuário já tinha fechado.
+ */
+function buildSyncedMonthly(
+  value: number,
+  previous: Record<FinanceMonthId, number> | undefined,
+  closedMonths: Partial<Record<FinanceMonthId, boolean>> | undefined,
+  cleanupPastResidue: boolean,
+): Record<FinanceMonthId, number> {
+  const currentIndex = Math.max(0, new Date().getMonth());
   return financeMonthOrder.reduce(
-    (monthly, month) => {
-      monthly[month] = roundCurrencyValue(value);
+    (monthly, month, index) => {
+      const previousValue = roundCurrencyValue(previous?.[month] ?? 0);
+      if (index < currentIndex) {
+        monthly[month] = cleanupPastResidue ? 0 : previousValue;
+      } else if (closedMonths?.[month]) {
+        monthly[month] = previousValue;
+      } else {
+        monthly[month] = roundCurrencyValue(value);
+      }
       return monthly;
     },
     {} as Record<FinanceMonthId, number>,
   );
 }
 
-// Como fillFinanceMonths, mas zera os meses ANTERIORES a `startMonth`.
+// Preenche do `startMonth` em diante e zera os meses ANTERIORES.
+// (Substituiu o antigo fillFinanceMonths, que gravava nos 12 meses e
+// inventava gasto em meses já passados/fechados.)
 // Usado ao CRIAR uma linha fixa: o usuário diz "começa em agosto" e não
 // faz sentido o valor aparecer em jan-jul (ele nem recebia ainda). Sem
 // isto, criar "Vale Mercado R$ 600/mês fixo" no card de agosto enchia
@@ -5198,6 +5254,13 @@ function migrateFinanceBudget(
       cardInvoiceBase: finalInvoiceBase,
       cardInvoiceBaseByCard: finalByCard,
       sheetReportedExpenseTotal: budget.sheetReportedExpenseTotal,
+      // ATENÇÃO: este return é uma whitelist e roda em TODO hydrate, antes
+      // do sync. Campo esquecido aqui é campo perdido a cada load — foi o
+      // que quase matou o fix dos meses fechados (closedMonths sumia e o
+      // mês voltava a valer; syncPastCleanupDone sumia e a limpeza única
+      // rodava pra sempre, apagando valor digitado à mão em mês passado).
+      closedMonths: budget.closedMonths,
+      syncPastCleanupDone: budget.syncPastCleanupDone,
       lines,
     };
   }
@@ -5266,6 +5329,9 @@ function migrateFinanceBudget(
     cards: legacyCards,
     cardInvoiceBase: invoiceBase,
     sheetReportedExpenseTotal: legacyBudget.annualExpenseFromSheet,
+    // Mesma whitelist do ramo novo — ver comentário lá.
+    closedMonths: budget.closedMonths,
+    syncPastCleanupDone: budget.syncPastCleanupDone,
     lines: [
       ...(legacyBudget.incomeLines ?? []).map((line) => toLine(line, "income")),
       ...expenseLines,

@@ -434,11 +434,35 @@ export default function FinanceModulePage() {
     const allCardLines = expenseLines.filter((line) =>
       isFinanceCreditCardPaymentMethod(line.paymentMethod),
     );
+    // Uma linha "pertence" ao mês se ela tem valor OU baixa nesse mês.
+    // As demais (que só existem em outro mês do ano) ficam separadas —
+    // antes elas apareciam misturadas, então uma compra de agosto era
+    // listada dentro de julho.
+    const belongsToMonth = (line: FinanceBudgetLine) =>
+      roundCurrencyValue(line.monthly[selectedMonthId] ?? 0) > 0 ||
+      getFinanceSettledAmount(line, selectedMonthId, budget.year) > 0;
     const groups = cards.map((card) => {
-      const lines = allCardLines.filter((line) => line.cardId === card.id);
-      const settled = cardSettledForMonth(card.id, selectedMonthId);
+      const cardLines = allCardLines.filter((line) => line.cardId === card.id);
+      const lines = cardLines.filter(belongsToMonth);
+      const otherMonthLines = cardLines.filter((line) => !belongsToMonth(line));
+      // Total PLANEJADO do mês (o que o Previsto enxerga). O cabeçalho
+      // mostrava só o "já lançado", então um cartão cheio de gastos
+      // planejados exibia R$ 0,00 e o valor parecia vir do nada.
+      const plannedTotal = roundCurrencyValue(
+        cardLines.reduce(
+          (sum, line) => sum + (line.monthly[selectedMonthId] ?? 0),
+          getFinanceCardInvoiceBase(budget, card.id, selectedMonthId),
+        ),
+      );
       const base = getFinanceCardInvoiceBase(budget, card.id, selectedMonthId);
-      return { card, lines, launchedTotal: roundCurrencyValue(base + settled) };
+      const settled = cardSettledForMonth(card.id, selectedMonthId);
+      return {
+        card,
+        lines,
+        otherMonthLines,
+        plannedTotal,
+        launchedTotal: roundCurrencyValue(base + settled),
+      };
     });
     const orphanLines = allCardLines.filter(
       (line) => !line.cardId || !cardsById.has(line.cardId),
@@ -1795,6 +1819,19 @@ export default function FinanceModulePage() {
             <h2 className="text-2xl font-semibold text-white">
               {selectedMonth.label}
             </h2>
+            {/* A tela abre no mês SEGUINTE ao real (o fechamento do mês N é
+                feito em N+1). Sem aviso, é fácil lançar uma compra num mês
+                e procurá-la em outro. */}
+            {selectedMonthId !== currentMonthId ? (
+              <button
+                type="button"
+                onClick={() => setSelectedMonthId(currentMonthId)}
+                className="mt-1 text-xs text-[var(--accent)] underline underline-offset-2"
+              >
+                Você está vendo {selectedMonth.label} — ir para{" "}
+                {financeMonthLabels[currentMonthId]} (mês atual)
+              </button>
+            ) : null}
           </div>
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1">
@@ -2777,7 +2814,13 @@ export default function FinanceModulePage() {
       </GlassPanel>
 
       <div className="space-y-6">
-        {cardInvoiceGroups.groups.map(({ card, lines, launchedTotal }) => {
+        {cardInvoiceGroups.groups.map(({
+          card,
+          lines,
+          otherMonthLines,
+          plannedTotal,
+          launchedTotal,
+        }) => {
           const open = openCardInvoices[card.id] === true;
           const draftKey = `${card.id}:${selectedMonthId}`;
           const isBenefit = isFinanceBenefitCard(card);
@@ -2822,8 +2865,18 @@ export default function FinanceModulePage() {
                     >
                       {isBenefit && bal
                         ? formatCurrency(bal.balance)
-                        : formatCurrency(launchedTotal)}
+                        : formatCurrency(plannedTotal)}
                     </h2>
+                    {!isBenefit ? (
+                      // O topo mostra o PLANEJADO do mês (é isso que entra no
+                      // Previsto). Antes mostrava só o "já lançado", então um
+                      // cartão com gastos planejados exibia R$ 0,00 e o valor
+                      // do Previsto parecia vir do nada.
+                      <p className="text-xs text-zinc-600">
+                        Previsto no mês · já lançado{" "}
+                        {formatCurrency(launchedTotal)}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -3036,9 +3089,24 @@ export default function FinanceModulePage() {
                       lines.map(renderLineCard)
                     ) : (
                       <p className="rounded-sm border border-zinc-800 bg-black/20 px-4 py-3 text-sm text-zinc-500">
-                        Nenhum lançamento neste cartão ainda.
+                        Nenhum lançamento neste cartão em {selectedMonth.label}.
                       </p>
                     )}
+                    {/* Linhas que só existem em OUTRO mês do ano ficam aqui,
+                        recolhidas — antes vinham misturadas na lista do mês,
+                        então uma compra de agosto aparecia dentro de julho. */}
+                    {otherMonthLines.length > 0 ? (
+                      <details className="group rounded-sm border border-zinc-800 bg-black/20">
+                        <summary className="cursor-pointer px-4 py-3 text-sm text-zinc-500 [&::-webkit-details-marker]:hidden">
+                          + {otherMonthLines.length}{" "}
+                          {otherMonthLines.length === 1 ? "linha" : "linhas"} em
+                          outros meses do ano
+                        </summary>
+                        <div className="space-y-3 border-t border-zinc-800 p-3">
+                          {otherMonthLines.map(renderLineCard)}
+                        </div>
+                      </details>
+                    ) : null}
                   </div>
                 </>
               ) : null}
