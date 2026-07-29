@@ -1819,6 +1819,19 @@ export default function FinanceModulePage() {
             <h2 className="text-2xl font-semibold text-white">
               {selectedMonth.label}
             </h2>
+            {/* A tela abre no mês SEGUINTE ao real (o fechamento do mês N é
+                feito em N+1). Sem aviso, é fácil lançar uma compra num mês
+                e procurá-la em outro. */}
+            {selectedMonthId !== currentMonthId ? (
+              <button
+                type="button"
+                onClick={() => setSelectedMonthId(currentMonthId)}
+                className="mt-1 text-xs text-[var(--accent)] underline underline-offset-2"
+              >
+                Você está vendo {selectedMonth.label} — ir para{" "}
+                {financeMonthLabels[currentMonthId]} (mês atual)
+              </button>
+            ) : null}
           </div>
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1">
