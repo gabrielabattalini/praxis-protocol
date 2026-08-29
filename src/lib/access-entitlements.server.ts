@@ -153,3 +153,124 @@ export async function resolveAccountEntitlementFull(
     extraBuiltInLifetimeEmails: builtInLifetime,
   });
 }
+
+/* ───────────────────────────────────────────────────────────────
+   Cache do entitlement (KV) — o resolvedor acima consulta o Stripe
+   AO VIVO (até ~21 chamadas por resolução). Sem cache, cada load de
+   página paga esse custo e, com volume, vira lentidão + rate limit
+   na API do Stripe. Regras:
+
+     - resultado PAGO/vitalício: cacheia 5 min (revogação pode
+       esperar; o webhook invalida antes disso quando algo muda)
+     - resultado FREE: cacheia 60s (quem acabou de pagar não pode
+       esperar 5 min pra entrar — e o webhook também invalida)
+
+   Mesmo padrão fetch/REST do account-state.server.ts (Upstash),
+   sem dependência nova. Sem KV configurado, degrada pro resolvedor
+   direto — comportamento idêntico ao de antes.
+   ─────────────────────────────────────────────────────────────── */
+
+const ENTITLEMENT_KV_URL =
+  process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "";
+const ENTITLEMENT_KV_TOKEN =
+  process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
+const ENTITLEMENT_KV_ENABLED = Boolean(
+  ENTITLEMENT_KV_URL && ENTITLEMENT_KV_TOKEN,
+);
+
+const ENTITLEMENT_TTL_PAID_SECONDS = 300;
+const ENTITLEMENT_TTL_FREE_SECONDS = 60;
+
+function entitlementCacheKey(email: string) {
+  return `praxis:entitlement:${email}`;
+}
+
+async function kvGetEntitlement(
+  email: string,
+): Promise<AccountEntitlement | null> {
+  if (!ENTITLEMENT_KV_ENABLED) return null;
+  try {
+    const response = await fetch(
+      `${ENTITLEMENT_KV_URL}/get/${encodeURIComponent(entitlementCacheKey(email))}`,
+      {
+        headers: { Authorization: `Bearer ${ENTITLEMENT_KV_TOKEN}` },
+        cache: "no-store",
+      },
+    );
+    if (!response.ok) return null;
+    const payload = (await response.json()) as { result?: string | null };
+    if (!payload.result) return null;
+    const parsed = JSON.parse(payload.result) as AccountEntitlement;
+    if (typeof parsed?.hasFullAccess !== "boolean") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function kvSetEntitlement(
+  email: string,
+  entitlement: AccountEntitlement,
+): Promise<void> {
+  if (!ENTITLEMENT_KV_ENABLED) return;
+  try {
+    const ttl = entitlement.hasFullAccess
+      ? ENTITLEMENT_TTL_PAID_SECONDS
+      : ENTITLEMENT_TTL_FREE_SECONDS;
+    await fetch(
+      `${ENTITLEMENT_KV_URL}/set/${encodeURIComponent(entitlementCacheKey(email))}?EX=${ttl}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${ENTITLEMENT_KV_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(entitlement),
+        cache: "no-store",
+      },
+    );
+  } catch {
+    // Cache é otimização — falha silenciosa mantém o fluxo vivo.
+  }
+}
+
+/**
+ * Invalida o cache de um email (chamado pelo webhook do Stripe quando
+ * checkout/assinatura muda — ativação instantânea apesar do TTL).
+ */
+export async function invalidateEntitlementCache(
+  email: string | null | undefined,
+): Promise<void> {
+  const normalized = normalizeEntitlementEmail(email);
+  if (!normalized || !ENTITLEMENT_KV_ENABLED) return;
+  try {
+    await fetch(
+      `${ENTITLEMENT_KV_URL}/del/${encodeURIComponent(entitlementCacheKey(normalized))}`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${ENTITLEMENT_KV_TOKEN}` },
+        cache: "no-store",
+      },
+    );
+  } catch {
+    // TTL curto cobre o pior caso.
+  }
+}
+
+/**
+ * Versão cacheada do resolvedor — use ESTA em rotas de API.
+ * Allowlist vitalícia nem passa pelo cache (é instantânea e local).
+ */
+export async function resolveAccountEntitlementCached(
+  email: string | null | undefined,
+): Promise<AccountEntitlement> {
+  const normalized = normalizeEntitlementEmail(email);
+  if (!normalized) return resolveAccountEntitlementFull(email);
+
+  const cached = await kvGetEntitlement(normalized);
+  if (cached) return cached;
+
+  const resolved = await resolveAccountEntitlementFull(email);
+  await kvSetEntitlement(normalized, resolved);
+  return resolved;
+}

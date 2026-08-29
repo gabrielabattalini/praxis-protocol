@@ -1,9 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getStripeServer } from "@/lib/stripe.server";
+import { invalidateEntitlementCache } from "@/lib/access-entitlements.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/**
+ * Resolve o email do cliente de um evento de assinatura/fatura (esses
+ * eventos só trazem o customer id) pra invalidar o cache certo.
+ */
+async function customerEmailFromId(
+  customerId: string | Stripe.Customer | Stripe.DeletedCustomer | null,
+): Promise<string> {
+  if (!customerId) return "";
+  if (typeof customerId !== "string") {
+    return "deleted" in customerId && customerId.deleted
+      ? ""
+      : ((customerId as Stripe.Customer).email ?? "");
+  }
+  try {
+    const stripe = getStripeServer();
+    const customer = await stripe.customers.retrieve(customerId);
+    if (customer.deleted) return "";
+    return customer.email ?? "";
+  } catch {
+    return "";
+  }
+}
 
 /**
  * Stripe webhook receiver.
@@ -77,6 +101,9 @@ export async function POST(request: NextRequest) {
         console.info(
           `[webhook] checkout.session.completed · ${email} · ${session.id}`,
         );
+        // Ativação instantânea: derruba o cache do entitlement desse
+        // email — o próximo load já resolve como pago, sem esperar TTL.
+        await invalidateEntitlementCache(email);
         break;
       }
       case "customer.subscription.deleted":
@@ -87,6 +114,11 @@ export async function POST(request: NextRequest) {
             subscription.customer,
           )} · status=${subscription.status}`,
         );
+        // Cancelamento/renovação: invalida pra revogar (ou manter) o
+        // acesso sem esperar o TTL de 5 min do cache.
+        await invalidateEntitlementCache(
+          await customerEmailFromId(subscription.customer),
+        );
         break;
       }
       case "invoice.payment_failed": {
@@ -95,6 +127,9 @@ export async function POST(request: NextRequest) {
           `[webhook] invoice.payment_failed · customer=${String(
             invoice.customer,
           )}`,
+        );
+        await invalidateEntitlementCache(
+          await customerEmailFromId(invoice.customer),
         );
         break;
       }

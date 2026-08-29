@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { fetchCurrentPriceFromUrl } from "@/lib/shopping-search.server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { requireFullAccess } from "@/lib/require-full-access.server";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,11 @@ export async function GET(request: Request) {
   if (!userId) {
     return NextResponse.json({ ok: false, error: "Não autenticado." }, { status: 401 });
   }
+
+  // Recurso CARO (chamadas externas por request) → exclusivo do plano
+  // pago. O gate roda no servidor: trancar só a UI não segura custo.
+  const deniedByPlan = await requireFullAccess();
+  if (deniedByPlan) return deniedByPlan;
 
   const limited = await enforceRateLimit("shopping-price", userId, 30, 60);
   if (limited) return limited;

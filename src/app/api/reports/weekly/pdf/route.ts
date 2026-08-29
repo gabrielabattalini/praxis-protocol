@@ -8,6 +8,7 @@ import {
 } from "@/lib/weekly-report";
 import { generateWeeklyReportPdf } from "@/lib/weekly-report-pdf";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { requireFullAccess } from "@/lib/require-full-access.server";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,11 @@ export async function GET(request: Request) {
   if (!userId) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   }
+
+  // Recurso CARO (chamadas externas por request) → exclusivo do plano
+  // pago. O gate roda no servidor: trancar só a UI não segura custo.
+  const deniedByPlan = await requireFullAccess();
+  if (deniedByPlan) return deniedByPlan;
 
   // Geração de PDF é cara. 10/min por usuário.
   const limited = await enforceRateLimit("weekly-pdf", userId, 10, 60);

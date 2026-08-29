@@ -12,6 +12,7 @@ import { usePushNotifications } from "@/components/providers/notifications-provi
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { useUserClient } from "@/components/providers/auth-client-provider";
 import { StripeCheckoutButton } from "@/components/billing/stripe-checkout-button";
+import { ManageSubscriptionButton } from "@/components/billing/manage-subscription-button";
 import { TelegramCard } from "@/components/settings/telegram-card";
 import { RxLabel, RxPanel } from "@/components/redesign/primitives";
 import { getLoadingCuePool } from "@/lib/discipline-cues";
@@ -1115,18 +1116,23 @@ function TabContent({
         </div>
         <div style={{ marginTop: 18 }}>
           {entitlement.hasFullAccess ? (
-            <div
-              style={{
-                border: "1px solid rgba(52,211,153,0.28)",
-                background: "rgba(16,185,129,0.1)",
-                color: "#bbf7d0",
-                padding: "12px 14px",
-                borderRadius: 12,
-                fontSize: 13,
-                fontWeight: 700,
-              }}
-            >
-              Acesso completo liberado para esta conta.
+            <div style={{ display: "grid", gap: 10 }}>
+              <div
+                style={{
+                  border: "1px solid rgba(52,211,153,0.28)",
+                  background: "rgba(16,185,129,0.1)",
+                  color: "#bbf7d0",
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  fontSize: 13,
+                  fontWeight: 700,
+                }}
+              >
+                Acesso completo liberado para esta conta.
+              </div>
+              {entitlement.tier === "paid" ? (
+                <ManageSubscriptionButton />
+              ) : null}
             </div>
           ) : (
             <StripeCheckoutButton
