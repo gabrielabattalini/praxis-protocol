@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { isTbcaDatabaseAvailable, searchTbcaFoods } from "@/lib/tbca-foods.server";
+import { requireFullAccess } from "@/lib/require-full-access.server";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,11 @@ export async function GET(request: Request) {
   if (!userId) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   }
+
+  // Recurso CARO (chamadas externas por request) → exclusivo do plano
+  // pago. O gate roda no servidor: trancar só a UI não segura custo.
+  const deniedByPlan = await requireFullAccess();
+  if (deniedByPlan) return deniedByPlan;
 
   if (!isTbcaDatabaseAvailable()) {
     return NextResponse.json(

@@ -112,6 +112,12 @@ type AppStoreValue = {
   state: PersistedState;
   user: ReturnType<typeof buildUserProfile>;
   entitlement: AccountEntitlement;
+  /**
+   * true depois que a PRIMEIRA resolução do entitlement terminou (fetch
+   * concluído, com sucesso ou erro). O PaywallGate precisa disto pra não
+   * piscar a tela de bloqueio enquanto a resposta não chegou.
+   */
+  entitlementLoaded: boolean;
   // Cross-device sync indicator. "idle" = up to date; "saving" = a PUT
   // is in flight or queued; "error" = the last PUT failed and we'll
   // retry. The tasks UI needs this so users can see when a change has
@@ -6401,6 +6407,9 @@ export function AppStoreProvider({
       ? localDevelopmentEntitlement
       : defaultAccountEntitlement,
   );
+  const [entitlementLoaded, setEntitlementLoaded] = useState(
+    isLocalAuthBypassEnabled,
+  );
   const effectiveAuthLoaded = isLocalAuthBypassEnabled ? true : authLoaded;
   const activeStorageKey = userId
     ? getScopedStorageKey(userId)
@@ -7032,11 +7041,13 @@ export function AppStoreProvider({
 
     if (isLocalAuthBypassEnabled) {
       setEntitlement(localDevelopmentEntitlement);
+      setEntitlementLoaded(true);
       return;
     }
 
     if (!userId) {
       setEntitlement(defaultAccountEntitlement);
+      setEntitlementLoaded(true);
       return;
     }
 
@@ -7057,10 +7068,12 @@ export function AppStoreProvider({
 
         if (!cancelled) {
           setEntitlement(payload);
+          setEntitlementLoaded(true);
         }
       } catch {
         if (!cancelled) {
           setEntitlement(defaultAccountEntitlement);
+          setEntitlementLoaded(true);
         }
       }
     };
@@ -7142,6 +7155,7 @@ export function AppStoreProvider({
     state,
     user: buildUserProfile(state),
     entitlement,
+    entitlementLoaded,
     remoteSaveStatus,
     actions: {
       toggleTask(taskId) {

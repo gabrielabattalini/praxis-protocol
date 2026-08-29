@@ -2660,6 +2660,18 @@ export function SystemLanding() {
               </span>
             </div>
 
+            <div className="flex flex-wrap gap-x-5 gap-y-2 font-mono text-[0.6rem] uppercase tracking-[0.2em] text-zinc-600">
+              <a href="/legal/termos" className="hover:text-zinc-400">
+                Termos de Uso
+              </a>
+              <a href="/legal/privacidade" className="hover:text-zinc-400">
+                Privacidade
+              </a>
+              <a href="/legal/reembolso" className="hover:text-zinc-400">
+                Reembolso · 7 dias
+              </a>
+            </div>
+
             <p className="font-mono text-[0.58rem] uppercase tracking-[0.26em] text-zinc-700">
               © 2026 Praxis Protocol. Todos os direitos reservados.
             </p>

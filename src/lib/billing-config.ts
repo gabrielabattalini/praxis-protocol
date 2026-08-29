@@ -4,7 +4,9 @@ export const publicBillingPlan = {
   id: "monthly" as BillingPlanId,
   name: process.env.NEXT_PUBLIC_STRIPE_PLAN_NAME || "Praxis Pro",
   priceLabel:
-    process.env.NEXT_PUBLIC_STRIPE_PLAN_PRICE || "Ativação via Stripe",
+    // Defina NEXT_PUBLIC_STRIPE_PLAN_PRICE (ex.: "R$ 29,90/mês") pra
+    // exibir o preço real na landing e no paywall.
+    process.env.NEXT_PUBLIC_STRIPE_PLAN_PRICE || "Assinatura mensal",
   description:
     process.env.NEXT_PUBLIC_STRIPE_PLAN_DESCRIPTION ||
     "Checkout seguro com ativação imediata do acesso ao sistema.",

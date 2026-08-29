@@ -7,6 +7,8 @@ const isPublicRoute = createRouteMatcher([
   "/auth/register(.*)",
   "/clerk-sync-keyless(.*)",
   "/checkout/(.*)",
+  // Páginas legais: Stripe/consumidor exigem acesso sem login.
+  "/legal(.*)",
   // VAPID public key is non-sensitive by design and the browser may
   // fetch it before the Clerk session is ready — keep it open.
   "/api/notifications/public-key",

@@ -4,7 +4,7 @@ import {
   localDevelopmentEntitlement,
   normalizeEntitlementEmail,
 } from "@/lib/access-entitlements";
-import { resolveAccountEntitlementFull } from "@/lib/access-entitlements.server";
+import { resolveAccountEntitlementCached } from "@/lib/access-entitlements.server";
 import { isLocalAuthBypassEnabled } from "@/lib/auth-mode";
 
 export const runtime = "nodejs";
@@ -57,7 +57,7 @@ export async function GET() {
   const email =
     user?.primaryEmailAddress?.emailAddress ||
     getEmailFromClaims(authResult.sessionClaims);
-  const entitlement = await resolveAccountEntitlementFull(email);
+  const entitlement = await resolveAccountEntitlementCached(email);
 
   return NextResponse.json(
     {

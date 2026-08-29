@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { searchShoppingOffers } from "@/lib/shopping-search.server";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import type { DoseUnit, ShoppingModuleScope } from "@/lib/shopping-search";
+import { requireFullAccess } from "@/lib/require-full-access.server";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,11 @@ export async function GET(request: Request) {
   if (!userId) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   }
+
+  // Recurso CARO (chamadas externas por request) → exclusivo do plano
+  // pago. O gate roda no servidor: trancar só a UI não segura custo.
+  const deniedByPlan = await requireFullAccess();
+  if (deniedByPlan) return deniedByPlan;
 
   // Busca usa axios + Playwright (caro). 15/min por usuário.
   const limited = await enforceRateLimit("shopping-search", userId, 15, 60);
