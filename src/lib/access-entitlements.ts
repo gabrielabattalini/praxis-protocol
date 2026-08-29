@@ -36,7 +36,7 @@ export function normalizeEntitlementEmail(email: string | null | undefined) {
  * suplementos etc.) comparando o hash do email logado com esta lista.
  */
 export const FOUNDER_ACCESS_EMAIL_HASHES: readonly string[] = [
-  // SHA-256 de "gabrielabattalini@gmail.com" (normalizado: trim+lowercase).
+  // SHA-256 do email do fundador (normalizado: trim+lowercase).
   "81e89aaf9bb611943f624f7e946848c92fcd55bcd1f9c23b73880b4db87d408f",
 ];
 

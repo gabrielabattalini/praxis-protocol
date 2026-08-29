@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import {
   hasLifetimeAccessEmail,
   normalizeEntitlementEmail,
@@ -8,42 +9,42 @@ import {
 import { getStripeServer } from "@/lib/stripe.server";
 
 /**
- * Built-in lifetime allowlist — sempre tem acesso vitalício, mas NÃO
- * recebem dados pré-seeded (não passam por isFounderEmail()). Antes
- * morava em access-entitlements.ts (client + server), o que vazava os
- * emails de usuários reais pro bundle JS público. Agora vive aqui (só
- * server), e é injetado em resolveAccountEntitlementFull. Aceita override
- * via env (PRAXIS_BUILT_IN_LIFETIME_EMAILS, separadores: vírgula/espaço/
- * ponto-e-vírgula) — útil pra ambientes onde o operador quer alterar
- * sem mexer no código.
+ * Allowlist vitalícia built-in — SÓ HASHES (SHA-256 do email normalizado
+ * trim+lowercase). O repositório é público: email de usuário real em
+ * texto puro no fonte é vazamento de dado pessoal (LGPD). O mesmo padrão
+ * já era usado pro fundador no módulo client (FOUNDER_ACCESS_EMAIL_HASHES);
+ * aqui vale pra lista inteira. Inclui o fundador — o acesso admin nunca
+ * depende de env.
+ *
+ * Pra adicionar alguém: rode
+ *   node -e "console.log(require('node:crypto').createHash('sha256').update('email@x.com').digest('hex'))"
+ * ou use a env PRAXIS_BUILT_IN_LIFETIME_EMAILS (texto puro, fora do repo;
+ * separadores: vírgula/espaço/ponto-e-vírgula).
  */
-const BUILT_IN_LIFETIME_EMAILS_DEFAULT: readonly string[] = [
-  "alberto1998.lima@gmail.com",
-  "kadinefernandq@gmail.com",
-  "valdemir.887787@gmail.com",
+const BUILT_IN_LIFETIME_EMAIL_HASHES: readonly string[] = [
+  // fundador/operador
+  "81e89aaf9bb611943f624f7e946848c92fcd55bcd1f9c23b73880b4db87d408f",
+  // usuários vitalícios
+  "f0aa2d8e79eca414e50145fe4882e24ef2141a7f460ea24a0109168ba8ecaa51",
+  "f860434a7063678cf5b7897426bd1dde436ebae29266eb983623d130e042583a",
+  "8323a0647ad95000499c7dc631af8a95d07db3feabc7f258bc30d8d12db5c307",
 ];
 
-function getBuiltInLifetimeEmails(): readonly string[] {
+function getEnvLifetimeEmails(): readonly string[] {
   const override = process.env.PRAXIS_BUILT_IN_LIFETIME_EMAILS?.trim();
-  if (override) {
-    return override
-      .split(/[\s,;]+/)
-      .map((email) => email.trim())
-      .filter(Boolean);
-  }
-  return BUILT_IN_LIFETIME_EMAILS_DEFAULT;
+  if (!override) return [];
+  return override
+    .split(/[\s,;]+/)
+    .map((email) => email.trim())
+    .filter(Boolean);
 }
 
-/**
- * Email(s) do fundador/operador em texto puro. Vive aqui (server-only),
- * NÃO em access-entitlements.ts (módulo client-safe, que só guarda o HASH
- * pra não vazar o email no bundle JS público). Sempre entra na allowlist de
- * lifetime — mesmo que PRAXIS_BUILT_IN_LIFETIME_EMAILS sobrescreva a lista
- * de vitalícios — garantindo que o acesso admin nunca quebra por env.
- */
-const FOUNDER_LIFETIME_EMAILS: readonly string[] = [
-  "gabrielabattalini@gmail.com",
-];
+function isBuiltInLifetimeEmail(email: string | null | undefined): boolean {
+  const normalized = normalizeEntitlementEmail(email);
+  if (!normalized) return false;
+  const hash = createHash("sha256").update(normalized).digest("hex");
+  return BUILT_IN_LIFETIME_EMAIL_HASHES.includes(hash);
+}
 
 /**
  * Returns true if the given email has paid — checked LIVE against Stripe.
@@ -122,17 +123,14 @@ async function hasActiveStripeAccess(
 export async function resolveAccountEntitlementFull(
   email: string | null | undefined,
 ): Promise<AccountEntitlement> {
-  const builtInLifetime = [
-    ...FOUNDER_LIFETIME_EMAILS,
-    ...getBuiltInLifetimeEmails(),
-  ];
-
-  // 1. Lifetime allowlist — instant, no network.
+  // 1. Allowlist vitalícia — hash built-in (repo público) + envs em
+  //    texto puro (vivem fora do repo). Instantânea, sem rede.
   if (
+    isBuiltInLifetimeEmail(email) ||
     hasLifetimeAccessEmail(
       email,
       process.env.PRAXIS_LIFETIME_ACCESS_EMAILS,
-      builtInLifetime,
+      getEnvLifetimeEmails(),
     )
   ) {
     return {
@@ -150,7 +148,7 @@ export async function resolveAccountEntitlementFull(
     email,
     lifetimeAccessEmails: process.env.PRAXIS_LIFETIME_ACCESS_EMAILS,
     paidActive,
-    extraBuiltInLifetimeEmails: builtInLifetime,
+    extraBuiltInLifetimeEmails: getEnvLifetimeEmails(),
   });
 }
 
