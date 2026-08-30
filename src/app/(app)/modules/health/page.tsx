@@ -16,6 +16,10 @@ import { GlassPanel } from "@/components/ui/glass-panel";
 import { ProgressCurveChart } from "@/components/ui/progress-curve-chart";
 import type { Task, TaskDifficulty, TaskRecurrence, Weekday } from "@/lib/types";
 import {
+  buildHealthRecurrence,
+  getHealthDifficulty,
+} from "@/lib/health-task-rules";
+import {
   formatRecurrence,
   isTaskCompletedForDate,
   isTaskDueForDate,
@@ -127,48 +131,6 @@ function addDays(referenceDate: Date, amount: number) {
   const date = new Date(referenceDate);
   date.setDate(date.getDate() + amount);
   return date;
-}
-
-function getHealthDifficulty(
-  recurrenceKind: "interval-days" | "selected-weekdays" | "monthly",
-  intervalDays: number,
-): TaskDifficulty {
-  if (recurrenceKind === "interval-days" && intervalDays >= 90) {
-    return "hard";
-  }
-
-  if (recurrenceKind === "monthly") {
-    return "hard";
-  }
-
-  return "medium";
-}
-
-function buildRecurrence(
-  recurrenceKind: "interval-days" | "selected-weekdays" | "monthly",
-  todayWeekday: Weekday,
-  intervalDays: number,
-  weekdays: Weekday[],
-  dayOfMonth: number,
-): TaskRecurrence {
-  if (recurrenceKind === "selected-weekdays") {
-    return {
-      kind: "selected-weekdays",
-      weekdays: weekdays.length ? weekdays : [todayWeekday],
-    };
-  }
-
-  if (recurrenceKind === "monthly") {
-    return {
-      kind: "monthly",
-      dayOfMonth: Math.max(1, Math.min(28, dayOfMonth)),
-    };
-  }
-
-  return {
-    kind: "interval-days",
-    intervalDays: Math.max(1, intervalDays),
-  };
 }
 
 function nextHealthWindowLabel(task: Task, referenceDate: Date) {
@@ -478,7 +440,7 @@ export default function HealthModulePage() {
     event.preventDefault();
     if (!title.trim()) return;
 
-    const recurrence = buildRecurrence(
+    const recurrence = buildHealthRecurrence(
       recurrenceKind,
       todayWeekday,
       intervalDays,
