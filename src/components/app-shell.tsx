@@ -50,6 +50,8 @@ import { RemoteSaveIndicator } from "@/components/remote-save-indicator";
 import { isLocalAuthBypassEnabled } from "@/lib/auth-mode";
 import { moduleCatalog } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { CreateTaskProvider } from "@/components/providers/create-task-provider";
+import { CreateTaskModal } from "@/components/ui/create-task-modal";
 
 // Operação (top group) — matches design bundle's NAV main group
 const operationLinks = [
@@ -278,6 +280,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <ToastProvider>
+    <CreateTaskProvider>
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
       {navigationPending ? (
         <NavigationLoadingOverlay
@@ -894,7 +897,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <RemoteSaveIndicator />
       <QuickActionsBar />
       <CommandPalette />
+      <CreateTaskModal />
     </div>
+    </CreateTaskProvider>
     </ToastProvider>
   );
 }

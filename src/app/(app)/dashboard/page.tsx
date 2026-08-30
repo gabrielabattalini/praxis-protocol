@@ -35,6 +35,7 @@ import { moduleCatalog } from "@/lib/mock-data";
 import type { AgendaEvent } from "@/lib/agenda";
 import type { DashboardSectionId, ModuleId } from "@/lib/types";
 import { formatPoints } from "@/lib/utils";
+import { useCreateTask } from "@/components/providers/create-task-provider";
 
 type ModuleSnapshot = {
   id: ModuleId;
@@ -114,6 +115,7 @@ function formatHeaderDate(date: Date) {
 
 export default function DashboardPage() {
   const { state, user, actions } = useAppStore();
+  const { openCreateTask } = useCreateTask();
   const [isLayoutEditing, setIsLayoutEditing] = useState(false);
   const [missionFilter, setMissionFilter] = useState<
     "all" | "pending" | "overdue"
@@ -1156,13 +1158,13 @@ export default function DashboardPage() {
         >
           {isLayoutEditing ? "Fechar layout" : "Editar layout"}
         </button>
-        <Link
-          href="/tasks"
+        <button
+          type="button"
+          onClick={() => openCreateTask()}
           className="v2-btn v2-btn-primary"
-          style={{ textDecoration: "none" }}
         >
           <Plus className="h-3.5 w-3.5" /> Missão
-        </Link>
+        </button>
       </div>
 
       {isLayoutEditing ? (

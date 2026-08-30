@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Droplet, ListPlus, UtensilsCrossed, X } from "lucide-react";
 import { useAppStore } from "@/components/providers/app-store-provider";
 import { useToast } from "@/components/ui/toast";
 import { formatDateKey } from "@/lib/utils";
+import { useCreateTask } from "@/components/providers/create-task-provider";
 
 const WATER_QUICK_ML = 250;
 
@@ -44,6 +44,7 @@ function findNextPendingMeal(
 export function QuickActionsBar() {
   const { state, actions } = useAppStore();
   const { push } = useToast();
+  const { openCreateTask } = useCreateTask();
   const [open, setOpen] = useState(false);
 
   const todayKey = getTodayKey();
@@ -109,9 +110,13 @@ export function QuickActionsBar() {
                 icon={<UtensilsCrossed className="h-4 w-4" />}
               />
             ) : null}
-            <QuickActionLink
-              href="/tasks?new=1"
-              onClick={() => setOpen(false)}
+            <QuickActionItem
+              onClick={() => {
+                // Fecha o backdrop do FAB (z-140) antes de abrir o modal
+                // global (z-160) — sem isso ficam dois overlays empilhados.
+                setOpen(false);
+                openCreateTask();
+              }}
               label="Nova tarefa"
               icon={<ListPlus className="h-4 w-4" />}
             />
@@ -153,25 +158,3 @@ function QuickActionItem({
   );
 }
 
-function QuickActionLink({
-  href,
-  onClick,
-  label,
-  icon,
-}: {
-  href: string;
-  onClick: () => void;
-  label: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      onClick={onClick}
-      className="flex items-center gap-2 rounded-sm border border-zinc-700 bg-[rgba(14,14,17,0.98)] px-4 py-2.5 text-sm font-semibold text-zinc-100 shadow-[0_8px_24px_rgba(0,0,0,0.55)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-    >
-      {icon}
-      {label}
-    </Link>
-  );
-}

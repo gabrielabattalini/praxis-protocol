@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
   Bell,
@@ -21,6 +22,7 @@ import { HydrationControls } from "@/components/nutrition/hydration-controls";
 import { useToast } from "@/components/ui/toast";
 import { RxPBar } from "@/components/redesign/primitives";
 import { moduleCatalog } from "@/lib/mock-data";
+import { useCreateTask } from "@/components/providers/create-task-provider";
 import type {
   MealPlanBlock,
   MealPlanItem,
@@ -414,6 +416,7 @@ function itemNotifiesByDefault(item: AgendaItem): boolean {
 }
 
 export default function TasksPage() {
+  const { openCreateTask } = useCreateTask();
   const { state, actions } = useAppStore();
   const toast = useToast();
   const today = new Date();
@@ -430,9 +433,6 @@ export default function TasksPage() {
     activeWorkoutProgram?.workoutPlan?.length
       ? activeWorkoutProgram.workoutPlan
       : state.workoutPlan;
-  const visibleModules = moduleCatalog.filter(
-    (module) => state.settings.activeModules[module.id],
-  );
 
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [calendarView, setCalendarView] = useState<"week" | "month">("week");
@@ -446,7 +446,6 @@ export default function TasksPage() {
     current.setHours(0, 0, 0, 0);
     return current;
   });
-  const [showCreateTaskForm, setShowCreateTaskForm] = useState(false);
   // Status do canal do Telegram — pra mostrar, junto do alarme, se a
   // conta está de fato conectada. Sem binding, nenhum alarme chega ao
   // Telegram (o dispatcher ignora em silêncio), e era essa a sensação de
@@ -1522,18 +1521,39 @@ export default function TasksPage() {
       {/* Compact header: just the h1. The eyebrow + description paragraph
           were removed — the page is reached via the "Missões" topbar
           breadcrumb so users already know where they are. */}
-      <h1
+      <div
         style={{
-          fontFamily: "var(--font-space-grotesk), sans-serif",
-          fontSize: 22,
-          fontWeight: 700,
-          letterSpacing: "-0.02em",
-          color: "var(--fg)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
           marginBottom: 14,
         }}
       >
-        Tarefas
-      </h1>
+        <h1
+          style={{
+            fontFamily: "var(--font-space-grotesk), sans-serif",
+            fontSize: 22,
+            fontWeight: 700,
+            letterSpacing: "-0.02em",
+            color: "var(--fg)",
+          }}
+        >
+          Tarefas
+        </h1>
+        <button
+          type="button"
+          onClick={() => openCreateTask()}
+          className="v2-btn v2-btn-primary"
+        >
+          <Plus className="h-3.5 w-3.5" /> Nova meta
+        </button>
+      </div>
+      {/* Compat: links antigos /tasks?new=1 (FAB de versões anteriores,
+          favoritos) abrem o modal novo em vez de morrer em silêncio. */}
+      <Suspense fallback={null}>
+        <OpenCreateTaskFromQuery onOpen={openCreateTask} />
+      </Suspense>
 
       {/* Calendar block — eyebrow + heading + Nova meta row all removed
           in previous compact passes; now just the navigation arrows + the
@@ -1815,94 +1835,6 @@ export default function TasksPage() {
           </span>
         </div>
       </div>
-
-      {/* Create task form */}
-      {showCreateTaskForm ? (
-        <div
-          className="glass"
-          style={{
-            marginBottom: 20,
-            borderColor: "rgba(74,222,128,0.2)",
-          }}
-        >
-          <div className="field-label" style={{ marginBottom: 10 }}>
-            Nova meta
-          </div>
-          <p
-            style={{
-              fontSize: 13,
-              color: "var(--fg-3)",
-              lineHeight: 1.55,
-              marginBottom: 14,
-            }}
-          >
-            Toda nova meta nasce dentro de um módulo. Escolha a frente e o app
-            te leva direto para a criação certa.
-          </p>
-
-          {visibleModules.length ? (
-            <div
-              style={{
-                display: "grid",
-                gap: 10,
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              }}
-            >
-              {visibleModules.map((module) => (
-                <Link
-                  key={module.id}
-                  href={module.route}
-                  onClick={() => setShowCreateTaskForm(false)}
-                  className={`item-card bg-gradient-to-br ${module.color}`}
-                  style={{ textDecoration: "none", color: "inherit" }}
-                >
-                  <p
-                    className={`text-sm font-semibold ${module.accent}`}
-                    style={{ marginBottom: 6 }}
-                  >
-                    {module.name}
-                  </p>
-                  <p
-                    style={{
-                      fontSize: 13,
-                      lineHeight: 1.55,
-                      color: "var(--fg-2)",
-                    }}
-                  >
-                    {module.description}
-                  </p>
-                  <p
-                    style={{
-                      marginTop: 10,
-                      fontFamily: "var(--font-mono), monospace",
-                      fontSize: 10,
-                      letterSpacing: "0.2em",
-                      textTransform: "uppercase",
-                      color: "#d4d4d8",
-                    }}
-                  >
-                    Abrir módulo →
-                  </p>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div
-              style={{
-                borderRadius: 16,
-                border: "1px dashed rgba(39,39,42,0.8)",
-                padding: "20px 16px",
-                fontSize: 13,
-                color: "#71717a",
-                textAlign: "center",
-              }}
-            >
-              Nenhum módulo ativo no momento. Reative os módulos em
-              Configurações para criar novas metas.
-            </div>
-          )}
-        </div>
-      ) : null}
 
       {/* Timeline — consistency moved from a separate glass block into a
           compact strip at the top of this block. Replaces ~140px of vertical
@@ -2457,4 +2389,28 @@ export default function TasksPage() {
       </div>
     </div>
   );
+}
+
+
+/**
+ * Lê o param legado ?new=1 e abre o modal global de criação. Vive num
+ * subcomponente por causa do useSearchParams (App Router exige Suspense
+ * pra não forçar a página inteira a client-side rendering no build).
+ * router.replace limpa a URL pra não reabrir no back/refresh.
+ */
+function OpenCreateTaskFromQuery({ onOpen }: { onOpen: () => void }) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const wantsNew = searchParams.get("new") === "1";
+
+  useEffect(() => {
+    if (!wantsNew) return;
+    onOpen();
+    router.replace("/tasks");
+    // onOpen é estável (useCallback no provider); disparar só quando o
+    // param aparece.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantsNew]);
+
+  return null;
 }

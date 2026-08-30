@@ -88,11 +88,17 @@ export function CommandPalette() {
       }
       if (event.key === "Escape" && open) {
         event.preventDefault();
+        // Impede o Esc de vazar pro modal "Nova meta" (que também escuta
+        // keydown no window): com a palette aberta POR CIMA do modal, um
+        // Esc fechava os dois e descartava o form digitado.
+        event.stopPropagation();
         closePalette();
       }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    // Fase de captura: roda antes dos listeners bubble (o do modal),
+    // senão o stopPropagation acima não teria efeito entre irmãos.
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
   }, [open, openPalette, closePalette]);
 
   const updateQuery = useCallback((value: string) => {
