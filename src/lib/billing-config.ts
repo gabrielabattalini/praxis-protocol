@@ -6,7 +6,7 @@ export const publicBillingPlan = {
   priceLabel:
     // Defina NEXT_PUBLIC_STRIPE_PLAN_PRICE (ex.: "R$ 29,90/mês") pra
     // exibir o preço real na landing e no paywall.
-    process.env.NEXT_PUBLIC_STRIPE_PLAN_PRICE || "Assinatura mensal",
+    process.env.NEXT_PUBLIC_STRIPE_PLAN_PRICE || "R$ 29,90/mês",
   description:
     process.env.NEXT_PUBLIC_STRIPE_PLAN_DESCRIPTION ||
     "Checkout seguro com ativação imediata do acesso ao sistema.",

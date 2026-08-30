@@ -12,7 +12,7 @@ export const maxDuration = 60;
  * Clerk userId mudou (mesmo email → identidade nova, dados antigos
  * presos no userId antigo).
  *
- * ADMIN-ONLY: gated por isFounderEmail (gabrielabattalini@gmail.com),
+ * ADMIN-ONLY: gated por isFounderEmail (hash do email do fundador),
  * porque expõe metadados das chaves de OUTROS usuários (não conteúdo —
  * só userId+tamanho). Sem isso, qualquer logado conseguiria enumerar
  * userIds da plataforma.
