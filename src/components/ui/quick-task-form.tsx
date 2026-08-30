@@ -34,12 +34,6 @@ const RECURRENCE_LABELS: Record<QuickFormRecurrenceKind, string> = {
   monthly: "Mensal",
 };
 
-const DIFFICULTY_LABELS: Record<TaskDifficulty, string> = {
-  easy: "Leve",
-  medium: "Média",
-  hard: "Difícil",
-};
-
 const chipBase =
   "rounded-sm border px-3 py-1.5 text-xs font-medium transition";
 const chipOff = `${chipBase} border-zinc-800 bg-black/40 text-zinc-400 hover:border-white/20`;
@@ -47,9 +41,12 @@ const chipOn = `${chipBase} border-amber-300/40 bg-amber-300/10 text-amber-100`;
 
 /**
  * Form rápido do fluxo global "Nova meta". Dirigido pelo QuickFormConfig
- * do registry (task-creation.ts): a category, a política de dificuldade e
- * as recorrências permitidas vêm de lá — idênticas ao form nativo do
- * módulo, pra tarefa criada aqui valer o MESMO XP.
+ * do registry (task-creation.ts): a category, a dificuldade interna e as
+ * recorrências permitidas vêm de lá — idênticas ao form nativo do módulo,
+ * pra tarefa criada aqui valer o MESMO XP.
+ *
+ * O form NÃO pergunta dificuldade nem XP: essa escolha não existe mais na
+ * UI do app (os forms nativos dos módulos também só definem por dentro).
  *
  * Nunca envia sourceKey: tarefa daqui é sempre manual (sourceKey é o
  * canal das tarefas sincronizadas pelos módulos).
@@ -66,7 +63,6 @@ export function QuickTaskForm({
   const { actions } = useAppStore();
   const [title, setTitle] = useState("");
   const [scheduledTime, setScheduledTime] = useState(config.defaultTime ?? "");
-  const [difficulty, setDifficulty] = useState<TaskDifficulty>("medium");
   const [recurrenceKind, setRecurrenceKind] = useState<QuickFormRecurrenceKind>(
     config.recurrenceKinds[0],
   );
@@ -105,6 +101,11 @@ export function QuickTaskForm({
     return { kind: "daily" };
   }
 
+  /**
+   * Dificuldade é regra INTERNA (entra no cálculo de XP) — o app não
+   * pergunta isso ao usuário em lugar nenhum, e este form não é exceção.
+   * Espelha o que o form nativo de cada módulo define por dentro.
+   */
   function resolveDifficulty(): TaskDifficulty {
     if (config.difficultyMode === "fixed-hard") return "hard";
     if (config.difficultyMode === "derived-health") {
@@ -113,7 +114,7 @@ export function QuickTaskForm({
         intervalDays,
       );
     }
-    return difficulty;
+    return "medium";
   }
 
   function submit() {
@@ -214,26 +215,6 @@ export function QuickTaskForm({
           </label>
         ) : null}
       </div>
-
-      {config.difficultyMode === "manual" ? (
-        <div>
-          <label className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">
-            Dificuldade (define o XP)
-          </label>
-          <div className="mt-2 flex gap-2">
-            {(Object.keys(DIFFICULTY_LABELS) as TaskDifficulty[]).map((level) => (
-              <button
-                key={level}
-                type="button"
-                onClick={() => setDifficulty(level)}
-                className={difficulty === level ? chipOn : chipOff}
-              >
-                {DIFFICULTY_LABELS[level]}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
 
       <div>
         <label className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">

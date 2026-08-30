@@ -65,6 +65,45 @@ test("mind mantem dificuldade fixa hard e health derivada (regras de XP)", () =>
   assert.ok(entryBlock("health").includes('difficultyMode: "derived-health"'));
 });
 
+/**
+ * O app NÃO pergunta dificuldade/XP ao usuário — essa mecânica saiu da UI
+ * e os forms nativos dos módulos só definem por dentro. Um seletor voltou
+ * a aparecer no form rápido uma vez; estes testes travam a regra.
+ */
+test("nenhum modo de dificuldade depende de escolha do usuario", () => {
+  const modos = [...source.matchAll(/difficultyMode: "([^"]+)"/g)].map((m) => m[1]);
+  for (const modo of modos) {
+    assert.ok(
+      ["default-medium", "fixed-hard", "derived-health"].includes(modo),
+      `difficultyMode "${modo}" nao pode existir — sugere escolha manual do usuario`,
+    );
+  }
+});
+
+test("o form rapido nao renderiza seletor de dificuldade nem cita XP", () => {
+  const form = readFileSync(
+    new URL("../../src/components/ui/quick-task-form.tsx", import.meta.url),
+    "utf8",
+  );
+  // Sem estado de escolha e sem handler de clique de dificuldade.
+  assert.ok(
+    !/setDifficulty/.test(form),
+    "voltou um seletor de dificuldade no form rapido",
+  );
+  // Sem rotulo pedindo dificuldade/XP pro usuario (fora de comentarios).
+  const semComentarios = form
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+  assert.ok(
+    !/Dificuldade|Leve|Difícil/.test(semComentarios),
+    "rotulo de dificuldade voltou a aparecer na UI do form rapido",
+  );
+  assert.ok(
+    !/\bXP\b/.test(semComentarios),
+    "o form rapido nao deve expor XP ao usuario",
+  );
+});
+
 test("registry cobre os 13 modulos + custom", () => {
   const keys = [...source.matchAll(/^ {2}(\w+): \{$/gm)].map((m) => m[1]);
   assert.equal(new Set(keys).size, 14, `esperado 14 entradas; achou ${keys.length}`);
