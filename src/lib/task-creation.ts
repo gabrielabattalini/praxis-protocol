@@ -7,8 +7,8 @@ import type { ModuleId, TaskCategory } from "@/lib/types";
  * A regra não é gosto — é segurança:
  *  - quick-form: só módulos cuja criação nativa é um Task manual via
  *    addTask (home, mind, health) + a meta avulsa. Os defaults abaixo
- *    ESPELHAM os forms de cada módulo (mesma category, mesma política de
- *    dificuldade) — divergir muda o XP da tarefa.
+ *    ESPELHAM os forms de cada módulo (mesma category, mesma dificuldade
+ *    interna) — divergir mudaria o XP da tarefa.
  *  - navigate: módulos que NÃO criam Task solto. sleep/run/nutrition
  *    sincronizam tarefas por sourceKey (o sleep chega a APAGAR task
  *    manual órfã do módulo), work é planilha própria, workout/finance/
@@ -31,11 +31,16 @@ export type QuickFormConfig = {
   /** category gravada no Task — idêntica ao form nativo do módulo. */
   category: TaskCategory;
   /**
-   * manual: usuário escolhe easy/medium/hard (default medium).
-   * fixed-hard: sempre hard, campo oculto (regra do módulo Mente).
+   * Como a dificuldade é decidida — NUNCA é perguntada ao usuário. O app
+   * não expõe dificuldade/XP como escolha em nenhum formulário (os forms
+   * nativos dos módulos também só definem por dentro); ela existe apenas
+   * como regra interna do cálculo de XP.
+   *
+   * default-medium: "medium", igual ao default dos forms nativos.
+   * fixed-hard: sempre hard (regra do módulo Mente).
    * derived-health: derivada da recorrência via getHealthDifficulty.
    */
-  difficultyMode: "manual" | "fixed-hard" | "derived-health";
+  difficultyMode: "default-medium" | "fixed-hard" | "derived-health";
   recurrenceKinds: QuickFormRecurrenceKind[];
   defaultTime?: string;
   /** microcopy exibida no card do passo 1 */
@@ -58,14 +63,14 @@ export const taskCreationRegistry: Record<TaskCreationKey, TaskCreationConfig> =
   custom: {
     mode: "quick-form",
     category: "productivity",
-    difficultyMode: "manual",
+    difficultyMode: "default-medium",
     recurrenceKinds: ["one-time", "daily", "selected-weekdays"],
     hint: "Entra direto na sua agenda, sem módulo.",
   },
   home: {
     mode: "quick-form",
     category: "productivity",
-    difficultyMode: "manual",
+    difficultyMode: "default-medium",
     recurrenceKinds: ["daily", "selected-weekdays"],
     defaultTime: "09:00",
     hint: "Rotina da casa — cria aqui mesmo.",
